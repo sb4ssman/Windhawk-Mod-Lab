@@ -12,11 +12,13 @@ Stack Windows 11 system tray icons (wifi, volume, battery) vertically using the 
 2. Go to Settings → Control styles
 3. Copy-paste the following configurations:
 
+Choosing Windows Vista Theme works best visually. Adjust the padding and margins to fit your taste.
+
 **Style 1 - OmniButton Container:**
 ```
 Target: SystemTray.OmniButton#ControlCenterButton
 Styles:
-  - Margin=12,0,0,0
+  - Margin=0,0,0,0
   - HorizontalContentAlignment=Center
   - Padding=0
   - MinWidth=48
@@ -39,7 +41,7 @@ Styles:
   - Width=32
   - Height=28
   - HorizontalContentAlignment=Right
-  - Margin=6,0,0,0
+  - Margin=6,0,10,0
 ```
 
 **Style 4 - IconView Alignment:**
