@@ -1,8 +1,8 @@
 // ==WindhawkMod==
 // @id              test-hook-explorer
 // @name            Test Hook Explorer
-// @description     Multi-Target UIA Scan of XAML Islands
-// @version         4.2
+// @description     Auto-Tail Background Service
+// @version         7.0
 // @author          sb4ssman
 // @include         explorer.exe
 // @compilerOptions -luser32 -loleacc -loleaut32 -luuid -lole32
@@ -10,15 +10,20 @@
 
 // ==WindhawkModReadme==
 /*
-# Test Hook Explorer v4.2 (Multi-Target UIA)
+# Test Hook Explorer v7.0 (Auto-Tail)
 
-This version scans ALL windows named "DesktopWindowXamlSource" inside the taskbar.
-It attempts to find "Task Manager" using UIA Descendant search on each of them.
+This version runs in the background and automatically moves Task Manager to the
+end of the taskbar whenever it detects it is out of place.
+
+**CHANGES:**
+- Runs in a background thread (fixes "Initializing..." hang).
+- Adjusted drag coordinates to avoid grouping.
+- Fixed compiler warnings.
 
 **INSTRUCTIONS:**
 1. Compile and Enable.
-2. **Ensure Task Manager is open.**
-3. Check Logs.
+2. Open Task Manager.
+3. The mod will automatically drag it to the end.
 */
 // ==/WindhawkModReadme==
 
@@ -26,123 +31,191 @@ It attempts to find "Task Manager" using UIA Descendant search on each of them.
 #include <objbase.h>
 #include <uiautomation.h>
 #include <stdio.h>
+#include <vector>
 
-void LogElement(IUIAutomationElement* pElement, int depth) {
-    BSTR name = NULL;
-    pElement->get_CurrentName(&name);
+struct UIAItem {
+    IUIAutomationElement* element;
+    RECT rect;
+    BSTR name;
+};
+
+// Global thread control
+HANDLE g_hThread = NULL;
+volatile bool g_stopThread = false;
+
+// Helper to simulate mouse drag
+void SimulateDrag(POINT start, POINT end) {
+    Wh_Log(L"Simulating Drag: (%d, %d) -> (%d, %d)", start.x, start.y, end.x, end.y);
+
+    // Save original position
+    POINT originalPos;
+    GetCursorPos(&originalPos);
+
+    // 1. Move to Start
+    SetCursorPos(start.x, start.y);
+    Sleep(50);
+
+    // 2. Mouse Down
+    mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+    Sleep(50);
+
+    // 3. Drag in steps
+    int steps = 10; // Faster than before
+    int dx = (end.x - start.x) / steps;
+    int dy = (end.y - start.y) / steps;
+
+    for (int i = 0; i < steps; i++) {
+        POINT cur;
+        GetCursorPos(&cur);
+        SetCursorPos(cur.x + dx, cur.y + dy);
+        Sleep(5);
+    }
+    SetCursorPos(end.x, end.y);
+    Sleep(50);
+
+    // 4. Mouse Up
+    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
     
-    BSTR className = NULL;
-    pElement->get_CurrentClassName(&className);
+    // Optional: Restore mouse? Might be disorienting if user was moving it.
+    // SetCursorPos(originalPos.x, originalPos.y);
     
-    CONTROLTYPEID typeId;
-    pElement->get_CurrentControlType(&typeId);
+    Wh_Log(L"Drag Complete.");
+}
+
+void CheckAndMove(IUIAutomation* pAutomation) {
+    HWND hTray = FindWindowW(L"Shell_TrayWnd", NULL);
+    if (!hTray) return;
+
+    HWND hChild = GetWindow(hTray, GW_CHILD);
+    while (hChild) {
+        wchar_t text[256] = {0};
+        GetWindowTextW(hChild, text, 255);
+        
+        if (wcsstr(text, L"DesktopWindowXamlSource")) {
+            IUIAutomationElement* pRoot = NULL;
+            if (SUCCEEDED(pAutomation->ElementFromHandle(hChild, &pRoot)) && pRoot) {
+                IUIAutomationCondition* pTrueCondition = NULL;
+                pAutomation->CreateTrueCondition(&pTrueCondition);
+                
+                IUIAutomationElementArray* pChildren = NULL;
+                pRoot->FindAll(TreeScope_Descendants, pTrueCondition, &pChildren);
+                
+                if (pChildren) {
+                    int count = 0;
+                    pChildren->get_Length(&count);
+                    
+                    std::vector<UIAItem> buttons;
+                    int taskMgrIndex = -1;
+
+                    for (int i = 0; i < count; i++) {
+                        IUIAutomationElement* pChild = NULL;
+                        pChildren->GetElement(i, &pChild);
+                        if (pChild) {
+                            BSTR cls = NULL;
+                            pChild->get_CurrentClassName(&cls);
+                            
+                            if (cls && wcsstr(cls, L"TaskListButtonAutomationPeer")) {
+                                UIAItem item;
+                                item.element = pChild;
+                                pChild->AddRef();
+                                pChild->get_CurrentName(&item.name);
+                                pChild->get_CurrentBoundingRectangle(&item.rect);
+                                
+                                buttons.push_back(item);
+                                
+                                if (item.name && wcsstr(item.name, L"Task Manager")) {
+                                    taskMgrIndex = (int)buttons.size() - 1;
+                                }
+                            }
+                            if (cls) SysFreeString(cls);
+                            pChild->Release();
+                        }
+                    }
+                    
+                    // Logic to move
+                    // Fix warning: cast to size_t
+                    if (taskMgrIndex != -1 && static_cast<size_t>(taskMgrIndex) < buttons.size() - 1) {
+                        UIAItem& taskMgr = buttons[taskMgrIndex];
+                        UIAItem& lastBtn = buttons.back();
+                        
+                        Wh_Log(L"Task Manager found at index %d (of %d). Moving...", taskMgrIndex, buttons.size());
+
+                        POINT start = { 
+                            (taskMgr.rect.left + taskMgr.rect.right) / 2, 
+                            (taskMgr.rect.top + taskMgr.rect.bottom) / 2 
+                        };
+                        
+                        // Target: Right edge of last button + 5 pixels (GAP)
+                        // This prevents dropping ON the button (grouping)
+                        POINT end = { 
+                            lastBtn.rect.right + 5, 
+                            (lastBtn.rect.top + lastBtn.rect.bottom) / 2 
+                        };
+                        
+                        SimulateDrag(start, end);
+                    }
+
+                    // Cleanup
+                    for (auto& b : buttons) {
+                        if (b.name) SysFreeString(b.name);
+                        if (b.element) b.element->Release();
+                    }
+                    pChildren->Release();
+                }
+                pTrueCondition->Release();
+                pRoot->Release();
+            }
+        }
+        hChild = GetWindow(hChild, GW_HWNDNEXT);
+    }
+}
+
+DWORD WINAPI BackgroundThread(LPVOID) {
+    Wh_Log(L"Background Thread Started");
     
-    wchar_t indent[64] = {0};
-    for(int i=0; i<depth*2 && i<60; i++) indent[i] = L' ';
+    HRESULT hr = CoInitialize(NULL);
+    if (FAILED(hr)) {
+        Wh_Log(L"CoInitialize failed in thread");
+        return 1;
+    }
+
+    IUIAutomation* pAutomation = NULL;
+    hr = CoCreateInstance(CLSID_CUIAutomation, NULL, CLSCTX_INPROC_SERVER, IID_IUIAutomation, (void**)&pAutomation);
     
-    Wh_Log(L"%s[UIA] Name: '%s', Class: '%s', Type: %d", indent, name ? name : L"(null)", className ? className : L"(null)", typeId);
-    
-    if (name) SysFreeString(name);
-    if (className) SysFreeString(className);
+    if (SUCCEEDED(hr) && pAutomation) {
+        while (!g_stopThread) {
+            CheckAndMove(pAutomation);
+            
+            // Check every 2 seconds
+            for (int i = 0; i < 20; i++) {
+                if (g_stopThread) break;
+                Sleep(100);
+            }
+        }
+        pAutomation->Release();
+    } else {
+        Wh_Log(L"Failed to create UIA in thread");
+    }
+
+    CoUninitialize();
+    Wh_Log(L"Background Thread Stopped");
+    return 0;
 }
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"=== Test Hook Explorer v4.2 (Multi-Target UIA) ===");
+    Wh_Log(L"=== Test Hook Explorer v7.0 (Auto-Tail) ===");
     
-    HRESULT hr = CoInitialize(NULL);
+    g_stopThread = false;
+    g_hThread = CreateThread(NULL, 0, BackgroundThread, NULL, 0, NULL);
     
-    IUIAutomation* pAutomation = NULL;
-    hr = CoCreateInstance(CLSID_CUIAutomation, NULL, CLSCTX_INPROC_SERVER, IID_IUIAutomation, (void**)&pAutomation);
-    if (FAILED(hr) || !pAutomation) {
-        Wh_Log(L"Failed to create UIA: 0x%08X", (unsigned int)hr);
-        return FALSE;
-    }
-
-    HWND hTray = FindWindowW(L"Shell_TrayWnd", NULL);
-    if (hTray) {
-        HWND hChild = GetWindow(hTray, GW_CHILD);
-        while (hChild) {
-            wchar_t className[256] = {0};
-            GetClassNameW(hChild, className, 255);
-            wchar_t text[256] = {0};
-            GetWindowTextW(hChild, text, 255);
-            
-            // Check if it looks like a XAML source
-            if (wcsstr(text, L"DesktopWindowXamlSource")) {
-                Wh_Log(L"Checking XAML Window: %p (Class: %s)", hChild, className);
-                
-                IUIAutomationElement* pRoot = NULL;
-                hr = pAutomation->ElementFromHandle(hChild, &pRoot);
-                if (SUCCEEDED(hr) && pRoot) {
-                    // 1. Count children
-                    IUIAutomationCondition* pTrueCondition = NULL;
-                    pAutomation->CreateTrueCondition(&pTrueCondition);
-                    IUIAutomationElementArray* pChildren = NULL;
-                    pRoot->FindAll(TreeScope_Children, pTrueCondition, &pChildren);
-                    int count = 0;
-                    if (pChildren) {
-                        pChildren->get_Length(&count);
-                        pChildren->Release();
-                    }
-                    pTrueCondition->Release();
-                    
-                    Wh_Log(L"  -> Connected. UIA Children count: %d", count);
-
-                    // 2. Search for Task Manager in Descendants
-                    Wh_Log(L"  -> Searching for 'Task Manager' in descendants...");
-                    
-                    VARIANT varName;
-                    varName.vt = VT_BSTR;
-                    varName.bstrVal = SysAllocString(L"Task Manager");
-                    
-                    IUIAutomationCondition* pNameCondition = NULL;
-                    pAutomation->CreatePropertyCondition(UIA_NamePropertyId, varName, &pNameCondition);
-                    
-                    if (pNameCondition) {
-                        IUIAutomationElement* pTaskMgr = NULL;
-                        pRoot->FindFirst(TreeScope_Descendants, pNameCondition, &pTaskMgr);
-                        
-                        if (pTaskMgr) {
-                            Wh_Log(L"!!! FOUND TASK MANAGER !!!");
-                            LogElement(pTaskMgr, 1);
-                            
-                            // Try to find a parent that supports Drag/Drop or is a list item
-                            IUIAutomationTreeWalker* pWalker = NULL;
-                            pAutomation->get_ControlViewWalker(&pWalker);
-                            if (pWalker) {
-                                IUIAutomationElement* pParent = NULL;
-                                pWalker->GetParentElement(pTaskMgr, &pParent);
-                                if (pParent) {
-                                    Wh_Log(L"    Parent:");
-                                    LogElement(pParent, 2);
-                                    pParent->Release();
-                                }
-                                pWalker->Release();
-                            }
-                            pTaskMgr->Release();
-                        } else {
-                            Wh_Log(L"  -> Not found in this window.");
-                        }
-                        pNameCondition->Release();
-                    }
-                    SysFreeString(varName.bstrVal);
-                    pRoot->Release();
-                } else {
-                    Wh_Log(L"  -> Failed to connect UIA: 0x%08X", (unsigned int)hr);
-                }
-            }
-            
-            hChild = GetWindow(hChild, GW_HWNDNEXT);
-        }
-    } else {
-        Wh_Log(L"Shell_TrayWnd not found.");
-    }
-
-    pAutomation->Release();
-    CoUninitialize();
     return TRUE;
 }
 
 void Wh_ModUninit() {
     Wh_Log(L"=== Test Hook Explorer Uninit ===");
+    g_stopThread = true;
+    if (g_hThread) {
+        WaitForSingleObject(g_hThread, 3000);
+        CloseHandle(g_hThread);
+    }
 }
