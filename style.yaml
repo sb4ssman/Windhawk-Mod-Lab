@@ -1,0 +1,35 @@
+theme: Windows7
+controlStyles:
+  - target: SystemTray.OmniButton#ControlCenterButton
+    styles:
+      - Margin=0,0,0,0
+      - HorizontalContentAlignment=Center
+      - Padding=0
+      - MinWidth=48
+  - target: SystemTray.OmniButton#ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel
+    styles:
+      - Orientation=Vertical
+      - HorizontalAlignment=Center
+      - VerticalAlignment=Center
+      - Margin=0
+  - target: SystemTray.OmniButton#ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel > ContentPresenter
+    styles:
+      - Width=32
+      - Height=28
+      - HorizontalContentAlignment=Right
+      - Margin=6,0,10,0
+  - target: SystemTray.OmniButton#ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel > ContentPresenter > SystemTray.IconView
+    styles:
+      - HorizontalAlignment=Left
+      - VerticalAlignment=Center
+      - Margin=0
+  - target: TextBlock#DateInnerTextBlock
+    styles:
+      - TextWrapping=Wrap
+      - MaxWidth=64
+      - HorizontalAlignment=Right
+styleConstants:
+  - ''
+resourceVariables:
+  - variableKey: ''
+    value: ''

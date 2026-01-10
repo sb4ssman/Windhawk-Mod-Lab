@@ -10,7 +10,7 @@ Stack Windows 11 system tray icons (wifi, volume, battery) vertically using the 
 
 1. Install **[Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler)** from Windhawk
 2. Go to Settings → Control styles
-3. Copy-paste the following configurations:
+3. Copy-paste the style.txt directly, or for each component:
 
 Choosing Windows Vista Theme works best visually. Adjust the padding and margins to fit your taste.
 
