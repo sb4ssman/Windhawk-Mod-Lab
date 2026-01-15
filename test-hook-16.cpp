@@ -1,7 +1,8 @@
+// ==WindhawkMod==
 // @id              test-hook-explorer
 // @name            Test Hook Explorer
-// @description     Task Manager Tail (v16.1)
-// @version         16.1
+// @description     ITaskbarList Probe (v16.0)
+// @version         16.0
 // @author          sb4ssman
 // @include         explorer.exe
 // @compilerOptions -luser32 -loleacc -loleaut32 -luuid -lole32
@@ -9,39 +10,29 @@
 
 // ==WindhawkModReadme==
 /*
-# Task Manager Tail (v16.1)
+# Test Hook Explorer v16.0 (ITaskbarList)
 
-Automatically keeps Task Manager (or a target application) as the last item on the taskbar.
+This version attempts to move the Task Manager button using the **ITaskbarList** interface.
+This is the official API used by applications to manage their taskbar buttons.
 
-**Method:**
-Uses the `ITaskbarList` interface to programmatically remove and re-add the taskbar button,
-which effectively moves it to the end of the list.
+**Mechanism:**
+1. Detects if Task Manager is not at the end.
+2. Creates an `ITaskbarList` instance.
+3. Calls `DeleteTab(hwnd)` to remove the button.
+4. Calls `AddTab(hwnd)` to re-add the button (hopefully at the end).
+5. Calls `ActivateTab(hwnd)` to ensure it's active.
 
-**Features:**
-- **Configurable Target:** Can tail any application (default: `Taskmgr.exe`).
-- **Configurable Interval:** Adjust how often it checks.
-- **Robust:** Uses process name detection instead of window titles.
+**Hypothesis:**
+Since we are injected into `explorer.exe`, this API might allow us to manipulate buttons
+even for elevated windows, or at least trigger the internal logic to refresh the button.
 
-**Stress Testing:**
-1. Open many windows (e.g., 10 Notepads).
-2. Close them randomly.
-3. Ensure Task Manager stays at the end.
+**INSTRUCTIONS:**
+1. Compile and Enable.
+2. Open Task Manager.
+3. Drag it to the middle of the taskbar.
+4. Wait 5 seconds.
 */
 // ==/WindhawkModReadme==
-
-// ==WindhawkModSettings==
-/*
-- targetProcess: Taskmgr.exe
-  $name: Target Process Name
-  $description: The process name of the application to keep at the end (e.g., Notepad.exe).
-- checkInterval: 1000
-  $name: Check Interval (ms)
-  $description: How often to check the taskbar order.
-- enableLogging: true
-  $name: Enable Logging
-  $description: Log debug messages to the Windhawk console.
-*/
-// ==/WindhawkModSettings==
 
 #include <windows.h>
 #include <objbase.h>
@@ -49,46 +40,17 @@ which effectively moves it to the end of the list.
 #include <shobjidl.h> // For ITaskbarList
 #include <stdio.h>
 #include <vector>
-#include <string>
 
 struct UIAItem {
     IUIAutomationElement* element;
     RECT rect;
     BSTR name;
-    HWND hwnd;
 };
-
-struct Settings {
-    std::wstring targetProcess;
-    int checkInterval;
-    bool enableLogging;
-} g_settings;
 
 // Global thread control
 HANDLE g_hThread = NULL;
 volatile bool g_stopThread = false;
 DWORD g_lastAttemptTime = 0;
-
-void LoadSettings() {
-    PCWSTR proc = Wh_GetStringSetting(L"targetProcess");
-    g_settings.targetProcess = proc ? proc : L"Taskmgr.exe";
-    Wh_FreeStringSetting(proc);
-
-    g_settings.checkInterval = Wh_GetIntSetting(L"checkInterval");
-    if (g_settings.checkInterval < 100) g_settings.checkInterval = 100;
-
-    g_settings.enableLogging = Wh_GetIntSetting(L"enableLogging");
-}
-
-void Log(const wchar_t* fmt, ...) {
-    if (!g_settings.enableLogging) return;
-    va_list args;
-    va_start(args, fmt);
-    wchar_t buffer[1024];
-    vswprintf_s(buffer, fmt, args);
-    va_end(args);
-    Wh_Log(L"%s", buffer);
-}
 
 // Helper to check if user is interacting
 bool IsUserIdle() {
@@ -100,32 +62,8 @@ bool IsUserIdle() {
     return true;
 }
 
-bool IsTargetWindow(HWND hwnd) {
-    if (!hwnd) return false;
-    DWORD pid = 0;
-    GetWindowThreadProcessId(hwnd, &pid);
-    if (pid == 0) return false;
-
-    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (!hProcess) return false;
-
-    wchar_t buffer[MAX_PATH];
-    DWORD size = MAX_PATH;
-    bool match = false;
-    if (QueryFullProcessImageNameW(hProcess, 0, buffer, &size)) {
-        const wchar_t* filename = wcsrchr(buffer, L'\\');
-        if (filename) filename++; else filename = buffer;
-        
-        if (_wcsicmp(filename, g_settings.targetProcess.c_str()) == 0) {
-            match = true;
-        }
-    }
-    CloseHandle(hProcess);
-    return match;
-}
-
 void CycleTaskbarTab(HWND hwnd) {
-    Log(L"Cycling Taskbar Tab for HWND %p via ITaskbarList", hwnd);
+    Wh_Log(L"Cycling Taskbar Tab for HWND %p via ITaskbarList", hwnd);
 
     ITaskbarList* pTaskbarList = NULL;
     HRESULT hr = CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_ITaskbarList, (void**)&pTaskbarList);
@@ -134,33 +72,33 @@ void CycleTaskbarTab(HWND hwnd) {
         hr = pTaskbarList->HrInit();
         if (SUCCEEDED(hr)) {
             // 1. Delete Tab
-            Log(L"Calling DeleteTab...");
+            Wh_Log(L"Calling DeleteTab...");
             pTaskbarList->DeleteTab(hwnd);
             
             Sleep(200);
             
             // 2. Add Tab
-            Log(L"Calling AddTab...");
+            Wh_Log(L"Calling AddTab...");
             pTaskbarList->AddTab(hwnd);
             
             Sleep(50);
             
             // 3. Activate Tab
-            Log(L"Calling ActivateTab...");
+            Wh_Log(L"Calling ActivateTab...");
             pTaskbarList->ActivateTab(hwnd);
         } else {
-            Log(L"ITaskbarList::HrInit failed: 0x%08X", (unsigned int)hr);
+            Wh_Log(L"ITaskbarList::HrInit failed: 0x%08X", (unsigned int)hr);
         }
         pTaskbarList->Release();
     } else {
-        Log(L"CoCreateInstance(CLSID_TaskbarList) failed: 0x%08X", (unsigned int)hr);
+        Wh_Log(L"CoCreateInstance(CLSID_TaskbarList) failed: 0x%08X", (unsigned int)hr);
     }
     
-    Log(L"Taskbar Tab Cycle Complete.");
+    Wh_Log(L"Taskbar Tab Cycle Complete.");
 }
 
 void CheckAndMove(IUIAutomation* pAutomation) {
-    if (GetTickCount() - g_lastAttemptTime < (DWORD)g_settings.checkInterval) return;
+    if (GetTickCount() - g_lastAttemptTime < 5000) return;
 
     HWND hTray = FindWindowW(L"Shell_TrayWnd", NULL);
     if (!hTray) return;
@@ -201,15 +139,9 @@ void CheckAndMove(IUIAutomation* pAutomation) {
                                 pChild->get_CurrentName(&item.name);
                                 pChild->get_CurrentBoundingRectangle(&item.rect);
                                 
-                                // Get HWND for this button
-                                UIA_HWND uiaHwnd = NULL;
-                                pChild->get_CurrentNativeWindowHandle(&uiaHwnd);
-                                item.hwnd = (HWND)uiaHwnd;
-
                                 buttons.push_back(item);
                                 
-                                // Check if this is our target
-                                if (IsTargetWindow(item.hwnd)) {
+                                if (item.name && wcsstr(item.name, L"Task Manager")) {
                                     taskMgrIndex = (int)buttons.size() - 1;
                                 }
                             }
@@ -223,15 +155,15 @@ void CheckAndMove(IUIAutomation* pAutomation) {
                         if (!IsUserIdle()) {
                             // Busy
                         } else {
-                            Log(L"Target found at index %d (of %d). Attempting ITaskbarList Cycle...", taskMgrIndex, buttons.size());
+                            Wh_Log(L"Task Manager found at index %d (of %d). Attempting ITaskbarList Cycle...", taskMgrIndex, buttons.size());
                             
-                            // Use the HWND we found via UIA
-                            HWND hTarget = buttons[taskMgrIndex].hwnd;
-                            if (hTarget && IsWindow(hTarget)) {
-                                CycleTaskbarTab(hTarget);
+                            // Find the actual Task Manager window
+                            HWND hTaskMgr = FindWindowW(L"TaskManagerWindow", NULL);
+                            if (hTaskMgr) {
+                                CycleTaskbarTab(hTaskMgr);
                                 g_lastAttemptTime = GetTickCount();
                             } else {
-                                Log(L"Invalid target window handle.");
+                                Wh_Log(L"Could not find TaskManagerWindow handle.");
                             }
                         }
                     }
@@ -252,7 +184,7 @@ void CheckAndMove(IUIAutomation* pAutomation) {
 }
 
 DWORD WINAPI BackgroundThread(LPVOID) {
-    Log(L"Background Thread Started");
+    Wh_Log(L"Background Thread Started");
     HRESULT hr = CoInitialize(NULL);
     if (FAILED(hr)) return 1;
 
@@ -260,7 +192,7 @@ DWORD WINAPI BackgroundThread(LPVOID) {
     hr = CoCreateInstance(CLSID_CUIAutomation, NULL, CLSCTX_INPROC_SERVER, IID_IUIAutomation, (void**)&pAutomation);
     
     if (SUCCEEDED(hr) && pAutomation) {
-        Log(L"UIA Interface obtained. Monitoring...");
+        Wh_Log(L"UIA Interface obtained. Monitoring...");
         while (!g_stopThread) {
             CheckAndMove(pAutomation);
             MSG msg;
@@ -268,33 +200,27 @@ DWORD WINAPI BackgroundThread(LPVOID) {
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
             }
-            Sleep(500); // Internal loop sleep, actual check interval controlled by g_settings
+            Sleep(1000);
         }
         pAutomation->Release();
     }
     CoUninitialize();
-    Log(L"Background Thread Stopped");
+    Wh_Log(L"Background Thread Stopped");
     return 0;
 }
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"=== Test Hook Explorer v16.1 (ITaskbarList + Settings) ===");
-    LoadSettings();
+    Wh_Log(L"=== Test Hook Explorer v16.0 (ITaskbarList) ===");
     g_stopThread = false;
     g_hThread = CreateThread(NULL, 0, BackgroundThread, NULL, 0, NULL);
     return TRUE;
 }
 
 void Wh_ModUninit() {
-    Wh_Log(L"=== Test Hook Explorer Uninit (v16.1) ===");
+    Wh_Log(L"=== Test Hook Explorer Uninit ===");
     g_stopThread = true;
     if (g_hThread) {
         WaitForSingleObject(g_hThread, 3000);
         CloseHandle(g_hThread);
     }
-}
-
-void Wh_ModSettingsChanged() {
-    Wh_Log(L"Settings Changed");
-    LoadSettings();
 }

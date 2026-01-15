@@ -1,3 +1,4 @@
+// ==WindhawkMod==
 // @id              test-hook-explorer
 // @name            Test Hook Explorer
 // @description     Task Manager Tail (v16.1)

@@ -100,15 +100,62 @@ These functions likely exist but need reverse engineering to find:
    - Process Monitor - Monitor API calls
    - API Monitor - Monitor specific API calls
 
-### Next Steps
+## Phase 2: Execution & Findings
 
-1. ✅ Create mod skeleton
-2. ✅ Create test scripts
-3. 🔄 Run test-hook-explorer mod to identify functions
-4. ⏳ Reverse engineer explorer.exe to find function names
-5. ⏳ Implement proper hooks based on findings
-6. ⏳ Test with two-line taskbar
-7. ⏳ Polish and release
+### 1. Legacy Methods (Failed)
+- **Attempt**: Used `TB_BUTTONCOUNT` and `TB_MOVEBUTTON` on `ToolbarWindow32`.
+- **Result**: Returned 0 buttons. Windows 11 uses XAML Islands (`DesktopWindowXamlSource`), rendering legacy toolbar messages useless.
+
+### 2. UI Automation (UIA) (Partial Success)
+- **Discovery**: We can successfully find the "Task Manager" button using `IUIAutomation`.
+- **Capability**: The button supports the `DragPattern`, confirming it is draggable.
+- **Prototype v7.3**: We implemented a background thread that detects when Task Manager is out of place and uses `SendInput` to physically drag the mouse to move it.
+- **Verdict**: **Rejected**. While functional, hijacking the user's mouse cursor is a poor user experience.
+
+### 3. Native Hooks (v8.0) (Failed)
+- **Attempt**: Hooked `DoDragDrop` in `ole32.dll` and manually dragged taskbar buttons.
+- **Result**: No calls were intercepted.
+- **Conclusion**: The Windows 11 XAML Taskbar handles drag-and-drop internally (likely via `Windows.UI.Xaml.dll` input processing) and does not use the standard OLE Drag/Drop subsystem.
+
+### 4. Mouse Simulation (v9.x) (Rejected)
+- **Attempt**: Implemented various versions of mouse simulation (Slow, Instant, Precision).
+- **Result**: While technically functional, it inherently conflicts with user input ("fighting" for the cursor) and is unreliable (timing issues with drop targets).
+- **Verdict**: **Abandoned**. A solution that hijacks the mouse is unacceptable.
+
+### 5. Deep API Inspection (v10.0) (Findings)
+- **Scan Results**:
+  - Button supports: `Invoke`, `ScrollItem`, `LegacyIAccessible`, `Drag`.
+  - Parent supports: `ScrollItem`, `LegacyIAccessible`, `Drag`.
+  - **Missing**: `Transform` (Move) pattern is NOT supported.
+- **Conclusion**: Standard UIA does not expose a programmatic "Move" method.
+
+### 6. Virtual Input (v10.1) (Failed)
+- **Attempt**: Sent `WM_LBUTTONDOWN` etc. to the window handle.
+- **Result**: Messages sent, but no movement occurred. XAML Islands likely ignore legacy mouse messages injected this way or require specific pointer flags.
+
+### 7. Touch Injection (v11.0) (Rejected)
+- **Verdict**: Rejected by user. Simulating input (even touch) is risky and potentially intrusive ("fighting" the user).
+
+### 8. Current Strategy: Keyboard Accessibility (v12.0)
+- **Discovery**: Windows 11 supports `Alt` + `Shift` + `Arrow Keys` to reorder focused taskbar items.
+- **Method**:
+  1. Use UIA to `SetFocus()` on the Task Manager button.
+  2. Send synthetic KeyDown/KeyUp events for `Alt+Shift+Right`.
+  3. Restore focus to the user's previous window.
+- **Advantage**: Uses built-in accessibility features. No mouse movement. No coordinate math.
+- **Result**: Failed. `SetFocus` worked, but the keystrokes did not move the button.
+
+### 9. Current Strategy: Window State Cycling (v15.0)
+- **Goal**: Force the Taskbar to re-evaluate the button position by removing and re-adding it.
+- **Method**: Use `ShowWindow(SW_HIDE)` followed by `ShowWindow(SW_SHOW)` on the Task Manager window itself.
+- **Hypothesis**: When a window is shown, its taskbar button is usually appended to the end of the list (or group). This leverages standard Windows behavior rather than hacking the input stream.
+- **Result**: Failed. `SW_HIDE` was blocked by UIPI (User Interface Privilege Isolation) because Task Manager runs as High Integrity (Admin) and Explorer (User) cannot send it hide messages.
+
+### 10. Current Strategy: ITaskbarList Interface (v16.0)
+- **Goal**: Use the official Windows API for managing taskbar buttons.
+- **Method**: Instantiate `ITaskbarList` (or `ITaskbarList2/3/4`) and call `DeleteTab()` then `AddTab()` on the Task Manager window handle.
+- **Hypothesis**: Since we are running inside `explorer.exe`, we might have privileges or direct access to manipulate the list via this interface, effectively "editing the document" as requested.
+- **Result**: **Success!** v16.0 worked smoothly. v16.1 failed due to incorrect HWND retrieval from UIA elements. v16.2 reverts to v16.0 logic with settings.
 
 ### Resources
 

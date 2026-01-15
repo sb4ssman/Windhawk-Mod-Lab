@@ -1,7 +1,8 @@
+// ==WindhawkMod==
 // @id              test-hook-explorer
 // @name            Test Hook Explorer
-// @description     Task Manager Tail (v16.1)
-// @version         16.1
+// @description     Task Manager Tail (v16.3 Optimized)
+// @version         16.3
 // @author          sb4ssman
 // @include         explorer.exe
 // @compilerOptions -luser32 -loleacc -loleaut32 -luuid -lole32
@@ -9,7 +10,7 @@
 
 // ==WindhawkModReadme==
 /*
-# Task Manager Tail (v16.1)
+# Task Manager Tail (v16.3 Optimized)
 
 Automatically keeps Task Manager (or a target application) as the last item on the taskbar.
 
@@ -17,10 +18,9 @@ Automatically keeps Task Manager (or a target application) as the last item on t
 Uses the `ITaskbarList` interface to programmatically remove and re-add the taskbar button,
 which effectively moves it to the end of the list.
 
-**Features:**
-- **Configurable Target:** Can tail any application (default: `Taskmgr.exe`).
-- **Configurable Interval:** Adjust how often it checks.
-- **Robust:** Uses process name detection instead of window titles.
+**Optimization:**
+Checks if the Task Manager window exists *before* scanning the taskbar. This ensures near-zero
+CPU usage when the application is not running.
 
 **Stress Testing:**
 1. Open many windows (e.g., 10 Notepads).
@@ -31,18 +31,13 @@ which effectively moves it to the end of the list.
 
 // ==WindhawkModSettings==
 /*
-- targetProcess: Taskmgr.exe
-  $name: Target Process Name
-  $description: The process name of the application to keep at the end (e.g., Notepad.exe).
-- checkInterval: 1000
+- checkInterval: 50
   $name: Check Interval (ms)
   $description: How often to check the taskbar order.
-- enableLogging: true
-  $name: Enable Logging
-  $description: Log debug messages to the Windhawk console.
 */
 // ==/WindhawkModSettings==
 
+#define _WIN32_WINNT 0x0600 // Ensure Vista+ APIs are visible
 #include <windows.h>
 #include <objbase.h>
 #include <uiautomation.h>
@@ -50,18 +45,17 @@ which effectively moves it to the end of the list.
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <stdarg.h> // Required for va_list
+#include <wchar.h>  // Required for wcs functions
 
 struct UIAItem {
     IUIAutomationElement* element;
     RECT rect;
     BSTR name;
-    HWND hwnd;
 };
 
 struct Settings {
-    std::wstring targetProcess;
     int checkInterval;
-    bool enableLogging;
 } g_settings;
 
 // Global thread control
@@ -70,22 +64,16 @@ volatile bool g_stopThread = false;
 DWORD g_lastAttemptTime = 0;
 
 void LoadSettings() {
-    PCWSTR proc = Wh_GetStringSetting(L"targetProcess");
-    g_settings.targetProcess = proc ? proc : L"Taskmgr.exe";
-    Wh_FreeStringSetting(proc);
-
     g_settings.checkInterval = Wh_GetIntSetting(L"checkInterval");
-    if (g_settings.checkInterval < 100) g_settings.checkInterval = 100;
-
-    g_settings.enableLogging = Wh_GetIntSetting(L"enableLogging");
+    if (g_settings.checkInterval < 10) g_settings.checkInterval = 10; // Safety floor
 }
 
 void Log(const wchar_t* fmt, ...) {
-    if (!g_settings.enableLogging) return;
     va_list args;
     va_start(args, fmt);
     wchar_t buffer[1024];
-    vswprintf_s(buffer, fmt, args);
+    // Use standard vswprintf to ensure compatibility
+    vswprintf(buffer, 1024, fmt, args);
     va_end(args);
     Wh_Log(L"%s", buffer);
 }
@@ -98,30 +86,6 @@ bool IsUserIdle() {
         if (tick - lii.dwTime < 2000) return false;
     }
     return true;
-}
-
-bool IsTargetWindow(HWND hwnd) {
-    if (!hwnd) return false;
-    DWORD pid = 0;
-    GetWindowThreadProcessId(hwnd, &pid);
-    if (pid == 0) return false;
-
-    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (!hProcess) return false;
-
-    wchar_t buffer[MAX_PATH];
-    DWORD size = MAX_PATH;
-    bool match = false;
-    if (QueryFullProcessImageNameW(hProcess, 0, buffer, &size)) {
-        const wchar_t* filename = wcsrchr(buffer, L'\\');
-        if (filename) filename++; else filename = buffer;
-        
-        if (_wcsicmp(filename, g_settings.targetProcess.c_str()) == 0) {
-            match = true;
-        }
-    }
-    CloseHandle(hProcess);
-    return match;
 }
 
 void CycleTaskbarTab(HWND hwnd) {
@@ -160,7 +124,15 @@ void CycleTaskbarTab(HWND hwnd) {
 }
 
 void CheckAndMove(IUIAutomation* pAutomation) {
-    if (GetTickCount() - g_lastAttemptTime < (DWORD)g_settings.checkInterval) return;
+    // Cooldown to prevent spamming if something goes wrong, separate from checkInterval
+    if (GetTickCount() - g_lastAttemptTime < 1000) return;
+
+    // OPTIMIZATION: Check if Task Manager is even open before scanning the taskbar.
+    // This saves massive CPU when the app is not running.
+    HWND hTaskMgr = FindWindowW(L"TaskManagerWindow", NULL);
+    if (!hTaskMgr) {
+        return;
+    }
 
     HWND hTray = FindWindowW(L"Shell_TrayWnd", NULL);
     if (!hTray) return;
@@ -201,15 +173,9 @@ void CheckAndMove(IUIAutomation* pAutomation) {
                                 pChild->get_CurrentName(&item.name);
                                 pChild->get_CurrentBoundingRectangle(&item.rect);
                                 
-                                // Get HWND for this button
-                                UIA_HWND uiaHwnd = NULL;
-                                pChild->get_CurrentNativeWindowHandle(&uiaHwnd);
-                                item.hwnd = (HWND)uiaHwnd;
-
                                 buttons.push_back(item);
                                 
-                                // Check if this is our target
-                                if (IsTargetWindow(item.hwnd)) {
+                                if (item.name && wcsstr(item.name, L"Task Manager")) {
                                     taskMgrIndex = (int)buttons.size() - 1;
                                 }
                             }
@@ -223,15 +189,14 @@ void CheckAndMove(IUIAutomation* pAutomation) {
                         if (!IsUserIdle()) {
                             // Busy
                         } else {
-                            Log(L"Target found at index %d (of %d). Attempting ITaskbarList Cycle...", taskMgrIndex, buttons.size());
+                            Log(L"Task Manager found at index %d (of %d). Attempting ITaskbarList Cycle...", taskMgrIndex, buttons.size());
                             
-                            // Use the HWND we found via UIA
-                            HWND hTarget = buttons[taskMgrIndex].hwnd;
-                            if (hTarget && IsWindow(hTarget)) {
-                                CycleTaskbarTab(hTarget);
+                            // Use the handle we found at the start of the function
+                            if (hTaskMgr && IsWindow(hTaskMgr)) {
+                                CycleTaskbarTab(hTaskMgr);
                                 g_lastAttemptTime = GetTickCount();
                             } else {
-                                Log(L"Invalid target window handle.");
+                                Log(L"Could not find TaskManagerWindow handle.");
                             }
                         }
                     }
@@ -268,7 +233,7 @@ DWORD WINAPI BackgroundThread(LPVOID) {
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
             }
-            Sleep(500); // Internal loop sleep, actual check interval controlled by g_settings
+            Sleep(g_settings.checkInterval); // Use user setting for loop delay
         }
         pAutomation->Release();
     }
@@ -278,7 +243,7 @@ DWORD WINAPI BackgroundThread(LPVOID) {
 }
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"=== Test Hook Explorer v16.1 (ITaskbarList + Settings) ===");
+    Wh_Log(L"=== Test Hook Explorer v16.3 (Optimized) ===");
     LoadSettings();
     g_stopThread = false;
     g_hThread = CreateThread(NULL, 0, BackgroundThread, NULL, 0, NULL);
@@ -286,7 +251,7 @@ BOOL Wh_ModInit() {
 }
 
 void Wh_ModUninit() {
-    Wh_Log(L"=== Test Hook Explorer Uninit (v16.1) ===");
+    Wh_Log(L"=== Test Hook Explorer Uninit (v16.3) ===");
     g_stopThread = true;
     if (g_hThread) {
         WaitForSingleObject(g_hThread, 3000);
