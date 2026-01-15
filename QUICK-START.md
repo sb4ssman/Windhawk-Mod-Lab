@@ -1,11 +1,11 @@
 # Quick Start
 
-## Current Active Test: v16.4 (Task Manager Tail - Pinning Fix)
-The current script is the **Final Candidate**. It uses the `ITaskbarList` interface, is optimized for low CPU usage, and includes a fix to correctly handle pinned items.
+## Current Active Version: v1.0 (Task Manager Tail - Event Driven)
+The current script is the **Release Candidate**. It uses `SetWinEventHook` for zero-polling detection and `ITaskbarList` for movement. It is fully configurable via Windhawk settings.
 
 ## How to Run
 1. **Open Windhawk**.
-2. **Update the mod**: Copy & Paste the contents of the latest version (`v16.4`) into the editor.
+2. **Update the mod**: Copy & Paste the contents of `task-manager-tail.wh.cpp` into the editor.
 3. **Compile & Enable**.
 
 ## What to do
