@@ -29,7 +29,7 @@ You can customize the behavior in the Windhawk mod settings:
 
 ## How It Works
 
-This mod injects into `explorer.exe` and listens for global window creation/destruction events. When the taskbar layout changes, it uses UI Automation to scan the taskbar buttons. If the target application is found but is not at the end of the list, it uses the `ITaskbarList` interface to move it to the tail.
+This mod runs as a background tool and listens for global window creation/destruction events. When the taskbar layout changes, it uses UI Automation to scan the taskbar buttons. If the target application is found but is not at the end of the list, it uses the `ITaskbarList` interface to move it to the tail.
 
 ## Supported Systems
 
