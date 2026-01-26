@@ -1,8 +1,8 @@
 // ==WindhawkMod==
-// @id              task-manager-tail
-// @name            Task Manager Tail
-// @description     Automatically keeps Task Manager (or other apps) at the end of the taskbar. (Windows 10 & 11)
-// @version         1.1
+// @id              task-manager-tail-test
+// @name            Task Manager Tail (TEST - Win10 UIA Events)
+// @description     TEST VERSION - Automatically keeps Task Manager (or other apps) at the end of the taskbar. (Windows 10 & 11)
+// @version         1.1-test
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         windhawk.exe
@@ -11,28 +11,21 @@
 
 // ==WindhawkModReadme==
 /*
-# Task Manager Tail 1.1
+# Task Manager Tail 1.1 (TEST)
 
 This mod ensures that **Task Manager** always stays at the tail end of your taskbar on **Windows 10 and Windows 11**.
 
 When you open or close other applications, this mod detects the change and automatically
 moves the Task Manager button to the tail end of the list.
 
-## Features
+**Features:**
 - **Event Driven:** Uses lightweight hooks to detect window changes instantly.
 - **Zero Polling:** Does not waste CPU cycles checking the taskbar constantly.
 - **Configurable:** Supports non-English languages and other target applications.
 - **Cross-Platform:** Works on both Windows 10 and Windows 11.
 
-## Platform Notes
-
-**Windows 11:** Full functionality. Responds to all window open/close events.
-
-**Windows 10:** The target moves to the tail when new applications are opened.
-Due to Windows 10 taskbar limitations, closing apps or manual dragging may not
-immediately trigger a reposition - the target will return to the tail on the
-next app open event. This decision avoids polling, or alternatively parsing 
-many possible (continuous) user interaction event noise.
+**Windows 10 Note:** This test version uses UI Automation StructureChangedEventHandler
+for more efficient event detection on Windows 10.
 */
 // ==/WindhawkModReadme==
 

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mv:*)",
+      "Edit(_claude_notes/**)",
+      "Write(_claude_notes/**)"
+    ]
+  }
+}

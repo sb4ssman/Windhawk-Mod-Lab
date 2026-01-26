@@ -27,6 +27,23 @@ Maintain a specific application (default: Task Manager) at the visual end (tail)
 *   **Identification:** We use UI Automation (UIA) to scan the specific XAML Island (`DesktopWindowXamlSource`) inside the Taskbar to find the button order.
 *   **Action:** We use `ITaskbarList::DeleteTab` and `AddTab` to physically move the target window's button to the end.
 
+## Windows 10 Support (v1.1)
+
+### Initial Attempt: WinEventHook (Same as Win11)
+*   **Method:** Use the same `SetWinEventHook` approach with version detection to branch between Win10/Win11 taskbar structures.
+*   **Win10 Taskbar Hierarchy:** `Shell_TrayWnd → ReBarWindow32 → MSTaskSwWClass → MSTaskListWClass`
+*   **Button Detection:** Use `UIA_ButtonControlTypeId` instead of `TaskListButtonAutomationPeer`
+*   **Verdict:** Partially successful - moves work, but excessive event noise.
+*   **Problem:** On Windows 10, `WinEventHook` for `EVENT_OBJECT_CREATE/HIDE` fires constantly for tooltips, animations, and unrelated UI events. Even with debouncing, the check function runs every few seconds when idle. This wastes CPU and floods logs.
+
+### Second Attempt: UIA StructureChangedEventHandler (v1.1)
+*   **Method:** Register `IUIAutomationStructureChangedEventHandler` directly on the `MSTaskListWClass` element.
+*   **Rationale:** Since we run in a separate windhawk.exe process (not inside explorer.exe), UIA event handlers should not cause the deadlocks mentioned in earlier research. This approach would only fire when the taskbar structure actually changes.
+*   **Result:** Partial success - much quieter than WinEventHook approach.
+*   **Limitation:** Win10's taskbar only fires `ChildAdded` events reliably. `ChildRemoved` and `ChildrenReordered` events do not fire.
+*   **Behavior:** Target moves to tail when new apps open. Does not respond to app closures or manual drag until the next app open event.
+*   **Status:** Released as v1.1 with documented behavioral differences on Windows 10.
+
 ## Capabilities & Limitations (v1.0)
 
 *   **Targeting:** Supports **one** target application at a time.
