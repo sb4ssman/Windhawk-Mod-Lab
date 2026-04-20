@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.32.0
+// @version         1.29.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button
 // @include         explorer.exe
@@ -61,7 +61,7 @@ Enable **debug logging** to trace which XAML elements are being checked.
 - verticalClock: true
   $name: Vertical clock (three rows)
   $description: Split the clock into three rows — time, day of week, date
-- clockLineSpacing: 0
+- clockLineSpacing: 8
   $name: Clock row spacing
   $description: Extra vertical space between clock rows in pixels (minimum 0, maximum 20)
 - clockAlignment: "center"
@@ -71,9 +71,6 @@ Enable **debug logging** to trace which XAML elements are being checked.
     - "left": "Left"
     - "center": "Center"
     - "right": "Right"
-- restartExplorer: false
-  $name: Restart explorer.exe
-  $description: "Toggle ON and save to immediately restart explorer.exe. Required after changing Battery percentage mode. Warning: closes all open File Explorer windows. Set back to OFF after restarting."
 - debugLogging: false
   $name: Enable debug logging
   $description: Log XAML element types as they are added to the visual tree
@@ -115,7 +112,6 @@ struct {
 
 bool g_unloading  = false;
 bool g_ixdeStarted = false; // prevent double-injection from Wh_ModAfterInit
-bool g_prevRestartExplorer = false; // edge-detect the restart toggle
 
 void LoadSettings() {
     g_settings.enableVertical = Wh_GetIntSetting(L"enableVertical") != 0;
@@ -163,22 +159,11 @@ static StackPanel       g_omniStackPanel{ nullptr };
 static FrameworkElement g_omniButton{ nullptr };
 static FrameworkElement g_batteryPresenter{ nullptr };
 static StackPanel       g_batteryInnerPanel{ nullptr }; // inner panel flipped to Vertical for 4th row
-static TextBlock        g_percentTextBlock{ nullptr };  // "%" TextBlock in battery inner panel
 
 static StackPanel       g_clockDayDatePanel{ nullptr };
 static FrameworkElement g_clockButton{ nullptr };
 static TextBlock        g_clockTimeTextBlock{ nullptr };
 static TextBlock        g_clockDateTextBlock{ nullptr };
-
-// ── Explorer restart ──────────────────────────────────────────────────────
-
-static void RestartExplorer() {
-    // Spawn a detached cmd.exe that kills and restarts explorer.
-    // Using ShellExecuteW so the child process outlives our own termination.
-    WCHAR cmd[] = L"/c taskkill /f /im explorer.exe & ping -n 2 127.0.0.1 >nul & start explorer.exe";
-    ShellExecuteW(nullptr, L"open", L"cmd.exe", cmd, nullptr, SW_HIDE);
-    Wh_Log(L"[Restart] Explorer restart initiated");
-}
 
 // ── Battery XAML helpers ──────────────────────────────────────────────────
 
@@ -218,41 +203,6 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
         if (WalkBatteryTree(child, depth + 1)) return true;
     }
     return false;
-}
-
-// After WalkBatteryTree flips [glyph|"79"|"%"] to vertical, the "%" appears as a
-// separate row below "79". Move it visually next to "79" using RenderTransform.
-// We use position-based detection (last two TextBlocks) because Text() returns ""
-// on data-bound TextBlocks when the tree is first built.
-static void AlignPercentSign(StackPanel const& flippedSP) {
-    int n = VisualTreeHelper::GetChildrenCount(flippedSP);
-    TextBlock lastTB{ nullptr }, prevTB{ nullptr };
-    for (int i = 0; i < n; i++) {
-        auto tb = VisualTreeHelper::GetChild(flippedSP, i).try_as<TextBlock>();
-        if (!tb) continue;
-        prevTB = lastTB;
-        lastTB = tb;
-    }
-    if (!lastTB) {
-        Wh_Log(L"[Battery4] AlignPercentSign: no TextBlocks found in flipped panel");
-        return;
-    }
-    if (!prevTB) {
-        Wh_Log(L"[Battery4] AlignPercentSign: only 1 TextBlock, no repositioning needed");
-        return;
-    }
-    // prevTB="79", lastTB="%"
-    double fs = lastTB.FontSize();
-    if (fs <= 0 || fs > 100) fs = prevTB.FontSize();
-    if (fs <= 0 || fs > 100) fs = 12.0;
-    double lineH = fs * 1.4;
-    double numW  = fs * 1.3; // approx 2-digit number width (don't rely on Text().size())
-    auto t = winrt::Windows::UI::Xaml::Media::TranslateTransform();
-    t.X(numW);
-    t.Y(-lineH);
-    lastTB.RenderTransform(t);
-    g_percentTextBlock = lastTB;
-    Wh_Log(L"[Battery4] AlignPercentSign X=%.1f Y=%.1f fs=%.0f", numW, -lineH, fs);
 }
 
 // Walk the battery ContentPresenter's subtree. When showBatteryPercent is on,
@@ -399,12 +349,9 @@ static void ApplyLayout(StackPanel const& sp) {
                     // Inline: clear forced width so "79%" text isn't clipped.
                     child.ClearValue(FrameworkElement::WidthProperty());
                 } else if (g_settings.batteryMode == 2) {
-                    // 90px: glyph (~24) + "79" (~18) + "%" (~18) + container insets + padding
-                    child.Height(90.0);
+                    child.Height(120.0);
                     FlipBatteryLayout(child);
-                    if (g_batteryInnerPanel) {
-                        g_batteryInnerPanel.Spacing(2.0);
-                    }
+                    if (g_batteryInnerPanel) g_batteryInnerPanel.Spacing(0.0);
                 }
                 break;
             }
@@ -715,8 +662,7 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.32.0");
-    g_prevRestartExplorer = Wh_GetIntSetting(L"restartExplorer") != 0;
+    Wh_Log(L"[Init] Vertical OmniButton v1.29.0");
     LoadSettings();
     ApplyBatteryPercent(g_settings.batteryMode);
 
@@ -763,18 +709,12 @@ void Wh_ModUninit() {
         g_visualTreeWatcher = nullptr;
     }
 
-    // NOTE: intentionally NOT calling RestoreBatteryPercent() here.
-    // Windows reads TaskbarBatteryPercent at explorer STARTUP. If we reset the
-    // registry to 0 in Wh_ModUninit, the new explorer process reads 0 before
-    // Wh_ModInit has a chance to re-apply it, permanently clearing the % display.
-    // The registry is left as-is; Windhawk will re-apply the correct value on
-    // the next Wh_ModInit call.
+    RestoreBatteryPercent();
 
     auto sp     = g_omniStackPanel;
     auto btn    = g_omniButton;
     auto bp     = g_batteryPresenter;
     auto bip    = g_batteryInnerPanel;
-    auto pctTB  = g_percentTextBlock;
     auto cdp    = g_clockDayDatePanel;
     auto timeTB = g_clockTimeTextBlock;
     auto dateTB = g_clockDateTextBlock;
@@ -782,14 +722,13 @@ void Wh_ModUninit() {
     g_omniButton         = nullptr;
     g_batteryPresenter   = nullptr;
     g_batteryInnerPanel  = nullptr;
-    g_percentTextBlock   = nullptr;
     g_clockDayDatePanel  = nullptr;
     g_clockButton        = nullptr;
     g_clockTimeTextBlock = nullptr;
     g_clockDateTextBlock = nullptr;
 
     // Helper lambda that does the actual XAML restoration.
-    auto doCleanup = [sp, btn, bp, bip, pctTB, cdp, timeTB, dateTB]() {
+    auto doCleanup = [sp, btn, bp, bip, cdp, timeTB, dateTB]() {
         try {
             if (sp) {
                 sp.ClearValue(StackPanel::OrientationProperty());
@@ -820,7 +759,6 @@ void Wh_ModUninit() {
         } catch (...) {}
         try { if (bp)  bp.ClearValue(FrameworkElement::HeightProperty()); } catch (...) {}
         try { if (bip) { bip.ClearValue(StackPanel::OrientationProperty()); bip.ClearValue(StackPanel::SpacingProperty()); } } catch (...) {}
-        try { if (pctTB) pctTB.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
         try { if (cdp) cdp.ClearValue(StackPanel::SpacingProperty()); } catch (...) {}
         try {
             if (timeTB) {
@@ -870,15 +808,6 @@ void Wh_ModUninit() {
 }
 
 void Wh_ModSettingsChanged() {
-    // Restart explorer if the toggle was just flipped on (edge-detect only).
-    bool newRestartExp = Wh_GetIntSetting(L"restartExplorer") != 0;
-    if (newRestartExp && !g_prevRestartExplorer) {
-        g_prevRestartExplorer = true;
-        RestartExplorer();
-        return; // explorer is restarting; no point updating XAML
-    }
-    g_prevRestartExplorer = newRestartExp;
-
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
 
@@ -958,12 +887,12 @@ void Wh_ModSettingsChanged() {
                                 bp.ClearValue(FrameworkElement::WidthProperty());
                                 bp.ClearValue(FrameworkElement::HeightProperty());
                             } else if (batteryMode == 2) {
-                                bp.Height(90.0);
+                                bp.Height(120.0);
                                 // Do NOT call FlipBatteryLayout here — the XAML tree only has
                                 // the % structure after an explorer restart with registry=1.
                                 // Flipping on a stale tree corrupts g_batteryInnerPanel.
                                 // The flip already ran in ApplyLayout if the tree was correct.
-                                if (bip) bip.Spacing(2.0);
+                                if (bip) bip.Spacing(0.0);
                             } else {
                                 bp.ClearValue(FrameworkElement::WidthProperty());
                                 bp.ClearValue(FrameworkElement::HeightProperty());

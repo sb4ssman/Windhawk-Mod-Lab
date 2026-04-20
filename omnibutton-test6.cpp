@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.32.0
+// @version         1.22.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button
 // @include         explorer.exe
@@ -33,10 +33,9 @@ Enable **debug logging** to trace which XAML elements are being checked.
 ## Settings
 
 - **Enable vertical arrangement** — master toggle for wifi/volume/battery icons
-- **Icon spacing** — extra vertical pixels between each icon (default 8)
-- **Battery percentage** — Off / Inline (% in battery slot, 3rd row) / Stacked (% as separate 4th row). Inline and Stacked enable Windows native battery % — requires restarting explorer.exe.
+- **Icon spacing** — extra vertical pixels between each icon (default 4)
+- **Show battery percentage** — stacks the battery % below the battery icon as a 4th row; also enables the Windows native % display (requires explorer restart)
 - **Vertical clock** — splits clock into three rows: time / day / date
-- **Clock row spacing** — extra vertical space between clock rows
 - **Clock alignment** — Left / Center / Right (only applies when vertical clock is enabled)
 - **Debug logging** — log XAML element types as they are added
 
@@ -47,33 +46,26 @@ Enable **debug logging** to trace which XAML elements are being checked.
 /*
 - enableVertical: true
   $name: Enable vertical arrangement
-  $description: Enable/disable vertical stacking of wifi, volume, and battery icons
-- iconSpacing: 0
+  $description: Enable/disable vertical stacking of system tray icons
+- iconSpacing: 4
   $name: Icon spacing
-  $description: Extra vertical space between icons in pixels (minimum 0, maximum 20)
-- batteryMode: "off"
-  $name: Battery percentage
-  $description: "Off: battery icon only. Inline: percentage shown in the battery icon slot (3rd row). Stacked: percentage as a separate 4th row below the battery icon. Inline and Stacked enable the Windows native battery % display — requires restarting explorer.exe to take effect."
-  $options:
-    - "off": "Off — battery icon only"
-    - "inline": "Inline — percentage in battery slot (3rd row)"
-    - "stacked": "Stacked — percentage as 4th row below battery"
+  $description: Extra vertical space between icons in pixels (0-20)
+- showBatteryPercent: false
+  $name: Show battery percentage (4th row)
+  $description: Stacks the battery percentage below the battery icon. Also enables Windows native battery % display. Requires restarting explorer.exe to apply.
 - verticalClock: true
   $name: Vertical clock (three rows)
   $description: Split the clock into three rows — time, day of week, date
-- clockLineSpacing: 0
-  $name: Clock row spacing
-  $description: Extra vertical space between clock rows in pixels (minimum 0, maximum 20)
-- clockAlignment: "center"
+- clockAlignment: 1
   $name: Clock alignment
-  $description: "Aligns time, day, and date text. Only applies when Vertical clock is enabled."
+  $description: "Only applies when Vertical clock is enabled."
   $options:
-    - "left": "Left"
-    - "center": "Center"
-    - "right": "Right"
-- restartExplorer: false
-  $name: Restart explorer.exe
-  $description: "Toggle ON and save to immediately restart explorer.exe. Required after changing Battery percentage mode. Warning: closes all open File Explorer windows. Set back to OFF after restarting."
+    - 0: Left
+    - 1: Center
+    - 2: Right
+- clockLineSpacing: 8
+  $name: Clock row spacing
+  $description: Extra vertical space between all clock rows in pixels (0-20) — applied uniformly to all three rows
 - debugLogging: false
   $name: Enable debug logging
   $description: Log XAML element types as they are added to the visual tree
@@ -106,7 +98,7 @@ using namespace winrt::Windows::UI::Xaml::Media;
 struct {
     bool enableVertical;
     bool verticalClock;
-    int batteryMode;      // 0=off, 1=inline (3rd row), 2=stacked (4th row)
+    bool showBatteryPercent;
     int iconSpacing;      // extra px between icons in the vertical stack
     int clockAlignment;   // 0=Left 1=Center 2=Right
     int clockLineSpacing; // uniform spacing for all three clock rows
@@ -115,36 +107,17 @@ struct {
 
 bool g_unloading  = false;
 bool g_ixdeStarted = false; // prevent double-injection from Wh_ModAfterInit
-bool g_prevRestartExplorer = false; // edge-detect the restart toggle
 
 void LoadSettings() {
-    g_settings.enableVertical = Wh_GetIntSetting(L"enableVertical") != 0;
-    g_settings.verticalClock  = Wh_GetIntSetting(L"verticalClock") != 0;
-    {
-        auto* bm = Wh_GetStringSetting(L"batteryMode");
-        if (bm) {
-            if (wcscmp(bm, L"inline") == 0)       g_settings.batteryMode = 1;
-            else if (wcscmp(bm, L"stacked") == 0) g_settings.batteryMode = 2;
-            else                                   g_settings.batteryMode = 0;
-            Wh_FreeStringSetting(bm);
-        } else {
-            g_settings.batteryMode = 0;
-        }
-    }
-    g_settings.iconSpacing    = Wh_GetIntSetting(L"iconSpacing");
+    g_settings.enableVertical     = Wh_GetIntSetting(L"enableVertical") != 0;
+    g_settings.verticalClock      = Wh_GetIntSetting(L"verticalClock") != 0;
+    g_settings.showBatteryPercent = Wh_GetIntSetting(L"showBatteryPercent") != 0;
+    g_settings.iconSpacing        = Wh_GetIntSetting(L"iconSpacing");
     if (g_settings.iconSpacing < 0)  g_settings.iconSpacing = 0;
     if (g_settings.iconSpacing > 20) g_settings.iconSpacing = 20;
-    {
-        auto* ca = Wh_GetStringSetting(L"clockAlignment");
-        if (ca) {
-            if (wcscmp(ca, L"left") == 0)        g_settings.clockAlignment = 0;
-            else if (wcscmp(ca, L"right") == 0)  g_settings.clockAlignment = 2;
-            else                                  g_settings.clockAlignment = 1;
-            Wh_FreeStringSetting(ca);
-        } else {
-            g_settings.clockAlignment = 1;
-        }
-    }
+    g_settings.clockAlignment     = Wh_GetIntSetting(L"clockAlignment");
+    if (g_settings.clockAlignment < 0) g_settings.clockAlignment = 0;
+    if (g_settings.clockAlignment > 2) g_settings.clockAlignment = 2;
     g_settings.clockLineSpacing   = Wh_GetIntSetting(L"clockLineSpacing");
     if (g_settings.clockLineSpacing < 0)  g_settings.clockLineSpacing = 0;
     if (g_settings.clockLineSpacing > 20) g_settings.clockLineSpacing = 20;
@@ -163,22 +136,11 @@ static StackPanel       g_omniStackPanel{ nullptr };
 static FrameworkElement g_omniButton{ nullptr };
 static FrameworkElement g_batteryPresenter{ nullptr };
 static StackPanel       g_batteryInnerPanel{ nullptr }; // inner panel flipped to Vertical for 4th row
-static TextBlock        g_percentTextBlock{ nullptr };  // "%" TextBlock in battery inner panel
 
 static StackPanel       g_clockDayDatePanel{ nullptr };
 static FrameworkElement g_clockButton{ nullptr };
 static TextBlock        g_clockTimeTextBlock{ nullptr };
 static TextBlock        g_clockDateTextBlock{ nullptr };
-
-// ── Explorer restart ──────────────────────────────────────────────────────
-
-static void RestartExplorer() {
-    // Spawn a detached cmd.exe that kills and restarts explorer.
-    // Using ShellExecuteW so the child process outlives our own termination.
-    WCHAR cmd[] = L"/c taskkill /f /im explorer.exe & ping -n 2 127.0.0.1 >nul & start explorer.exe";
-    ShellExecuteW(nullptr, L"open", L"cmd.exe", cmd, nullptr, SW_HIDE);
-    Wh_Log(L"[Restart] Explorer restart initiated");
-}
 
 // ── Battery XAML helpers ──────────────────────────────────────────────────
 
@@ -220,41 +182,6 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
     return false;
 }
 
-// After WalkBatteryTree flips [glyph|"79"|"%"] to vertical, the "%" appears as a
-// separate row below "79". Move it visually next to "79" using RenderTransform.
-// We use position-based detection (last two TextBlocks) because Text() returns ""
-// on data-bound TextBlocks when the tree is first built.
-static void AlignPercentSign(StackPanel const& flippedSP) {
-    int n = VisualTreeHelper::GetChildrenCount(flippedSP);
-    TextBlock lastTB{ nullptr }, prevTB{ nullptr };
-    for (int i = 0; i < n; i++) {
-        auto tb = VisualTreeHelper::GetChild(flippedSP, i).try_as<TextBlock>();
-        if (!tb) continue;
-        prevTB = lastTB;
-        lastTB = tb;
-    }
-    if (!lastTB) {
-        Wh_Log(L"[Battery4] AlignPercentSign: no TextBlocks found in flipped panel");
-        return;
-    }
-    if (!prevTB) {
-        Wh_Log(L"[Battery4] AlignPercentSign: only 1 TextBlock, no repositioning needed");
-        return;
-    }
-    // prevTB="79", lastTB="%"
-    double fs = lastTB.FontSize();
-    if (fs <= 0 || fs > 100) fs = prevTB.FontSize();
-    if (fs <= 0 || fs > 100) fs = 12.0;
-    double lineH = fs * 1.4;
-    double numW  = fs * 1.3; // approx 2-digit number width (don't rely on Text().size())
-    auto t = winrt::Windows::UI::Xaml::Media::TranslateTransform();
-    t.X(numW);
-    t.Y(-lineH);
-    lastTB.RenderTransform(t);
-    g_percentTextBlock = lastTB;
-    Wh_Log(L"[Battery4] AlignPercentSign X=%.1f Y=%.1f fs=%.0f", numW, -lineH, fs);
-}
-
 // Walk the battery ContentPresenter's subtree. When showBatteryPercent is on,
 // try to find a horizontal StackPanel (the icon+% layout) and flip it Vertical
 // so the % appears below the battery icon glyph.
@@ -270,8 +197,7 @@ static DWORD g_originalBatteryPercent = MAXDWORD; // MAXDWORD = not yet saved
 static constexpr LPCWSTR kAdvancedKey =
     L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";
 
-static void ApplyBatteryPercent(int mode) {
-    bool show = (mode > 0);
+static void ApplyBatteryPercent(bool show) {
     HKEY hKey;
     if (RegOpenKeyExW(HKEY_CURRENT_USER, kAdvancedKey, 0,
                       KEY_READ | KEY_WRITE, &hKey) != ERROR_SUCCESS) {
@@ -371,46 +297,24 @@ static void ApplyLayout(StackPanel const& sp) {
         }
     }
 
-    // Size each icon slot explicitly so they render correctly in vertical layout.
-    {
-        int n = VisualTreeHelper::GetChildrenCount(sp);
-        for (int i = 0; i < n; i++) {
-            auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-            if (child) {
-                child.Width(32.0);
-                child.Height(28.0);
-                child.HorizontalAlignment(HorizontalAlignment::Center);
-                auto cp = child.try_as<ContentPresenter>();
-                if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-            }
-        }
-    }
-
-    // Always find battery presenter so settings changes can update its height later.
-    {
+    // Battery 4th row: find the battery ContentPresenter, make it taller,
+    // then try to flip its internal horizontal layout to vertical so the
+    // percentage text appears below the icon rather than beside it.
+    if (g_settings.showBatteryPercent) {
         int n = VisualTreeHelper::GetChildrenCount(sp);
         for (int i = 0; i < n; i++) {
             auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
             if (!child) continue;
             if (HasBatteryDescendant(child)) {
+                child.Height(50.0);
                 g_batteryPresenter = child;
-                Wh_Log(L"[Battery] Battery slot at index %d (mode=%d)", i, g_settings.batteryMode);
-                if (g_settings.batteryMode == 1) {
-                    // Inline: clear forced width so "79%" text isn't clipped.
-                    child.ClearValue(FrameworkElement::WidthProperty());
-                } else if (g_settings.batteryMode == 2) {
-                    // 90px: glyph (~24) + "79" (~18) + "%" (~18) + container insets + padding
-                    child.Height(90.0);
-                    FlipBatteryLayout(child);
-                    if (g_batteryInnerPanel) {
-                        g_batteryInnerPanel.Spacing(2.0);
-                    }
-                }
+                Wh_Log(L"[Battery4] Battery slot at index %d, height→50", i);
+                FlipBatteryLayout(child);
                 break;
             }
         }
         if (!g_batteryPresenter)
-            Wh_Log(L"[Battery] No battery slot found (desktop without battery?)");
+            Wh_Log(L"[Battery4] No battery slot found (desktop without battery?)");
     }
 
     Wh_Log(L"[Layout] Applied vertical layout (children=%d, spacing=%d)",
@@ -549,26 +453,6 @@ private:
                 return S_OK;
             }
 
-            // Size any new FrameworkElement added directly to the OmniButton StackPanel.
-            // This fires when Windows adds/removes battery % slots live via WM_SETTINGCHANGE.
-            if (g_omniStackPanel && g_settings.enableVertical) {
-                auto fe = insp.try_as<FrameworkElement>();
-                if (fe) {
-                    auto parent = VisualTreeHelper::GetParent(fe);
-                    if (parent) {
-                        auto parentSP = parent.try_as<StackPanel>();
-                        if (parentSP && parentSP == g_omniStackPanel) {
-                            fe.Width(32.0);
-                            fe.Height(28.0);
-                            fe.HorizontalAlignment(HorizontalAlignment::Center);
-                            auto cp = fe.try_as<ContentPresenter>();
-                            if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                            Wh_Log(L"[Layout] Sized new OmniButton child: %s",
-                                   winrt::get_class_name(fe).c_str());
-                        }
-                    }
-                }
-            }
 
         } catch (...) {}
 
@@ -715,10 +599,9 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.32.0");
-    g_prevRestartExplorer = Wh_GetIntSetting(L"restartExplorer") != 0;
+    Wh_Log(L"[Init] Vertical OmniButton v1.22.0");
     LoadSettings();
-    ApplyBatteryPercent(g_settings.batteryMode);
+    ApplyBatteryPercent(g_settings.showBatteryPercent);
 
     HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
     auto pLoadLibraryExW = kernelbase
@@ -763,18 +646,12 @@ void Wh_ModUninit() {
         g_visualTreeWatcher = nullptr;
     }
 
-    // NOTE: intentionally NOT calling RestoreBatteryPercent() here.
-    // Windows reads TaskbarBatteryPercent at explorer STARTUP. If we reset the
-    // registry to 0 in Wh_ModUninit, the new explorer process reads 0 before
-    // Wh_ModInit has a chance to re-apply it, permanently clearing the % display.
-    // The registry is left as-is; Windhawk will re-apply the correct value on
-    // the next Wh_ModInit call.
+    RestoreBatteryPercent();
 
     auto sp     = g_omniStackPanel;
     auto btn    = g_omniButton;
     auto bp     = g_batteryPresenter;
     auto bip    = g_batteryInnerPanel;
-    auto pctTB  = g_percentTextBlock;
     auto cdp    = g_clockDayDatePanel;
     auto timeTB = g_clockTimeTextBlock;
     auto dateTB = g_clockDateTextBlock;
@@ -782,30 +659,18 @@ void Wh_ModUninit() {
     g_omniButton         = nullptr;
     g_batteryPresenter   = nullptr;
     g_batteryInnerPanel  = nullptr;
-    g_percentTextBlock   = nullptr;
     g_clockDayDatePanel  = nullptr;
     g_clockButton        = nullptr;
     g_clockTimeTextBlock = nullptr;
     g_clockDateTextBlock = nullptr;
 
     // Helper lambda that does the actual XAML restoration.
-    auto doCleanup = [sp, btn, bp, bip, pctTB, cdp, timeTB, dateTB]() {
+    auto doCleanup = [sp, btn, bp, bip, cdp, timeTB, dateTB]() {
         try {
             if (sp) {
                 sp.ClearValue(StackPanel::OrientationProperty());
                 sp.ClearValue(StackPanel::SpacingProperty());
                 sp.ClearValue(FrameworkElement::VerticalAlignmentProperty());
-                int n = VisualTreeHelper::GetChildrenCount(sp);
-                for (int i = 0; i < n; i++) {
-                    auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-                    if (child) {
-                        child.ClearValue(FrameworkElement::WidthProperty());
-                        child.ClearValue(FrameworkElement::HeightProperty());
-                        child.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                        auto cp = child.try_as<ContentPresenter>();
-                        if (cp) cp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
-                    }
-                }
             }
         } catch (...) {}
         try {
@@ -819,8 +684,7 @@ void Wh_ModUninit() {
             }
         } catch (...) {}
         try { if (bp)  bp.ClearValue(FrameworkElement::HeightProperty()); } catch (...) {}
-        try { if (bip) { bip.ClearValue(StackPanel::OrientationProperty()); bip.ClearValue(StackPanel::SpacingProperty()); } } catch (...) {}
-        try { if (pctTB) pctTB.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
+        try { if (bip) bip.ClearValue(StackPanel::OrientationProperty()); } catch (...) {}
         try { if (cdp) cdp.ClearValue(StackPanel::SpacingProperty()); } catch (...) {}
         try {
             if (timeTB) {
@@ -870,20 +734,11 @@ void Wh_ModUninit() {
 }
 
 void Wh_ModSettingsChanged() {
-    // Restart explorer if the toggle was just flipped on (edge-detect only).
-    bool newRestartExp = Wh_GetIntSetting(L"restartExplorer") != 0;
-    if (newRestartExp && !g_prevRestartExplorer) {
-        g_prevRestartExplorer = true;
-        RestartExplorer();
-        return; // explorer is restarting; no point updating XAML
-    }
-    g_prevRestartExplorer = newRestartExp;
-
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
 
     // Battery % is a registry toggle — apply immediately on any thread.
-    ApplyBatteryPercent(g_settings.batteryMode);
+    ApplyBatteryPercent(g_settings.showBatteryPercent);
 
     // XAML properties must be set on the UI thread. Get a dispatcher from any live element.
     FrameworkElement dispSrc{ nullptr };
@@ -903,7 +758,7 @@ void Wh_ModSettingsChanged() {
     auto dateTB = g_clockDateTextBlock;
     bool enableV      = g_settings.enableVertical;
     bool enableC      = g_settings.verticalClock;
-    int  batteryMode  = g_settings.batteryMode;
+    bool showBattery  = g_settings.showBatteryPercent;
     int  iconSpc      = g_settings.iconSpacing;
     int  clockAlign   = g_settings.clockAlignment;
     int  clockSpacing = g_settings.clockLineSpacing;
@@ -911,7 +766,7 @@ void Wh_ModSettingsChanged() {
     try {
         disp.RunAsync(winrt::Windows::UI::Core::CoreDispatcherPriority::Normal,
         [sp, btn, bp, bip, cdp, timeTB, dateTB,
-         enableV, enableC, batteryMode, iconSpc, clockAlign, clockSpacing]() mutable
+         enableV, enableC, showBattery, iconSpc, clockAlign, clockSpacing]()
         {
             // OmniButton layout
             try {
@@ -927,69 +782,14 @@ void Wh_ModSettingsChanged() {
                                 ctrl.VerticalContentAlignment(VerticalAlignment::Center);
                             }
                         }
-                        {
-                            int n = VisualTreeHelper::GetChildrenCount(sp);
-                            for (int i = 0; i < n; i++) {
-                                auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-                                if (child) {
-                                    child.Width(32.0);
-                                    child.Height(28.0);
-                                    child.HorizontalAlignment(HorizontalAlignment::Center);
-                                    auto cp = child.try_as<ContentPresenter>();
-                                    if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                                }
-                            }
-                        }
-                        // Find battery slot if needed.
-                        if (!bp && sp) {
-                            int nc = VisualTreeHelper::GetChildrenCount(sp);
-                            for (int i = 0; i < nc; i++) {
-                                auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-                                if (child && HasBatteryDescendant(child)) {
-                                    bp = child;
-                                    g_batteryPresenter = child;
-                                    break;
-                                }
-                            }
-                        }
-                        if (bp) {
-                            if (batteryMode == 1) {
-                                // Inline: let battery slot auto-size so % text isn't clipped.
-                                bp.ClearValue(FrameworkElement::WidthProperty());
-                                bp.ClearValue(FrameworkElement::HeightProperty());
-                            } else if (batteryMode == 2) {
-                                bp.Height(90.0);
-                                // Do NOT call FlipBatteryLayout here — the XAML tree only has
-                                // the % structure after an explorer restart with registry=1.
-                                // Flipping on a stale tree corrupts g_batteryInnerPanel.
-                                // The flip already ran in ApplyLayout if the tree was correct.
-                                if (bip) bip.Spacing(2.0);
-                            } else {
-                                bp.ClearValue(FrameworkElement::WidthProperty());
-                                bp.ClearValue(FrameworkElement::HeightProperty());
-                            }
-                        }
-                        if (bip && batteryMode != 2) {
+                        if (bp) bp.Height(showBattery ? 50.0 : 28.0);
+                        // Restore inner panel if battery % was turned off
+                        if (bip && !showBattery)
                             bip.ClearValue(StackPanel::OrientationProperty());
-                            bip.ClearValue(StackPanel::SpacingProperty());
-                        }
                     } else {
                         sp.ClearValue(StackPanel::OrientationProperty());
                         sp.ClearValue(StackPanel::SpacingProperty());
                         sp.ClearValue(FrameworkElement::VerticalAlignmentProperty());
-                        {
-                            int n = VisualTreeHelper::GetChildrenCount(sp);
-                            for (int i = 0; i < n; i++) {
-                                auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-                                if (child) {
-                                    child.ClearValue(FrameworkElement::WidthProperty());
-                                    child.ClearValue(FrameworkElement::HeightProperty());
-                                    child.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                                    auto cp = child.try_as<ContentPresenter>();
-                                    if (cp) cp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
-                                }
-                            }
-                        }
                         if (btn) {
                             auto ctrl = btn.try_as<Control>();
                             if (ctrl) {

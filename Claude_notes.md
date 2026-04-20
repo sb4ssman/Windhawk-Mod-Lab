@@ -1,6 +1,6 @@
 # Claude Session Notes — vertical-omnibutton.wh.cpp
 
-## Current Status: v1.21.0 — compile errors in FlipBatteryLayout, NOT YET FIXED
+## Current Status: v1.24.0 — ContentPresenter sizing added (Width=32 Height=28); batteryMode string keys; needs testing
 
 ## Goal
 Standalone Windhawk mod (`vertical-omnibutton.wh.cpp`) that rearranges the system tray
