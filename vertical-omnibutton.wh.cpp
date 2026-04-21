@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.32.0
+// @version         1.43.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button
 // @include         explorer.exe
@@ -45,6 +45,9 @@ Enable **debug logging** to trace which XAML elements are being checked.
 
 // ==WindhawkModSettings==
 /*
+- restartExplorer: false
+  $name: Restart explorer.exe
+  $description: "Save with this ON to restart explorer.exe immediately. Required after changing Battery percentage mode. A restart will fire on any save while this is ON, with a 30-second cooldown between restarts. Warning: closes all open File Explorer windows."
 - enableVertical: true
   $name: Enable vertical arrangement
   $description: Enable/disable vertical stacking of wifi, volume, and battery icons
@@ -71,15 +74,14 @@ Enable **debug logging** to trace which XAML elements are being checked.
     - "left": "Left"
     - "center": "Center"
     - "right": "Right"
-- restartExplorer: false
-  $name: Restart explorer.exe
-  $description: "Toggle ON and save to immediately restart explorer.exe. Required after changing Battery percentage mode. Warning: closes all open File Explorer windows. Set back to OFF after restarting."
 - debugLogging: false
   $name: Enable debug logging
   $description: Log XAML element types as they are added to the visual tree
 */
 // ==/WindhawkModSettings==
 
+#include <limits>
+#include <vector>
 #include <unknwn.h>
 #include <winrt/base.h>
 #include <windhawk_api.h>
@@ -115,7 +117,7 @@ struct {
 
 bool g_unloading  = false;
 bool g_ixdeStarted = false; // prevent double-injection from Wh_ModAfterInit
-bool g_prevRestartExplorer = false; // edge-detect the restart toggle
+static DWORD g_lastRestartTick = 0; // tick-count when explorer was last restarted (0 = never)
 
 void LoadSettings() {
     g_settings.enableVertical = Wh_GetIntSetting(L"enableVertical") != 0;
@@ -164,6 +166,7 @@ static FrameworkElement g_omniButton{ nullptr };
 static FrameworkElement g_batteryPresenter{ nullptr };
 static StackPanel       g_batteryInnerPanel{ nullptr }; // inner panel flipped to Vertical for 4th row
 static TextBlock        g_percentTextBlock{ nullptr };  // "%" TextBlock in battery inner panel
+static FrameworkElement g_percentContainer{ nullptr };  // FE that received Margin for % alignment
 
 static StackPanel       g_clockDayDatePanel{ nullptr };
 static FrameworkElement g_clockButton{ nullptr };
@@ -173,11 +176,24 @@ static TextBlock        g_clockDateTextBlock{ nullptr };
 // ── Explorer restart ──────────────────────────────────────────────────────
 
 static void RestartExplorer() {
-    // Spawn a detached cmd.exe that kills and restarts explorer.
-    // Using ShellExecuteW so the child process outlives our own termination.
-    WCHAR cmd[] = L"/c taskkill /f /im explorer.exe & ping -n 2 127.0.0.1 >nul & start explorer.exe";
-    ShellExecuteW(nullptr, L"open", L"cmd.exe", cmd, nullptr, SW_HIDE);
-    Wh_Log(L"[Restart] Explorer restart initiated");
+    // Use CreateProcess with CREATE_NEW_PROCESS_GROUP so the cmd.exe is NOT a child
+    // of explorer.exe and survives when explorer is killed.
+    // ShellExecuteW inherits the process group and can be orphaned when explorer dies.
+    WCHAR cmd[] =
+        L"cmd.exe /c taskkill /f /im explorer.exe & timeout /t 2 /nobreak >nul & start explorer.exe";
+    STARTUPINFOW si = {};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    PROCESS_INFORMATION pi = {};
+    if (CreateProcessW(nullptr, cmd, nullptr, nullptr, FALSE,
+                       CREATE_NEW_PROCESS_GROUP, nullptr, nullptr, &si, &pi)) {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        Wh_Log(L"[Restart] Explorer restart initiated");
+    } else {
+        Wh_Log(L"[Restart] CreateProcess failed (%lu)", GetLastError());
+    }
 }
 
 // ── Battery XAML helpers ──────────────────────────────────────────────────
@@ -220,39 +236,76 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
     return false;
 }
 
-// After WalkBatteryTree flips [glyph|"79"|"%"] to vertical, the "%" appears as a
-// separate row below "79". Move it visually next to "79" using RenderTransform.
-// We use position-based detection (last two TextBlocks) because Text() returns ""
-// on data-bound TextBlocks when the tree is first built.
+// Shallow TextBlock search: first TB found within 3 levels of node.
+static TextBlock FindFirstTextBlock(DependencyObject const& node, int depth = 0) {
+    if (depth > 3) return nullptr;
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (!child) continue;
+        auto tb = child.try_as<TextBlock>();
+        if (tb) return tb;
+        auto found = FindFirstTextBlock(child, depth + 1);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+// After WalkBatteryTree flips [glyph|"79"|"%"] to vertical, "%" appears as a
+// separate row below "79". Merge them onto one row by applying a negative-top
+// Margin to the last child, shifting it up into the same visual row as the
+// number. Margin is a layout-level change (unlike TranslateTransform which is
+// post-layout and gets clipped by ancestor ClipToBounds).
 static void AlignPercentSign(StackPanel const& flippedSP) {
     int n = VisualTreeHelper::GetChildrenCount(flippedSP);
-    TextBlock lastTB{ nullptr }, prevTB{ nullptr };
+    Wh_Log(L"[Battery4] AlignPercentSign: flipped SP has %d direct children", n);
+
+    // Collect all direct FrameworkElement children and log their types.
+    std::vector<FrameworkElement> fes;
     for (int i = 0; i < n; i++) {
-        auto tb = VisualTreeHelper::GetChild(flippedSP, i).try_as<TextBlock>();
-        if (!tb) continue;
-        prevTB = lastTB;
-        lastTB = tb;
+        auto fe = VisualTreeHelper::GetChild(flippedSP, i).try_as<FrameworkElement>();
+        if (!fe) continue;
+        auto tb = fe.try_as<TextBlock>();
+        Wh_Log(L"[Battery4]   child[%d] %s text=%s",
+               i, winrt::get_class_name(fe).c_str(),
+               tb ? tb.Text().c_str() : L"(not TB)");
+        fes.push_back(fe);
     }
-    if (!lastTB) {
-        Wh_Log(L"[Battery4] AlignPercentSign: no TextBlocks found in flipped panel");
+
+    if (fes.size() < 2) {
+        Wh_Log(L"[Battery4] AlignPercentSign: fewer than 2 FE children (%zu), skipping", fes.size());
         return;
     }
-    if (!prevTB) {
-        Wh_Log(L"[Battery4] AlignPercentSign: only 1 TextBlock, no repositioning needed");
-        return;
-    }
-    // prevTB="79", lastTB="%"
-    double fs = lastTB.FontSize();
-    if (fs <= 0 || fs > 100) fs = prevTB.FontSize();
-    if (fs <= 0 || fs > 100) fs = 12.0;
-    double lineH = fs * 1.4;
-    double numW  = fs * 1.3; // approx 2-digit number width (don't rely on Text().size())
-    auto t = winrt::Windows::UI::Xaml::Media::TranslateTransform();
-    t.X(numW);
-    t.Y(-lineH);
-    lastTB.RenderTransform(t);
-    g_percentTextBlock = lastTB;
-    Wh_Log(L"[Battery4] AlignPercentSign X=%.1f Y=%.1f fs=%.0f", numW, -lineH, fs);
+
+    // Last two children: [number-container] [percent-container].
+    // Each may be a TextBlock directly or a ContentPresenter wrapping one.
+    auto numFE = fes[fes.size() - 2];
+    auto pctFE = fes[fes.size() - 1];
+
+    // Resolve font size from TextBlocks (data-bound Text() may be empty, but FontSize is set).
+    double fs = 0;
+    auto numTB = numFE.try_as<TextBlock>();
+    auto pctTB = pctFE.try_as<TextBlock>();
+    if (!numTB) numTB = FindFirstTextBlock(numFE);
+    if (!pctTB) pctTB = FindFirstTextBlock(pctFE);
+    if (numTB && numTB.FontSize() > 0 && numTB.FontSize() < 100) fs = numTB.FontSize();
+    else if (pctTB && pctTB.FontSize() > 0 && pctTB.FontSize() < 100) fs = pctTB.FontSize();
+    if (fs <= 0) fs = 12.0;
+
+    double lineH = fs * 1.4;   // approx line height (font size + leading)
+    double numW  = fs * 1.6;   // approx 2-digit number width
+
+    // Shift pctFE up by one line and right by numW so it occupies the same
+    // visual row as numFE. Negative top margin reduces the element's layout
+    // footprint, collapsing the extra row rather than just visually overlaying.
+    Thickness m{};
+    m.Left = numW; m.Top = -lineH; m.Right = 0; m.Bottom = 0;
+    pctFE.Margin(m);
+    g_percentContainer = pctFE;
+    if (pctTB) g_percentTextBlock = pctTB;
+
+    Wh_Log(L"[Battery4] AlignPercentSign: Margin(L=%.1f T=%.1f) on %s fs=%.0f",
+           numW, -lineH, winrt::get_class_name(pctFE).c_str(), fs);
 }
 
 // Walk the battery ContentPresenter's subtree. When showBatteryPercent is on,
@@ -261,6 +314,20 @@ static void AlignPercentSign(StackPanel const& flippedSP) {
 static void FlipBatteryLayout(FrameworkElement const& batteryCP) {
     if (!WalkBatteryTree(batteryCP, 0))
         Wh_Log(L"[Battery4] No horizontal StackPanel found — enable debug logging to see tree");
+}
+
+// Walk DOWN from node and set Height = NaN (XAML "Auto") on every FrameworkElement.
+// Using NaN as a LOCAL value overrides style/template constraints (ClearValue would
+// only remove our local value and revert to the template value, which may still be 28px).
+static void ClearHeightDescendants(DependencyObject const& node, int depth = 0) {
+    if (depth > 8) return;
+    auto fe = node.try_as<FrameworkElement>();
+    if (fe) fe.Height(std::numeric_limits<double>::quiet_NaN());
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (child) ClearHeightDescendants(child, depth + 1);
+    }
 }
 
 // ── Battery percentage (Windows registry toggle) ──────────────────────────
@@ -310,6 +377,34 @@ static void RestoreBatteryPercent() {
                        reinterpret_cast<LPARAM>(kAdvancedKey));
     Wh_Log(L"[Battery] Restored TaskbarBatteryPercent to %lu", g_originalBatteryPercent);
     g_originalBatteryPercent = MAXDWORD;
+}
+
+// ── OmniButton height helpers ─────────────────────────────────────────────
+
+// Free the OmniButton's height so it can grow to fit a 4th row (stacked mode),
+// then force the taskbar layout panel to reallocate space for the larger button.
+static void FreeOmniButtonHeight() {
+    if (!g_omniButton) return;
+    g_omniButton.Height(std::numeric_limits<double>::quiet_NaN());
+    g_omniButton.InvalidateMeasure();
+    // Invalidate the immediate parent so the taskbar slot expands.
+    auto parent = VisualTreeHelper::GetParent(g_omniButton);
+    if (parent) {
+        auto parentUI = parent.try_as<UIElement>();
+        if (parentUI) parentUI.InvalidateMeasure();
+        // One more level up — the taskbar item container.
+        auto grandparent = VisualTreeHelper::GetParent(parent);
+        if (grandparent) {
+            auto gpUI = grandparent.try_as<UIElement>();
+            if (gpUI) gpUI.InvalidateMeasure();
+        }
+    }
+}
+
+static void RestoreOmniButtonHeight() {
+    if (!g_omniButton) return;
+    g_omniButton.ClearValue(FrameworkElement::HeightProperty());
+    g_omniButton.InvalidateMeasure();
 }
 
 // ── Layout application ────────────────────────────────────────────────────
@@ -369,6 +464,9 @@ static void ApplyLayout(StackPanel const& sp) {
             ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
             ctrl.VerticalContentAlignment(VerticalAlignment::Center);
         }
+        // In stacked mode, the 4th row pushes past the button's template height.
+        if (g_settings.batteryMode == 2)
+            FreeOmniButtonHeight();
     }
 
     // Size each icon slot explicitly so they render correctly in vertical layout.
@@ -396,14 +494,22 @@ static void ApplyLayout(StackPanel const& sp) {
                 g_batteryPresenter = child;
                 Wh_Log(L"[Battery] Battery slot at index %d (mode=%d)", i, g_settings.batteryMode);
                 if (g_settings.batteryMode == 1) {
-                    // Inline: clear forced width so "79%" text isn't clipped.
-                    child.ClearValue(FrameworkElement::WidthProperty());
+                    // Inline: force auto-size using NaN as a local value.
+                    // ClearValue would revert to the template value (likely 28px),
+                    // NOT to unconstrained — same reason ClearHeightDescendants uses NaN.
+                    child.Width(std::numeric_limits<double>::quiet_NaN());
+                    child.Height(std::numeric_limits<double>::quiet_NaN());
                 } else if (g_settings.batteryMode == 2) {
-                    // 90px: glyph (~24) + "79" (~18) + "%" (~18) + container insets + padding
-                    child.Height(90.0);
+                    // Same: NaN forces unconstrained width rather than template default.
+                    child.Width(std::numeric_limits<double>::quiet_NaN());
+                    // Free height on the entire battery subtree FIRST (unconditionally),
+                    // before and regardless of whether the inner panel flip succeeds.
+                    // The inner StackPanel may arrive in a later Add callback.
+                    ClearHeightDescendants(child);
                     FlipBatteryLayout(child);
                     if (g_batteryInnerPanel) {
-                        g_batteryInnerPanel.Spacing(2.0);
+                        g_batteryInnerPanel.Spacing(0.0);
+                        AlignPercentSign(g_batteryInnerPanel);
                     }
                 }
                 break;
@@ -546,11 +652,73 @@ private:
             if (sp) {
                 if (!g_omniStackPanel) ApplyLayout(sp);
                 if (!g_clockDayDatePanel && g_settings.verticalClock) ApplyClockLayout(sp);
+
+                // Deferred stacked battery flip: the inner StackPanel is often added to
+                // the tree AFTER ApplyLayout runs (XAML builds the tree incrementally).
+                // When it arrives here, parents ARE wired so GetParent works correctly.
+                // We also handle the case where g_batteryPresenter was never set because
+                // the IsItemsHost StackPanel had no children when ApplyLayout ran.
+                if (g_settings.batteryMode == 2 && !sp.IsItemsHost() && !g_batteryInnerPanel
+                    && g_omniStackPanel) {
+                    // Walk up from sp to find its direct-child ancestor of g_omniStackPanel.
+                    DependencyObject cur = sp;
+                    FrameworkElement directChild{ nullptr };
+                    for (int d = 0; d < 10; d++) {
+                        auto p = VisualTreeHelper::GetParent(cur);
+                        if (!p) break;
+                        auto parentSP = p.try_as<StackPanel>();
+                        if (parentSP && parentSP == g_omniStackPanel) {
+                            directChild = cur.try_as<FrameworkElement>();
+                            break;
+                        }
+                        // Also short-circuit if we already know the battery presenter.
+                        if (g_batteryPresenter) {
+                            auto pfe = p.try_as<FrameworkElement>();
+                            if (pfe && pfe == g_batteryPresenter) {
+                                directChild = g_batteryPresenter;
+                                break;
+                            }
+                        }
+                        cur = p;
+                    }
+                    if (directChild) {
+                        if (!g_batteryPresenter) {
+                            g_batteryPresenter = directChild;
+                            Wh_Log(L"[Battery4] Battery presenter inferred via deferred walk");
+                        }
+                        sp.Orientation(Orientation::Vertical);
+                        g_batteryInnerPanel = sp;
+                        ClearHeightDescendants(g_batteryPresenter);
+                        sp.Spacing(0.0);
+                        FreeOmniButtonHeight();
+                        AlignPercentSign(sp); // may find 0 TBs yet; re-tried when TBs arrive
+                        Wh_Log(L"[Battery4] Deferred flip of battery inner StackPanel");
+                    }
+                }
+
                 return S_OK;
             }
 
+            // When TextBlocks inside the battery inner panel arrive after the flip,
+            // retry AlignPercentSign until it finds both "79" and "%".
+            if (g_batteryInnerPanel && !g_percentContainer && g_settings.batteryMode == 2) {
+                auto fe = insp.try_as<FrameworkElement>();
+                if (fe) {
+                    DependencyObject cur = fe;
+                    for (int d = 0; d < 6; d++) {
+                        auto p = VisualTreeHelper::GetParent(cur);
+                        if (!p) break;
+                        if (p.try_as<StackPanel>() == g_batteryInnerPanel) {
+                            AlignPercentSign(g_batteryInnerPanel);
+                            break;
+                        }
+                        cur = p;
+                    }
+                }
+            }
+
             // Size any new FrameworkElement added directly to the OmniButton StackPanel.
-            // This fires when Windows adds/removes battery % slots live via WM_SETTINGCHANGE.
+            // This fires when battery/wifi/volume CPs arrive late (SP had 0 children at ApplyLayout).
             if (g_omniStackPanel && g_settings.enableVertical) {
                 auto fe = insp.try_as<FrameworkElement>();
                 if (fe) {
@@ -558,13 +726,28 @@ private:
                     if (parent) {
                         auto parentSP = parent.try_as<StackPanel>();
                         if (parentSP && parentSP == g_omniStackPanel) {
-                            fe.Width(32.0);
-                            fe.Height(28.0);
+                            // Detect battery slot — use cached presenter or scan.
+                            bool isBattery = (g_batteryPresenter && fe == g_batteryPresenter)
+                                          || (!g_batteryPresenter && HasBatteryDescendant(fe));
+                            if (isBattery && !g_batteryPresenter) g_batteryPresenter = fe;
+
                             fe.HorizontalAlignment(HorizontalAlignment::Center);
                             auto cp = fe.try_as<ContentPresenter>();
                             if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                            Wh_Log(L"[Layout] Sized new OmniButton child: %s",
-                                   winrt::get_class_name(fe).c_str());
+
+                            if (isBattery && g_settings.batteryMode != 0) {
+                                // Inline or stacked: battery CP must auto-size.
+                                // Setting Width=32/Height=28 here would override the NaN
+                                // applied in ApplyLayout and prevent % from rendering.
+                                fe.Width(std::numeric_limits<double>::quiet_NaN());
+                                fe.Height(std::numeric_limits<double>::quiet_NaN());
+                            } else {
+                                fe.Width(32.0);
+                                fe.Height(28.0);
+                            }
+                            Wh_Log(L"[Layout] Sized new OmniButton child: %s battery=%d mode=%d",
+                                   winrt::get_class_name(fe).c_str(),
+                                   (int)isBattery, g_settings.batteryMode);
                         }
                     }
                 }
@@ -715,8 +898,12 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.32.0");
-    g_prevRestartExplorer = Wh_GetIntSetting(L"restartExplorer") != 0;
+    Wh_Log(L"[Init] Vertical OmniButton v1.43.0");
+    // If restartExplorer is already true when we load, "consume" it so the first
+    // settings save doesn't immediately re-fire.  After 30 s the user can save
+    // again to trigger a fresh restart without having to toggle the setting off first.
+    if (Wh_GetIntSetting(L"restartExplorer") != 0)
+        g_lastRestartTick = GetTickCount();
     LoadSettings();
     ApplyBatteryPercent(g_settings.batteryMode);
 
@@ -770,26 +957,28 @@ void Wh_ModUninit() {
     // The registry is left as-is; Windhawk will re-apply the correct value on
     // the next Wh_ModInit call.
 
-    auto sp     = g_omniStackPanel;
-    auto btn    = g_omniButton;
-    auto bp     = g_batteryPresenter;
-    auto bip    = g_batteryInnerPanel;
-    auto pctTB  = g_percentTextBlock;
-    auto cdp    = g_clockDayDatePanel;
-    auto timeTB = g_clockTimeTextBlock;
-    auto dateTB = g_clockDateTextBlock;
+    auto sp      = g_omniStackPanel;
+    auto btn     = g_omniButton;
+    auto bp      = g_batteryPresenter;
+    auto bip     = g_batteryInnerPanel;
+    auto pctTB   = g_percentTextBlock;
+    auto pctCont = g_percentContainer;
+    auto cdp     = g_clockDayDatePanel;
+    auto timeTB  = g_clockTimeTextBlock;
+    auto dateTB  = g_clockDateTextBlock;
     g_omniStackPanel     = nullptr;
     g_omniButton         = nullptr;
     g_batteryPresenter   = nullptr;
     g_batteryInnerPanel  = nullptr;
     g_percentTextBlock   = nullptr;
+    g_percentContainer   = nullptr;
     g_clockDayDatePanel  = nullptr;
     g_clockButton        = nullptr;
     g_clockTimeTextBlock = nullptr;
     g_clockDateTextBlock = nullptr;
 
     // Helper lambda that does the actual XAML restoration.
-    auto doCleanup = [sp, btn, bp, bip, pctTB, cdp, timeTB, dateTB]() {
+    auto doCleanup = [sp, btn, bp, bip, pctTB, pctCont, cdp, timeTB, dateTB]() {
         try {
             if (sp) {
                 sp.ClearValue(StackPanel::OrientationProperty());
@@ -811,6 +1000,7 @@ void Wh_ModUninit() {
         try {
             if (btn) {
                 btn.ClearValue(FrameworkElement::WidthProperty());
+                RestoreOmniButtonHeight();
                 auto ctrl = btn.try_as<Control>();
                 if (ctrl) {
                     ctrl.ClearValue(Control::HorizontalContentAlignmentProperty());
@@ -820,7 +1010,8 @@ void Wh_ModUninit() {
         } catch (...) {}
         try { if (bp)  bp.ClearValue(FrameworkElement::HeightProperty()); } catch (...) {}
         try { if (bip) { bip.ClearValue(StackPanel::OrientationProperty()); bip.ClearValue(StackPanel::SpacingProperty()); } } catch (...) {}
-        try { if (pctTB) pctTB.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
+        try { if (pctTB)   pctTB.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
+        try { if (pctCont) pctCont.ClearValue(FrameworkElement::MarginProperty()); } catch (...) {}
         try { if (cdp) cdp.ClearValue(StackPanel::SpacingProperty()); } catch (...) {}
         try {
             if (timeTB) {
@@ -845,8 +1036,8 @@ void Wh_ModUninit() {
     // Also schedule async dispatch as belt-and-suspenders for wrong-thread cases.
     // Bump DLL refcount so the lambda is safe after Windhawk's FreeLibrary.
     // Need any XAML element to get the dispatcher.
-    auto dispSrc = sp  ? sp.try_as<FrameworkElement>()
-                      : (dateTB ? dateTB.try_as<FrameworkElement>() : nullptr);
+    auto dispSrc = sp    ? sp.try_as<FrameworkElement>()
+                        : (dateTB ? dateTB.try_as<FrameworkElement>() : nullptr);
     if (!dispSrc) return;
     auto disp = dispSrc.Dispatcher();
     if (!disp) return;
@@ -870,14 +1061,21 @@ void Wh_ModUninit() {
 }
 
 void Wh_ModSettingsChanged() {
-    // Restart explorer if the toggle was just flipped on (edge-detect only).
-    bool newRestartExp = Wh_GetIntSetting(L"restartExplorer") != 0;
-    if (newRestartExp && !g_prevRestartExplorer) {
-        g_prevRestartExplorer = true;
-        RestartExplorer();
-        return; // explorer is restarting; no point updating XAML
+    // Restart explorer whenever restartExplorer=true, but debounce 30 s so that
+    // ordinary settings saves don't re-fire immediately after a restart.
+    if (Wh_GetIntSetting(L"restartExplorer") != 0) {
+        DWORD now = GetTickCount();
+        if (now - g_lastRestartTick > 10000) {
+            g_lastRestartTick = now;
+            // CRITICAL: load settings and write the battery registry value BEFORE
+            // killing explorer.  The new process reads TaskbarBatteryPercent at startup;
+            // if we set it after the fact (in Wh_ModInit) it is already too late.
+            LoadSettings();
+            ApplyBatteryPercent(g_settings.batteryMode);
+            RestartExplorer();
+            return; // explorer is restarting; no point updating XAML
+        }
     }
-    g_prevRestartExplorer = newRestartExp;
 
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
@@ -926,6 +1124,11 @@ void Wh_ModSettingsChanged() {
                                 ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
                                 ctrl.VerticalContentAlignment(VerticalAlignment::Center);
                             }
+                            // Free button height in stacked mode; restore otherwise.
+                            if (batteryMode == 2)
+                                FreeOmniButtonHeight();
+                            else
+                                RestoreOmniButtonHeight();
                         }
                         {
                             int n = VisualTreeHelper::GetChildrenCount(sp);
@@ -954,20 +1157,29 @@ void Wh_ModSettingsChanged() {
                         }
                         if (bp) {
                             if (batteryMode == 1) {
-                                // Inline: let battery slot auto-size so % text isn't clipped.
-                                bp.ClearValue(FrameworkElement::WidthProperty());
-                                bp.ClearValue(FrameworkElement::HeightProperty());
+                                // NaN forces auto-size (ClearValue reverts to template, not unconstrained).
+                                bp.Width(std::numeric_limits<double>::quiet_NaN());
+                                bp.Height(std::numeric_limits<double>::quiet_NaN());
                             } else if (batteryMode == 2) {
-                                bp.Height(90.0);
-                                // Do NOT call FlipBatteryLayout here — the XAML tree only has
-                                // the % structure after an explorer restart with registry=1.
-                                // Flipping on a stale tree corrupts g_batteryInnerPanel.
-                                // The flip already ran in ApplyLayout if the tree was correct.
-                                if (bip) bip.Spacing(2.0);
-                            } else {
-                                bp.ClearValue(FrameworkElement::WidthProperty());
-                                bp.ClearValue(FrameworkElement::HeightProperty());
+                                bp.Width(std::numeric_limits<double>::quiet_NaN());
+                                ClearHeightDescendants(bp);
+                                // Flip inner SP if not done yet (e.g. switching from off to stacked
+                                // without restarting — ApplyLayout never got to flip it).
+                                if (!g_batteryInnerPanel) {
+                                    FlipBatteryLayout(bp);
+                                    bip = g_batteryInnerPanel;
+                                }
+                                auto innerPanel = g_batteryInnerPanel;
+                                if (innerPanel) {
+                                    innerPanel.Spacing(0.0);
+                                    g_percentTextBlock = nullptr;
+                                    g_percentContainer = nullptr;
+                                    AlignPercentSign(innerPanel);
+                                }
                             }
+                            // batteryMode==0: sizing loop above already applied Width=32/Height=28.
+                            // Do NOT ClearValue here — that would let the template render % elements
+                            // if registry=1 was left over from a prior inline/stacked session.
                         }
                         if (bip && batteryMode != 2) {
                             bip.ClearValue(StackPanel::OrientationProperty());
@@ -997,6 +1209,7 @@ void Wh_ModSettingsChanged() {
                                 ctrl.ClearValue(Control::VerticalContentAlignmentProperty());
                             }
                             btn.ClearValue(FrameworkElement::WidthProperty());
+                            RestoreOmniButtonHeight();
                         }
                         if (bp)  bp.ClearValue(FrameworkElement::HeightProperty());
                         if (bip) bip.ClearValue(StackPanel::OrientationProperty());
