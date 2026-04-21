@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.49.0
+// @version         1.48.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button
 // @include         explorer.exe
@@ -11,108 +11,11 @@
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Vertical OmniButton
-
-Rearranges the Windows 11 system tray OmniButton (wifi, volume, battery) from
-horizontal layout to clean vertical stacking.
-
-## How it works
-
-Uses the Windows XAML Diagnostics API to watch the live XAML visual tree
-(the same mechanism used by the Windows 11 Taskbar Styler). When OmniButton
-elements appear, the mod forces `Orientation=Vertical` on the inner StackPanel
-and sizes each icon slot according to your settings.
-
-## Usage
-
-After enabling the mod, **restart explorer.exe** (Task Manager → Restart).
-
-Enable **debug logging** to trace which XAML elements are being checked.
-
-## Settings
-
-- **Enable vertical arrangement** — master toggle for wifi/volume/battery icons
-- **Icon spacing** — extra vertical pixels between each icon (default 8)
-- **Battery percentage** — Off / Inline (% in battery slot, 3rd row) / Stacked (% as separate 4th row). Inline and Stacked enable Windows native battery % — requires restarting explorer.exe.
-- **Wifi X / Y** — pixel offset applied to the wifi icon from its natural position; negative X moves left, negative Y moves up
-- **Volume X / Y** — pixel offset applied to the volume icon from its natural position
-- **Battery glyph X / Y** — (stacked mode) pixel offset applied to the battery icon row from its natural position
-- **Battery percent X / Y** — (stacked mode) pixel offset applied to the "79%" row from its natural position
-- **Battery inline X / Y** — (inline mode) pixel offset applied to the entire battery slot from its natural position
-- **Vertical clock** — splits clock into three rows: time / day / date
-- **Clock row spacing** — extra vertical space between clock rows
-- **Clock alignment** — Left / Center / Right (only applies when vertical clock is enabled)
-- **Debug logging** — log XAML element types as they are added
-
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- restartExplorer: false
-  $name: Restart explorer.exe
-  $description: "Save with this ON to restart explorer.exe immediately. Required after changing Battery percentage mode. A restart will fire on any save while this is ON, with a 30-second cooldown between restarts. Warning: closes all open File Explorer windows."
-- enableVertical: true
-  $name: Enable vertical arrangement
-  $description: Enable/disable vertical stacking of wifi, volume, and battery icons
-- iconSpacing: 0
-  $name: Icon spacing
-  $description: Extra vertical space between icons in pixels (minimum 0, maximum 20)
-- batteryMode: "off"
-  $name: Battery percentage
-  $description: "Off: battery icon only. Inline: percentage shown in the battery icon slot (3rd row). Stacked: percentage as a separate 4th row below the battery icon. Inline and Stacked enable the Windows native battery % display — requires restarting explorer.exe to take effect."
-  $options:
-    - "off": "Off — battery icon only"
-    - "inline": "Inline — percentage in battery slot (3rd row)"
-    - "stacked": "Stacked — percentage as 4th row below battery"
-- verticalClock: true
-  $name: Vertical clock (three rows)
-  $description: Split the clock into three rows — time, day of week, date
-- clockLineSpacing: 0
-  $name: Clock row spacing
-  $description: Extra vertical space between clock rows in pixels (minimum 0, maximum 20)
-- clockAlignment: "center"
-  $name: Clock alignment
-  $description: "Aligns time, day, and date text. Only applies when Vertical clock is enabled."
-  $options:
-    - "left": "Left"
-    - "center": "Center"
-    - "right": "Right"
-- wifiX: 4
-  $name: Wifi X offset
-  $description: "Horizontal pixel offset for the wifi icon. Negative = left, positive = right. Default: 4."
-- wifiY: 2
-  $name: Wifi Y offset
-  $description: "Vertical pixel offset for the wifi icon. Negative = up, positive = down. Default: 2."
-- volumeX: 0
-  $name: Volume X offset
-  $description: "Horizontal pixel offset for the volume icon. Negative = left, positive = right. Default: 0."
-- volumeY: 0
-  $name: Volume Y offset
-  $description: "Vertical pixel offset for the volume icon. Negative = up, positive = down. Default: 0."
-- batteryGlyphX: 8
-  $name: Battery glyph X offset (stacked)
-  $description: "Horizontal pixel offset for the battery icon row in stacked mode. Negative = left, positive = right. Default: 8."
-- batteryGlyphY: -4
-  $name: Battery glyph Y offset (stacked)
-  $description: "Vertical pixel offset for the battery icon row in stacked mode. Negative = up, positive = down. Default: -4."
-- batteryPercentX: 2
-  $name: Battery percent X offset (stacked)
-  $description: "Horizontal pixel offset for the '79%' row in stacked mode. Negative = left, positive = right. Default: 2."
-- batteryPercentY: -12
-  $name: Battery percent Y offset (stacked)
-  $description: "Vertical pixel offset for the '79%' row in stacked mode. Negative = up, positive = down. Default: -12."
-- batteryInlineX: 4
-  $name: Battery inline X offset (inline)
-  $description: "Horizontal pixel offset for the battery slot in inline mode. Negative = left, positive = right. Default: 4."
-- batteryInlineY: 0
-  $name: Battery inline Y offset (inline)
-  $description: "Vertical pixel offset for the battery slot in inline mode. Negative = up, positive = down. Default: 0."
-- debugLogging: false
-  $name: Enable debug logging
-  $description: Log XAML element types as they are added to the visual tree
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #include <limits>
@@ -146,10 +49,6 @@ struct {
     int iconSpacing;        // extra px between icons in the vertical stack
     int clockAlignment;     // 0=Left 1=Center 2=Right
     int clockLineSpacing;   // uniform spacing for all three clock rows
-    int wifiX;              // X offset of wifi CP (slot 0)
-    int wifiY;              // Y offset of wifi CP
-    int volumeX;            // X offset of volume CP (slot 1)
-    int volumeY;            // Y offset of volume CP
     int batteryGlyphX;      // stacked: X offset of glyph row (TranslateTransform)
     int batteryGlyphY;      // stacked: Y offset of glyph row
     int batteryPercentX;    // stacked: X offset of % text row
@@ -195,10 +94,6 @@ void LoadSettings() {
     if (g_settings.clockLineSpacing < 0)  g_settings.clockLineSpacing = 0;
     if (g_settings.clockLineSpacing > 20) g_settings.clockLineSpacing = 20;
     auto clampOffset = [](int v) { return v < -20 ? -20 : v > 20 ? 20 : v; };
-    g_settings.wifiX           = clampOffset(Wh_GetIntSetting(L"wifiX"));
-    g_settings.wifiY           = clampOffset(Wh_GetIntSetting(L"wifiY"));
-    g_settings.volumeX         = clampOffset(Wh_GetIntSetting(L"volumeX"));
-    g_settings.volumeY         = clampOffset(Wh_GetIntSetting(L"volumeY"));
     g_settings.batteryGlyphX   = clampOffset(Wh_GetIntSetting(L"batteryGlyphX"));
     g_settings.batteryGlyphY   = clampOffset(Wh_GetIntSetting(L"batteryGlyphY"));
     g_settings.batteryPercentX = clampOffset(Wh_GetIntSetting(L"batteryPercentX"));
@@ -218,9 +113,7 @@ static const CLSID CLSID_OmniButtonTAP =
 
 static StackPanel       g_omniStackPanel{ nullptr };
 static FrameworkElement g_omniButton{ nullptr };
-static FrameworkElement g_wifiPresenter{ nullptr };     // slot 0
-static FrameworkElement g_volumePresenter{ nullptr };   // slot 1
-static FrameworkElement g_batteryPresenter{ nullptr };  // slot 2
+static FrameworkElement g_batteryPresenter{ nullptr };
 static StackPanel       g_batteryInnerPanel{ nullptr }; // inner panel flipped to Vertical for 4th row
 
 static StackPanel       g_clockDayDatePanel{ nullptr };
@@ -497,8 +390,6 @@ static void ApplyLayout(StackPanel const& sp) {
                 child.HorizontalAlignment(HorizontalAlignment::Center);
                 auto cp = child.try_as<ContentPresenter>();
                 if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                if (i == 0) { g_wifiPresenter   = child; ApplyOffset(child, g_settings.wifiX,   g_settings.wifiY);   }
-                if (i == 1) { g_volumePresenter  = child; ApplyOffset(child, g_settings.volumeX, g_settings.volumeY); }
             }
         }
     }
@@ -725,13 +616,7 @@ private:
                     if (parent) {
                         auto parentSP = parent.try_as<StackPanel>();
                         if (parentSP && parentSP == g_omniStackPanel) {
-                            // Find slot index to identify wifi(0)/volume(1)/battery(2).
-                            int slotIdx = -1;
-                            int nc = VisualTreeHelper::GetChildrenCount(parentSP);
-                            for (int j = 0; j < nc; j++) {
-                                if (VisualTreeHelper::GetChild(parentSP, j) == fe) { slotIdx = j; break; }
-                            }
-
+                            // Detect battery slot — use cached presenter or scan.
                             bool isBattery = (g_batteryPresenter && fe == g_batteryPresenter)
                                           || (!g_batteryPresenter && HasBatteryDescendant(fe));
                             if (isBattery && !g_batteryPresenter) g_batteryPresenter = fe;
@@ -750,8 +635,6 @@ private:
                             } else {
                                 fe.Width(32.0);
                                 fe.Height(28.0);
-                                if (slotIdx == 0) { g_wifiPresenter   = fe; ApplyOffset(fe, g_settings.wifiX,   g_settings.wifiY);   }
-                                if (slotIdx == 1) { g_volumePresenter  = fe; ApplyOffset(fe, g_settings.volumeX, g_settings.volumeY); }
                             }
                             Wh_Log(L"[Layout] Sized new OmniButton child: %s battery=%d mode=%d",
                                    winrt::get_class_name(fe).c_str(),
@@ -906,7 +789,7 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.49.0");
+    Wh_Log(L"[Init] Vertical OmniButton v1.48.0");
     // If restartExplorer is already true when we load, "consume" it so the first
     // settings save doesn't immediately re-fire.  After 30 s the user can save
     // again to trigger a fresh restart without having to toggle the setting off first.
@@ -967,8 +850,6 @@ void Wh_ModUninit() {
 
     auto sp      = g_omniStackPanel;
     auto btn     = g_omniButton;
-    auto wifi    = g_wifiPresenter;
-    auto vol     = g_volumePresenter;
     auto bp      = g_batteryPresenter;
     auto bip     = g_batteryInnerPanel;
     auto cdp     = g_clockDayDatePanel;
@@ -976,8 +857,6 @@ void Wh_ModUninit() {
     auto dateTB  = g_clockDateTextBlock;
     g_omniStackPanel     = nullptr;
     g_omniButton         = nullptr;
-    g_wifiPresenter      = nullptr;
-    g_volumePresenter    = nullptr;
     g_batteryPresenter   = nullptr;
     g_batteryInnerPanel  = nullptr;
     g_clockDayDatePanel  = nullptr;
@@ -986,7 +865,7 @@ void Wh_ModUninit() {
     g_clockDateTextBlock = nullptr;
 
     // Helper lambda that does the actual XAML restoration.
-    auto doCleanup = [sp, btn, wifi, vol, bp, bip, cdp, timeTB, dateTB]() {
+    auto doCleanup = [sp, btn, bp, bip, cdp, timeTB, dateTB]() {
         try {
             if (sp) {
                 sp.ClearValue(StackPanel::OrientationProperty());
@@ -1016,8 +895,6 @@ void Wh_ModUninit() {
                 }
             }
         } catch (...) {}
-        try { if (wifi) wifi.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
-        try { if (vol)  vol.ClearValue(UIElement::RenderTransformProperty());  } catch (...) {}
         try {
             if (bp) {
                 bp.ClearValue(FrameworkElement::HeightProperty());
@@ -1036,7 +913,6 @@ void Wh_ModUninit() {
                         fe.ClearValue(FrameworkElement::HeightProperty());
                         fe.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
                         fe.ClearValue(FrameworkElement::MarginProperty());
-                        fe.ClearValue(UIElement::RenderTransformProperty());
                     }
                 }
             }
@@ -1169,8 +1045,6 @@ void Wh_ModSettingsChanged() {
                                     child.HorizontalAlignment(HorizontalAlignment::Center);
                                     auto cp = child.try_as<ContentPresenter>();
                                     if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                                    if (i == 0) ApplyOffset(child, g_settings.wifiX,   g_settings.wifiY);
-                                    if (i == 1) ApplyOffset(child, g_settings.volumeX, g_settings.volumeY);
                                 }
                             }
                         }
@@ -1233,7 +1107,6 @@ void Wh_ModSettingsChanged() {
                                     child.ClearValue(FrameworkElement::WidthProperty());
                                     child.ClearValue(FrameworkElement::HeightProperty());
                                     child.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                                    child.ClearValue(UIElement::RenderTransformProperty());
                                     auto cp = child.try_as<ContentPresenter>();
                                     if (cp) cp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
                                 }

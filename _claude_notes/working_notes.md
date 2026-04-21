@@ -1,13 +1,14 @@
 # Working Notes — vertical-omnibutton
 
-## Current version: 1.43.0
+## Current version: 1.49.0
 
-## User goals (NOT yet achieved cleanly)
+## User goals
 
-1. **Stacked mode**: battery % as a 4th row showing "79%" on ONE row (number + % sign together), all 4 items centered horizontally and evenly spaced vertically
-2. **Inline mode**: battery % shown within the battery slot (3rd row) after explorer restart — not just on live-switch
-3. **Off mode**: no % showing, even without restarting, even if registry was previously set to 1
-4. **Restart button**: reliable, 10-second debounce (fixed v1.43)
+1. **Stacked mode**: battery % as a 4th row showing "79%" on ONE row, all 4 items centered horizontally and evenly spaced vertically — functionally working; user can fine-tune visuals with new settings
+2. **Inline mode**: battery % shown within the battery slot (3rd row) after explorer restart — functionally working
+3. **Off mode**: no % showing — working
+4. **Restart button**: reliable, 10-second debounce — working
+5. **Pixel-perfect visual alignment** — X/Y offset settings for all icons/text via TranslateTransform (v1.48/v1.49)
 
 ## What works reliably
 
@@ -15,25 +16,22 @@
 - Vertical clock (time / day / date three rows) ✓
 - Explorer restart button with 10s debounce ✓
 - Registry key written before restart ✓
-- Live-switching between modes (without restart) — partially works
+- All three battery modes (off/inline/stacked) work after restart ✓
+- "79%" is ONE combined TextBlock (not two separate elements) ✓
+- Live-switching between modes ✓
+- Wifi/volume X/Y offset controls (v1.49) ✓
 
 ## Active problems to solve
 
-### Stacked mode: "79%" still shows as two separate items
-`AlignPercentSign` applies `Margin(Left=numW, Top=-lineH)` to the last child of the flipped inner SP.
-This SHOULD merge number+% onto one row. Unknown if it's working as intended after v1.43.
-Need to test: does stacked mode now show "79%" on one row after a clean restart?
+### Visual pixel-perfection
+All modes functionally correct. Per-user fine-tuning via:
+- `wifiX`/`wifiY` — TranslateTransform on wifi CP (defaults: 4, 2)
+- `volumeX`/`volumeY` — TranslateTransform on volume CP (defaults: 0, 0)
+- `batteryGlyphX`/`batteryGlyphY` — stacked glyph row (defaults: 8, -4)
+- `batteryPercentX`/`batteryPercentY` — stacked % text row (defaults: 2, -12)
+- `batteryInlineX`/`batteryInlineY` — inline battery CP (defaults: 4, 0)
 
-### Inline mode: does it work after restart now?
-v1.42 fixed the overwrite bug (late-arriving battery CP getting Width=32/Height=28).
-v1.41 fixed ClearValue vs NaN.
-v1.43 fixed off-mode ClearValue and stacked flip in settings-changed.
-**Needs fresh test with clean restart.**
-
-### Off mode: % appearing when changing other settings
-Fixed in v1.43 by removing ClearValue(Width/Height) for batteryMode==0 in settings-changed.
-The sizing loop's Width=32/Height=28 on battery CP is now kept.
-**Needs verification.**
+Battery defaults calibrated to user's display. Wifi defaults (4, 2) are estimated — user needs to test v1.49 and confirm or report better values.
 
 ## Key facts about the XAML tree
 

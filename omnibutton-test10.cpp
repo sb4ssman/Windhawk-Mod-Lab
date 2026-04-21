@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.49.0
+// @version         1.44.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button
 // @include         explorer.exe
@@ -35,11 +35,6 @@ Enable **debug logging** to trace which XAML elements are being checked.
 - **Enable vertical arrangement** — master toggle for wifi/volume/battery icons
 - **Icon spacing** — extra vertical pixels between each icon (default 8)
 - **Battery percentage** — Off / Inline (% in battery slot, 3rd row) / Stacked (% as separate 4th row). Inline and Stacked enable Windows native battery % — requires restarting explorer.exe.
-- **Wifi X / Y** — pixel offset applied to the wifi icon from its natural position; negative X moves left, negative Y moves up
-- **Volume X / Y** — pixel offset applied to the volume icon from its natural position
-- **Battery glyph X / Y** — (stacked mode) pixel offset applied to the battery icon row from its natural position
-- **Battery percent X / Y** — (stacked mode) pixel offset applied to the "79%" row from its natural position
-- **Battery inline X / Y** — (inline mode) pixel offset applied to the entire battery slot from its natural position
 - **Vertical clock** — splits clock into three rows: time / day / date
 - **Clock row spacing** — extra vertical space between clock rows
 - **Clock alignment** — Left / Center / Right (only applies when vertical clock is enabled)
@@ -79,36 +74,6 @@ Enable **debug logging** to trace which XAML elements are being checked.
     - "left": "Left"
     - "center": "Center"
     - "right": "Right"
-- wifiX: 4
-  $name: Wifi X offset
-  $description: "Horizontal pixel offset for the wifi icon. Negative = left, positive = right. Default: 4."
-- wifiY: 2
-  $name: Wifi Y offset
-  $description: "Vertical pixel offset for the wifi icon. Negative = up, positive = down. Default: 2."
-- volumeX: 0
-  $name: Volume X offset
-  $description: "Horizontal pixel offset for the volume icon. Negative = left, positive = right. Default: 0."
-- volumeY: 0
-  $name: Volume Y offset
-  $description: "Vertical pixel offset for the volume icon. Negative = up, positive = down. Default: 0."
-- batteryGlyphX: 8
-  $name: Battery glyph X offset (stacked)
-  $description: "Horizontal pixel offset for the battery icon row in stacked mode. Negative = left, positive = right. Default: 8."
-- batteryGlyphY: -4
-  $name: Battery glyph Y offset (stacked)
-  $description: "Vertical pixel offset for the battery icon row in stacked mode. Negative = up, positive = down. Default: -4."
-- batteryPercentX: 2
-  $name: Battery percent X offset (stacked)
-  $description: "Horizontal pixel offset for the '79%' row in stacked mode. Negative = left, positive = right. Default: 2."
-- batteryPercentY: -12
-  $name: Battery percent Y offset (stacked)
-  $description: "Vertical pixel offset for the '79%' row in stacked mode. Negative = up, positive = down. Default: -12."
-- batteryInlineX: 4
-  $name: Battery inline X offset (inline)
-  $description: "Horizontal pixel offset for the battery slot in inline mode. Negative = left, positive = right. Default: 4."
-- batteryInlineY: 0
-  $name: Battery inline Y offset (inline)
-  $description: "Vertical pixel offset for the battery slot in inline mode. Negative = up, positive = down. Default: 0."
 - debugLogging: false
   $name: Enable debug logging
   $description: Log XAML element types as they are added to the visual tree
@@ -142,20 +107,10 @@ using namespace winrt::Windows::UI::Xaml::Media;
 struct {
     bool enableVertical;
     bool verticalClock;
-    int batteryMode;        // 0=off, 1=inline (3rd row), 2=stacked (4th row)
-    int iconSpacing;        // extra px between icons in the vertical stack
-    int clockAlignment;     // 0=Left 1=Center 2=Right
-    int clockLineSpacing;   // uniform spacing for all three clock rows
-    int wifiX;              // X offset of wifi CP (slot 0)
-    int wifiY;              // Y offset of wifi CP
-    int volumeX;            // X offset of volume CP (slot 1)
-    int volumeY;            // Y offset of volume CP
-    int batteryGlyphX;      // stacked: X offset of glyph row (TranslateTransform)
-    int batteryGlyphY;      // stacked: Y offset of glyph row
-    int batteryPercentX;    // stacked: X offset of % text row
-    int batteryPercentY;    // stacked: Y offset of % text row
-    int batteryInlineX;     // inline: X offset of battery CP
-    int batteryInlineY;     // inline: Y offset of battery CP
+    int batteryMode;      // 0=off, 1=inline (3rd row), 2=stacked (4th row)
+    int iconSpacing;      // extra px between icons in the vertical stack
+    int clockAlignment;   // 0=Left 1=Center 2=Right
+    int clockLineSpacing; // uniform spacing for all three clock rows
     bool debugLogging;
 } g_settings;
 
@@ -194,17 +149,6 @@ void LoadSettings() {
     g_settings.clockLineSpacing   = Wh_GetIntSetting(L"clockLineSpacing");
     if (g_settings.clockLineSpacing < 0)  g_settings.clockLineSpacing = 0;
     if (g_settings.clockLineSpacing > 20) g_settings.clockLineSpacing = 20;
-    auto clampOffset = [](int v) { return v < -20 ? -20 : v > 20 ? 20 : v; };
-    g_settings.wifiX           = clampOffset(Wh_GetIntSetting(L"wifiX"));
-    g_settings.wifiY           = clampOffset(Wh_GetIntSetting(L"wifiY"));
-    g_settings.volumeX         = clampOffset(Wh_GetIntSetting(L"volumeX"));
-    g_settings.volumeY         = clampOffset(Wh_GetIntSetting(L"volumeY"));
-    g_settings.batteryGlyphX   = clampOffset(Wh_GetIntSetting(L"batteryGlyphX"));
-    g_settings.batteryGlyphY   = clampOffset(Wh_GetIntSetting(L"batteryGlyphY"));
-    g_settings.batteryPercentX = clampOffset(Wh_GetIntSetting(L"batteryPercentX"));
-    g_settings.batteryPercentY = clampOffset(Wh_GetIntSetting(L"batteryPercentY"));
-    g_settings.batteryInlineX  = clampOffset(Wh_GetIntSetting(L"batteryInlineX"));
-    g_settings.batteryInlineY  = clampOffset(Wh_GetIntSetting(L"batteryInlineY"));
     g_settings.debugLogging       = Wh_GetIntSetting(L"debugLogging") != 0;
 }
 
@@ -218,9 +162,7 @@ static const CLSID CLSID_OmniButtonTAP =
 
 static StackPanel       g_omniStackPanel{ nullptr };
 static FrameworkElement g_omniButton{ nullptr };
-static FrameworkElement g_wifiPresenter{ nullptr };     // slot 0
-static FrameworkElement g_volumePresenter{ nullptr };   // slot 1
-static FrameworkElement g_batteryPresenter{ nullptr };  // slot 2
+static FrameworkElement g_batteryPresenter{ nullptr };
 static StackPanel       g_batteryInnerPanel{ nullptr }; // inner panel flipped to Vertical for 4th row
 
 static StackPanel       g_clockDayDatePanel{ nullptr };
@@ -297,40 +239,6 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
 static void FlipBatteryLayout(FrameworkElement const& batteryCP) {
     if (!WalkBatteryTree(batteryCP, 0))
         Wh_Log(L"[Battery4] No horizontal StackPanel found — enable debug logging to see tree");
-}
-
-static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
-    if (x != 0 || y != 0) {
-        TranslateTransform tt;
-        tt.X(static_cast<double>(x));
-        tt.Y(static_cast<double>(y));
-        fe.RenderTransform(tt);
-    } else {
-        fe.ClearValue(UIElement::RenderTransformProperty());
-    }
-}
-
-// After flipping the battery inner StackPanel to Vertical, center each row and
-// apply the user's X/Y offsets via TranslateTransform (post-layout, non-destructive).
-static void SizeStackedBatteryRows(StackPanel const& innerSP) {
-    int n = VisualTreeHelper::GetChildrenCount(innerSP);
-    if (n >= 1) {
-        auto glyph = VisualTreeHelper::GetChild(innerSP, 0).try_as<FrameworkElement>();
-        if (glyph) {
-            glyph.Width(32.0);
-            glyph.Height(28.0);
-            glyph.HorizontalAlignment(HorizontalAlignment::Center);
-            ApplyOffset(glyph, g_settings.batteryGlyphX, g_settings.batteryGlyphY);
-        }
-    }
-    if (n >= 2) {
-        auto text = VisualTreeHelper::GetChild(innerSP, 1).try_as<FrameworkElement>();
-        if (text) {
-            text.HorizontalAlignment(HorizontalAlignment::Center);
-            text.ClearValue(FrameworkElement::MarginProperty());
-            ApplyOffset(text, g_settings.batteryPercentX, g_settings.batteryPercentY);
-        }
-    }
 }
 
 // Walk DOWN from node and set Height = NaN (XAML "Auto") on every FrameworkElement.
@@ -497,8 +405,6 @@ static void ApplyLayout(StackPanel const& sp) {
                 child.HorizontalAlignment(HorizontalAlignment::Center);
                 auto cp = child.try_as<ContentPresenter>();
                 if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                if (i == 0) { g_wifiPresenter   = child; ApplyOffset(child, g_settings.wifiX,   g_settings.wifiY);   }
-                if (i == 1) { g_volumePresenter  = child; ApplyOffset(child, g_settings.volumeX, g_settings.volumeY); }
             }
         }
     }
@@ -513,20 +419,21 @@ static void ApplyLayout(StackPanel const& sp) {
                 g_batteryPresenter = child;
                 Wh_Log(L"[Battery] Battery slot at index %d (mode=%d)", i, g_settings.batteryMode);
                 if (g_settings.batteryMode == 1) {
-                    // Inline: same height as other slots; width auto to fit glyph+text.
+                    // Inline: force auto-size using NaN as a local value.
+                    // ClearValue would revert to the template value (likely 28px),
+                    // NOT to unconstrained — same reason ClearHeightDescendants uses NaN.
                     child.Width(std::numeric_limits<double>::quiet_NaN());
-                    child.Height(28.0);
-                    ApplyOffset(child, g_settings.batteryInlineX, g_settings.batteryInlineY);
+                    child.Height(std::numeric_limits<double>::quiet_NaN());
                 } else if (g_settings.batteryMode == 2) {
-                    // Stacked: width auto (% text can exceed 32px); height auto for both rows.
+                    // Same: NaN forces unconstrained width rather than template default.
                     child.Width(std::numeric_limits<double>::quiet_NaN());
-                    // NaN every height in the subtree so the CP can grow past 28px.
+                    // Free height on the entire battery subtree FIRST (unconditionally),
+                    // before and regardless of whether the inner panel flip succeeds.
+                    // The inner StackPanel may arrive in a later Add callback.
                     ClearHeightDescendants(child);
                     FlipBatteryLayout(child);
-                    if (g_batteryInnerPanel) {
+                    if (g_batteryInnerPanel)
                         g_batteryInnerPanel.Spacing(0.0);
-                        SizeStackedBatteryRows(g_batteryInnerPanel);
-                    }
                 }
                 break;
             }
@@ -702,12 +609,10 @@ private:
                             g_batteryPresenter = directChild;
                             Wh_Log(L"[Battery4] Battery presenter inferred via deferred walk");
                         }
-                        g_batteryPresenter.Width(std::numeric_limits<double>::quiet_NaN());
                         sp.Orientation(Orientation::Vertical);
                         g_batteryInnerPanel = sp;
                         ClearHeightDescendants(g_batteryPresenter);
                         sp.Spacing(0.0);
-                        SizeStackedBatteryRows(sp);
                         FreeOmniButtonHeight();
                         Wh_Log(L"[Battery4] Deferred flip of battery inner StackPanel");
                     }
@@ -725,13 +630,7 @@ private:
                     if (parent) {
                         auto parentSP = parent.try_as<StackPanel>();
                         if (parentSP && parentSP == g_omniStackPanel) {
-                            // Find slot index to identify wifi(0)/volume(1)/battery(2).
-                            int slotIdx = -1;
-                            int nc = VisualTreeHelper::GetChildrenCount(parentSP);
-                            for (int j = 0; j < nc; j++) {
-                                if (VisualTreeHelper::GetChild(parentSP, j) == fe) { slotIdx = j; break; }
-                            }
-
+                            // Detect battery slot — use cached presenter or scan.
                             bool isBattery = (g_batteryPresenter && fe == g_batteryPresenter)
                                           || (!g_batteryPresenter && HasBatteryDescendant(fe));
                             if (isBattery && !g_batteryPresenter) g_batteryPresenter = fe;
@@ -740,18 +639,15 @@ private:
                             auto cp = fe.try_as<ContentPresenter>();
                             if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
 
-                            if (isBattery && g_settings.batteryMode == 1) {
-                                fe.Width(std::numeric_limits<double>::quiet_NaN());
-                                fe.Height(28.0);
-                                ApplyOffset(fe, g_settings.batteryInlineX, g_settings.batteryInlineY);
-                            } else if (isBattery && g_settings.batteryMode == 2) {
+                            if (isBattery && g_settings.batteryMode != 0) {
+                                // Inline or stacked: battery CP must auto-size.
+                                // Setting Width=32/Height=28 here would override the NaN
+                                // applied in ApplyLayout and prevent % from rendering.
                                 fe.Width(std::numeric_limits<double>::quiet_NaN());
                                 fe.Height(std::numeric_limits<double>::quiet_NaN());
                             } else {
                                 fe.Width(32.0);
                                 fe.Height(28.0);
-                                if (slotIdx == 0) { g_wifiPresenter   = fe; ApplyOffset(fe, g_settings.wifiX,   g_settings.wifiY);   }
-                                if (slotIdx == 1) { g_volumePresenter  = fe; ApplyOffset(fe, g_settings.volumeX, g_settings.volumeY); }
                             }
                             Wh_Log(L"[Layout] Sized new OmniButton child: %s battery=%d mode=%d",
                                    winrt::get_class_name(fe).c_str(),
@@ -906,7 +802,7 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.49.0");
+    Wh_Log(L"[Init] Vertical OmniButton v1.43.0");
     // If restartExplorer is already true when we load, "consume" it so the first
     // settings save doesn't immediately re-fire.  After 30 s the user can save
     // again to trigger a fresh restart without having to toggle the setting off first.
@@ -967,8 +863,6 @@ void Wh_ModUninit() {
 
     auto sp      = g_omniStackPanel;
     auto btn     = g_omniButton;
-    auto wifi    = g_wifiPresenter;
-    auto vol     = g_volumePresenter;
     auto bp      = g_batteryPresenter;
     auto bip     = g_batteryInnerPanel;
     auto cdp     = g_clockDayDatePanel;
@@ -976,8 +870,6 @@ void Wh_ModUninit() {
     auto dateTB  = g_clockDateTextBlock;
     g_omniStackPanel     = nullptr;
     g_omniButton         = nullptr;
-    g_wifiPresenter      = nullptr;
-    g_volumePresenter    = nullptr;
     g_batteryPresenter   = nullptr;
     g_batteryInnerPanel  = nullptr;
     g_clockDayDatePanel  = nullptr;
@@ -986,7 +878,7 @@ void Wh_ModUninit() {
     g_clockDateTextBlock = nullptr;
 
     // Helper lambda that does the actual XAML restoration.
-    auto doCleanup = [sp, btn, wifi, vol, bp, bip, cdp, timeTB, dateTB]() {
+    auto doCleanup = [sp, btn, bp, bip, cdp, timeTB, dateTB]() {
         try {
             if (sp) {
                 sp.ClearValue(StackPanel::OrientationProperty());
@@ -1016,31 +908,8 @@ void Wh_ModUninit() {
                 }
             }
         } catch (...) {}
-        try { if (wifi) wifi.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
-        try { if (vol)  vol.ClearValue(UIElement::RenderTransformProperty());  } catch (...) {}
-        try {
-            if (bp) {
-                bp.ClearValue(FrameworkElement::HeightProperty());
-                bp.ClearValue(UIElement::RenderTransformProperty());
-            }
-        } catch (...) {}
-        try {
-            if (bip) {
-                bip.ClearValue(StackPanel::OrientationProperty());
-                bip.ClearValue(StackPanel::SpacingProperty());
-                int bipN = VisualTreeHelper::GetChildrenCount(bip);
-                for (int i = 0; i < bipN; i++) {
-                    auto fe = VisualTreeHelper::GetChild(bip, i).try_as<FrameworkElement>();
-                    if (fe) {
-                        fe.ClearValue(FrameworkElement::WidthProperty());
-                        fe.ClearValue(FrameworkElement::HeightProperty());
-                        fe.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                        fe.ClearValue(FrameworkElement::MarginProperty());
-                        fe.ClearValue(UIElement::RenderTransformProperty());
-                    }
-                }
-            }
-        } catch (...) {}
+        try { if (bp)  bp.ClearValue(FrameworkElement::HeightProperty()); } catch (...) {}
+        try { if (bip) { bip.ClearValue(StackPanel::OrientationProperty()); bip.ClearValue(StackPanel::SpacingProperty()); } } catch (...) {}
         try { if (cdp) cdp.ClearValue(StackPanel::SpacingProperty()); } catch (...) {}
         try {
             if (timeTB) {
@@ -1169,8 +1038,6 @@ void Wh_ModSettingsChanged() {
                                     child.HorizontalAlignment(HorizontalAlignment::Center);
                                     auto cp = child.try_as<ContentPresenter>();
                                     if (cp) cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                                    if (i == 0) ApplyOffset(child, g_settings.wifiX,   g_settings.wifiY);
-                                    if (i == 1) ApplyOffset(child, g_settings.volumeX, g_settings.volumeY);
                                 }
                             }
                         }
@@ -1188,21 +1055,21 @@ void Wh_ModSettingsChanged() {
                         }
                         if (bp) {
                             if (batteryMode == 1) {
+                                // NaN forces auto-size (ClearValue reverts to template, not unconstrained).
                                 bp.Width(std::numeric_limits<double>::quiet_NaN());
-                                bp.Height(28.0);
-                                ApplyOffset(bp, g_settings.batteryInlineX, g_settings.batteryInlineY);
+                                bp.Height(std::numeric_limits<double>::quiet_NaN());
                             } else if (batteryMode == 2) {
                                 bp.Width(std::numeric_limits<double>::quiet_NaN());
                                 ClearHeightDescendants(bp);
+                                // Flip inner SP if not done yet (e.g. switching from off to stacked
+                                // without restarting — ApplyLayout never got to flip it).
                                 if (!g_batteryInnerPanel) {
                                     FlipBatteryLayout(bp);
                                     bip = g_batteryInnerPanel;
                                 }
                                 auto innerPanel = g_batteryInnerPanel;
-                                if (innerPanel) {
+                                if (innerPanel)
                                     innerPanel.Spacing(0.0);
-                                    SizeStackedBatteryRows(innerPanel);
-                                }
                             }
                             // batteryMode==0: sizing loop above already applied Width=32/Height=28.
                             // Do NOT ClearValue here — that would let the template render % elements
@@ -1211,15 +1078,6 @@ void Wh_ModSettingsChanged() {
                         if (bip && batteryMode != 2) {
                             bip.ClearValue(StackPanel::OrientationProperty());
                             bip.ClearValue(StackPanel::SpacingProperty());
-                            int bipN = VisualTreeHelper::GetChildrenCount(bip);
-                            for (int i = 0; i < bipN; i++) {
-                                auto fe = VisualTreeHelper::GetChild(bip, i).try_as<FrameworkElement>();
-                                if (fe) {
-                                    fe.ClearValue(FrameworkElement::HeightProperty());
-                                    fe.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                                    fe.ClearValue(FrameworkElement::MarginProperty());
-                                }
-                            }
                         }
                     } else {
                         sp.ClearValue(StackPanel::OrientationProperty());
@@ -1233,7 +1091,6 @@ void Wh_ModSettingsChanged() {
                                     child.ClearValue(FrameworkElement::WidthProperty());
                                     child.ClearValue(FrameworkElement::HeightProperty());
                                     child.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                                    child.ClearValue(UIElement::RenderTransformProperty());
                                     auto cp = child.try_as<ContentPresenter>();
                                     if (cp) cp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
                                 }
@@ -1248,10 +1105,7 @@ void Wh_ModSettingsChanged() {
                             btn.ClearValue(FrameworkElement::WidthProperty());
                             RestoreOmniButtonHeight();
                         }
-                        if (bp) {
-                            bp.ClearValue(FrameworkElement::HeightProperty());
-                            bp.ClearValue(UIElement::RenderTransformProperty());
-                        }
+                        if (bp)  bp.ClearValue(FrameworkElement::HeightProperty());
                         if (bip) bip.ClearValue(StackPanel::OrientationProperty());
                     }
                 }

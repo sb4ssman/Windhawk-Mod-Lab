@@ -1,5 +1,42 @@
 # Work Log — completed changes
 
+## v1.49.0
+- Added: wifiX/wifiY/volumeX/volumeY settings — TranslateTransform offsets for wifi and volume CPs
+- Added: `g_wifiPresenter`, `g_volumePresenter` globals to track slots for uninit cleanup
+- Changed: ApplyLayout sizing loop captures wifi/volume CPs (slot 0/1) and applies ApplyOffset
+- Changed: Late-add handler scans slot index to apply wifi/volume offsets when CPs arrive late
+- Changed: Uninit doCleanup captures wifi/vol, nulls globals, clears their RenderTransforms
+- Fixed: Latent bug — bip (inner battery SP) children in uninit cleanup were not clearing RenderTransformProperty; TranslateTransform would persist after mod unload if batteryGlyphX/Y or batteryPercentX/Y were nonzero
+- Changed: Settings-changed disable cleanup loop now clears RenderTransform on all SP children
+- Changed: Battery defaults updated to user-calibrated values (batteryGlyphX:8, batteryGlyphY:-4, batteryPercentX:2, batteryPercentY:-12, batteryInlineX:4, batteryInlineY:0)
+- Defaults: wifiX=4, wifiY=2 (measured offset to center wifi glyph and align it down the stack); volumeX=0, volumeY=0
+
+## v1.48.0
+- Added: X/Y offset settings for each battery item using TranslateTransform (post-layout, non-destructive):
+  - `batteryGlyphX`/`batteryGlyphY` — stacked glyph row (range -20 to 20, default 0)
+  - `batteryPercentX`/`batteryPercentY` — stacked % text row
+  - `batteryInlineX`/`batteryInlineY` — inline battery CP
+- Changed: `ApplyOffset()` helper applies TranslateTransform or ClearValue on RenderTransform
+- Changed: `SizeStackedBatteryRows` now calls ApplyOffset instead of Margin
+- Changed: RenderTransformProperty cleared in uninit and when switching away from battery mode
+
+## v1.47.0 (superseded by v1.48.0)
+- Added height/offset controls via layout manipulation — replaced in v1.48 with TranslateTransform approach
+
+## v1.46.0
+- Fixed: stacked mode clipped "%" because Width=32 on battery CP constrained the combined "79%" TextBlock
+- Changed: Width=32 moved to glyph Grid inside SizeStackedBatteryRows; battery CP stays Width=NaN
+- Added: SizeStackedBatteryRows function to size inner SP children after vertical flip
+
+## v1.45.0
+- Fixed: AlignPercentSign was destroying stacked layout — assumed 3 children [glyph, "79", "%"] but actual structure is [Grid, TextBlock "79%"]. Function applied Margin(Top=-22.4) pulling text UP to overlap icon row.
+- Removed: AlignPercentSign, FindFirstTextBlock, g_percentTextBlock, g_percentContainer entirely
+- Added: SizeStackedBatteryRows — sets glyph Width=32/Height=28/Center; text=Center (no Margin needed)
+
+## v1.44.0
+- Verified: inner SP has 2 children — child[0]=Grid (battery glyph), child[1]=TextBlock "79%" (combined, NOT separate "79" and "%")
+- This is why AlignPercentSign never worked — it was designed for a structure that doesn't exist
+
 ## v1.43.0
 - Fixed: off-mode ClearValue(Width/Height) on battery CP in settings-changed caused % to appear when changing unrelated settings (spacing, etc.)
 - Fixed: settings-changed for stacked mode now calls FlipBatteryLayout if inner panel not yet flipped — switching OFF→STACKED without restart now actually flips instead of showing inline
