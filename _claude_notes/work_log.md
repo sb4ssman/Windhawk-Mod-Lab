@@ -1,5 +1,31 @@
 # Work Log — completed changes
 
+## v1.51.0 (final calibration)
+- Added: `batteryOffX`/`batteryOffY` — battery icon offset in Off mode (was the only icon without its own offset)
+- Added: `batteryInlinePercentX`/`batteryInlinePercentY` — offset for the % text element within the inline battery slot, separate from `batteryInlineX/Y` which moves the whole CP
+- Added: `WalkFindInlinePercent()` helper — walks battery CP subtree to find inner SP child[1] without flipping orientation
+- Added: `g_batteryInlinePercentFE` global to track inline % element for uninit cleanup
+- Changed: ApplyLayout mode==0 battery path now calls ApplyOffset with batteryOffX/Y
+- Changed: ApplyLayout mode==1 battery path now calls WalkFindInlinePercent after sizing
+- Changed: late-add handler mode==0 battery now applies batteryOffX/Y
+- Changed: late-add handler mode==1 battery now calls WalkFindInlinePercent
+- Changed: settings-changed mode==0 battery path now applies batteryOffX/Y
+- Changed: settings-changed mode==1 battery path now applies inline percent offset (re-walks if not yet found)
+- Changed: uninit captures and clears g_batteryInlinePercentFE RenderTransform
+- Fixed: WalkFindInlinePercent was placed before ApplyOffset in source — moved after so ApplyOffset is declared first (compile error fix)
+- Changed: defaults updated to user-calibrated values — batteryMode:"stacked", wifiOffX:-2, batteryOffX:2, wifiInlineX:-2, batteryInlineX:2, wifiStackedY:7, batteryPercentY:-11
+
+## v1.50.0
+- Removed: `iconSpacing` setting — superfluous, hardcoded to 0
+- Changed: per-mode wifi/volume offsets — `wifiX/Y`/`volumeX/Y` replaced with `wifiOffX/Y`, `wifiInlineX/Y`, `wifiStackedX/Y`, `volumeOffX/Y`, `volumeInlineX/Y`, `volumeStackedX/Y`
+- Added: `WifiX()`/`WifiY()`/`VolumeX()`/`VolumeY()` mode-dispatch helpers
+- Added: `$if` conditionals on all offset settings — only the settings for the active battery mode are shown in the Windhawk UI
+- Changed: batteryMode description reformatted — 3 lines (one per option) plus restart disclaimer
+- Added: Related mods section in readme (taskbar height, clock customization, taskbar styler, tray reorder)
+- Added: Screenshots section in readme (placeholder with raw GitHub URL format)
+- Fixed: debounce comment in Wh_ModSettingsChanged still said "30 s" — corrected to 10 s
+- Changed: stacked battery defaults updated to user's calibrated values (batteryGlyphY:-6, wifiStackedX:-2, wifiStackedY:8)
+
 ## v1.49.0
 - Added: wifiX/wifiY/volumeX/volumeY settings — TranslateTransform offsets for wifi and volume CPs
 - Added: `g_wifiPresenter`, `g_volumePresenter` globals to track slots for uninit cleanup

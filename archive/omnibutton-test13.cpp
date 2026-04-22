@@ -67,7 +67,7 @@ These pair well with Vertical OmniButton on a customized taskbar:
 - enableVertical: true
   $name: Enable vertical arrangement
   $description: Enable/disable vertical stacking of wifi, volume, and battery icons
-- batteryMode: "stacked"
+- batteryMode: "off"
   $name: Battery percentage
   $description: "Off: battery icon only.\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon.\nAll three modes require restarting explorer.exe after changing."
   $options:
@@ -87,7 +87,7 @@ These pair well with Vertical OmniButton on a customized taskbar:
     - "left": "Left"
     - "center": "Center"
     - "right": "Right"
-- wifiOffX: -2
+- wifiOffX: 0
   $name: "Off mode: Wifi X"
   $description: "Wifi horizontal offset when battery % is Off. Negative = left, positive = right."
 - wifiOffY: 0
@@ -99,13 +99,13 @@ These pair well with Vertical OmniButton on a customized taskbar:
 - volumeOffY: 0
   $name: "Off mode: Volume Y"
   $description: "Volume vertical offset when battery % is Off. Negative = up, positive = down."
-- batteryOffX: 2
+- batteryOffX: 0
   $name: "Off mode: Battery X"
   $description: "Battery icon horizontal offset when battery % is Off. Negative = left, positive = right."
 - batteryOffY: 0
   $name: "Off mode: Battery Y"
   $description: "Battery icon vertical offset when battery % is Off. Negative = up, positive = down."
-- wifiInlineX: -2
+- wifiInlineX: 0
   $name: "Inline mode: Wifi X"
   $description: "Wifi horizontal offset in Inline mode. Negative = left, positive = right."
 - wifiInlineY: 0
@@ -117,12 +117,12 @@ These pair well with Vertical OmniButton on a customized taskbar:
 - volumeInlineY: 0
   $name: "Inline mode: Volume Y"
   $description: "Volume vertical offset in Inline mode. Negative = up, positive = down."
-- batteryInlineX: 2
+- batteryInlineX: 4
   $name: "Inline mode: Battery X"
-  $description: "Battery slot horizontal offset in Inline mode. Negative = left, positive = right. Default: 2."
+  $description: "Battery slot horizontal offset in Inline mode. Negative = left, positive = right. Default: 4."
 - batteryInlineY: 0
   $name: "Inline mode: Battery Y"
-  $description: "Battery slot vertical offset in Inline mode. Negative = up, positive = down."
+  $description: "Battery slot vertical offset in Inline mode. Negative = up, positive = down. Default: 0."
 - batteryInlinePercentX: 0
   $name: "Inline mode: Battery percent X"
   $description: "Percentage text horizontal offset within the inline battery slot. Negative = left, positive = right."
@@ -132,7 +132,7 @@ These pair well with Vertical OmniButton on a customized taskbar:
 - wifiStackedX: -2
   $name: "Stacked mode: Wifi X"
   $description: "Wifi horizontal offset in Stacked mode. Negative = left, positive = right."
-- wifiStackedY: 7
+- wifiStackedY: 8
   $name: "Stacked mode: Wifi Y"
   $description: "Wifi vertical offset in Stacked mode. Negative = up, positive = down."
 - volumeStackedX: 0
@@ -150,9 +150,9 @@ These pair well with Vertical OmniButton on a customized taskbar:
 - batteryPercentX: 2
   $name: "Stacked mode: Battery percent X"
   $description: "Percentage row horizontal offset in Stacked mode. Negative = left, positive = right. Default: 2."
-- batteryPercentY: -11
+- batteryPercentY: -12
   $name: "Stacked mode: Battery percent Y"
-  $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -11."
+  $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -12."
 - debugLogging: false
   $name: Enable debug logging
   $description: Log XAML element types as they are added to the visual tree

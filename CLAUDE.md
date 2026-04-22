@@ -19,7 +19,7 @@ from horizontal to vertical stacking using the Windows XAML Diagnostics API.
 
 **Do not touch** `vertical-system-tray-icons.wh.cpp` — that is a different, separate mod.
 
-## Current version: 1.49.0
+## Current version: 1.51.0
 
 ## Windhawk mod basics
 

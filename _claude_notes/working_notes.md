@@ -1,6 +1,6 @@
 # Working Notes — vertical-omnibutton
 
-## Current version: 1.49.0
+## Current version: 1.51.0
 
 ## User goals
 
@@ -23,15 +23,12 @@
 
 ## Active problems to solve
 
-### Visual pixel-perfection
-All modes functionally correct. Per-user fine-tuning via:
-- `wifiX`/`wifiY` — TranslateTransform on wifi CP (defaults: 4, 2)
-- `volumeX`/`volumeY` — TranslateTransform on volume CP (defaults: 0, 0)
-- `batteryGlyphX`/`batteryGlyphY` — stacked glyph row (defaults: 8, -4)
-- `batteryPercentX`/`batteryPercentY` — stacked % text row (defaults: 2, -12)
-- `batteryInlineX`/`batteryInlineY` — inline battery CP (defaults: 4, 0)
+None. All modes and offsets are functionally complete and calibrated.
 
-Battery defaults calibrated to user's display. Wifi defaults (4, 2) are estimated — user needs to test v1.49 and confirm or report better values.
+### Calibrated defaults (user's display)
+- batteryMode: stacked, wifiOffX:-2, batteryOffX:2
+- wifiInlineX:-2, batteryInlineX:2
+- wifiStackedX:-2, wifiStackedY:7, batteryGlyphX:8, batteryGlyphY:-6, batteryPercentX:2, batteryPercentY:-11
 
 ## Key facts about the XAML tree
 
