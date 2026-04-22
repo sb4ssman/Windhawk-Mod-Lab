@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.51.0
+// @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button
 // @include         explorer.exe
@@ -15,13 +15,21 @@
 # Vertical OmniButton
 
 Rearranges the Windows 11 system tray OmniButton (wifi, volume, battery) from
-horizontal layout to clean vertical stacking.
+horizontal layout to clean vertical stacking. (With support for the clock too).
 
 ## Screenshots
 
-Add screenshots to the repo root and reference them here using raw GitHub URLs:
+**Stacked mode** — battery percentage as a 4th row below the battery icon:
 
 ![Stacked mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button/main/screenshot-stacked.png)
+
+**Inline mode** — percentage shown within the battery icon slot:
+
+![Inline mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button/main/screenshot-inline.png)
+
+**Off mode** — battery icon only, clean three-icon stack:
+
+![Off mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button/main/screenshot-off.png)
 
 ## How it works
 
@@ -32,8 +40,8 @@ and positions each icon slot according to your settings.
 
 ## Usage
 
-After enabling the mod, **restart explorer.exe** using the built-in Restart
-button in settings, or via Task Manager → Restart.
+After enabling the mod, **restart explorer.exe**! You can do so easily using the built-in Restart
+toggle in settings, or via Task Manager → Restart explorer.exe.
 
 Enable **debug logging** to trace which XAML elements are being checked.
 
@@ -49,12 +57,12 @@ Enable **debug logging** to trace which XAML elements are being checked.
 
 ## Related mods
 
-These pair well with Vertical OmniButton on a customized taskbar:
+These mods inspired this one and combine well with it for a fully customized taskbar:
 
-- [Taskbar height and icon size](https://windhawk.net/mods/taskbar-height-and-icon-size) — resize the taskbar height to fit the vertical stack
-- [Taskbar Clock Customization](https://windhawk.net/mods/taskbar-clock-customization) — additional clock display and formatting options
-- [Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler) — full XAML-level taskbar customization
-- [Taskbar Tray Icons Reorder](https://windhawk.net/mods/taskbar-tray-icons-reorder) — reorder system tray icons
+- [Taskbar height and icon size](https://windhawk.net/mods/taskbar-icon-size) — resize the taskbar to give the vertical stack room to breathe
+- [Taskbar Clock Customization](https://windhawk.net/mods/taskbar-clock-customization) — rich clock formatting options that complement the vertical layout
+- [Multirow taskbar for Windows 11](https://windhawk.net/mods/taskbar-multirow) — span taskbar items across multiple rows
+- [Taskbar tray icon spacing and grid](https://windhawk.net/mods/taskbar-notification-icon-spacing) — control spacing and grid layout of system tray icons
 
 */
 // ==/WindhawkModReadme==
