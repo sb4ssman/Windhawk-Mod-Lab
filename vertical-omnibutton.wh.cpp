@@ -4,7 +4,7 @@
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
 // @version         1.0
 // @author          sb4ssman
-// @github          https://github.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button
+// @github          https://github.com/sb4ssman/Windhawk-Vertical-OmniButton
 // @include         explorer.exe
 // @architecture    x86-64
 // @compilerOptions -lole32 -loleaut32 -lruntimeobject
@@ -14,22 +14,25 @@
 /*
 # Vertical OmniButton
 
-Rearranges the Windows 11 system tray OmniButton (wifi, volume, battery) from
-horizontal layout to clean vertical stacking. (With support for the clock too).
+Rearranges the Windows 11 system tray OmniButton (wifi, volume/sound, battery) from
+horizontal layout to clean vertical stacking. 
+
+This mod also includes support for the clock too. 
+You gain granular control over the X-Y pixel location the items. 
 
 ## Screenshots
 
 **Stacked mode** — battery percentage as a 4th row below the battery icon:
 
-![Stacked mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button/main/screenshot-stacked.png)
+![Stacked mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-stacked.png)
 
 **Inline mode** — percentage shown within the battery icon slot:
 
-![Inline mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button/main/screenshot-inline.png)
+![Inline mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-inline.png)
 
 **Off mode** — battery icon only, clean three-icon stack:
 
-![Off mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-wifi-sound-battery-button/main/screenshot-off.png)
+![Off mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-off.png)
 
 ## How it works
 
@@ -55,6 +58,12 @@ Enable **debug logging** to trace which XAML elements are being checked.
 - **Vertical clock** — splits the clock into three rows: time / day / date
 - **Debug logging** — log XAML elements as they are added to the visual tree
 
+## Windows 11 Taskbar Styler compatibility
+
+This mod works alongside [Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler).
+If you have an existing `style.yaml` or theme for the Taskbar Styler, you can continue using it — the two mods
+operate on different parts of the XAML tree and do not conflict.
+
 ## Related mods
 
 These mods inspired this one and combine well with it for a fully customized taskbar:
@@ -63,6 +72,7 @@ These mods inspired this one and combine well with it for a fully customized tas
 - [Taskbar Clock Customization](https://windhawk.net/mods/taskbar-clock-customization) — rich clock formatting options that complement the vertical layout
 - [Multirow taskbar for Windows 11](https://windhawk.net/mods/taskbar-multirow) — span taskbar items across multiple rows
 - [Taskbar tray icon spacing and grid](https://windhawk.net/mods/taskbar-notification-icon-spacing) — control spacing and grid layout of system tray icons
+- [Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler) — full XAML-level taskbar theming; existing style.yaml configs work alongside this mod
 
 */
 // ==/WindhawkModReadme==
