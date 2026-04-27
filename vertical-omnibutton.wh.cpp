@@ -88,70 +88,70 @@ These mods inspired this one and combine well with it for a fully customized tas
     - "off": "Off — battery icon only"
     - "inline": "Inline — percentage in battery slot (3rd row)"
     - "stacked": "Stacked — percentage as 4th row below battery"
-- wifiOffX: -2
+- offWifiX: -2
   $name: "Off mode: Wifi X"
   $description: "Wifi horizontal offset when battery % is Off. Negative = left, positive = right."
-- wifiOffY: 0
+- offWifiY: 0
   $name: "Off mode: Wifi Y"
   $description: "Wifi vertical offset when battery % is Off. Negative = up, positive = down."
-- volumeOffX: 0
+- offVolumeX: 0
   $name: "Off mode: Volume X"
   $description: "Volume horizontal offset when battery % is Off. Negative = left, positive = right."
-- volumeOffY: 0
+- offVolumeY: 0
   $name: "Off mode: Volume Y"
   $description: "Volume vertical offset when battery % is Off. Negative = up, positive = down."
-- batteryOffX: 2
+- offBatteryX: 2
   $name: "Off mode: Battery X"
   $description: "Battery icon horizontal offset when battery % is Off. Negative = left, positive = right."
-- batteryOffY: 0
+- offBatteryY: 0
   $name: "Off mode: Battery Y"
   $description: "Battery icon vertical offset when battery % is Off. Negative = up, positive = down."
-- wifiInlineX: -2
+- inlineWifiX: -2
   $name: "Inline mode: Wifi X"
   $description: "Wifi horizontal offset in Inline mode. Negative = left, positive = right."
-- wifiInlineY: 0
+- inlineWifiY: 0
   $name: "Inline mode: Wifi Y"
   $description: "Wifi vertical offset in Inline mode. Negative = up, positive = down."
-- volumeInlineX: 0
+- inlineVolumeX: 0
   $name: "Inline mode: Volume X"
   $description: "Volume horizontal offset in Inline mode. Negative = left, positive = right."
-- volumeInlineY: 0
+- inlineVolumeY: 0
   $name: "Inline mode: Volume Y"
   $description: "Volume vertical offset in Inline mode. Negative = up, positive = down."
-- batteryInlineX: 2
+- inlineBatteryX: 2
   $name: "Inline mode: Battery X"
   $description: "Battery slot horizontal offset in Inline mode. Negative = left, positive = right. Default: 2."
-- batteryInlineY: 0
+- inlineBatteryY: 0
   $name: "Inline mode: Battery Y"
   $description: "Battery slot vertical offset in Inline mode. Negative = up, positive = down."
-- batteryInlinePercentX: 2
+- inlinePercentX: 2
   $name: "Inline mode: Battery percent X"
   $description: "Percentage text horizontal offset within the inline battery slot. Negative = left, positive = right."
-- batteryInlinePercentY: -1
+- inlinePercentY: -1
   $name: "Inline mode: Battery percent Y"
   $description: "Percentage text vertical offset within the inline battery slot. Negative = up, positive = down."
-- wifiStackedX: -2
+- stackedWifiX: -2
   $name: "Stacked mode: Wifi X"
   $description: "Wifi horizontal offset in Stacked mode. Negative = left, positive = right."
-- wifiStackedY: 7
+- stackedWifiY: 7
   $name: "Stacked mode: Wifi Y"
   $description: "Wifi vertical offset in Stacked mode. Negative = up, positive = down."
-- volumeStackedX: 0
+- stackedVolumeX: 0
   $name: "Stacked mode: Volume X"
   $description: "Volume horizontal offset in Stacked mode. Negative = left, positive = right."
-- volumeStackedY: 0
+- stackedVolumeY: 0
   $name: "Stacked mode: Volume Y"
   $description: "Volume vertical offset in Stacked mode. Negative = up, positive = down."
-- batteryGlyphX: 8
-  $name: "Stacked mode: Battery glyph X"
+- stackedBatteryX: 8
+  $name: "Stacked mode: Battery X"
   $description: "Battery icon row horizontal offset in Stacked mode. Negative = left, positive = right. Default: 8."
-- batteryGlyphY: -6
-  $name: "Stacked mode: Battery glyph Y"
+- stackedBatteryY: -6
+  $name: "Stacked mode: Battery Y"
   $description: "Battery icon row vertical offset in Stacked mode. Negative = up, positive = down. Default: -6."
-- batteryPercentX: 2
+- stackedPercentX: 2
   $name: "Stacked mode: Battery percent X"
   $description: "Percentage row horizontal offset in Stacked mode. Negative = left, positive = right. Default: 2."
-- batteryPercentY: -11
+- stackedPercentY: -11
   $name: "Stacked mode: Battery percent Y"
   $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -11."
 */
@@ -182,17 +182,17 @@ using winrt::Windows::Foundation::IInspectable;
 
 struct {
     int  batteryMode;          // 0=off, 1=inline (3rd row), 2=stacked (4th row)
-    int  wifiOffX,    wifiOffY;
-    int  wifiInlineX, wifiInlineY;
-    int  wifiStackedX,wifiStackedY;
-    int  volumeOffX,    volumeOffY;
-    int  volumeInlineX, volumeInlineY;
-    int  volumeStackedX,volumeStackedY;
-    int  batteryOffX,     batteryOffY;
-    int  batteryGlyphX,   batteryGlyphY;
-    int  batteryPercentX, batteryPercentY;
-    int  batteryInlineX,  batteryInlineY;
-    int  batteryInlinePercentX, batteryInlinePercentY;
+    int  offWifiX,    offWifiY;
+    int  inlineWifiX, inlineWifiY;
+    int  stackedWifiX,stackedWifiY;
+    int  offVolumeX,    offVolumeY;
+    int  inlineVolumeX, inlineVolumeY;
+    int  stackedVolumeX,stackedVolumeY;
+    int  offBatteryX,     offBatteryY;
+    int  stackedBatteryX,   stackedBatteryY;
+    int  stackedPercentX, stackedPercentY;
+    int  inlineBatteryX,  inlineBatteryY;
+    int  inlinePercentX, inlinePercentY;
 } g_settings;
 
 bool g_unloading = false;
@@ -210,34 +210,34 @@ void LoadSettings() {
         }
     }
     auto clampOffset = [](int v) { return v < -20 ? -20 : v > 20 ? 20 : v; };
-    g_settings.wifiOffX      = clampOffset(Wh_GetIntSetting(L"wifiOffX"));
-    g_settings.wifiOffY      = clampOffset(Wh_GetIntSetting(L"wifiOffY"));
-    g_settings.wifiInlineX   = clampOffset(Wh_GetIntSetting(L"wifiInlineX"));
-    g_settings.wifiInlineY   = clampOffset(Wh_GetIntSetting(L"wifiInlineY"));
-    g_settings.wifiStackedX  = clampOffset(Wh_GetIntSetting(L"wifiStackedX"));
-    g_settings.wifiStackedY  = clampOffset(Wh_GetIntSetting(L"wifiStackedY"));
-    g_settings.volumeOffX    = clampOffset(Wh_GetIntSetting(L"volumeOffX"));
-    g_settings.volumeOffY    = clampOffset(Wh_GetIntSetting(L"volumeOffY"));
-    g_settings.volumeInlineX = clampOffset(Wh_GetIntSetting(L"volumeInlineX"));
-    g_settings.volumeInlineY = clampOffset(Wh_GetIntSetting(L"volumeInlineY"));
-    g_settings.volumeStackedX= clampOffset(Wh_GetIntSetting(L"volumeStackedX"));
-    g_settings.volumeStackedY= clampOffset(Wh_GetIntSetting(L"volumeStackedY"));
-    g_settings.batteryOffX     = clampOffset(Wh_GetIntSetting(L"batteryOffX"));
-    g_settings.batteryOffY     = clampOffset(Wh_GetIntSetting(L"batteryOffY"));
-    g_settings.batteryGlyphX   = clampOffset(Wh_GetIntSetting(L"batteryGlyphX"));
-    g_settings.batteryGlyphY   = clampOffset(Wh_GetIntSetting(L"batteryGlyphY"));
-    g_settings.batteryPercentX = clampOffset(Wh_GetIntSetting(L"batteryPercentX"));
-    g_settings.batteryPercentY = clampOffset(Wh_GetIntSetting(L"batteryPercentY"));
-    g_settings.batteryInlineX  = clampOffset(Wh_GetIntSetting(L"batteryInlineX"));
-    g_settings.batteryInlineY  = clampOffset(Wh_GetIntSetting(L"batteryInlineY"));
-    g_settings.batteryInlinePercentX = clampOffset(Wh_GetIntSetting(L"batteryInlinePercentX"));
-    g_settings.batteryInlinePercentY = clampOffset(Wh_GetIntSetting(L"batteryInlinePercentY"));
+    g_settings.offWifiX      = clampOffset(Wh_GetIntSetting(L"offWifiX"));
+    g_settings.offWifiY      = clampOffset(Wh_GetIntSetting(L"offWifiY"));
+    g_settings.inlineWifiX   = clampOffset(Wh_GetIntSetting(L"inlineWifiX"));
+    g_settings.inlineWifiY   = clampOffset(Wh_GetIntSetting(L"inlineWifiY"));
+    g_settings.stackedWifiX  = clampOffset(Wh_GetIntSetting(L"stackedWifiX"));
+    g_settings.stackedWifiY  = clampOffset(Wh_GetIntSetting(L"stackedWifiY"));
+    g_settings.offVolumeX    = clampOffset(Wh_GetIntSetting(L"offVolumeX"));
+    g_settings.offVolumeY    = clampOffset(Wh_GetIntSetting(L"offVolumeY"));
+    g_settings.inlineVolumeX = clampOffset(Wh_GetIntSetting(L"inlineVolumeX"));
+    g_settings.inlineVolumeY = clampOffset(Wh_GetIntSetting(L"inlineVolumeY"));
+    g_settings.stackedVolumeX= clampOffset(Wh_GetIntSetting(L"stackedVolumeX"));
+    g_settings.stackedVolumeY= clampOffset(Wh_GetIntSetting(L"stackedVolumeY"));
+    g_settings.offBatteryX     = clampOffset(Wh_GetIntSetting(L"offBatteryX"));
+    g_settings.offBatteryY     = clampOffset(Wh_GetIntSetting(L"offBatteryY"));
+    g_settings.stackedBatteryX   = clampOffset(Wh_GetIntSetting(L"stackedBatteryX"));
+    g_settings.stackedBatteryY   = clampOffset(Wh_GetIntSetting(L"stackedBatteryY"));
+    g_settings.stackedPercentX = clampOffset(Wh_GetIntSetting(L"stackedPercentX"));
+    g_settings.stackedPercentY = clampOffset(Wh_GetIntSetting(L"stackedPercentY"));
+    g_settings.inlineBatteryX  = clampOffset(Wh_GetIntSetting(L"inlineBatteryX"));
+    g_settings.inlineBatteryY  = clampOffset(Wh_GetIntSetting(L"inlineBatteryY"));
+    g_settings.inlinePercentX = clampOffset(Wh_GetIntSetting(L"inlinePercentX"));
+    g_settings.inlinePercentY = clampOffset(Wh_GetIntSetting(L"inlinePercentY"));
 }
 
-static int WifiX()   { return g_settings.batteryMode==1 ? g_settings.wifiInlineX   : g_settings.batteryMode==2 ? g_settings.wifiStackedX   : g_settings.wifiOffX;   }
-static int WifiY()   { return g_settings.batteryMode==1 ? g_settings.wifiInlineY   : g_settings.batteryMode==2 ? g_settings.wifiStackedY   : g_settings.wifiOffY;   }
-static int VolumeX() { return g_settings.batteryMode==1 ? g_settings.volumeInlineX : g_settings.batteryMode==2 ? g_settings.volumeStackedX : g_settings.volumeOffX; }
-static int VolumeY() { return g_settings.batteryMode==1 ? g_settings.volumeInlineY : g_settings.batteryMode==2 ? g_settings.volumeStackedY : g_settings.volumeOffY; }
+static int WifiX()   { return g_settings.batteryMode==1 ? g_settings.inlineWifiX   : g_settings.batteryMode==2 ? g_settings.stackedWifiX   : g_settings.offWifiX;   }
+static int WifiY()   { return g_settings.batteryMode==1 ? g_settings.inlineWifiY   : g_settings.batteryMode==2 ? g_settings.stackedWifiY   : g_settings.offWifiY;   }
+static int VolumeX() { return g_settings.batteryMode==1 ? g_settings.inlineVolumeX : g_settings.batteryMode==2 ? g_settings.stackedVolumeX : g_settings.offVolumeX; }
+static int VolumeY() { return g_settings.batteryMode==1 ? g_settings.inlineVolumeY : g_settings.batteryMode==2 ? g_settings.stackedVolumeY : g_settings.offVolumeY; }
 
 // ── Cached element references ─────────────────────────────────────────────
 
@@ -322,7 +322,7 @@ static bool WalkFindInlinePercent(DependencyObject const& node, int depth = 0) {
                 auto pct = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
                 if (pct) {
                     g_batteryInlinePercentFE = pct;
-                    ApplyOffset(pct, g_settings.batteryInlinePercentX, g_settings.batteryInlinePercentY);
+                    ApplyOffset(pct, g_settings.inlinePercentX, g_settings.inlinePercentY);
                     Wh_Log(L"[Battery] Inline percent FE found (%s) and offset applied",
                         winrt::get_class_name(pct).c_str());
                 }
@@ -346,7 +346,7 @@ static void SizeStackedBatteryRows(StackPanel const& innerSP) {
             glyph.Width(32.0);
             glyph.Height(28.0);
             glyph.HorizontalAlignment(HorizontalAlignment::Center);
-            ApplyOffset(glyph, g_settings.batteryGlyphX, g_settings.batteryGlyphY);
+            ApplyOffset(glyph, g_settings.stackedBatteryX, g_settings.stackedBatteryY);
         }
     }
     if (n >= 2) {
@@ -354,7 +354,7 @@ static void SizeStackedBatteryRows(StackPanel const& innerSP) {
         if (text) {
             text.HorizontalAlignment(HorizontalAlignment::Center);
             text.ClearValue(FrameworkElement::MarginProperty());
-            ApplyOffset(text, g_settings.batteryPercentX, g_settings.batteryPercentY);
+            ApplyOffset(text, g_settings.stackedPercentX, g_settings.stackedPercentY);
         }
     }
 }
@@ -560,7 +560,7 @@ static void ApplyLayout(StackPanel const& sp) {
             if (g_settings.batteryMode == 1) {
                 child.Width(std::numeric_limits<double>::quiet_NaN());
                 child.Height(28.0);
-                ApplyOffset(child, g_settings.batteryInlineX, g_settings.batteryInlineY);
+                ApplyOffset(child, g_settings.inlineBatteryX, g_settings.inlineBatteryY);
                 WalkFindInlinePercent(child);
             } else if (g_settings.batteryMode == 2) {
                 child.Width(std::numeric_limits<double>::quiet_NaN());
@@ -571,7 +571,7 @@ static void ApplyLayout(StackPanel const& sp) {
                     SizeStackedBatteryRows(g_batteryInnerPanel);
                 }
             } else {
-                ApplyOffset(child, g_settings.batteryOffX, g_settings.batteryOffY);
+                ApplyOffset(child, g_settings.offBatteryX, g_settings.offBatteryY);
             }
             break;
         }
@@ -761,14 +761,14 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
                 child.HorizontalAlignment(HorizontalAlignment::Center);
                 if (g_settings.batteryMode == 1) {
                     child.Height(28.0);
-                    ApplyOffset(child, g_settings.batteryInlineX, g_settings.batteryInlineY);
+                    ApplyOffset(child, g_settings.inlineBatteryX, g_settings.inlineBatteryY);
                     WalkFindInlinePercent(child);
                 } else if (g_settings.batteryMode == 2) {
                     child.Height(std::numeric_limits<double>::quiet_NaN());
                     ClearHeightDescendants(child);
                 } else {
                     child.Width(32.0); child.Height(28.0);
-                    ApplyOffset(child, g_settings.batteryOffX, g_settings.batteryOffY);
+                    ApplyOffset(child, g_settings.offBatteryX, g_settings.offBatteryY);
                 }
                 Wh_Log(L"[Layout] Deferred battery slot found at index %d", i);
                 break;
