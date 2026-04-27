@@ -1,8 +1,8 @@
 // ==WindhawkMod==
-// @id              vertical-omnibutton
-// @name            Vertical OmniButton
+// @id              vertical-omnibutton1
+// @name            Vertical OmniButton1
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.3
+// @version         1.1
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -20,7 +20,7 @@ horizontal layout to clean vertical stacking.
 You gain granular control over the X-Y pixel location of each item in the button.
 
 
-## Screenshots (clock modded separately)
+## Screenshots
 
 **Stacked mode** — battery percentage as a 4th row below the battery icon:
 
@@ -43,17 +43,19 @@ according to your settings.
 
 ## Usage
 
-After enabling the mod, **restart explorer.exe** via Task Manager if icons don't appear immediately.
+After enabling the mod, **restart explorer.exe**! You can do so easily using the built-in Restart
+toggle in settings, or via Task Manager → Restart explorer.exe.
+
+Enable **debug logging** to trace which XAML elements are being found.
 
 ## Settings
 
-Default offsets are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows 
-of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align icons for your theme, scaling,
-or taskbar layout.
-
-- **Battery percentage** — Off / Inline / Stacked. 
+- **Enable vertical arrangement** — master toggle for the vertical stack
+- **Battery percentage** — Off / Inline / Stacked. Changing modes requires
+  restarting explorer.exe to take effect.
 - **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own
-  X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
+  X/Y offsets for wifi, volume, and battery. Settings are labeled by mode.
+- **Debug logging** — log XAML elements as they are traversed
 
 ## Windows 11 Taskbar Styler compatibility
 
@@ -83,7 +85,7 @@ These mods inspired this one and combine well with it for a fully customized tas
 /*
 - batteryMode: "stacked"
   $name: Battery percentage
-  $description: "Off: battery icon only.\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon.\n\nDefaults are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows of system-tray) in the Windhawk ecosystem. Use the per-mode offsets below to align icons for your theme, scaling, or taskbar layout. Suggestions welcome — open an issue or PR on GitHub."
+  $description: "Off: battery icon only.\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon."
   $options:
     - "off": "Off — battery icon only"
     - "inline": "Inline — percentage in battery slot (3rd row)"
@@ -154,6 +156,9 @@ These mods inspired this one and combine well with it for a fully customized tas
 - batteryPercentY: -11
   $name: "Stacked mode: Battery percent Y"
   $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -11."
+- openBatterySettings: false
+  $name: "Open battery settings in Windows"
+  $description: "Toggle ON and save to open Windows Settings battery page. The battery percentage toggle is at System → Power & battery (navigate there if needed). Toggle it OFF again when done."
 */
 // ==/WindhawkModSettings==
 
@@ -1023,6 +1028,18 @@ void Wh_ModUninit() {
 }
 
 void Wh_ModSettingsChanged() {
+    // One-shot: open Windows Settings battery page.
+    if (Wh_GetIntSetting(L"openBatterySettings") != 0) {
+        using ShellExecuteW_t = HINSTANCE(WINAPI*)(HWND, LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR, INT);
+        auto pShell = (ShellExecuteW_t)GetProcAddress(
+            GetModuleHandleW(L"shell32.dll"), "ShellExecuteW");
+        if (pShell)
+            pShell(nullptr, L"open", L"ms-settings:batterysaver", nullptr, nullptr, SW_SHOWNORMAL);
+        else
+            Wh_Log(L"[Settings] ShellExecuteW not found in shell32.dll");
+        return;
+    }
+
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
     ApplyBatteryPercent(g_settings.batteryMode);
