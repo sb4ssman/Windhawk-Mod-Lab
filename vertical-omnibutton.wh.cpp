@@ -43,7 +43,7 @@ according to your settings.
 
 ## Usage
 
-After enabling the mod, **restart explorer.exe** via Task Manager if icons don't appear immediately.
+The mod applies automatically on startup and after explorer restarts. If icons don't appear within a few seconds of enabling the mod, toggle it off and back on in Windhawk.
 
 ## Settings
 
@@ -60,11 +60,8 @@ or taskbar layout.
 This mod does not use the Windows XAML Diagnostics API, so it is compatible
 with the Windows 11 Taskbar Styler out of the box — no special settings required.
 
-This mod actually grew out of a Taskbar Styler `style.yaml` config — a
-[style.yaml is included in this repo](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
-if you want to achieve the vertical layout through the Styler alone instead.
-For most users the dedicated mod is the better choice: it handles battery percentage modes and dynamic
-element timing that simple XAML styling cannot.
+For basic vertical stacking without battery percentage, paste [style.yaml](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
+into Windows 11 Taskbar Styler → Settings → Advanced.
 
 ## Related mods
 
@@ -157,6 +154,7 @@ These mods inspired this one and combine well with it for a fully customized tas
 */
 // ==/WindhawkModSettings==
 
+#include <atomic>
 #include <functional>
 #include <limits>
 #include <thread>
@@ -196,7 +194,7 @@ struct {
     int  inlinePercentX, inlinePercentY;
 } g_settings;
 
-bool g_unloading = false;
+std::atomic<bool> g_unloading = false;
 
 void LoadSettings() {
     {
@@ -252,8 +250,6 @@ static FrameworkElement g_batteryInlinePercentFE{ nullptr };
 
 static StackPanel       g_layoutUpdatedSP{ nullptr };
 static winrt::event_token g_layoutUpdatedToken{};
-
-// ── Explorer restart ──────────────────────────────────────────────────────
 
 // ── Battery XAML helpers ──────────────────────────────────────────────────
 

@@ -6,7 +6,6 @@
 Rearranges the Windows 11 system tray OmniButton (wifi, volume/sound, battery) from
 horizontal layout to clean vertical stacking.
 
-This mod also includes support for the vertical clock.
 You gain granular control over the X/Y pixel position of each item.
 
 ## Screenshots
@@ -25,83 +24,33 @@ You gain granular control over the X/Y pixel position of each item.
 
 ## How it works
 
-Uses the Windows XAML Diagnostics API to watch the live XAML visual tree
-(the same mechanism used by the Windows 11 Taskbar Styler). When OmniButton
-elements appear, the mod forces `Orientation=Vertical` on the inner StackPanel
-and positions each icon slot according to your settings.
+Hooks into the `Taskbar.View.dll` system tray implementation via symbol-based
+function hooks. When OmniButton elements appear, the mod forces
+`Orientation=Vertical` on the inner StackPanel and positions each icon slot
+according to your settings.
 
 ## Usage
 
 1. Install the mod via [Windhawk](https://windhawk.net/)
-2. After enabling, **restart explorer.exe** using the built-in Restart toggle in settings,
-   or via Task Manager → Restart explorer.exe
+2. The mod applies automatically on startup and after explorer restarts. If icons don't appear within a few seconds, toggle the mod off and back on in Windhawk.
 3. Adjust X/Y offsets per mode to pixel-perfect your display
-
-Enable **debug logging** in settings to trace which XAML elements are being checked.
 
 ## Settings
 
-- **Enable vertical arrangement** — master toggle for the vertical stack
-- **Battery percentage** — Off / Inline / Stacked. Changing modes requires restarting explorer.exe
-- **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own X/Y offsets for wifi, volume, and battery
-- **Vertical clock** — splits the clock into three rows: time / day / date
-- **Debug logging** — log XAML elements as they are added to the visual tree
+Default offsets are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows
+of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align icons for your theme, scaling,
+or taskbar layout.
+
+- **Battery percentage** — Off / Inline / Stacked. Changing modes requires restarting explorer.exe.
+- **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
 
 ## Windows 11 Taskbar Styler compatibility
 
-This mod works alongside [Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler).
-If you have an existing `style.yaml` or theme for the Taskbar Styler, you can continue using it — the two mods
-operate on different parts of the XAML tree and do not conflict.
+This mod does not use the Windows XAML Diagnostics API, so it is compatible
+with the Windows 11 Taskbar Styler out of the box — no special settings required.
 
-The style.yaml approach (below) was the original method before this mod existed. It still works as a
-no-code alternative if you only need basic vertical stacking without battery percentage or clock support.
-
-## Alternative: style.yaml (no mod required)
-
-You can achieve basic vertical stacking using only the
-[Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler).
-Go to Settings → Control styles and add the following targets:
-
-**Style 1 - OmniButton Container:**
-```
-Target: SystemTray.OmniButton#ControlCenterButton
-Styles:
-  - Margin=0,0,0,0
-  - HorizontalContentAlignment=Center
-  - Padding=0
-  - MinWidth=48
-```
-
-**Style 2 - StackPanel Orientation:**
-```
-Target: SystemTray.OmniButton#ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel
-Styles:
-  - Orientation=Vertical
-  - HorizontalAlignment=Center
-  - VerticalAlignment=Center
-  - Margin=0
-```
-
-**Style 3 - ContentPresenter Sizing:**
-```
-Target: SystemTray.OmniButton#ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel > ContentPresenter
-Styles:
-  - Width=32
-  - Height=28
-  - HorizontalContentAlignment=Right
-  - Margin=6,0,10,0
-```
-
-**Style 4 - IconView Alignment:**
-```
-Target: SystemTray.OmniButton#ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel > ContentPresenter > SystemTray.IconView
-Styles:
-  - HorizontalAlignment=Left
-  - VerticalAlignment=Center
-  - Margin=0
-```
-
-> Note: The style.yaml approach does not support battery percentage rows, vertical clock, or per-icon offset controls.
+For basic vertical stacking without battery percentage, paste [style.yaml](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
+into Windows 11 Taskbar Styler → Settings → Advanced.
 
 ## Related mods
 
