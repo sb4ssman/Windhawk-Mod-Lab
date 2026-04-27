@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.3
+// @version         1.1
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
