@@ -868,6 +868,7 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
         base = base ? (base + 1) : lpLibFileName;
         if (!g_taskbarViewDllLoaded && _wcsicmp(base, L"Taskbar.View.dll") == 0) {
             Wh_Log(L"[LoadLib] Taskbar.View.dll loaded — hooking symbols");
+            // Taskbar.View.dll
             WindhawkUtils::SYMBOL_HOOK hooks[] = {{
                 {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
                 &IconView_IconView_Original, IconView_IconView_Hook,
@@ -887,6 +888,7 @@ static bool HookTaskbarDllSymbols() {
     HMODULE hTaskbar = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!hTaskbar) { Wh_Log(L"[Hooks] Failed to load taskbar.dll"); return false; }
 
+    // taskbar.dll
     WindhawkUtils::SYMBOL_HOOK hooks[] = {
         {
             {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
@@ -909,6 +911,7 @@ static bool HookTaskbarDllSymbols() {
 }
 
 static bool HookTaskbarViewDllSymbols(HMODULE hTaskbarView) {
+    // Taskbar.View.dll
     WindhawkUtils::SYMBOL_HOOK hooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original, IconView_IconView_Hook,
