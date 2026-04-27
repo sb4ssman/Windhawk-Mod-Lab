@@ -41,7 +41,7 @@ Default offsets are tuned for a non-standard Windows 11 taskbar (two rows of tas
 of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align icons for your theme, scaling,
 or taskbar layout.
 
-- **Battery percentage** — Off / Inline / Stacked. Changing modes requires restarting explorer.exe.
+- **Battery percentage** — Off / Inline / Stacked. All modes apply live — no restart needed. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is drawn off-screen via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).
 - **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
 
 ## Windows 11 Taskbar Styler compatibility

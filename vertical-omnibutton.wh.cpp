@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.1
+// @version         1.2
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -51,7 +51,7 @@ Default offsets are tuned for a non-standard Windows 11 taskbar (two rows of tas
 of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align icons for your theme, scaling,
 or taskbar layout.
 
-- **Battery percentage** — Off / Inline / Stacked. 
+- **Battery percentage** — Off / Inline / Stacked. All modes apply live. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is drawn off-screen via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).
 - **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own
   X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
 
@@ -80,7 +80,7 @@ These mods inspired this one and combine well with it for a fully customized tas
 /*
 - batteryMode: "stacked"
   $name: Battery percentage
-  $description: "Off: battery icon only.\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon.\n\nDefaults are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows of system-tray) in the Windhawk ecosystem. Use the per-mode offsets below to align icons for your theme, scaling, or taskbar layout. Suggestions welcome — open an issue or PR on GitHub."
+  $description: "Off: battery icon only — percentage is drawn off-screen (see Off mode percent settings below).\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon.\n\nAll modes apply live — no explorer restart needed. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is hidden via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).\n\nDefaults are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows of system-tray) in the Windhawk ecosystem. Use the per-mode offsets below to align icons for your theme, scaling, or taskbar layout. Suggestions welcome — open an issue or PR on GitHub."
   $options:
     - "off": "Off — battery icon only"
     - "inline": "Inline — percentage in battery slot (3rd row)"
@@ -103,6 +103,12 @@ These mods inspired this one and combine well with it for a fully customized tas
 - offBatteryY: 0
   $name: "Off mode: Battery Y"
   $description: "Battery icon vertical offset when battery % is Off. Negative = up, positive = down."
+- offPercentX: 0
+  $name: "Off mode: Battery percent X"
+  $description: "Horizontal offset applied to the battery percentage text in Off mode to push it out of view. Adjust if the text bleeds into view on your theme."
+- offPercentY: 50
+  $name: "Off mode: Battery percent Y"
+  $description: "Vertical offset applied to the battery percentage text in Off mode to push it out of view. Increase if the text bleeds into view on your theme; decrease if the slot clips it cleanly already."
 - inlineWifiX: -2
   $name: "Inline mode: Wifi X"
   $description: "Wifi horizontal offset in Inline mode. Negative = left, positive = right."
@@ -188,6 +194,7 @@ struct {
     int  inlineVolumeX, inlineVolumeY;
     int  stackedVolumeX,stackedVolumeY;
     int  offBatteryX,     offBatteryY;
+    int  offPercentX,     offPercentY;
     int  stackedBatteryX,   stackedBatteryY;
     int  stackedPercentX, stackedPercentY;
     int  inlineBatteryX,  inlineBatteryY;
@@ -209,6 +216,7 @@ void LoadSettings() {
         }
     }
     auto clampOffset = [](int v) { return v < -20 ? -20 : v > 20 ? 20 : v; };
+    auto clampHide   = [](int v) { return v < -100 ? -100 : v > 100 ? 100 : v; };
     g_settings.offWifiX      = clampOffset(Wh_GetIntSetting(L"offWifiX"));
     g_settings.offWifiY      = clampOffset(Wh_GetIntSetting(L"offWifiY"));
     g_settings.inlineWifiX   = clampOffset(Wh_GetIntSetting(L"inlineWifiX"));
@@ -223,6 +231,8 @@ void LoadSettings() {
     g_settings.stackedVolumeY= clampOffset(Wh_GetIntSetting(L"stackedVolumeY"));
     g_settings.offBatteryX     = clampOffset(Wh_GetIntSetting(L"offBatteryX"));
     g_settings.offBatteryY     = clampOffset(Wh_GetIntSetting(L"offBatteryY"));
+    g_settings.offPercentX     = clampHide(Wh_GetIntSetting(L"offPercentX"));
+    g_settings.offPercentY     = clampHide(Wh_GetIntSetting(L"offPercentY"));
     g_settings.stackedBatteryX   = clampOffset(Wh_GetIntSetting(L"stackedBatteryX"));
     g_settings.stackedBatteryY   = clampOffset(Wh_GetIntSetting(L"stackedBatteryY"));
     g_settings.stackedPercentX = clampOffset(Wh_GetIntSetting(L"stackedPercentX"));
@@ -289,6 +299,24 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
 static void FlipBatteryLayout(FrameworkElement const& batteryCP) {
     if (!WalkBatteryTree(batteryCP, 0))
         Wh_Log(L"[Battery4] No inner StackPanel found (% may not be in tree yet)");
+}
+
+// Like WalkBatteryTree but does NOT flip orientation — used in Off mode so the
+// glyph continues to render exactly as Windows intends; we only push the text.
+static bool WalkFindInnerSP(DependencyObject const& node, int depth = 0) {
+    if (depth > 5) return false;
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (!child) continue;
+        auto sp = child.try_as<StackPanel>();
+        if (sp && !sp.IsItemsHost()) {
+            g_batteryInnerPanel = sp;
+            return true;
+        }
+        if (WalkFindInnerSP(child, depth + 1)) return true;
+    }
+    return false;
 }
 
 static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
@@ -369,53 +397,6 @@ static void ClearHeightDescendants(DependencyObject const& node, int depth = 0) 
     }
 }
 
-// ── Battery percentage (registry) ────────────────────────────────────────
-
-static DWORD g_originalBatteryPercent = MAXDWORD;
-
-static constexpr LPCWSTR kAdvancedKey =
-    L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";
-
-static void ApplyBatteryPercent(int mode) {
-    bool show = (mode > 0);
-    HKEY hKey;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, kAdvancedKey, 0,
-                      KEY_READ | KEY_WRITE, &hKey) != ERROR_SUCCESS) {
-        Wh_Log(L"[Battery] Failed to open registry key");
-        return;
-    }
-    if (g_originalBatteryPercent == MAXDWORD) {
-        DWORD val = 0, sz = sizeof(val), type = 0;
-        if (RegQueryValueExW(hKey, L"TaskbarBatteryPercent", nullptr, &type,
-                             reinterpret_cast<BYTE*>(&val), &sz) == ERROR_SUCCESS)
-            g_originalBatteryPercent = val;
-        else
-            g_originalBatteryPercent = 0;
-    }
-    DWORD val = show ? 1 : 0;
-    RegSetValueExW(hKey, L"TaskbarBatteryPercent", 0, REG_DWORD,
-                   reinterpret_cast<const BYTE*>(&val), sizeof(val));
-    RegCloseKey(hKey);
-    SendNotifyMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-                       reinterpret_cast<LPARAM>(kAdvancedKey));
-    Wh_Log(L"[Battery] TaskbarBatteryPercent set to %d (requires explorer restart)", val);
-}
-
-static void RestoreBatteryPercent() {
-    if (g_originalBatteryPercent == MAXDWORD) return;
-    HKEY hKey;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, kAdvancedKey, 0,
-                      KEY_WRITE, &hKey) != ERROR_SUCCESS) return;
-    RegSetValueExW(hKey, L"TaskbarBatteryPercent", 0, REG_DWORD,
-                   reinterpret_cast<const BYTE*>(&g_originalBatteryPercent),
-                   sizeof(g_originalBatteryPercent));
-    RegCloseKey(hKey);
-    SendNotifyMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-                       reinterpret_cast<LPARAM>(kAdvancedKey));
-    Wh_Log(L"[Battery] Restored TaskbarBatteryPercent to %lu", g_originalBatteryPercent);
-    g_originalBatteryPercent = MAXDWORD;
-}
-
 // ── OmniButton height helpers ─────────────────────────────────────────────
 
 static void FreeOmniButtonHeight() {
@@ -432,12 +413,6 @@ static void FreeOmniButtonHeight() {
             if (gpUI) gpUI.InvalidateMeasure();
         }
     }
-}
-
-static void RestoreOmniButtonHeight() {
-    if (!g_omniButton) return;
-    g_omniButton.ClearValue(FrameworkElement::HeightProperty());
-    g_omniButton.InvalidateMeasure();
 }
 
 // ── XAML cleanup ─────────────────────────────────────────────────────────
@@ -568,7 +543,16 @@ static void ApplyLayout(StackPanel const& sp) {
                     SizeStackedBatteryRows(g_batteryInnerPanel);
                 }
             } else {
+                // Off mode: outer slot position unchanged; push % text off-screen without
+                // touching inner panel orientation so the battery glyph renders normally.
                 ApplyOffset(child, g_settings.offBatteryX, g_settings.offBatteryY);
+                if (WalkFindInnerSP(child) && g_batteryInnerPanel) {
+                    int bspN = VisualTreeHelper::GetChildrenCount(g_batteryInnerPanel);
+                    if (bspN >= 2) {
+                        auto text = VisualTreeHelper::GetChild(g_batteryInnerPanel, 1).try_as<FrameworkElement>();
+                        if (text) ApplyOffset(text, g_settings.offPercentX, g_settings.offPercentY);
+                    }
+                }
             }
             break;
         }
@@ -738,7 +722,8 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
     }
 
     bool needsBatteryFind = !g_batteryPresenter;
-    bool needsFlip = g_settings.batteryMode == 2 && g_batteryPresenter && !g_batteryInnerPanel;
+    bool needsFlip = (g_settings.batteryMode == 2 || g_settings.batteryMode == 0) &&
+                     g_batteryPresenter && !g_batteryInnerPanel;
 
     if (!needsBatteryFind && !needsFlip && g_wifiPresenter && g_volumePresenter) {
         sp.LayoutUpdated(g_layoutUpdatedToken);
@@ -764,7 +749,7 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
                     child.Height(std::numeric_limits<double>::quiet_NaN());
                     ClearHeightDescendants(child);
                 } else {
-                    child.Width(32.0); child.Height(28.0);
+                    child.Height(28.0);
                     ApplyOffset(child, g_settings.offBatteryX, g_settings.offBatteryY);
                 }
                 Wh_Log(L"[Layout] Deferred battery slot found at index %d", i);
@@ -773,13 +758,25 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
         }
     }
 
-    if (g_settings.batteryMode == 2 && g_batteryPresenter && !g_batteryInnerPanel) {
-        FlipBatteryLayout(g_batteryPresenter);
-        if (g_batteryInnerPanel) {
-            g_batteryInnerPanel.Spacing(0.0);
-            SizeStackedBatteryRows(g_batteryInnerPanel);
-            FreeOmniButtonHeight();
-            Wh_Log(L"[Layout] Deferred battery inner StackPanel flipped");
+    if ((g_settings.batteryMode == 2 || g_settings.batteryMode == 0) &&
+         g_batteryPresenter && !g_batteryInnerPanel) {
+        if (g_settings.batteryMode == 2) {
+            FlipBatteryLayout(g_batteryPresenter);
+            if (g_batteryInnerPanel) {
+                g_batteryInnerPanel.Spacing(0.0);
+                SizeStackedBatteryRows(g_batteryInnerPanel);
+                FreeOmniButtonHeight();
+                Wh_Log(L"[Layout] Deferred battery inner StackPanel flipped (stacked)");
+            }
+        } else {
+            if (WalkFindInnerSP(g_batteryPresenter) && g_batteryInnerPanel) {
+                int bspN = VisualTreeHelper::GetChildrenCount(g_batteryInnerPanel);
+                if (bspN >= 2) {
+                    auto text = VisualTreeHelper::GetChild(g_batteryInnerPanel, 1).try_as<FrameworkElement>();
+                    if (text) ApplyOffset(text, g_settings.offPercentX, g_settings.offPercentY);
+                }
+                Wh_Log(L"[Layout] Deferred battery %% text hidden (off mode)");
+            }
         }
     }
 }
@@ -809,7 +806,7 @@ static void ApplyAllSettings() {
                 ApplyLayout(sp);
                 bool needsDeferred = !g_wifiPresenter || !g_volumePresenter ||
                                      !g_batteryPresenter ||
-                                     (g_settings.batteryMode == 2 && !g_batteryInnerPanel);
+                                     ((g_settings.batteryMode == 2 || g_settings.batteryMode == 0) && !g_batteryInnerPanel);
                 if (needsDeferred) {
                     g_layoutUpdatedSP = sp;
                     g_layoutUpdatedToken = sp.LayoutUpdated(OnLayoutUpdated);
@@ -931,9 +928,8 @@ static HMODULE GetTaskbarViewModuleHandle() {
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.3");
+    Wh_Log(L"[Init] Vertical OmniButton v1.1");
     LoadSettings();
-    ApplyBatteryPercent(g_settings.batteryMode);
 
     if (!HookTaskbarDllSymbols())
         Wh_Log(L"[Init] taskbar.dll symbol hooks failed — continuing without GetTaskbarXamlRoot");
@@ -990,8 +986,6 @@ void Wh_ModUninit() {
         g_layoutUpdatedSP = nullptr;
     }
 
-    RestoreBatteryPercent();
-
     auto sp    = g_omniStackPanel;
     auto btn   = g_omniButton;
     auto wifi  = g_wifiPresenter;
@@ -1036,7 +1030,6 @@ void Wh_ModUninit() {
 void Wh_ModSettingsChanged() {
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
-    ApplyBatteryPercent(g_settings.batteryMode);
 
     HWND hWnd = FindCurrentProcessTaskbarWnd();
     if (!hWnd) { Wh_Log(L"[Settings] No taskbar window found"); return; }
