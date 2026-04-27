@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.3
+// @version         1.3 - best so far
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -46,15 +46,16 @@ according to your settings.
 After enabling the mod, **restart explorer.exe**! You can do so easily using the built-in Restart
 toggle in settings, or via Task Manager → Restart explorer.exe.
 
+Enable **debug logging** to trace which XAML elements are being found.
+
 ## Settings
 
 - **Enable vertical arrangement** — master toggle for the vertical stack
-- **Battery percentage position** — Inline or Stacked. Controls how the percentage row is laid out
-  when battery % is enabled in Windows Settings. Toggle % on/off from Windows Settings — the mod
-  detects the change automatically with no restart needed.
-- **Icon offsets** — each battery state (Off / Inline / Stacked) has its own X/Y offsets for
-  wifi, volume, and battery. Settings are labeled by state.
-- **Open battery settings** — opens the Windows Settings battery page directly
+- **Battery percentage** — Off / Inline / Stacked. Changing modes requires
+  restarting explorer.exe to take effect.
+- **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own
+  X/Y offsets for wifi, volume, and battery. Settings are labeled by mode.
+- **Debug logging** — log XAML elements as they are traversed
 
 ## Windows 11 Taskbar Styler compatibility
 
@@ -84,14 +85,15 @@ These mods inspired this one and combine well with it for a fully customized tas
 /*
 - restartExplorer: false
   $name: Restart explorer.exe
-  $description: "Toggle ON and save to restart explorer.exe. Use this if the mod gets into a bad state. Warning: closes all open File Explorer windows."
+  $description: "Save with this ON to restart explorer.exe immediately. A restart will fire on any save while this is ON, with a 10-second cooldown. Warning: closes all open File Explorer windows."
 - enableVertical: true
   $name: Enable vertical arrangement
   $description: Enable/disable vertical stacking of wifi, volume, and battery icons
-- batteryPosition: "stacked"
-  $name: Battery percentage position
-  $description: "Controls how battery percentage is displayed when it is shown. Toggle battery percentage on/off from Windows Settings (use the Open battery settings button below). The mod detects the state automatically and reacts live — no restart needed.\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon."
+- batteryMode: "stacked"
+  $name: Battery percentage
+  $description: "Off: battery icon only.\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon.\nAll three modes require restarting explorer.exe after changing."
   $options:
+    - "off": "Off — battery icon only"
     - "inline": "Inline — percentage in battery slot (3rd row)"
     - "stacked": "Stacked — percentage as 4th row below battery"
 - wifiOffX: -2
@@ -130,10 +132,10 @@ These mods inspired this one and combine well with it for a fully customized tas
 - batteryInlineY: 0
   $name: "Inline mode: Battery Y"
   $description: "Battery slot vertical offset in Inline mode. Negative = up, positive = down."
-- batteryInlinePercentX: 2
+- batteryInlinePercentX: 0
   $name: "Inline mode: Battery percent X"
   $description: "Percentage text horizontal offset within the inline battery slot. Negative = left, positive = right."
-- batteryInlinePercentY: -1
+- batteryInlinePercentY: 0
   $name: "Inline mode: Battery percent Y"
   $description: "Percentage text vertical offset within the inline battery slot. Negative = up, positive = down."
 - wifiStackedX: -2
@@ -160,9 +162,15 @@ These mods inspired this one and combine well with it for a fully customized tas
 - batteryPercentY: -11
   $name: "Stacked mode: Battery percent Y"
   $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -11."
+- debugLogging: false
+  $name: Enable debug logging
+  $description: Log XAML elements as they are traversed
 - openBatterySettings: false
   $name: "Open battery settings in Windows"
   $description: "Toggle ON and save to open Windows Settings battery page. The battery percentage toggle is at System → Power & battery (navigate there if needed). Toggle it OFF again when done."
+- dumpOmniTree: false
+  $name: "Dump OmniButton XAML tree to log (debug)"
+  $description: "Toggle ON with debug logging enabled, then save, to print the full OmniButton XAML subtree to the Windhawk log. Useful for diagnosing why battery layout looks wrong."
 */
 // ==/WindhawkModSettings==
 
@@ -191,7 +199,7 @@ using winrt::Windows::Foundation::IInspectable;
 
 struct {
     bool enableVertical;
-    int  batteryPosition;      // 0=inline, 1=stacked (position when % IS showing; actual state detected from tree)
+    int  batteryMode;          // 0=off, 1=inline (3rd row), 2=stacked (4th row)
     int  wifiOffX,    wifiOffY;
     int  wifiInlineX, wifiInlineY;
     int  wifiStackedX,wifiStackedY;
@@ -203,6 +211,7 @@ struct {
     int  batteryPercentX, batteryPercentY;
     int  batteryInlineX,  batteryInlineY;
     int  batteryInlinePercentX, batteryInlinePercentY;
+    bool debugLogging;
 } g_settings;
 
 bool g_unloading = false;
@@ -211,12 +220,14 @@ static DWORD g_lastRestartTick = 0;
 void LoadSettings() {
     g_settings.enableVertical = Wh_GetIntSetting(L"enableVertical") != 0;
     {
-        auto* bp = Wh_GetStringSetting(L"batteryPosition");
-        if (bp) {
-            g_settings.batteryPosition = (wcscmp(bp, L"inline") == 0) ? 0 : 1;
-            Wh_FreeStringSetting(bp);
+        auto* bm = Wh_GetStringSetting(L"batteryMode");
+        if (bm) {
+            if (wcscmp(bm, L"inline") == 0)       g_settings.batteryMode = 1;
+            else if (wcscmp(bm, L"stacked") == 0) g_settings.batteryMode = 2;
+            else                                   g_settings.batteryMode = 0;
+            Wh_FreeStringSetting(bm);
         } else {
-            g_settings.batteryPosition = 1;  // default stacked
+            g_settings.batteryMode = 0;
         }
     }
     auto clampOffset = [](int v) { return v < -20 ? -20 : v > 20 ? 20 : v; };
@@ -242,18 +253,13 @@ void LoadSettings() {
     g_settings.batteryInlineY  = clampOffset(Wh_GetIntSetting(L"batteryInlineY"));
     g_settings.batteryInlinePercentX = clampOffset(Wh_GetIntSetting(L"batteryInlinePercentX"));
     g_settings.batteryInlinePercentY = clampOffset(Wh_GetIntSetting(L"batteryInlinePercentY"));
+    g_settings.debugLogging    = Wh_GetIntSetting(L"debugLogging") != 0;
 }
 
-// Effective mode detected from the live XAML tree (not from settings):
-//   0 = no inner SP (battery % not showing)
-//   1 = inner SP present, inline position
-//   2 = inner SP present, stacked position
-static int g_effectiveMode = 0;
-
-static int WifiX()   { return g_effectiveMode==1 ? g_settings.wifiInlineX   : g_effectiveMode==2 ? g_settings.wifiStackedX   : g_settings.wifiOffX;   }
-static int WifiY()   { return g_effectiveMode==1 ? g_settings.wifiInlineY   : g_effectiveMode==2 ? g_settings.wifiStackedY   : g_settings.wifiOffY;   }
-static int VolumeX() { return g_effectiveMode==1 ? g_settings.volumeInlineX : g_effectiveMode==2 ? g_settings.volumeStackedX : g_settings.volumeOffX; }
-static int VolumeY() { return g_effectiveMode==1 ? g_settings.volumeInlineY : g_effectiveMode==2 ? g_settings.volumeStackedY : g_settings.volumeOffY; }
+static int WifiX()   { return g_settings.batteryMode==1 ? g_settings.wifiInlineX   : g_settings.batteryMode==2 ? g_settings.wifiStackedX   : g_settings.wifiOffX;   }
+static int WifiY()   { return g_settings.batteryMode==1 ? g_settings.wifiInlineY   : g_settings.batteryMode==2 ? g_settings.wifiStackedY   : g_settings.wifiOffY;   }
+static int VolumeX() { return g_settings.batteryMode==1 ? g_settings.volumeInlineX : g_settings.batteryMode==2 ? g_settings.volumeStackedX : g_settings.volumeOffX; }
+static int VolumeY() { return g_settings.batteryMode==1 ? g_settings.volumeInlineY : g_settings.batteryMode==2 ? g_settings.volumeStackedY : g_settings.volumeOffY; }
 
 // ── Cached element references ─────────────────────────────────────────────
 
@@ -309,6 +315,13 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
     for (int i = 0; i < n; i++) {
         auto child = VisualTreeHelper::GetChild(node, i);
         if (!child) continue;
+        if (g_settings.debugLogging) {
+            auto fe = child.try_as<FrameworkElement>();
+            auto tb = child.try_as<TextBlock>();
+            if (fe) Wh_Log(L"[Battery4] [%d/%d] %s \"%s\"%s",
+                depth, i, winrt::get_class_name(fe).c_str(), fe.Name().c_str(),
+                tb ? (std::wstring(L" text=") + tb.Text().c_str()).c_str() : L"");
+        }
         auto sp = child.try_as<StackPanel>();
         if (sp && !sp.IsItemsHost()) {
             bool wasVertical = sp.Orientation() == Orientation::Vertical;
@@ -339,21 +352,6 @@ static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
     }
 }
 
-// Detects whether the battery CP contains an inner (non-IsItemsHost) StackPanel.
-// Returns true when battery % is showing in the XAML tree.
-static bool HasInnerSP(DependencyObject const& node, int depth = 0) {
-    if (depth > 5) return false;
-    int n = VisualTreeHelper::GetChildrenCount(node);
-    for (int i = 0; i < n; i++) {
-        auto child = VisualTreeHelper::GetChild(node, i);
-        if (!child) continue;
-        auto sp = child.try_as<StackPanel>();
-        if (sp && !sp.IsItemsHost()) return true;
-        if (HasInnerSP(child, depth + 1)) return true;
-    }
-    return false;
-}
-
 static bool WalkFindInlinePercent(DependencyObject const& node, int depth = 0) {
     if (depth > 5) return false;
     int n = VisualTreeHelper::GetChildrenCount(node);
@@ -362,7 +360,6 @@ static bool WalkFindInlinePercent(DependencyObject const& node, int depth = 0) {
         if (!child) continue;
         auto sp = child.try_as<StackPanel>();
         if (sp && !sp.IsItemsHost()) {
-            g_batteryInnerPanel = sp;  // store for cleanup even in inline mode
             bool wasVertical = sp.Orientation() == Orientation::Vertical;
             if (wasVertical) sp.Orientation(Orientation::Horizontal);
             int spN = VisualTreeHelper::GetChildrenCount(sp);
@@ -422,8 +419,52 @@ static void ClearHeightDescendants(DependencyObject const& node, int depth = 0) 
     }
 }
 
-// Battery % on/off is now owned by Windows Settings, not this mod.
-// The mod detects the state from the live XAML tree and reacts automatically.
+// ── Battery percentage (registry) ────────────────────────────────────────
+
+static DWORD g_originalBatteryPercent = MAXDWORD;
+
+static constexpr LPCWSTR kAdvancedKey =
+    L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";
+
+static void ApplyBatteryPercent(int mode) {
+    bool show = (mode > 0);
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, kAdvancedKey, 0,
+                      KEY_READ | KEY_WRITE, &hKey) != ERROR_SUCCESS) {
+        Wh_Log(L"[Battery] Failed to open registry key");
+        return;
+    }
+    if (g_originalBatteryPercent == MAXDWORD) {
+        DWORD val = 0, sz = sizeof(val), type = 0;
+        if (RegQueryValueExW(hKey, L"TaskbarBatteryPercent", nullptr, &type,
+                             reinterpret_cast<BYTE*>(&val), &sz) == ERROR_SUCCESS)
+            g_originalBatteryPercent = val;
+        else
+            g_originalBatteryPercent = 0;
+    }
+    DWORD val = show ? 1 : 0;
+    RegSetValueExW(hKey, L"TaskbarBatteryPercent", 0, REG_DWORD,
+                   reinterpret_cast<const BYTE*>(&val), sizeof(val));
+    RegCloseKey(hKey);
+    SendNotifyMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
+                       reinterpret_cast<LPARAM>(kAdvancedKey));
+    Wh_Log(L"[Battery] TaskbarBatteryPercent set to %d (requires explorer restart)", val);
+}
+
+static void RestoreBatteryPercent() {
+    if (g_originalBatteryPercent == MAXDWORD) return;
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, kAdvancedKey, 0,
+                      KEY_WRITE, &hKey) != ERROR_SUCCESS) return;
+    RegSetValueExW(hKey, L"TaskbarBatteryPercent", 0, REG_DWORD,
+                   reinterpret_cast<const BYTE*>(&g_originalBatteryPercent),
+                   sizeof(g_originalBatteryPercent));
+    RegCloseKey(hKey);
+    SendNotifyMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
+                       reinterpret_cast<LPARAM>(kAdvancedKey));
+    Wh_Log(L"[Battery] Restored TaskbarBatteryPercent to %lu", g_originalBatteryPercent);
+    g_originalBatteryPercent = MAXDWORD;
+}
 
 // ── OmniButton height helpers ─────────────────────────────────────────────
 
@@ -539,6 +580,8 @@ static void ApplyLayout(StackPanel const& sp) {
             ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
             ctrl.VerticalContentAlignment(VerticalAlignment::Center);
         }
+        if (g_settings.batteryMode == 2)
+            FreeOmniButtonHeight();
     }
 
     int n = VisualTreeHelper::GetChildrenCount(sp);
@@ -560,28 +603,21 @@ static void ApplyLayout(StackPanel const& sp) {
         if (!child) continue;
         if (HasBatteryDescendant(child)) {
             g_batteryPresenter = child;
-            // Detect actual state from the tree — don't assume based on settings.
-            bool percentShowing = HasInnerSP(child);
-            g_effectiveMode = percentShowing ? (g_settings.batteryPosition == 0 ? 1 : 2) : 0;
-            Wh_Log(L"[Battery] Battery slot at index %d (% %s, effectiveMode=%d)",
-                i, percentShowing ? L"showing" : L"hidden", g_effectiveMode);
-            if (g_effectiveMode == 1) {  // inline
+            Wh_Log(L"[Battery] Battery slot at index %d (mode=%d)", i, g_settings.batteryMode);
+            if (g_settings.batteryMode == 1) {
                 child.Width(std::numeric_limits<double>::quiet_NaN());
                 child.Height(28.0);
                 ApplyOffset(child, g_settings.batteryInlineX, g_settings.batteryInlineY);
                 WalkFindInlinePercent(child);
-            } else if (g_effectiveMode == 2) {  // stacked
+            } else if (g_settings.batteryMode == 2) {
                 child.Width(std::numeric_limits<double>::quiet_NaN());
                 ClearHeightDescendants(child);
                 FlipBatteryLayout(child);
-                FreeOmniButtonHeight();
                 if (g_batteryInnerPanel) {
                     g_batteryInnerPanel.Spacing(0.0);
                     SizeStackedBatteryRows(g_batteryInnerPanel);
                 }
-            } else {  // off — battery icon only
-                child.Width(32.0);
-                child.Height(28.0);
+            } else {
                 ApplyOffset(child, g_settings.batteryOffX, g_settings.batteryOffY);
             }
             break;
@@ -752,7 +788,7 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
     }
 
     bool needsBatteryFind = !g_batteryPresenter;
-    bool needsFlip = g_effectiveMode == 2 && g_batteryPresenter && !g_batteryInnerPanel;
+    bool needsFlip = g_settings.batteryMode == 2 && g_batteryPresenter && !g_batteryInnerPanel;
 
     if (!needsBatteryFind && !needsFlip && g_wifiPresenter && g_volumePresenter) {
         sp.LayoutUpdated(g_layoutUpdatedToken);
@@ -768,29 +804,26 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
             if (!child) continue;
             if (HasBatteryDescendant(child)) {
                 g_batteryPresenter = child;
-                bool percentShowing = HasInnerSP(child);
-                g_effectiveMode = percentShowing ? (g_settings.batteryPosition == 0 ? 1 : 2) : 0;
+                child.Width(std::numeric_limits<double>::quiet_NaN());
                 child.HorizontalAlignment(HorizontalAlignment::Center);
-                if (g_effectiveMode == 1) {
-                    child.Width(std::numeric_limits<double>::quiet_NaN());
+                if (g_settings.batteryMode == 1) {
                     child.Height(28.0);
                     ApplyOffset(child, g_settings.batteryInlineX, g_settings.batteryInlineY);
                     WalkFindInlinePercent(child);
-                } else if (g_effectiveMode == 2) {
-                    child.Width(std::numeric_limits<double>::quiet_NaN());
+                } else if (g_settings.batteryMode == 2) {
                     child.Height(std::numeric_limits<double>::quiet_NaN());
                     ClearHeightDescendants(child);
                 } else {
                     child.Width(32.0); child.Height(28.0);
                     ApplyOffset(child, g_settings.batteryOffX, g_settings.batteryOffY);
                 }
-                Wh_Log(L"[Layout] Deferred battery slot found at index %d (effectiveMode=%d)", i, g_effectiveMode);
+                Wh_Log(L"[Layout] Deferred battery slot found at index %d", i);
                 break;
             }
         }
     }
 
-    if (g_effectiveMode == 2 && g_batteryPresenter && !g_batteryInnerPanel) {
+    if (g_settings.batteryMode == 2 && g_batteryPresenter && !g_batteryInnerPanel) {
         FlipBatteryLayout(g_batteryPresenter);
         if (g_batteryInnerPanel) {
             g_batteryInnerPanel.Spacing(0.0);
@@ -826,7 +859,7 @@ static void ApplyAllSettings() {
                 ApplyLayout(sp);
                 bool needsDeferred = !g_wifiPresenter || !g_volumePresenter ||
                                      !g_batteryPresenter ||
-                                     (g_effectiveMode == 2 && !g_batteryInnerPanel);
+                                     (g_settings.batteryMode == 2 && !g_batteryInnerPanel);
                 if (needsDeferred) {
                     g_layoutUpdatedSP = sp;
                     g_layoutUpdatedToken = sp.LayoutUpdated(OnLayoutUpdated);
@@ -942,13 +975,6 @@ static HMODULE GetTaskbarViewModuleHandle() {
     return nullptr;
 }
 
-// ── WH_GETMESSAGE hook globals (hook impl below Wh_ModUninit) ─────────────
-static HHOOK g_settingChangeHook = nullptr;
-static HWND  g_taskbarWnd = nullptr;
-static const UINT kReapplyMsg = RegisterWindowMessage(L"Windhawk_Reapply_" WH_MOD_ID);
-static DWORD g_lastSettingChangeTick = 0;
-static LRESULT CALLBACK SettingChangeHookProc(int nCode, WPARAM wParam, LPARAM lParam);
-
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
@@ -956,6 +982,7 @@ BOOL Wh_ModInit() {
     if (Wh_GetIntSetting(L"restartExplorer") != 0)
         g_lastRestartTick = GetTickCount();
     LoadSettings();
+    ApplyBatteryPercent(g_settings.batteryMode);
 
     if (!HookTaskbarDllSymbols())
         Wh_Log(L"[Init] taskbar.dll symbol hooks failed — continuing without GetTaskbarXamlRoot");
@@ -988,32 +1015,20 @@ void Wh_ModAfterInit() {
     }
     if (g_taskbarViewDllLoaded)
         ApplyAllSettingsOnWindowThread();
-
-    // Install WH_GETMESSAGE hook on the taskbar thread to catch WM_SETTINGCHANGE.
-    g_taskbarWnd = FindCurrentProcessTaskbarWnd();
-    if (g_taskbarWnd) {
-        DWORD tid = GetWindowThreadProcessId(g_taskbarWnd, nullptr);
-        if (tid)
-            g_settingChangeHook = SetWindowsHookEx(WH_GETMESSAGE, SettingChangeHookProc, nullptr, tid);
-    }
-    Wh_Log(L"[AfterInit] taskbarViewLoaded=%d settingChangeHook=%p",
-           (int)g_taskbarViewDllLoaded, (void*)g_settingChangeHook);
+    Wh_Log(L"[AfterInit] taskbarViewLoaded=%d", (int)g_taskbarViewDllLoaded);
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
 
-    if (g_settingChangeHook) {
-        UnhookWindowsHookEx(g_settingChangeHook);
-        g_settingChangeHook = nullptr;
-    }
-
     if (g_layoutUpdatedSP && g_layoutUpdatedToken.value) {
         g_layoutUpdatedSP.LayoutUpdated(g_layoutUpdatedToken);
         g_layoutUpdatedToken = {};
         g_layoutUpdatedSP = nullptr;
     }
+
+    RestoreBatteryPercent();
 
     auto sp    = g_omniStackPanel;
     auto btn   = g_omniButton;
@@ -1056,42 +1071,27 @@ void Wh_ModUninit() {
     }
 }
 
-// ── WM_SETTINGCHANGE hook — auto-reapply when battery % is toggled externally ─
-
-static void ResetAndReapplyOnUIThread() {
-    if (g_layoutUpdatedSP && g_layoutUpdatedToken.value) {
-        g_layoutUpdatedSP.LayoutUpdated(g_layoutUpdatedToken);
-        g_layoutUpdatedToken = {};
-        g_layoutUpdatedSP = nullptr;
+static void DumpSubtree(DependencyObject const& node, int depth) {
+    if (depth > 7) return;
+    auto fe = node.try_as<FrameworkElement>();
+    auto sp = node.try_as<StackPanel>();
+    auto tb = node.try_as<TextBlock>();
+    std::wstring extra;
+    if (sp) extra += std::wstring(L" [") + (sp.Orientation() == Orientation::Vertical ? L"V" : L"H") + L"]";
+    if (sp && sp.IsItemsHost()) extra += L"(ItemsHost)";
+    if (tb && tb.Text().size()) extra += std::wstring(L" \"") + tb.Text().c_str() + L"\"";
+    Wh_Log(L"[Dump]%*s%s \"%s\"%s  %.0fx%.0f",
+        depth * 2, L"",
+        winrt::get_class_name(node).c_str(),
+        fe ? fe.Name().c_str() : L"",
+        extra.c_str(),
+        fe ? fe.ActualWidth() : 0.0,
+        fe ? fe.ActualHeight() : 0.0);
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (child) DumpSubtree(child, depth + 1);
     }
-    CleanupXamlElements(g_omniStackPanel, g_omniButton,
-                        g_wifiPresenter, g_volumePresenter,
-                        g_batteryPresenter, g_batteryInnerPanel,
-                        g_batteryInlinePercentFE);
-    g_omniStackPanel         = nullptr;  g_omniButton             = nullptr;
-    g_wifiPresenter          = nullptr;  g_volumePresenter        = nullptr;
-    g_batteryPresenter       = nullptr;  g_batteryInnerPanel      = nullptr;
-    g_batteryInlinePercentFE = nullptr;  g_effectiveMode          = 0;
-    ApplyAllSettings();
-    Wh_Log(L"[SettingChange] Reapply complete (effectiveMode=%d)", g_effectiveMode);
-}
-
-static LRESULT CALLBACK SettingChangeHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode == HC_ACTION && wParam == PM_REMOVE) {
-        MSG* msg = (MSG*)lParam;
-        if (msg->message == WM_SETTINGCHANGE && g_omniStackPanel && !g_unloading) {
-            DWORD now = GetTickCount();
-            if (now - g_lastSettingChangeTick > 500) {
-                g_lastSettingChangeTick = now;
-                if (g_taskbarWnd) PostMessage(g_taskbarWnd, kReapplyMsg, 0, 0);
-                Wh_Log(L"[SettingChange] WM_SETTINGCHANGE detected, queuing reapply");
-            }
-        } else if (msg->message == kReapplyMsg && !g_unloading) {
-            msg->message = WM_NULL;  // consume — handle ourselves
-            ResetAndReapplyOnUIThread();
-        }
-    }
-    return CallNextHookEx(g_settingChangeHook, nCode, wParam, lParam);
 }
 
 void Wh_ModSettingsChanged() {
@@ -1107,12 +1107,30 @@ void Wh_ModSettingsChanged() {
         return;
     }
 
+    // One-shot: dump OmniButton XAML subtree to log.
+    if (Wh_GetIntSetting(L"dumpOmniTree") != 0) {
+        HWND hDump = FindCurrentProcessTaskbarWnd();
+        if (hDump) {
+            RunFromWindowThread(hDump, [](void*) {
+                if (g_omniStackPanel) {
+                    Wh_Log(L"[Dump] OmniButton IsItemsHost StackPanel subtree:");
+                    DumpSubtree(g_omniStackPanel, 0);
+                } else {
+                    Wh_Log(L"[Dump] g_omniStackPanel is null (mod not applied yet)");
+                }
+            }, nullptr);
+        }
+        return;
+    }
+
     // Restart explorer when requested, debounced to 10 s.
     if (Wh_GetIntSetting(L"restartExplorer") != 0) {
         DWORD now = GetTickCount();
         if (now - g_lastRestartTick > 10000) {
             g_lastRestartTick = now;
+            // CRITICAL: write registry BEFORE killing explorer — new process reads it at startup.
             LoadSettings();
+            ApplyBatteryPercent(g_settings.batteryMode);
             RestartExplorer();
             return;
         }
@@ -1120,6 +1138,7 @@ void Wh_ModSettingsChanged() {
 
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
+    ApplyBatteryPercent(g_settings.batteryMode);
 
     HWND hWnd = FindCurrentProcessTaskbarWnd();
     if (!hWnd) { Wh_Log(L"[Settings] No taskbar window found"); return; }

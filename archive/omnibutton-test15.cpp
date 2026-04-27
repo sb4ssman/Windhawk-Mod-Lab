@@ -165,6 +165,12 @@ These mods inspired this one and combine well with it for a fully customized tas
 - debugLogging: false
   $name: Enable debug logging
   $description: Log XAML elements as they are traversed
+- openBatterySettings: false
+  $name: "Open battery settings in Windows"
+  $description: "Toggle ON and save to open Windows Settings battery page. The battery percentage toggle is at System → Power & battery (navigate there if needed). Toggle it OFF again when done."
+- dumpOmniTree: false
+  $name: "Dump OmniButton XAML tree to log (debug)"
+  $description: "Toggle ON with debug logging enabled, then save, to print the full OmniButton XAML subtree to the Windhawk log. Useful for diagnosing why battery layout looks wrong."
 */
 // ==/WindhawkModSettings==
 
@@ -317,10 +323,12 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
                 tb ? (std::wstring(L" text=") + tb.Text().c_str()).c_str() : L"");
         }
         auto sp = child.try_as<StackPanel>();
-        if (sp && !sp.IsItemsHost() && sp.Orientation() == Orientation::Horizontal) {
+        if (sp && !sp.IsItemsHost()) {
+            bool wasVertical = sp.Orientation() == Orientation::Vertical;
             sp.Orientation(Orientation::Vertical);
             g_batteryInnerPanel = sp;
-            Wh_Log(L"[Battery4] Flipped inner StackPanel at depth %d", depth);
+            Wh_Log(L"[Battery4] Found inner SP at depth %d (%s → Vertical)",
+                depth, wasVertical ? L"was Vertical" : L"was Horizontal");
             return true;
         }
         if (WalkBatteryTree(child, depth + 1)) return true;
@@ -330,7 +338,7 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
 
 static void FlipBatteryLayout(FrameworkElement const& batteryCP) {
     if (!WalkBatteryTree(batteryCP, 0))
-        Wh_Log(L"[Battery4] No horizontal StackPanel found — enable debug logging to see tree");
+        Wh_Log(L"[Battery4] No inner StackPanel found (% may not be in tree yet)");
 }
 
 static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
@@ -352,18 +360,28 @@ static bool WalkFindInlinePercent(DependencyObject const& node, int depth = 0) {
         if (!child) continue;
         auto sp = child.try_as<StackPanel>();
         if (sp && !sp.IsItemsHost()) {
-            if (VisualTreeHelper::GetChildrenCount(sp) >= 2) {
+            bool wasVertical = sp.Orientation() == Orientation::Vertical;
+            if (wasVertical) sp.Orientation(Orientation::Horizontal);
+            int spN = VisualTreeHelper::GetChildrenCount(sp);
+            Wh_Log(L"[Battery] WalkFindInlinePercent: inner SP at depth %d, children=%d%s",
+                depth, spN, wasVertical ? L" (was Vertical, forced Horizontal)" : L"");
+            if (spN >= 2) {
                 auto pct = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
                 if (pct) {
                     g_batteryInlinePercentFE = pct;
                     ApplyOffset(pct, g_settings.batteryInlinePercentX, g_settings.batteryInlinePercentY);
-                    Wh_Log(L"[Battery] Inline percent FE found and offset applied");
+                    Wh_Log(L"[Battery] Inline percent FE found (%s) and offset applied",
+                        winrt::get_class_name(pct).c_str());
                 }
+            } else {
+                Wh_Log(L"[Battery] Inner SP has %d children — not enough for percent", spN);
             }
             return true;
         }
         if (WalkFindInlinePercent(child, depth + 1)) return true;
     }
+    if (depth == 0)
+        Wh_Log(L"[Battery] WalkFindInlinePercent: no inner SP found in battery subtree");
     return false;
 }
 
@@ -527,7 +545,7 @@ static void CleanupXamlElements(
     } catch (...) {}
     try {
         if (bip) {
-            bip.ClearValue(StackPanel::OrientationProperty());
+            bip.Orientation(Orientation::Horizontal);  // ClearValue restores to Vertical (template default); must set explicitly
             bip.ClearValue(StackPanel::SpacingProperty());
             int bipN = VisualTreeHelper::GetChildrenCount(bip);
             for (int i = 0; i < bipN; i++) {
@@ -1053,7 +1071,58 @@ void Wh_ModUninit() {
     }
 }
 
+static void DumpSubtree(DependencyObject const& node, int depth) {
+    if (depth > 7) return;
+    auto fe = node.try_as<FrameworkElement>();
+    auto sp = node.try_as<StackPanel>();
+    auto tb = node.try_as<TextBlock>();
+    std::wstring extra;
+    if (sp) extra += std::wstring(L" [") + (sp.Orientation() == Orientation::Vertical ? L"V" : L"H") + L"]";
+    if (sp && sp.IsItemsHost()) extra += L"(ItemsHost)";
+    if (tb && tb.Text().size()) extra += std::wstring(L" \"") + tb.Text().c_str() + L"\"";
+    Wh_Log(L"[Dump]%*s%s \"%s\"%s  %.0fx%.0f",
+        depth * 2, L"",
+        winrt::get_class_name(node).c_str(),
+        fe ? fe.Name().c_str() : L"",
+        extra.c_str(),
+        fe ? fe.ActualWidth() : 0.0,
+        fe ? fe.ActualHeight() : 0.0);
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (child) DumpSubtree(child, depth + 1);
+    }
+}
+
 void Wh_ModSettingsChanged() {
+    // One-shot: open Windows Settings battery page.
+    if (Wh_GetIntSetting(L"openBatterySettings") != 0) {
+        using ShellExecuteW_t = HINSTANCE(WINAPI*)(HWND, LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR, INT);
+        auto pShell = (ShellExecuteW_t)GetProcAddress(
+            GetModuleHandleW(L"shell32.dll"), "ShellExecuteW");
+        if (pShell)
+            pShell(nullptr, L"open", L"ms-settings:batterysaver", nullptr, nullptr, SW_SHOWNORMAL);
+        else
+            Wh_Log(L"[Settings] ShellExecuteW not found in shell32.dll");
+        return;
+    }
+
+    // One-shot: dump OmniButton XAML subtree to log.
+    if (Wh_GetIntSetting(L"dumpOmniTree") != 0) {
+        HWND hDump = FindCurrentProcessTaskbarWnd();
+        if (hDump) {
+            RunFromWindowThread(hDump, [](void*) {
+                if (g_omniStackPanel) {
+                    Wh_Log(L"[Dump] OmniButton IsItemsHost StackPanel subtree:");
+                    DumpSubtree(g_omniStackPanel, 0);
+                } else {
+                    Wh_Log(L"[Dump] g_omniStackPanel is null (mod not applied yet)");
+                }
+            }, nullptr);
+        }
+        return;
+    }
+
     // Restart explorer when requested, debounced to 10 s.
     if (Wh_GetIntSetting(L"restartExplorer") != 0) {
         DWORD now = GetTickCount();
