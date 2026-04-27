@@ -159,6 +159,7 @@ These mods inspired this one and combine well with it for a fully customized tas
 
 #include <functional>
 #include <limits>
+#include <thread>
 #include <winrt/base.h>
 #include <windhawk_api.h>
 #include <windhawk_utils.h>
@@ -970,6 +971,17 @@ void Wh_ModAfterInit() {
     if (g_taskbarViewDllLoaded)
         ApplyAllSettingsOnWindowThread();
     Wh_Log(L"[AfterInit] taskbarViewLoaded=%d", (int)g_taskbarViewDllLoaded);
+
+    // Retry on a background thread to handle early-startup timing where the
+    // XAML tree isn't ready when the mod first loads into explorer.
+    std::thread([]() {
+        for (int i = 0; i < 5 && !g_unloading; i++) {
+            Sleep(2000);
+            if (g_omniStackPanel) break;
+            Wh_Log(L"[AfterInit] Retry %d — XAML not yet applied", i + 1);
+            ApplyAllSettingsOnWindowThread();
+        }
+    }).detach();
 }
 
 void Wh_ModUninit() {
