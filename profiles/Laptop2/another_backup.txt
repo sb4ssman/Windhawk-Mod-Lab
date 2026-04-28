@@ -1,0 +1,126 @@
+WINDHAWK MOD SETTINGS
+
+PLAIN Windows 11
+batteryMode: stacked
+offWifiX: -2
+offWifiY: 0
+offVolumeX: 0
+offVolumeY: 0
+offBatteryX: 2
+offBatteryY: 0
+inlineWifiX: -2
+inlineWifiY: 0
+inlineVolumeX: 0
+inlineVolumeY: 0
+inlineBatteryX: 2
+inlineBatteryY: 0
+inlinePercentX: 2
+inlinePercentY: -1
+stackedWifiX: -2
+stackedWifiY: 7
+stackedVolumeX: 0
+stackedVolumeY: 0
+stackedBatteryX: 8
+stackedBatteryY: -6
+stackedPercentX: 2
+stackedPercentY: -11
+
+
+WIN7 on Win 11
+batteryMode: stacked
+offWifiX: 0
+offWifiY: 0
+offVolumeX: 1
+offVolumeY: 0
+offBatteryX: 2
+offBatteryY: 0
+offPercentX: 0
+offPercentY: 50
+inlineWifiX: -2
+inlineWifiY: 0
+inlineVolumeX: 0
+inlineVolumeY: 0
+inlineBatteryX: 2
+inlineBatteryY: 0
+inlinePercentX: 2
+inlinePercentY: -1
+stackedWifiX: 0
+stackedWifiY: 9
+stackedVolumeX: 1
+stackedVolumeY: 1
+stackedBatteryX: 6
+stackedBatteryY: -7
+stackedPercentX: 1
+stackedPercentY: -11
+
+
+SUPER Clock Config
+ShowSeconds: 0
+TimeFormat: h':'mm tt
+DateFormat: MM/dd/yyyy
+WeekdayFormat: dddd
+WeekdayFormatCustom: Sun, Mon, Tue, Wed, Thu, Fri, Sat
+TopLine: 🤖%cpu%🍵%ram%  %time%
+BottomLine: '%weekday%        %date%%n%🛫%upload_speed% 🛬%download_speed%%n%🧮%gpu%         💽%disk_read%%n%%weather%'
+MiddleLine: '%weekday%'
+TooltipLine: '%web1_full%'
+TooltipLineMode: append
+Width: 180
+Height: 60
+MaxWidth: 0
+TextSpacing: 0
+DataCollection:
+  NetworkMetricsFormat: mbsDynamic
+  NetworkMetricsFixedDecimals: -1
+  PercentageFormat: spacePaddingAndSymbol
+  UpdateInterval: 1
+  NetworkAdapterName: ''
+  GpuAdapterName: ''
+MediaPlayer:
+  IgnoredPlayers:
+    - ''
+  MaxLength: 28
+  NoMediaText: No media
+  RemoveBrackets: 0
+WebContentWeatherLocation: ''
+WebContentWeatherFormat: '%c  🌡️%t  🌬️%w'
+WebContentWeatherUnits: autoDetect
+WebContentsItems:
+  - Url: https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+    BlockStart: <item>
+    Start: <title>
+    End: </title>
+    ContentMode: xmlHtml
+    SearchReplace:
+      - Search: ''
+        Replace: ''
+    MaxLength: 28
+WebContentsUpdateInterval: 10
+TimeZones:
+  - Eastern Standard Time
+TimeStyle:
+  Hidden: 0
+  TextColor: ''
+  TextAlignment: ''
+  FontSize: 0
+  FontFamily: ''
+  FontWeight: ''
+  FontStyle: ''
+  FontStretch: ''
+  CharacterSpacing: 0
+DateStyle:
+  Hidden: 0
+  TextColor: ''
+  TextAlignment: ''
+  FontSize: 0
+  FontFamily: ''
+  FontWeight: ''
+  FontStyle: ''
+  FontStretch: ''
+  CharacterSpacing: 0
+oldTaskbarOnWin11: 0
+
+
+
+
+SUPER-DUPER-clock-config 

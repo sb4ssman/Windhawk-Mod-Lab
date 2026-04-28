@@ -140,6 +140,7 @@ static std::atomic<bool> g_unloading{false};
 static HWND              g_taskbarWnd      = nullptr;
 static Grid              g_buttonGrid      = nullptr;
 static FrameworkElement  g_injectionParent = nullptr;
+static int               g_injectedColumn  = -1;
 static std::atomic<int>  g_currentDesktop{0};
 static std::atomic<int>  g_desktopCount{1};
 
@@ -742,11 +743,14 @@ static bool InjectButtonGrid(FrameworkElement root) {
         return false;
     }
 
-    auto panel = parent.try_as<Panel>();
-    if (!panel) { Wh_Log(L"[Inject] Parent is not a Panel"); return false; }
+    // Both SystemTrayFrameGrid and RootGrid use Grid column layout, not child insertion
+    // order. Inserting without setting Grid.Column puts the element in column 0 (overlap).
+    // We insert a new ColumnDefinition and shift existing elements instead.
+    auto gridParent = parent.try_as<Grid>();
+    if (!gridParent) { Wh_Log(L"[Inject] Parent is not a Grid"); return false; }
 
     // Already injected?
-    for (auto child : panel.Children()) {
+    for (auto child : gridParent.Children()) {
         if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == L"VdSwitcherBar")
             return true;
     }
@@ -758,49 +762,94 @@ static bool InjectButtonGrid(FrameworkElement root) {
 
     auto grid = BuildButtonGrid(count, current);
 
-    // Determine insertion index
-    uint32_t insertIdx = panel.Children().Size();  // default: append
-
-    auto findNamed = [&](const wchar_t* name) -> uint32_t {
-        for (uint32_t i = 0; i < panel.Children().Size(); i++) {
-            auto fe = panel.Children().GetAt(i).try_as<FrameworkElement>();
-            if (fe && fe.Name() == name) return i;
+    // Find a named direct child of the grid parent.
+    auto findNamedDirect = [&](const wchar_t* name) -> FrameworkElement {
+        for (auto child : gridParent.Children()) {
+            if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == name)
+                return fe;
         }
-        return panel.Children().Size();
+        return nullptr;
     };
 
-    if      (pos == L"beforeIcons" || pos == L"taskbarLeft")
-        insertIdx = 0;
-    else if (pos == L"beforeOmni")
-        insertIdx = findNamed(L"ControlCenterButton");
-    else if (pos == L"beforeClock")
-        insertIdx = findNamed(L"NotificationCenterButton");
-    else if (pos == L"afterClock")
-        insertIdx = findNamed(L"ShowDesktopStack");   // insert before Show Desktop
-    else if (pos == L"afterShowDesktop")
-        insertIdx = panel.Children().Size();
-    else if (pos == L"taskbarRight")
-        insertIdx = findNamed(L"SystemTrayFrameGrid");  // insert before tray in RootGrid
+    // Determine which element's column to insert before (or after for append cases).
+    FrameworkElement refElem = nullptr;
+    bool insertAfterRef = false;
 
-    panel.Children().InsertAt(insertIdx, grid);
+    if      (pos == L"beforeOmni")
+        refElem = findNamedDirect(L"ControlCenterButton");
+    else if (pos == L"beforeClock")
+        refElem = findNamedDirect(L"NotificationCenterButton");
+    else if (pos == L"afterClock")
+        refElem = findNamedDirect(L"ShowDesktopStack");
+    else if (pos == L"afterShowDesktop") {
+        refElem = findNamedDirect(L"ShowDesktopStack");
+        insertAfterRef = true;
+    } else if (pos == L"taskbarRight")
+        refElem = findNamedDirect(L"SystemTrayFrameGrid");
+    // beforeIcons / taskbarLeft → column 0 (refElem stays nullptr)
+
+    int insertCol;
+    if (insertAfterRef && refElem)
+        insertCol = Grid::GetColumn(refElem) + 1;
+    else if (refElem)
+        insertCol = Grid::GetColumn(refElem);
+    else if (pos == L"beforeIcons" || pos == L"taskbarLeft")
+        insertCol = 0;
+    else
+        insertCol = (int)gridParent.ColumnDefinitions().Size();  // fallback: append
+
+    // Insert a new Auto-width column at insertCol.
+    ColumnDefinition cd;
+    cd.Width({ 1.0, GridUnitType::Auto });
+    if ((uint32_t)insertCol < gridParent.ColumnDefinitions().Size())
+        gridParent.ColumnDefinitions().InsertAt((uint32_t)insertCol, cd);
+    else
+        gridParent.ColumnDefinitions().Append(cd);
+
+    // Shift every existing child whose column is >= insertCol to make room.
+    for (auto child : gridParent.Children()) {
+        auto fe = child.try_as<FrameworkElement>();
+        if (!fe) continue;
+        int col = Grid::GetColumn(fe);
+        if (col >= insertCol)
+            Grid::SetColumn(fe, col + 1);
+    }
+
+    Grid::SetColumn(grid, insertCol);
+    gridParent.Children().Append(grid);
     g_buttonGrid      = grid;
     g_injectionParent = parent;
+    g_injectedColumn  = insertCol;
 
-    Wh_Log(L"[Inject] VdSwitcherBar at idx=%u in %ls (%d desktops, current=%d)",
-           insertIdx, parent.Name().c_str(), count, current);
+    Wh_Log(L"[Inject] VdSwitcherBar at column=%d in %ls (%d desktops, current=%d)",
+           insertCol, parent.Name().c_str(), count, current);
     return true;
 }
 
 static void RemoveButtonGrid() {
     if (!g_buttonGrid) return;
-    auto panel = g_injectionParent ? g_injectionParent.try_as<Panel>() : nullptr;
-    if (panel) {
+    auto gridParent = g_injectionParent ? g_injectionParent.try_as<Grid>() : nullptr;
+    if (gridParent) {
         uint32_t idx;
-        if (panel.Children().IndexOf(g_buttonGrid, idx))
-            panel.Children().RemoveAt(idx);
+        if (gridParent.Children().IndexOf(g_buttonGrid, idx))
+            gridParent.Children().RemoveAt(idx);
+
+        if (g_injectedColumn >= 0) {
+            uint32_t col = (uint32_t)g_injectedColumn;
+            if (col < gridParent.ColumnDefinitions().Size())
+                gridParent.ColumnDefinitions().RemoveAt(col);
+            for (auto child : gridParent.Children()) {
+                auto fe = child.try_as<FrameworkElement>();
+                if (!fe) continue;
+                int c = Grid::GetColumn(fe);
+                if (c > g_injectedColumn)
+                    Grid::SetColumn(fe, c - 1);
+            }
+        }
     }
     g_buttonGrid      = nullptr;
     g_injectionParent = nullptr;
+    g_injectedColumn  = -1;
 }
 
 // Rebuild button grid (full or highlight-only) on the UI thread.
@@ -813,13 +862,15 @@ static void RebuildOrUpdate(bool fullRebuild) {
 
     if (fullRebuild || countChanged) {
         if (!g_buttonGrid || !g_injectionParent) return;
-        auto panel = g_injectionParent.try_as<Panel>();
-        if (!panel) return;
+        auto gridParent = g_injectionParent.try_as<Grid>();
+        if (!gridParent) return;
         uint32_t idx;
-        if (!panel.Children().IndexOf(g_buttonGrid, idx)) return;
-        panel.Children().RemoveAt(idx);
+        if (!gridParent.Children().IndexOf(g_buttonGrid, idx)) return;
+        gridParent.Children().RemoveAt(idx);
         g_buttonGrid = BuildButtonGrid(count, current);
-        panel.Children().InsertAt(idx, g_buttonGrid);
+        if (g_injectedColumn >= 0)
+            Grid::SetColumn(g_buttonGrid, g_injectedColumn);
+        gridParent.Children().InsertAt(idx, g_buttonGrid);
     } else {
         UpdateHighlights(current);
     }
@@ -964,6 +1015,25 @@ void Wh_ModAfterInit() {
     }).detach();
 }
 
+static void DoUninitRemove(FrameworkElement const& parent, Grid const& grid, int col) {
+    auto gp = parent ? parent.try_as<Grid>() : nullptr;
+    if (!gp || !grid) return;
+    uint32_t idx;
+    if (gp.Children().IndexOf(grid, idx))
+        gp.Children().RemoveAt(idx);
+    if (col >= 0) {
+        uint32_t colU = (uint32_t)col;
+        if (colU < gp.ColumnDefinitions().Size())
+            gp.ColumnDefinitions().RemoveAt(colU);
+        for (auto child : gp.Children()) {
+            auto fe = child.try_as<FrameworkElement>();
+            if (!fe) continue;
+            int c = Grid::GetColumn(fe);
+            if (c > col) Grid::SetColumn(fe, c - 1);
+        }
+    }
+}
+
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
@@ -972,14 +1042,15 @@ void Wh_ModUninit() {
 
     auto grid   = g_buttonGrid;
     auto parent = g_injectionParent;
+    int  col    = g_injectedColumn;
     g_buttonGrid      = nullptr;
     g_injectionParent = nullptr;
+    g_injectedColumn  = -1;
 
     if (!grid) return;
 
     // Attempt sync removal (may or may not be on UI thread).
-    auto panel = parent ? parent.try_as<Panel>() : nullptr;
-    if (panel) { uint32_t idx; if (panel.Children().IndexOf(grid, idx)) panel.Children().RemoveAt(idx); }
+    DoUninitRemove(parent, grid, col);
 
     // Async backup to ensure removal on UI thread.
     HMODULE hSelf = nullptr;
@@ -988,9 +1059,8 @@ void Wh_ModUninit() {
         auto disp = grid.Dispatcher();
         if (disp) {
             auto _ = disp.RunAsync(winrt::Windows::UI::Core::CoreDispatcherPriority::Normal,
-                [grid, parent, hSelf]() {
-                    auto p = parent ? parent.try_as<Panel>() : nullptr;
-                    if (p && grid) { uint32_t idx; if (p.Children().IndexOf(grid, idx)) p.Children().RemoveAt(idx); }
+                [grid, parent, col, hSelf]() {
+                    DoUninitRemove(parent, grid, col);
                     if (hSelf) FreeLibrary(hSelf);
                 });
             return;
