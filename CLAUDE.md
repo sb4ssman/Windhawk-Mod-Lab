@@ -25,15 +25,21 @@ live in the sibling repo `t:\Github\sb4ssman\windhawk-mods\mods\`.
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [vertical-omnibutton/](vertical-omnibutton/) | v1.2, published | Vertical stacking of system tray OmniButton (wifi/volume/battery) |
+| [vertical-omnibutton/](vertical-omnibutton/) | v1.51.0, published | Vertical stacking of system tray OmniButton (wifi/volume/battery) |
 | [taskmanager-tail/](taskmanager-tail/) | v1.0, published | Task manager CPU/RAM tail on taskbar |
-| [vd-switcher/](vd-switcher/) | in development | Virtual desktop switcher buttons injected into system tray |
+| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v0.1, development | Virtual desktop switcher buttons injected into system tray |
 
 ### Mods to be brought in (separate repos → subfolders here)
 - `t:\Github\sb4ssman\Windhawk-Vertical-OmniButton\` → `vertical-omnibutton/`
 - `t:\Github\sb4ssman\Windhawk-Taskmanager-Tail\` → `taskmanager-tail/`
 
 See [_claude_notes/working_notes.md](_claude_notes/working_notes.md) for consolidation plan.
+
+## Versioning Policy
+
+- **Major**: Architecture changes or complete rewrites.
+- **Minor**: New features or significant logic updates.
+- **Patch**: Bug fixes and internal "Lab" calibrations. Bump this for every verified fix.
 
 ## Windhawk mod basics
 

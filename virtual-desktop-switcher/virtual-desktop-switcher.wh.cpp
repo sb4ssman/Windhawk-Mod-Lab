@@ -7,7 +7,7 @@
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -luuid
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
@@ -75,18 +75,21 @@ Buttons auto-arrange into a grid when the taskbar is tall enough for multiple ro
 
 #undef GetCurrentTime
 
+#include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.UI.Core.h>
 #include <winrt/Windows.UI.Xaml.h>
+#include <winrt/Windows.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
 
 #include <atomic>
-#include <mutex>
 #include <string>
 #include <vector>
 #include <sstream>
 #include <thread>
+#include <functional> // Added for std::function
+#include <algorithm>  // Added for std::min and std::max
 
 #include <windhawk_utils.h>
 #include <combaseapi.h>
@@ -318,7 +321,7 @@ IVirtualDesktopNotificationService_I : public IUnknown {
 
 struct NotifConfig {
     int64_t iidPart1 = 0, iidPart2 = 0;
-    int methodCount = 0, currentChangedIdx = -1;
+    int methodCount = 0, createdIdx = -1, destroyedIdx = -1, currentChangedIdx = -1;
     bool hasMonitors = false;
 };
 
@@ -330,10 +333,10 @@ struct NotifObject {
 static NotifConfig GetNotifConfig() {
     if (g_explorerBuild < 22000) return {};
     if (g_explorerBuild < 22483 || (g_explorerBuild == 22621 && g_explorerRevision < 2215))
-        return { 5481970284372180562ll, -1679294552252794956ll, 13, 11, true };
+        return { 5481970284372180562ll, -1679294552252794956ll, 13, 7, 9, 11, true };
     if (g_explorerBuild < 22631 || (g_explorerBuild == 22631 && g_explorerRevision < 3085))
-        return { 5123538856297626140ll,  8491238173783613346ll, 14, 10, false };
-    return     { 5308375338100058445ll, -2401892766147978065ll, 14, 10, false };
+        return { 5123538856297626140ll,  8491238173783613346ll, 14, 6, 8, 10, false };
+    return     { 5308375338100058445ll, -2401892766147978065ll, 14, 6, 8, 10, false };
 }
 
 static bool IsOurNotifIface(REFIID riid) {
@@ -359,16 +362,18 @@ static ULONG STDMETHODCALLTYPE Notif_Release(NotifObject* p) {
     if (r == 0) { delete[] p->vtable; delete p; }
     return (ULONG)std::max(r, 0L);
 }
-static HRESULT STDMETHODCALLTYPE Notif_NoOp() { return S_OK; }
-static HRESULT STDMETHODCALLTYPE Notif_CurrentChanged(NotifObject*) {
+static HRESULT STDMETHODCALLTYPE Notif_HandleUpdate(bool fullRebuild) {
     if (g_unloading || !g_taskbarWnd) return S_OK;
-    RunFromWindowThread(g_taskbarWnd, [](void*) {
-        if (!g_unloading) RebuildOrUpdate(false);
-    }, nullptr);
+    RunFromWindowThread(g_taskbarWnd,  [](void* p) { // Changed to a lambda with void* parameter
+        if (!g_unloading) RebuildOrUpdate((bool)(intptr_t)p); // Fixed: Cast void* to intptr_t then bool
+    }, (void*)fullRebuild);
     return S_OK;
 }
+static HRESULT STDMETHODCALLTYPE Notif_NoOp() { return S_OK; }
+static HRESULT STDMETHODCALLTYPE Notif_CountChanged(NotifObject*) { return Notif_HandleUpdate(true); }
+static HRESULT STDMETHODCALLTYPE Notif_CurrentChanged(NotifObject*) { return Notif_HandleUpdate(false); }
 static HRESULT STDMETHODCALLTYPE Notif_CurrentChangedWithMonitors(NotifObject*, void*, void*, void*) {
-    return Notif_CurrentChanged(nullptr);
+    return Notif_HandleUpdate(false);
 }
 
 static NotifObject* CreateNotifObject() {
@@ -382,6 +387,8 @@ static NotifObject* CreateNotifObject() {
     obj->vtable[0] = (void*)&Notif_QI;
     obj->vtable[1] = (void*)&Notif_AddRef;
     obj->vtable[2] = (void*)&Notif_Release;
+    if (cfg.createdIdx >= 0)   obj->vtable[cfg.createdIdx]   = (void*)&Notif_CountChanged;
+    if (cfg.destroyedIdx >= 0) obj->vtable[cfg.destroyedIdx] = (void*)&Notif_CountChanged;
     obj->vtable[cfg.currentChangedIdx] = cfg.hasMonitors
         ? (void*)&Notif_CurrentChangedWithMonitors
         : (void*)&Notif_CurrentChanged;
@@ -474,7 +481,7 @@ static int ReadDesktopCount() {
     ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
     wchar_t sessionPath[256];
     swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
-    for (auto* path : { sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) { // Fixed: Cast sessionPath
         auto buf = ReadRegBinary(path, L"VirtualDesktopIDs");
         if (buf.size() >= 16) return (int)(buf.size() / 16);
     }
@@ -488,7 +495,7 @@ static int ReadCurrentDesktop() {
     swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
 
     std::vector<BYTE> ids;
-    for (auto* path : { sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) { // Fixed: Cast sessionPath
         ids = ReadRegBinary(path, L"VirtualDesktopIDs");
         if (ids.size() >= 16) break;
     }
@@ -496,7 +503,7 @@ static int ReadCurrentDesktop() {
 
     GUID currentGuid{};
     bool gotCurrent = false;
-    for (auto* path : { sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) { // Fixed: Cast sessionPath
         auto buf = ReadRegBinary(path, L"CurrentVirtualDesktop");
         if (buf.size() >= 16) { memcpy(&currentGuid, buf.data(), 16); gotCurrent = true; break; }
         // Try REG_SZ form
@@ -532,7 +539,7 @@ const CLSID CLSID_VirtualDesktopManagerInternal = {
     0xC5E0CDCA,0x7B6E,0x41B2,{0x9F,0xC4,0xD9,0x39,0x75,0xCC,0x46,0x7B}
 };
 
-static void SwitchToDesktop(int targetIndex) {
+void SwitchToDesktop(int targetIndex) {
     if (!LoadTwinuiBuild()) { Wh_Log(L"[VD] twinui.pcshell.dll not loaded"); return; }
 
     IID IID_VDMI, IID_VD;
@@ -637,12 +644,12 @@ static std::wstring GetButtonLabel(int idx, int current) {
 // Compute how many button rows fit in the taskbar.
 // Column-major fill: desktop 1 = top-left, 2 = bottom-left (if 2 rows), 3 = top-right, etc.
 static int ComputeRows(int count) {
-    if (g_settings.buttonRows > 0) return min(g_settings.buttonRows, count);
+    if (g_settings.buttonRows > 0) return std::min(g_settings.buttonRows, count); // Fixed: std::min
     RECT r{};
     if (g_taskbarWnd && GetWindowRect(g_taskbarWnd, &r)) {
         int tbH = r.bottom - r.top;
-        int rows = max(1, tbH / (g_settings.buttonHeight + 6));
-        return min(rows, count);
+        int rows = std::max(1, tbH / (g_settings.buttonHeight + 6)); // Fixed: std::max
+        return std::min(rows, count); // Fixed: std::min
     }
     return 1;
 }
@@ -685,9 +692,10 @@ static Grid BuildButtonGrid(int count, int current) {
         else if (i != current && inactiveBrush)
             btn.Background(inactiveBrush);
 
-        int capturedIdx = i;
-        btn.Click([capturedIdx](winrt::Windows::Foundation::IInspectable const&,
-                                RoutedEventArgs const&) {
+        int capturedIdx = i; // Capture by value
+        // Using a generic lambda (auto const&) allows the compiler to match the delegate 
+        // signature without needing explicit header definitions for the arguments.
+        btn.Click([capturedIdx](auto const&, auto const&) {
             SwitchToDesktop(capturedIdx);
         });
 

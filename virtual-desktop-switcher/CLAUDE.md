@@ -1,9 +1,9 @@
-# CLAUDE.md — VD Switcher
+# CLAUDE.md — Virtual Desktop Switcher
 
 ## Status: v0.1 — first draft, untested
 
-Single file: [vd-switcher.wh.cpp](vd-switcher.wh.cpp)
-Design doc: [../_claude_notes/vd-switcher-design.md](../_claude_notes/vd-switcher-design.md)
+Single file: [virtual-desktop-switcher.wh.cpp](virtual-desktop-switcher.wh.cpp)
+Design doc: [../_claude_notes/virtual-desktop-switcher-design.md](../_claude_notes/virtual-desktop-switcher-design.md)
 
 ## What it does
 
@@ -39,12 +39,10 @@ Taskbar-wide (parent = `RootGrid`):
 
 ## Known issues / v0.1 limitations
 
-- Buttons don't auto-update when desktops are added/removed without switching.
-  Fix: implement `DesktopCreated`/`DesktopDestroyed` vtable slots in notification object,
-  or add a poll thread.
 - Multi-monitor: only primary taskbar gets buttons.
 - `taskbarLeft`/`taskbarRight` placement in `RootGrid` (a Grid with defined columns) may
   have sizing quirks — the bar lands in column 0 by default.
+- Desktop create/destroy notifications are wired (`Notif_CountChanged`) but untested.
 
 ## Testing sequence
 

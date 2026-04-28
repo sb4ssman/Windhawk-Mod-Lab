@@ -2,7 +2,7 @@
 
 ## Current focus
 
-1. **VD Switcher** — new mod, design doc ready at [vd-switcher-design.md](vd-switcher-design.md)
+1. **Virtual Desktop Switcher** — v0.1 draft implementation complete; refining notification logic.
 2. **Repo consolidation** — bring existing mod repos into this lab as subfolders with full git history
 
 ---
@@ -18,22 +18,22 @@ Original repos left as-is on GitHub (no need to touch them).
 
 ---
 
-## VD Switcher status
+## Virtual Desktop Switcher status
 
-Design doc: [vd-switcher-design.md](vd-switcher-design.md)  
-Target location: `vd-switcher/vd-switcher.wh.cpp`
+Design doc: virtual-desktop-switcher-design.md  
+Target location: `virtual-desktop-switcher/virtual-desktop-switcher.wh.cpp`
 
 Implementation order (from design doc):
-1. Boilerplate + GetTaskbarXamlRoot (copy from vertical-omnibutton)
-2. Desktop state: registry read + notification registration  
-3. SwitchToDesktop(int index): adapt from taskbar-empty-space-clicks
-4. RebuildButtons(): WinRT Button elements in a StackPanel
-5. Injection: find SystemTrayFrameGrid, InsertAt position
-6. Live update: notification → dispatch RebuildButtons on UI thread
-7. Cleanup: uninit removes bar, unregisters notifications
-8. Settings: position, size, colors, label format
+1. [DONE] Boilerplate + GetTaskbarXamlRoot (adapted from vertical-omnibutton v1.51.0)
+2. [DONE] Desktop state: registry read + notification registration  
+3. [DONE] SwitchToDesktop(int index): adapt from taskbar-empty-space-clicks
+4. [DONE] RebuildButtons(): WinRT Button elements in a StackPanel
+5. [DONE] Injection: find SystemTrayFrameGrid, InsertAt position
+6. [DONE] Live update: Added Created/Destroyed listeners to notification object
+7. [DONE] Cleanup: uninit removes bar, unregisters notifications
+8. [DONE] Settings: position, size, colors, label format
 
-**Not yet started** — discuss approach with user before writing code.
+**Next: test in Windhawk. Use testing sequence in CLAUDE.md.**
 
 ---
 
@@ -48,5 +48,5 @@ Implementation order (from design doc):
 
 ## Completed
 
-- vertical-omnibutton v1.2 published to PR #3859 on ramensoftware/windhawk-mods
+- vertical-omnibutton v1.51.0 published (final calibration)
 - taskmanager-tail v1.0 published
