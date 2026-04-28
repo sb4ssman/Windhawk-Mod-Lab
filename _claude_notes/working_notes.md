@@ -37,6 +37,15 @@ Implementation order (from design doc):
 
 ---
 
+## TODO (future)
+
+- **windhawk-mods PR update script** — a script that:
+  1. Pulls latest from `ramensoftware/windhawk-mods` upstream into the local fork
+  2. Copies the updated `.wh.cpp` from the lab mod folder into `mods/`
+  3. Creates or updates a PR on the fork with appropriate commit message
+  - Should handle both new mod submissions and version bumps to existing ones
+  - The windhawk-mods fork lives at `t:/Github/sb4ssman/windhawk-mods/`
+
 ## Completed
 
 - vertical-omnibutton v1.2 published to PR #3859 on ramensoftware/windhawk-mods

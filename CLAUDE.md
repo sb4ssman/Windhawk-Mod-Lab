@@ -8,6 +8,12 @@ Go to [_claude_notes/](_claude_notes/) and read:
 
 Keep notes up to date. Keep working_notes short.
 
+## Keep README.md updated
+
+When a mod's status changes (new version, new mod added, mod archived), update [README.md](README.md).
+The table at the top of README lists all mods with status, one-line description, and links.
+Do this as part of any commit that changes a mod's published state.
+
 ## The lab
 
 This is an umbrella repo for all of sb4ssman's Windhawk mods.
