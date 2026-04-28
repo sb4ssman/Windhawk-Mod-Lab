@@ -2,7 +2,7 @@
 // @id              taskbar-vd-switcher
 // @name            Taskbar Virtual Desktop Switcher
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — for direct switching. Grid layout adapts to taskbar height.
-// @version         1.0
+// @version         0.4
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -11,121 +11,11 @@
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Taskbar Virtual Desktop Switcher
-
-Adds numbered buttons to the system tray — one per virtual desktop. Click to switch directly.
-
-Buttons auto-arrange into a grid when the taskbar is tall enough for multiple rows.
-
-## Settings
-- **Position** — five positions within the system tray
-- **Size** — button width × height in pixels; spacing between buttons
-- **Rows** — 0 = auto (detected from taskbar height), or a fixed count
-- **Active color** — hex color for the current-desktop button (e.g. `#4488FF`)
-- **Inactive color** — hex color for other buttons (empty = system default)
-- **Opacity** — 0–100; lower values let the taskbar show through
-- **Shine effect** — subtle gradient highlight (applies when a color is set)
-- **Label format** — numbers, roman numerals, dots, or custom comma-separated labels
-- **Padding** — left and right margin around the button grid (px)
-- **Text color** — foreground color for active and inactive buttons
-- **Font size** — button label size in pt
-- **Corner radius** — rounded corners (px)
-- **Active bold** — bold the current desktop's label
-- **Border** — border color and thickness
-- **Hide when single** — hide the bar when only one desktop exists
-- **Tooltips** — hover a button to see the desktop name
-
-## Known limitations
-- Multi-monitor: only the primary taskbar gets buttons.
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- position: "afterClock"
-  $name: Position
-  $description: Where in the system tray to inject the VD buttons
-  $options:
-  - "afterClock": "After clock (before Show Desktop)"
-  - "beforeClock": "Before clock (after OmniButton)"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeIcons": "Before notification icons"
-  - "afterShowDesktop": "After Show Desktop strip"
-
-- buttonWidth: 20
-  $name: Button width (px)
-
-- buttonHeight: 22
-  $name: Button height (px)
-
-- buttonSpacing: 2
-  $name: Button spacing (px)
-  $description: Gap between buttons in the grid
-
-- buttonRows: 0
-  $name: Button rows (0 = auto from taskbar height)
-
-- activeColor: "#4488FF"
-  $name: Active desktop color (hex, empty = system default)
-
-- inactiveColor: ""
-  $name: Inactive button color (hex, empty = system default)
-
-- buttonOpacity: 100
-  $name: Button opacity (0–100)
-  $description: 100 = fully opaque; lower values let the taskbar show through
-
-- shineEffect: false
-  $name: Shine effect
-  $description: Adds a subtle gradient highlight. Applies when a custom color is set.
-
-- labelFormat: "number"
-  $name: Label format
-  $options:
-  - "number": "Numbers  1  2  3"
-  - "roman": "Roman numerals  I  II  III"
-  - "dot": "Dots  ●  ○  ○"
-  - "custom": "Custom labels"
-
-- customLabels: ""
-  $name: Custom labels (comma-separated, e.g. "H,W,M")
-  $description: Used when label format is Custom. Falls back to numbers if labels run out.
-
-- activeTextColor: ""
-  $name: Active desktop text color (hex, empty = system default)
-
-- inactiveTextColor: ""
-  $name: Inactive button text color (hex, empty = system default)
-
-- fontSize: 10
-  $name: Font size (pt)
-
-- cornerRadius: 4
-  $name: Corner radius (px)
-  $description: Rounded corners on buttons (0 = square, 4 = Windows default)
-
-- activeBold: false
-  $name: Bold active desktop label
-
-- borderThickness: 0
-  $name: Button border thickness (px)
-
-- borderColor: ""
-  $name: Button border color (hex, empty = system default)
-
-- hideWhenSingle: false
-  $name: Hide when only one desktop
-  $description: Don't show the button bar when there is only one virtual desktop
-
-- paddingLeft: 0
-  $name: Padding left (px)
-  $description: Extra space to the left of the button grid
-
-- paddingRight: 2
-  $name: Padding right (px)
-  $description: Extra space to the right of the button grid
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
@@ -144,8 +34,8 @@ Buttons auto-arrange into a grid when the taskbar is tall enough for multiple ro
 #include <vector>
 #include <sstream>
 #include <thread>
-#include <functional>
-#include <algorithm>
+#include <functional> // Added for std::function
+#include <algorithm>  // Added for std::min and std::max
 
 #include <windhawk_utils.h>
 #include <combaseapi.h>
@@ -174,7 +64,7 @@ struct ModSettings {
     std::wstring activeTextColor  = L"";
     std::wstring inactiveTextColor= L"";
     int fontSize                  = 10;
-    int cornerRadius              = 4;
+    int cornerRadius              = 0;
     bool activeBold               = false;
     int borderThickness           = 0;
     std::wstring borderColor      = L"";
@@ -205,7 +95,7 @@ static void LoadSettings() {
     g_settings.activeTextColor   = Str(L"activeTextColor",   L"");
     g_settings.inactiveTextColor = Str(L"inactiveTextColor", L"");
     g_settings.fontSize          = Wh_GetIntSetting(L"fontSize",         10);
-    g_settings.cornerRadius      = Wh_GetIntSetting(L"cornerRadius",      4);
+    g_settings.cornerRadius      = Wh_GetIntSetting(L"cornerRadius",      0);
     g_settings.activeBold        = Wh_GetIntSetting(L"activeBold",        0) != 0;
     g_settings.borderThickness   = Wh_GetIntSetting(L"borderThickness",   0);
     g_settings.borderColor       = Str(L"borderColor",       L"");
@@ -447,8 +337,8 @@ static ULONG STDMETHODCALLTYPE Notif_Release(NotifObject* p) {
 }
 static HRESULT STDMETHODCALLTYPE Notif_HandleUpdate(bool fullRebuild) {
     if (g_unloading || !g_taskbarWnd) return S_OK;
-    RunFromWindowThread(g_taskbarWnd, [](void* p) {
-        if (!g_unloading) RebuildOrUpdate((bool)(intptr_t)p);
+    RunFromWindowThread(g_taskbarWnd,  [](void* p) { // Changed to a lambda with void* parameter
+        if (!g_unloading) RebuildOrUpdate((bool)(intptr_t)p); // Fixed: Cast void* to intptr_t then bool
     }, (void*)fullRebuild);
     return S_OK;
 }
@@ -564,7 +454,7 @@ static int ReadDesktopCount() {
     ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
     wchar_t sessionPath[256];
     swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
-    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) { // Fixed: Cast sessionPath
         auto buf = ReadRegBinary(path, L"VirtualDesktopIDs");
         if (buf.size() >= 16) return (int)(buf.size() / 16);
     }
@@ -578,7 +468,7 @@ static int ReadCurrentDesktop() {
     swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
 
     std::vector<BYTE> ids;
-    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) { // Fixed: Cast sessionPath
         ids = ReadRegBinary(path, L"VirtualDesktopIDs");
         if (ids.size() >= 16) break;
     }
@@ -586,7 +476,7 @@ static int ReadCurrentDesktop() {
 
     GUID currentGuid{};
     bool gotCurrent = false;
-    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) { // Fixed: Cast sessionPath
         auto buf = ReadRegBinary(path, L"CurrentVirtualDesktop");
         if (buf.size() >= 16) { memcpy(&currentGuid, buf.data(), 16); gotCurrent = true; break; }
         // Try REG_SZ form
@@ -877,7 +767,7 @@ static Grid BuildButtonGrid(int count, int current) {
                 ? winrt::Windows::UI::Text::FontWeights::Bold()
                 : winrt::Windows::UI::Text::FontWeights::Normal());
 
-        {
+        if (g_settings.cornerRadius > 0) {
             double r = (double)g_settings.cornerRadius;
             btn.CornerRadius({ r, r, r, r });
         }
@@ -920,13 +810,8 @@ static void UpdateHighlights(int current) {
             btn.Content(winrt::box_value(std::wstring(isActive ? L"●" : L"○")));
         Brush bg = isActive ? activeBrush : inactiveBrush;
         btn.Background(bg ? bg : nullptr);
-        if (activeTextBrush || inactiveTextBrush) {
-            Brush fg = isActive ? activeTextBrush : inactiveTextBrush;
-            if (fg)
-                btn.Foreground(fg);
-            else
-                btn.ClearValue(Control::ForegroundProperty());
-        }
+        Brush fg = isActive ? activeTextBrush : inactiveTextBrush;
+        btn.Foreground(fg ? fg : nullptr);
         if (g_settings.activeBold)
             btn.FontWeight(isActive
                 ? winrt::Windows::UI::Text::FontWeights::Bold()
@@ -1196,7 +1081,7 @@ static HMODULE GetTaskbarViewModule() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] VD Switcher v0.5");
+    Wh_Log(L"[Init] VD Switcher v0.4");
     LoadSettings();
     DetectExplorerBuild();
 

@@ -2,8 +2,8 @@
 
 ## Current focus
 
-1. **Virtual Desktop Switcher** — v0.1 draft implementation complete; refining notification logic.
-2. **Repo consolidation** — bring existing mod repos into this lab as subfolders with full git history
+1. **Virtual Desktop Switcher** — v0.5, tested, ready to push and submit to windhawk-mods.
+2. **PR submission workflow** — script to copy .wh.cpp into windhawk-mods fork and open PR (see TODO below)
 
 ---
 
@@ -18,22 +18,16 @@ Original repos left as-is on GitHub (no need to touch them).
 
 ---
 
-## Virtual Desktop Switcher status
+## Virtual Desktop Switcher status — DONE (2026-04-28)
 
-Design doc: virtual-desktop-switcher-design.md  
-Target location: `virtual-desktop-switcher/virtual-desktop-switcher.wh.cpp`
+v0.5 tested and working. Key iterations:
+- v0.1: first draft
+- v0.2: fixed Grid column overlap bug (SystemTrayFrameGrid uses column layout, not z-order)
+- v0.3: added opacity, shine effect, spacing, roman numerals, padding, README
+- v0.4: added text color, font size, corner radius, active bold, border, hideWhenSingle, tooltips (desktop names from registry)
+- v0.5: fixed disappearing numeral on switch (btn.Foreground(nullptr) bug), fixed corner radius default
 
-Implementation order (from design doc):
-1. [DONE] Boilerplate + GetTaskbarXamlRoot (adapted from vertical-omnibutton v1.51.0)
-2. [DONE] Desktop state: registry read + notification registration  
-3. [DONE] SwitchToDesktop(int index): adapt from taskbar-empty-space-clicks
-4. [DONE] RebuildButtons(): WinRT Button elements in a StackPanel
-5. [DONE] Injection: find SystemTrayFrameGrid, InsertAt position
-6. [DONE] Live update: Added Created/Destroyed listeners to notification object
-7. [DONE] Cleanup: uninit removes bar, unregisters notifications
-8. [DONE] Settings: position, size, colors, label format
-
-**Next: test in Windhawk. Use testing sequence in CLAUDE.md.**
+**Next: push to GitHub and submit to windhawk-mods.**
 
 ---
 
@@ -50,3 +44,4 @@ Implementation order (from design doc):
 
 - vertical-omnibutton v1.51.0 published (final calibration)
 - taskmanager-tail v1.0 published
+- virtual-desktop-switcher v0.5 ready for submission
