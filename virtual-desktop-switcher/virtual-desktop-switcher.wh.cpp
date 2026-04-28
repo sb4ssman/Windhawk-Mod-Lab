@@ -16,7 +16,15 @@
 
 Adds numbered buttons to the system tray — one per virtual desktop. Click to switch directly.
 
+![Default taskbar — three numbered buttons, first active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot1.png)
+
 Buttons auto-arrange into a grid when the taskbar is tall enough for multiple rows.
+
+![Taller taskbar — auto-rows stacks into a column](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot2.png)
+
+Works alongside other mods.
+
+![Complex setup with other mods active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot3.png)
 
 ## Settings
 - **Position** — five positions within the system tray
@@ -1143,11 +1151,12 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR path, HANDLE file, DWORD flags) {
         const wchar_t* base = wcsrchr(path, L'\\');
         base = base ? base + 1 : path;
         if (_wcsicmp(base, L"Taskbar.View.dll") == 0) {
-            WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+            // Taskbar.View.dll
+            WindhawkUtils::SYMBOL_HOOK taskbarViewHooks[] = {{
                 {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
                 &IconView_IconView_Original, IconView_IconView_Hook,
             }};
-            if (WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks)))
+            if (WindhawkUtils::HookSymbols(h, taskbarViewHooks, ARRAYSIZE(taskbarViewHooks)))
                 g_taskbarViewDllLoaded = true;
         }
     }
@@ -1161,7 +1170,7 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR path, HANDLE file, DWORD flags) {
 static bool HookTaskbarDllSymbols() {
     HMODULE h = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!h) return false;
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         { {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
           &CTaskBand_ITaskListWndSite_vftable },
         { {LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
@@ -1171,15 +1180,16 @@ static bool HookTaskbarDllSymbols() {
         { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
           &std__Ref_count_base__Decref_Original },
     };
-    return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
 static bool HookTaskbarViewDllSymbols(HMODULE h) {
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+    // Taskbar.View.dll
+    WindhawkUtils::SYMBOL_HOOK taskbarViewHooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original, IconView_IconView_Hook,
     }};
-    if (!WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks))) return false;
+    if (!WindhawkUtils::HookSymbols(h, taskbarViewHooks, ARRAYSIZE(taskbarViewHooks))) return false;
     g_taskbarViewDllLoaded = true;
     return true;
 }
