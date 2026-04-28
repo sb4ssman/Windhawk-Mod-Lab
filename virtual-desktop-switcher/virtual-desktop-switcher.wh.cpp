@@ -1196,7 +1196,7 @@ static HMODULE GetTaskbarViewModule() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] VD Switcher v0.5");
+    Wh_Log(L"[Init] VD Switcher v1.0");
     LoadSettings();
     DetectExplorerBuild();
 
