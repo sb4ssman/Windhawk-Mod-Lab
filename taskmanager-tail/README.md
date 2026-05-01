@@ -13,10 +13,7 @@ A Windhawk mod that automatically keeps **Task Manager** (or any other specified
 
 ## Installation
 
-1.  Install Windhawk.
-2.  Create a new mod in Windhawk.
-3.  Copy the code from `task-manager-tail.wh.cpp`.
-4.  Paste it into the editor and click **Compile and Enable**.
+Install from the [Windhawk mod catalog](https://windhawk.net/mods/task-manager-tail).
 
 ## Configuration
 
@@ -33,7 +30,7 @@ This mod runs as a background tool and listens for global window creation/destru
 
 ## Supported Systems
 
-*   **Windows 11** (Relies on `DesktopWindowXamlSource` structure in the taskbar).
+*   **Windows 11** and **Windows 10**
 
 ## License
 

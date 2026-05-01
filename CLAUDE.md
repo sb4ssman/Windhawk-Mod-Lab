@@ -25,15 +25,10 @@ live in the sibling repo `t:\Github\sb4ssman\windhawk-mods\mods\`.
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [vertical-omnibutton/](vertical-omnibutton/) | v1.51.0, published | Vertical stacking of system tray OmniButton (wifi/volume/battery) |
-| [taskmanager-tail/](taskmanager-tail/) | v1.0, published | Task manager CPU/RAM tail on taskbar |
-| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v0.5, ready to submit | Virtual desktop switcher buttons injected into system tray |
-
-### Mods to be brought in (separate repos → subfolders here)
-- `t:\Github\sb4ssman\Windhawk-Vertical-OmniButton\` → `vertical-omnibutton/`
-- `t:\Github\sb4ssman\Windhawk-Taskmanager-Tail\` → `taskmanager-tail/`
-
-See [_claude_notes/working_notes.md](_claude_notes/working_notes.md) for consolidation plan.
+| [vertical-omnibutton/](vertical-omnibutton/) | v1.2, PR submitted | Vertical stacking of system tray OmniButton (wifi/volume/battery) |
+| [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar (Windows 10 & 11) |
+| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.0, PR submitted | Virtual desktop switcher buttons injected into system tray |
+| [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.1, in development | Keeps privacy indicator (location/mic) always visible; dim when idle to prevent taskbar shifts |
 
 ## Versioning Policy
 
