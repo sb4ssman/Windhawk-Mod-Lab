@@ -1,8 +1,8 @@
 # sb4ssman Folder Structure
 
-**Generated**: 2026-04-27 21:31:34
-**Total Directories**: 4970
-**Total Files**: 30440
+**Generated**: 2026-05-01 12:42:51
+**Total Directories**: 5313
+**Total Files**: 31190
 
 ```
 📁 sb4ssman/
@@ -747,6 +747,7 @@
 │   │   ├── tmbtestapp.py
 │   │   ├── TooltipsTestApp.py
 │   │   ├── ttkdarkmodetest1.py
+│   │   ├── VDTestApp.py
 │   │   ├── Win32PystrayIcon.py
 │   │   ├── windows_process_diagnostic.py
 │   │   ├── windupdater.py
@@ -1180,6 +1181,7 @@
 │   ├── transaction_extractor.py
 │   ├── transaction_extractor_1.py
 │   └── ttkdarkmodetest1.py
+├── 📁 Local-AI-Lab/
 ├── 📁 mount-diablo-advisors-com/
 │   ├── 📁 assets/
 │   │   ├── MDA Logo and splash 1 (2022_12_14 18_03_37 UTC).png
@@ -1353,6 +1355,11 @@
 │   │   ├── fileapp-template.py
 │   │   ├── main-template.py
 │   │   └── trayapp-template.py
+│   ├── 📁 Data/
+│   │   └── settings.json
+│   ├── 📁 Local_LLM_Benchmark/
+│   │   ├── ollama_bench.py
+│   │   └── ollama_bench_orchestrator.py
 │   ├── 📁 PixelViewer/
 │   │   └── PixelViewer.py
 │   ├── 📁 Scraps/
@@ -1814,13 +1821,128 @@
 │   └── README.md
 ├── 📁 Windhawk-Mod-Lab/
 │   ├── 📁 _claude_notes/
+│   │   ├── 📁 _claude_outputs/
+│   │   │   └── folder_structure.md
 │   │   ├── 📁 claude_tools/
 │   │   │   └── generate_folder_map.py
-│   │   ├── Claude_notes.md
-│   │   ├── root_causes.md
 │   │   ├── vd-switcher-design.md
 │   │   ├── work_log.md
 │   │   └── working_notes.md
+│   ├── 📁 _research/
+│   ├── 📁 privacy-indicator-anchor/
+│   │   └── privacy-indicator-anchor.wh.cpp
+│   ├── 📁 profiles/
+│   │   ├── 📁 Laptop2/
+│   │   │   ├── another_backup.txt
+│   │   │   ├── style.yaml
+│   │   │   ├── windhawk-backup_20260427_232153.zip
+│   │   │   └── windhawk-backup_20260428_165640.zip
+│   │   └── README.md
+│   ├── 📁 taskmanager-tail/
+│   │   ├── 📁 _claude_notes/
+│   │   │   ├── 📁 _claude_outputs/
+│   │   │   │   └── folder_structure.md
+│   │   │   ├── 📁 claude_tools/
+│   │   │   │   └── generate_folder_map.py
+│   │   │   ├── Claude_Notes.md
+│   │   │   ├── Offline_Notes.md
+│   │   │   └── work_log.md
+│   │   ├── 📁 Archive/
+│   │   │   ├── EXAMPLE-windhawk-modcpp.cpp
+│   │   │   ├── task-manager-tail-explorer-injected.cpp
+│   │   │   ├── task-manager-tail-non-injected-test.cpp
+│   │   │   ├── task-manager-tail_1.0.wh.cpp
+│   │   │   ├── taskmanager-tail.wh.cpp
+│   │   │   ├── test-enumerate-taskbar.ps1
+│   │   │   ├── test-find-taskmanager.ps1
+│   │   │   ├── test-hook-1.cpp
+│   │   │   ├── test-hook-10.1.cpp
+│   │   │   ├── test-hook-10.cpp
+│   │   │   ├── test-hook-11.cpp
+│   │   │   ├── test-hook-12-2.cpp
+│   │   │   ├── test-hook-12.cpp
+│   │   │   ├── test-hook-13.cpp
+│   │   │   ├── test-hook-14.cpp
+│   │   │   ├── test-hook-15-1.cpp
+│   │   │   ├── test-hook-15.cpp
+│   │   │   ├── test-hook-16-1.cpp
+│   │   │   ├── test-hook-16-2.cpp
+│   │   │   ├── test-hook-16-3-1.cpp
+│   │   │   ├── test-hook-16-3.cpp
+│   │   │   ├── test-hook-16.cpp
+│   │   │   ├── test-hook-2.cpp
+│   │   │   ├── test-hook-3.cpp
+│   │   │   ├── test-hook-4.cpp
+│   │   │   ├── test-hook-5.cpp
+│   │   │   ├── test-hook-6.cpp
+│   │   │   ├── test-hook-7.cpp
+│   │   │   ├── test-hook-8.cpp
+│   │   │   ├── test-hook-events.cpp
+│   │   │   ├── test-hook-explorer.wh.cpp
+│   │   │   ├── test-taskbar-buttons.cpp
+│   │   │   ├── TESTING-GUIDE.md
+│   │   │   ├── win-10-test-1.cpp
+│   │   │   └── win-10-test-2.cpp
+│   │   ├── CLAUDE.md
+│   │   ├── QUICK-START.md
+│   │   ├── README.md
+│   │   ├── RESEARCH.md
+│   │   ├── stress-test.ps1
+│   │   └── task-manager-tail.wh.cpp
+│   ├── 📁 vertical-omnibutton/
+│   │   ├── 📁 _claude_notes/
+│   │   │   ├── Claude_notes.md
+│   │   │   ├── root_causes.md
+│   │   │   ├── work_log.md
+│   │   │   └── working_notes.md
+│   │   ├── 📁 archive/
+│   │   │   ├── DEVELOPMENT.md
+│   │   │   ├── NEXT-STEPS.md
+│   │   │   ├── omnibutton-test1.cpp
+│   │   │   ├── omnibutton-test10.cpp
+│   │   │   ├── omnibutton-test11.cpp
+│   │   │   ├── omnibutton-test12.cpp
+│   │   │   ├── omnibutton-test13.cpp
+│   │   │   ├── omnibutton-test14.cpp
+│   │   │   ├── omnibutton-test15.cpp
+│   │   │   ├── omnibutton-test16.cpp
+│   │   │   ├── omnibutton-test17.cpp
+│   │   │   ├── omnibutton-test2.cpp
+│   │   │   ├── omnibutton-test3.cpp
+│   │   │   ├── omnibutton-test4.cpp
+│   │   │   ├── omnibutton-test5.cpp
+│   │   │   ├── omnibutton-test6.cpp
+│   │   │   ├── omnibutton-test7.cpp
+│   │   │   ├── omnibutton-test8.cpp
+│   │   │   ├── omnibutton-test9.cpp
+│   │   │   ├── stacked-and-nudged-sysbuttons.cpp
+│   │   │   ├── STATUS.md
+│   │   │   ├── tiled-systray-sysbuttons-v2.cpp
+│   │   │   ├── tiled-systray-sysbuttons.ccp
+│   │   │   ├── tray-system-stack.wh.cpp
+│   │   │   ├── UWPSpy-FINDINGS.md
+│   │   │   ├── vertical-omnibutton-v2-fixed.wh.cpp
+│   │   │   ├── vertical-omnibutton-v2.wh.cpp
+│   │   │   ├── vertical-omnibutton-v3.cpp
+│   │   │   ├── vertical-omnibutton.wh.cpp
+│   │   │   └── vertical-system-tray-icons.wh.cpp
+│   │   ├── CLAUDE.md
+│   │   ├── README.md
+│   │   ├── screenshot-inline.png
+│   │   ├── screenshot-off.png
+│   │   ├── screenshot-stacked.png
+│   │   ├── style.yaml
+│   │   └── vertical-omnibutton.wh.cpp
+│   ├── 📁 virtual-desktop-switcher/
+│   │   ├── 📁 Archive/
+│   │   │   ├── vdswitcher1.cpp
+│   │   │   └── vdswitcher2.cpp
+│   │   ├── CLAUDE.md
+│   │   ├── README.md
+│   │   ├── vds-screenshot1.png
+│   │   ├── vds-screenshot2.png
+│   │   ├── vds-screenshot3.png
+│   │   └── virtual-desktop-switcher.wh.cpp
 │   ├── CLAUDE.md
 │   └── README.md
 ├── 📁 windhawk-mods/
@@ -1863,6 +1985,7 @@
 │   │   ├── alt-tab-per-monitor.wh.cpp
 │   │   ├── amd-radeon-software-window-fix.wh.cpp
 │   │   ├── app-theme-crash-fixer.wh.cpp
+│   │   ├── audio-scroll-switcher.wh.cpp
 │   │   ├── audioswap.wh.cpp
 │   │   ├── auto-custom-titlebar-colors.wh.cpp
 │   │   ├── auto-theme-switcher.wh.cpp
@@ -1956,6 +2079,7 @@
 │   │   ├── disable-windows-shortcuts.wh.cpp
 │   │   ├── discord-balloon-notifs.wh.cpp
 │   │   ├── disk-pie-chart.wh.cpp
+│   │   ├── disk-usage-bar-color.wh.cpp
 │   │   ├── disk-usage-bar-in-drive-properties.wh.cpp
 │   │   ├── dot-hide.wh.cpp
 │   │   ├── dropbox-reduce-explorer-cpu-usage.wh.cpp
@@ -1984,6 +2108,8 @@
 │   │   ├── explorer-tabs-session-saver.wh.cpp
 │   │   ├── explorer-toolbar-links-item.wh.cpp
 │   │   ├── explorer-toolbars-separators.wh.cpp
+│   │   ├── explorer-treeitem-tweaker.wh.cpp
+│   │   ├── explorer-treeline-killer.wh.cpp
 │   │   ├── explorer-unlocked-toolbars-fix.wh.cpp
 │   │   ├── explorer-up-new-window.wh.cpp
 │   │   ├── explorerframe-fixes-for-win11-22h2plus.wh.cpp
@@ -2182,6 +2308,7 @@
 │   │   ├── taskbar-thumbnails.wh.cpp
 │   │   ├── taskbar-tray-show-on-hover.wh.cpp
 │   │   ├── taskbar-tray-system-icon-tweaks.wh.cpp
+│   │   ├── taskbar-vd-switcher.wh.cpp
 │   │   ├── taskbar-vertical.wh.cpp
 │   │   ├── taskbar-volume-control-per-app.wh.cpp
 │   │   ├── taskbar-volume-control.wh.cpp
@@ -2207,7 +2334,6 @@
 │   │   ├── uwp-clean.wh.cpp
 │   │   ├── uxtheme-hook.wh.cpp
 │   │   ├── version-spoof.wh.cpp
-│   │   ├── vertical-omnibutton.wh.cpp
 │   │   ├── virtual-desktop-helper.wh.cpp
 │   │   ├── virtual-desktop-hotkey-cycle.wh.cpp
 │   │   ├── virtual-desktop-taskbar-order.wh.cpp
@@ -2254,6 +2380,7 @@
 │   │   ├── word-image-resize-anti-flip.wh.cpp
 │   │   ├── word-local-autosave.wh.cpp
 │   │   ├── word-mathtype-dark-fix.wh.cpp
+│   │   ├── word-omath-shade-fix.wh.cpp
 │   │   ├── word-pdf-lossless-export.wh.cpp
 │   │   ├── xs-discord-control-registered-games.wh.cpp
 │   │   └── xs-nomsedgewebview4copilot.wh.cpp
