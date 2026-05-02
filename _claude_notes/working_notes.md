@@ -2,8 +2,9 @@
 
 ## Current focus
 
-1. **Privacy Indicator Anchor** — v0.1, just created. Keeps location/mic privacy indicator always visible (dim when idle) to prevent taskbar layout shifts. Needs testing.
-2. **Virtual Desktop Switcher** — v1.0, PR submitted (#3932). Awaiting review.
+1. **Privacy Indicator Anchor** — v0.1, needs testing. Hook arrays renamed for PR validation.
+2. **Virtual Desktop Switcher** — v1.1, tested, ready for PR update. Changes since v1.0: grid layout controls (fillDirection, autoBalance, maxColumns, shortGroupAlign), master button (column/sliver, configurable width/height), crash-on-disable fix, half-click ColumnSpan fix, UpdateHighlights VdBtn_N named lookup, short-column centering via RowSpan+Margin.
+3. **Clock Spacer** — v0.1, new mod. Companion to Taskbar Clock Customization. Hooks DateTimeIconContent::OnApplyTemplate; detects %s% in TextBlock text, replaces with a Grid of Auto + * columns for elastic spacing. Needs testing with clock mod installed.
 3. **Vertical OmniButton** — v1.2, PR submitted. Awaiting review.
 
 ---

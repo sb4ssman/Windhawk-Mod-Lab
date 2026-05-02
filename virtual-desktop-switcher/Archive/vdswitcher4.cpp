@@ -26,10 +26,6 @@ Works alongside other mods.
 
 ![Complex setup with other mods active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot3.png)
 
-The compact grid adapts to how many desktops you have.
-
-![Five desktops in a 3×2 grid — column-first fill, short column centered](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot4.png)
-
 ## Settings
 - **Position** — five positions within the system tray
 - **Size** — button width × height in pixels; spacing between buttons
@@ -214,10 +210,6 @@ The compact grid adapts to how many desktops you have.
 - masterButtonHeight: 6
   $name: Master button sliver height (px)
   $description: Height of the master button when placed above or below the desktop buttons.
-
-- masterButtonWidth: 14
-  $name: Master button column width (px)
-  $description: Width of the master button when placed to the left or right of desktop buttons.
 */
 // ==/WindhawkModSettings==
 
@@ -284,7 +276,6 @@ struct ModSettings {
     std::wstring masterButtonLabel    = L"⊞"; // ⊞
     std::wstring masterButtonPosition = L"after";
     int          masterButtonHeight   = 6;
-    int          masterButtonWidth    = 14;
 };
 ModSettings g_settings;
 
@@ -325,7 +316,6 @@ static void LoadSettings() {
     g_settings.masterButtonLabel    = Str(L"masterButtonLabel",    L"⊞");
     g_settings.masterButtonPosition = Str(L"masterButtonPosition", L"after");
     g_settings.masterButtonHeight   = std::max(1, Wh_GetIntSetting(L"masterButtonHeight", 6));
-    g_settings.masterButtonWidth    = std::max(1, Wh_GetIntSetting(L"masterButtonWidth",  14));
 }
 
 // ============================================================
@@ -1165,9 +1155,7 @@ static Grid BuildButtonGrid(int count, int current) {
     }
     for (int c = 0; c < gridCols; c++) {
         ColumnDefinition cd;
-        bool isMasterCol = hasMaster && !masterIsRow && (c == masterCol);
-        double colW = isMasterCol ? (double)g_settings.masterButtonWidth : (double)g_settings.buttonWidth;
-        cd.Width({ colW, GridUnitType::Pixel });
+        cd.Width({ (double)g_settings.buttonWidth, GridUnitType::Pixel });
         grid.ColumnDefinitions().Append(cd);
     }
 
@@ -1201,9 +1189,7 @@ static Grid BuildButtonGrid(int count, int current) {
         Grid::SetColumn(btn, btnCol);
 
         // Single-button short column: integer (rows-1)/2 rounds to 0 for rows=2,
-        // so the offset approach can't center. Use Margin.Top to shift the button
-        // into the correct visual position within the multi-row column space.
-        // Grid does not clip children, so overflow into adjacent row space is safe.
+        // so the offset approach can't center. Use RowSpan instead for true alignment.
         if (g_settings.fillOrder != L"rowFirst" && layout.rows > 1
                 && g_settings.shortGroupAlign != L"start") {
             int lastCount = count % layout.rows;
@@ -1211,21 +1197,12 @@ static Grid BuildButtonGrid(int count, int current) {
             if (lastCount < layout.rows) {
                 int group = i / layout.rows;
                 bool isLastGroup = (group == (count - 1) / layout.rows);
-                if (isLastGroup) {
-                    int k = i % layout.rows;  // 0-based index within this short column
-                    double unitH = (double)(g_settings.buttonHeight + g_settings.buttonSpacing);
-                    double topOff = (g_settings.shortGroupAlign == L"end")
-                        ? unitH * (rows - lastCount)
-                        : unitH * (rows - lastCount) / 2.0;
-                    // Span all desktop rows so the full column height is available,
-                    // then use Margin.Top to place each button at its correct position.
-                    // This avoids the layout-clip that occurs when Margin.Top exceeds
-                    // a single row's height.
+                if (isLastGroup && lastCount == 1) {
                     Grid::SetRow(btn, deskRowOff);
                     Grid::SetRowSpan(btn, rows);
                     btn.Height((double)g_settings.buttonHeight);
-                    btn.VerticalAlignment(VerticalAlignment::Top);
-                    btn.Margin({ 0.0, topOff + (double)k * unitH, 0.0, 0.0 });
+                    btn.VerticalAlignment(g_settings.shortGroupAlign == L"end"
+                        ? VerticalAlignment::Bottom : VerticalAlignment::Center);
                 }
             }
         }

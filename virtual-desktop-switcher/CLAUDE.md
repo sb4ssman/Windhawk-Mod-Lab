@@ -1,6 +1,6 @@
 # CLAUDE.md — Virtual Desktop Switcher
 
-## Status: v0.5 — tested, ready to submit
+## Status: v1.1 — tested, ready to submit (PR update)
 
 Single file: [virtual-desktop-switcher.wh.cpp](virtual-desktop-switcher.wh.cpp)
 Design doc: [../_claude_notes/virtual-desktop-switcher-design.md](../_claude_notes/virtual-desktop-switcher-design.md)

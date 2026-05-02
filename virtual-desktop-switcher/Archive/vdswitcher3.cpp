@@ -1,8 +1,8 @@
 // ==WindhawkMod==
 // @id              taskbar-vd-switcher
 // @name            Taskbar Virtual Desktop Switcher
-// @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
-// @version         1.1
+// @description     Injects clickable buttons into the taskbar — one per virtual desktop — for direct switching. Grid layout adapts to taskbar height.
+// @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -11,214 +11,11 @@
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Taskbar Virtual Desktop Switcher
-
-Adds numbered buttons to the system tray — one per virtual desktop. Click to switch directly.
-
-![Default taskbar — three numbered buttons, first active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot1.png)
-
-Buttons can be arranged into one or more rows with configurable fill order.
-
-![Taller taskbar — multi-row grid layout](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot2.png)
-
-Works alongside other mods.
-
-![Complex setup with other mods active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot3.png)
-
-The compact grid adapts to how many desktops you have.
-
-![Five desktops in a 3×2 grid — column-first fill, short column centered](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot4.png)
-
-## Settings
-- **Position** — five positions within the system tray
-- **Size** — button width × height in pixels; spacing between buttons
-- **Grid mode** — smart automatic layout, single row/column, fixed rows, fixed columns, or fixed grid
-- **Smart layout** — balanced, vertical pack, or horizontal pack behavior
-- **Fill order** — column-first or row-first button order
-- **Short group alignment** — when the last row/column is shorter, align it to start, center, or end
-- **Active color** — hex color for the current-desktop button (e.g. `#4488FF`)
-- **Inactive color** — hex color for other buttons (empty = system default)
-- **Opacity** — 0–100; lower values let the taskbar show through
-- **Shine effect** — subtle gradient highlight (applies when a color is set)
-- **Label format** — numbers, roman numerals, dots, or custom comma-separated labels
-- **Padding** — left and right margin around the button grid (px)
-- **Text color** — foreground color for active and inactive buttons
-- **Font size** — button label size in pt
-- **Corner radius** — rounded corners (px)
-- **Active bold** — bold the current desktop's label
-- **Border** — border color and thickness
-- **Hide when single** — hide the bar when only one desktop exists
-- **Tooltips** — hover a button to see the desktop name
-- **Master button** — optional extra button that opens Task View (Win+Tab) to preview, create, or close desktops
-
-## Known limitations
-- Multi-monitor: only the primary taskbar gets buttons.
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- position: "afterClock"
-  $name: Position
-  $description: Where in the system tray to inject the VD buttons
-  $options:
-  - "afterClock": "After clock (before Show Desktop)"
-  - "beforeClock": "Before clock (after OmniButton)"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeIcons": "Before notification icons"
-  - "afterShowDesktop": "After Show Desktop strip"
-
-- buttonWidth: 20
-  $name: Button width (px)
-
-- buttonHeight: 22
-  $name: Button height (px)
-
-- buttonSpacing: 2
-  $name: Button spacing (px)
-  $description: Gap between buttons in the grid
-
-- gridMode: autoSmart
-  $name: Grid mode
-  $description: >-
-    Choose how the button grid shape is selected. Auto smart picks a compact
-    balanced layout that fits the available taskbar height. Fixed modes use
-    the Rows and/or Columns settings below.
-  $options:
-  - autoSmart: Smart automatic
-  - singleRow: Single row
-  - singleColumn: Single column
-  - fixedRows: Fixed rows
-  - fixedColumns: Fixed columns
-  - fixedGrid: Fixed rows and columns
-
-- smartLayout: balanced
-  $name: Smart layout
-  $description: >-
-    Used when Grid mode is Smart automatic. Balanced avoids awkward 3+1 layouts
-    when a cleaner 2x2 is possible. Vertical pack uses available height.
-    Horizontal pack prefers fewer rows.
-  $options:
-  - balanced: Balanced
-  - packVertical: Pack vertical
-  - packHorizontal: Pack horizontal
-
-- fillOrder: columnFirst
-  $name: Fill order
-  $description: Whether desktop buttons fill down columns first or across rows first.
-  $options:
-  - columnFirst: Column-first (top to bottom, then right)
-  - rowFirst: Row-first (left to right, then down)
-
-- buttonRows: 0
-  $name: Rows (0 = auto)
-  $description: >-
-    Row override for fixed row/grid modes. Also caps the maximum rows used by
-    smart automatic mode when greater than 0.
-
-- buttonColumns: 0
-  $name: Columns (0 = auto)
-  $description: >-
-    Column override for fixed column/grid modes. In row-first layouts, 3 columns
-    with 4 desktops gives a 3+1 layout.
-
-- activeColor: "#4488FF"
-  $name: Active desktop color (hex, empty = system default)
-
-- inactiveColor: ""
-  $name: Inactive button color (hex, empty = system default)
-
-- buttonOpacity: 100
-  $name: Button opacity (0–100)
-  $description: 100 = fully opaque; lower values let the taskbar show through
-
-- shineEffect: false
-  $name: Shine effect
-  $description: Adds a subtle gradient highlight. Applies when a custom color is set.
-
-- labelFormat: "number"
-  $name: Label format
-  $options:
-  - "number": "Numbers  1  2  3"
-  - "roman": "Roman numerals  I  II  III"
-  - "dot": "Dots  ●  ○  ○"
-  - "custom": "Custom labels"
-
-- customLabels: ""
-  $name: Custom labels (comma-separated, e.g. "H,W,M")
-  $description: Used when label format is Custom. Falls back to numbers if labels run out.
-
-- activeTextColor: ""
-  $name: Active desktop text color (hex, empty = system default)
-
-- inactiveTextColor: ""
-  $name: Inactive button text color (hex, empty = system default)
-
-- fontSize: 10
-  $name: Font size (pt)
-
-- cornerRadius: 4
-  $name: Corner radius (px)
-  $description: Rounded corners on buttons (0 = square, 4 = Windows default)
-
-- activeBold: false
-  $name: Bold active desktop label
-
-- borderThickness: 0
-  $name: Button border thickness (px)
-
-- borderColor: ""
-  $name: Button border color (hex, empty = system default)
-
-- hideWhenSingle: false
-  $name: Hide when only one desktop
-  $description: Don't show the button bar when there is only one virtual desktop
-
-- paddingLeft: 0
-  $name: Padding left (px)
-  $description: Extra space to the left of the button grid
-
-- paddingRight: 2
-  $name: Padding right (px)
-  $description: Extra space to the right of the button grid
-
-- shortGroupAlign: "center"
-  $name: Short column/row alignment
-  $description: >-
-    When the last column (column-first) or last row (row-first) has fewer
-    buttons than the others, where to place those buttons within the available space.
-  $options:
-  - "start": "Start (top for columns, left for rows)"
-  - "center": "Center"
-  - "end": "End (bottom for columns, right for rows)"
-
-- showMasterButton: false
-  $name: Show master button
-  $description: >-
-    Adds a button that opens Task View (Win+Tab), where you can preview all
-    desktops and create or close them.
-
-- masterButtonLabel: "⊞"
-  $name: Master button label
-  $description: Text shown on the master button.
-
-- masterButtonPosition: "after"
-  $name: Master button position
-  $options:
-  - "before": "Column before desktop buttons"
-  - "after": "Column after desktop buttons"
-  - "bottom": "Sliver below desktop buttons"
-  - "top": "Sliver above desktop buttons"
-
-- masterButtonHeight: 6
-  $name: Master button sliver height (px)
-  $description: Height of the master button when placed above or below the desktop buttons.
-
-- masterButtonWidth: 14
-  $name: Master button column width (px)
-  $description: Width of the master button when placed to the left or right of desktop buttons.
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
@@ -239,7 +36,6 @@ The compact grid adapts to how many desktops you have.
 #include <thread>
 #include <functional>
 #include <algorithm>
-#include <climits>
 
 #include <windhawk_utils.h>
 #include <combaseapi.h>
@@ -259,7 +55,6 @@ struct ModSettings {
     int buttonHeight           = 22;
     int buttonSpacing          = 2;
     int buttonRows             = 0;
-    int buttonColumns          = 0;
     std::wstring activeColor   = L"#4488FF";
     std::wstring inactiveColor = L"";
     int buttonOpacity          = 100;
@@ -276,15 +71,6 @@ struct ModSettings {
     bool hideWhenSingle           = false;
     int paddingLeft               = 0;
     int paddingRight              = 2;
-    std::wstring gridMode            = L"autoSmart";
-    std::wstring smartLayout         = L"balanced";
-    std::wstring fillOrder           = L"columnFirst";
-    std::wstring shortGroupAlign      = L"center";
-    bool         showMasterButton     = false;
-    std::wstring masterButtonLabel    = L"⊞"; // ⊞
-    std::wstring masterButtonPosition = L"after";
-    int          masterButtonHeight   = 6;
-    int          masterButtonWidth    = 14;
 };
 ModSettings g_settings;
 
@@ -299,8 +85,7 @@ static void LoadSettings() {
     g_settings.buttonWidth    = Wh_GetIntSetting(L"buttonWidth",   20);
     g_settings.buttonHeight   = Wh_GetIntSetting(L"buttonHeight",  22);
     g_settings.buttonSpacing  = Wh_GetIntSetting(L"buttonSpacing", 2);
-    g_settings.buttonRows     = std::max(Wh_GetIntSetting(L"buttonRows",    0), 0);
-    g_settings.buttonColumns  = std::max(Wh_GetIntSetting(L"buttonColumns", 0), 0);
+    g_settings.buttonRows     = Wh_GetIntSetting(L"buttonRows",    0);
     g_settings.activeColor    = Str(L"activeColor",   L"#4488FF");
     g_settings.inactiveColor  = Str(L"inactiveColor", L"");
     g_settings.buttonOpacity  = Wh_GetIntSetting(L"buttonOpacity", 100);
@@ -317,15 +102,6 @@ static void LoadSettings() {
     g_settings.hideWhenSingle    = Wh_GetIntSetting(L"hideWhenSingle",    0) != 0;
     g_settings.paddingLeft       = Wh_GetIntSetting(L"paddingLeft",       0);
     g_settings.paddingRight      = Wh_GetIntSetting(L"paddingRight",      2);
-    g_settings.gridMode             = Str(L"gridMode",        L"autoSmart");
-    g_settings.smartLayout          = Str(L"smartLayout",     L"balanced");
-    g_settings.fillOrder            = Str(L"fillOrder",       L"columnFirst");
-    g_settings.shortGroupAlign      = Str(L"shortGroupAlign",      L"center");
-    g_settings.showMasterButton     = Wh_GetIntSetting(L"showMasterButton",  0) != 0;
-    g_settings.masterButtonLabel    = Str(L"masterButtonLabel",    L"⊞");
-    g_settings.masterButtonPosition = Str(L"masterButtonPosition", L"after");
-    g_settings.masterButtonHeight   = std::max(1, Wh_GetIntSetting(L"masterButtonHeight", 6));
-    g_settings.masterButtonWidth    = std::max(1, Wh_GetIntSetting(L"masterButtonWidth",  14));
 }
 
 // ============================================================
@@ -344,9 +120,6 @@ static HANDLE g_notificationThread    = nullptr;
 static HANDLE g_notificationStopEvent = nullptr;
 static DWORD  g_notificationCookie    = 0;
 
-static HANDLE g_retryThread    = nullptr;
-static HANDLE g_retryStopEvent = nullptr;
-
 static bool g_taskbarViewDllLoaded = false;
 
 // Forward declarations
@@ -355,7 +128,6 @@ static void ApplyAllSettingsOnWindowThread();
 static void RebuildOrUpdate(bool fullRebuild);
 static void RemoveButtonGrid();
 static void StopNotificationThread();
-static void StopRetryThread();
 
 // ============================================================
 // Explorer / twinui build detection
@@ -662,17 +434,6 @@ static void StopNotificationThread() {
     }
 }
 
-static void StopRetryThread() {
-    if (g_retryStopEvent) SetEvent(g_retryStopEvent);
-    if (g_retryThread) {
-        WaitForSingleObject(g_retryThread, 12000);
-        CloseHandle(g_retryThread); g_retryThread = nullptr;
-    }
-    if (g_retryStopEvent) {
-        CloseHandle(g_retryStopEvent); g_retryStopEvent = nullptr;
-    }
-}
-
 // ============================================================
 // Desktop state — registry
 // ============================================================
@@ -933,205 +694,21 @@ static Brush MakeShineBrush(Brush base) {
     return b;
 }
 
-// Layout calculation result — explicit rows/cols and offset for the short last group.
-struct GridLayout {
-    int rows        = 1;
-    int cols        = 1;
-    int shortOffset = 0;  // start row (column-first) or start column (row-first) for partial last group
-};
-
-static int GetAvailableRows(int count) {
-    int rows = count;
+// Compute how many button rows fit in the taskbar.
+// Column-major fill: desktop 1 = top-left, 2 = bottom-left (if 2 rows), 3 = top-right, etc.
+static int ComputeRows(int count) {
+    if (g_settings.buttonRows > 0) return std::min(g_settings.buttonRows, count);
     RECT r{};
     if (g_taskbarWnd && GetWindowRect(g_taskbarWnd, &r)) {
-        int denom = std::max(1, g_settings.buttonHeight + std::max(0, g_settings.buttonSpacing));
-        rows = std::max(1, (int)(r.bottom - r.top) / denom);
+        int tbH = r.bottom - r.top;
+        int rows = std::max(1, tbH / (g_settings.buttonHeight + 6));        return std::min(rows, count);
     }
-    rows = std::min(rows, count);
-    if (g_settings.buttonRows > 0)
-        rows = std::min(rows, g_settings.buttonRows);
-    return std::max(rows, 1);
-}
-
-static int LayoutScore(int rows, int cols, int count, int maxRows) {
-    int capacity = rows * cols;
-    int waste = capacity - count;
-    int imbalance = rows > cols ? rows - cols : cols - rows;
-    int score = waste * 10 + imbalance * 2;
-
-    if (g_settings.smartLayout == L"packVertical")
-        score -= rows * 20;
-    else if (g_settings.smartLayout == L"packHorizontal")
-        score += rows * 20;
-    else {
-        // Balanced default: use available height, but don't create awkward waste.
-        // Examples:
-        //   4 buttons, 3 rows available -> 2x2, not 3+1
-        //   5 buttons, 3 rows available -> 3+2
-        score -= rows * 3;
-    }
-    return score;
-}
-
-static GridLayout ComputeLayout(int count) {
-    GridLayout L;
-    int maxRows = GetAvailableRows(count);
-
-    if (g_settings.gridMode == L"singleRow") {
-        L.rows = 1;
-        L.cols = count;
-    } else if (g_settings.gridMode == L"singleColumn") {
-        L.rows = count;
-        L.cols = 1;
-    } else if (g_settings.gridMode == L"fixedRows") {
-        L.rows = std::min(std::max(g_settings.buttonRows, 1), count);
-        L.cols = (count + L.rows - 1) / L.rows;
-    } else if (g_settings.gridMode == L"fixedColumns") {
-        L.cols = std::min(std::max(g_settings.buttonColumns, 1), count);
-        L.rows = (count + L.cols - 1) / L.cols;
-    } else if (g_settings.gridMode == L"fixedGrid") {
-        L.rows = std::min(std::max(g_settings.buttonRows, 1), count);
-        L.cols = (g_settings.buttonColumns > 0)
-            ? std::min(g_settings.buttonColumns, count)
-            : (count + L.rows - 1) / L.rows;
-        if (L.rows * L.cols < count)
-            L.rows = (count + L.cols - 1) / L.cols;
-    } else {
-        int bestRows = 1, bestCols = count, bestScore = INT_MAX;
-        int firstRows = (maxRows > 1 && count > 1 && g_settings.smartLayout != L"packHorizontal")
-            ? 2
-            : 1;
-        for (int rows = firstRows; rows <= maxRows; rows++) {
-            int cols = (count + rows - 1) / rows;
-            if (g_settings.buttonColumns > 0 && cols > g_settings.buttonColumns)
-                continue;
-            int score = LayoutScore(rows, cols, count, maxRows);
-            if (score < bestScore) {
-                bestScore = score;
-                bestRows = rows;
-                bestCols = cols;
-            }
-        }
-        if (bestScore == INT_MAX && g_settings.buttonColumns > 0) {
-            bestCols = std::min(g_settings.buttonColumns, count);
-            bestRows = (count + bestCols - 1) / bestCols;
-        }
-        L.rows = bestRows;
-        L.cols = bestCols;
-    }
-
-    L.rows = std::max(1, std::min(L.rows, count));
-    L.cols = std::max(1, L.cols);
-    while (L.rows * L.cols < count) {
-        if (g_settings.gridMode == L"fixedColumns")
-            L.rows++;
-        else
-            L.cols++;
-    }
-
-    bool rowFirst = (g_settings.fillOrder == L"rowFirst");
-    if (rowFirst) {
-        // Short last-row offset.
-        int lastCount = count % L.cols;
-        if (lastCount == 0) lastCount = L.cols;
-        if (lastCount > 0 && lastCount < L.cols) {
-            if      (g_settings.shortGroupAlign == L"center") L.shortOffset = (L.cols - lastCount) / 2;
-            else if (g_settings.shortGroupAlign == L"end")    L.shortOffset = L.cols - lastCount;
-        }
-    } else {
-        // Short last-column offset.
-        int lastCount = count % L.rows;
-        if (lastCount == 0) lastCount = L.rows;
-        if (lastCount > 0 && lastCount < L.rows) {
-            if      (g_settings.shortGroupAlign == L"center") L.shortOffset = (L.rows - lastCount) / 2;
-            else if (g_settings.shortGroupAlign == L"end")    L.shortOffset = L.rows - lastCount;
-        }
-    }
-    return L;
-}
-
-static void GetButtonGridPosition(int index, int count, const GridLayout& layout,
-                                  int& row, int& col) {
-    int localRow = 0, localCol = 0;
-    int group = 0;
-    bool rowFirst = (g_settings.fillOrder == L"rowFirst");
-
-    if (rowFirst) {
-        group = index / layout.cols;
-        localCol = index % layout.cols;
-        bool isLastRow = (group == (count - 1) / layout.cols);
-        if (isLastRow)
-            localCol += layout.shortOffset;
-
-        row = group;
-        col = localCol;
-    } else {
-        group = index / layout.rows;
-        localRow = index % layout.rows;
-        bool isLastCol = (group == (count - 1) / layout.rows);
-        if (isLastCol)
-            localRow += layout.shortOffset;
-
-        row = localRow;
-        col = group;
-    }
-}
-
-// Apply shared visual style to a desktop button.
-static void StyleButton(Button& btn, bool isActive,
-    Brush activeBrush, Brush inactiveBrush,
-    Brush activeTextBrush, Brush inactiveTextBrush,
-    Brush borderBrush)
-{
-    btn.Padding({ 1.0, 0.0, 1.0, 0.0 });
-    btn.FontSize((double)g_settings.fontSize);
-    btn.HorizontalAlignment(HorizontalAlignment::Stretch);
-    btn.VerticalAlignment(VerticalAlignment::Stretch);
-
-    if (isActive && activeBrush)        btn.Background(activeBrush);
-    else if (!isActive && inactiveBrush) btn.Background(inactiveBrush);
-
-    if (isActive && activeTextBrush)        btn.Foreground(activeTextBrush);
-    else if (!isActive && inactiveTextBrush) btn.Foreground(inactiveTextBrush);
-
-    if (g_settings.activeBold)
-        btn.FontWeight(isActive
-            ? winrt::Windows::UI::Text::FontWeights::Bold()
-            : winrt::Windows::UI::Text::FontWeights::Normal());
-
-    { double r = (double)g_settings.cornerRadius; btn.CornerRadius({ r, r, r, r }); }
-
-    if (borderBrush) {
-        btn.BorderBrush(borderBrush);
-        if (g_settings.borderThickness > 0) {
-            double t = (double)g_settings.borderThickness;
-            btn.BorderThickness({ t, t, t, t });
-        }
-    }
+    return 1;
 }
 
 static Grid BuildButtonGrid(int count, int current) {
-    auto layout = ComputeLayout(count);
-    int rows = layout.rows;
-    int cols = layout.cols;
-    Wh_Log(L"[Layout] count=%d rows=%d cols=%d mode=%ls smart=%ls fill=%ls",
-           count, rows, cols, g_settings.gridMode.c_str(),
-           g_settings.smartLayout.c_str(), g_settings.fillOrder.c_str());
-
-    bool hasMaster    = g_settings.showMasterButton;
-    bool masterBefore = (g_settings.masterButtonPosition == L"before");
-    bool masterBottom = (g_settings.masterButtonPosition == L"bottom");
-    bool masterTop    = (g_settings.masterButtonPosition == L"top");
-    bool masterIsRow  = masterBottom || masterTop;
-
-    // Column-based placement: master gets an extra column to the left or right.
-    // Row-based placement (top/bottom): master gets an extra sliver row spanning all desktop columns.
-    int gridCols   = cols + (hasMaster && !masterIsRow ? 1 : 0);
-    int gridRows   = rows + (hasMaster && masterIsRow  ? 1 : 0);
-    int masterCol  = (hasMaster && !masterIsRow) ? (masterBefore ? 0 : cols) : -1;
-    int masterRow  = (hasMaster && masterIsRow)  ? (masterBottom ? rows : 0) : -1;
-    int deskColOff = (hasMaster && masterBefore) ? 1 : 0;
-    int deskRowOff = (hasMaster && masterTop)    ? 1 : 0;
+    int rows = ComputeRows(count);
+    int cols = (count + rows - 1) / rows;
 
     Grid grid;
     grid.Name(L"VdSwitcherBar");
@@ -1142,32 +719,17 @@ static Grid BuildButtonGrid(int count, int current) {
     }
     if (g_settings.buttonOpacity < 100)
         grid.Opacity(std::max(0.0, std::min(1.0, g_settings.buttonOpacity / 100.0)));
-    {
-        // When a sliver row is present, compensate its contribution to the grid's
-        // vertical center so desktop buttons stay aligned with adjacent tray icons.
-        // Adding margin.top (masterBottom) shifts the grid down; margin.bottom shifts up.
-        double marginTop = 0.0, marginBottom = 0.0;
-        if (hasMaster && masterIsRow) {
-            double compensation = (double)(g_settings.masterButtonHeight + g_settings.buttonSpacing);
-            if (masterBottom) marginTop    = compensation;
-            else              marginBottom = compensation;
-        }
-        grid.Margin({ (double)g_settings.paddingLeft, marginTop, (double)g_settings.paddingRight, marginBottom });
-    }
+    if (g_settings.paddingLeft > 0 || g_settings.paddingRight > 0)
+        grid.Margin({ (double)g_settings.paddingLeft, 0.0, (double)g_settings.paddingRight, 0.0 });
 
-    for (int r = 0; r < gridRows; r++) {
+    for (int r = 0; r < rows; r++) {
         RowDefinition rd;
-        bool isSliverRow = hasMaster && masterIsRow && (r == masterRow);
-        double rowH = isSliverRow ? (double)g_settings.masterButtonHeight
-                                  : (double)g_settings.buttonHeight;
-        rd.Height({ rowH, GridUnitType::Pixel });
+        rd.Height({ (double)g_settings.buttonHeight, GridUnitType::Pixel });
         grid.RowDefinitions().Append(rd);
     }
-    for (int c = 0; c < gridCols; c++) {
+    for (int c = 0; c < cols; c++) {
         ColumnDefinition cd;
-        bool isMasterCol = hasMaster && !masterIsRow && (c == masterCol);
-        double colW = isMasterCol ? (double)g_settings.masterButtonWidth : (double)g_settings.buttonWidth;
-        cd.Width({ colW, GridUnitType::Pixel });
+        cd.Width({ (double)g_settings.buttonWidth, GridUnitType::Pixel });
         grid.ColumnDefinitions().Append(cd);
     }
 
@@ -1179,90 +741,56 @@ static Grid BuildButtonGrid(int count, int current) {
     auto desktopNames      = ReadDesktopNames(count);
 
     for (int i = 0; i < count; i++) {
-        int btnCol, btnRow;
-        GetButtonGridPosition(i, count, layout, btnRow, btnCol);
-        btnRow += deskRowOff;
-        btnCol += deskColOff;
+        int col = i / rows;   // column-major: desktops fill top-to-bottom per column
+        int row = i % rows;
+        bool isActive = (i == current);
 
         Button btn;
-        btn.Name(L"VdBtn_" + std::to_wstring(i));
         btn.Content(winrt::box_value(GetButtonLabel(i, current)));
-        StyleButton(btn, i == current, activeBrush, inactiveBrush,
-                    activeTextBrush, inactiveTextBrush, borderBrush);
+        btn.Padding({ 1.0, 0.0, 1.0, 0.0 });
+        btn.FontSize((double)g_settings.fontSize);
+        btn.HorizontalAlignment(HorizontalAlignment::Stretch);
+        btn.VerticalAlignment(VerticalAlignment::Stretch);
+
+        if (isActive && activeBrush)
+            btn.Background(activeBrush);
+        else if (!isActive && inactiveBrush)
+            btn.Background(inactiveBrush);
+
+        if (isActive && activeTextBrush)
+            btn.Foreground(activeTextBrush);
+        else if (!isActive && inactiveTextBrush)
+            btn.Foreground(inactiveTextBrush);
+
+        if (g_settings.activeBold)
+            btn.FontWeight(isActive
+                ? winrt::Windows::UI::Text::FontWeights::Bold()
+                : winrt::Windows::UI::Text::FontWeights::Normal());
+
+        {
+            double r = (double)g_settings.cornerRadius;
+            btn.CornerRadius({ r, r, r, r });
+        }
+
+        if (borderBrush) {
+            btn.BorderBrush(borderBrush);
+            if (g_settings.borderThickness > 0) {
+                double t = (double)g_settings.borderThickness;
+                btn.BorderThickness({ t, t, t, t });
+            }
+        }
+
         ToolTipService::SetToolTip(btn, winrt::box_value(winrt::hstring(desktopNames[i])));
 
         int capturedIdx = i;
         btn.Click([capturedIdx](auto const&, auto const&) {
-            if (g_unloading) return;
             SwitchToDesktop(capturedIdx);
         });
 
-        Grid::SetRow(btn, btnRow);
-        Grid::SetColumn(btn, btnCol);
-
-        // Single-button short column: integer (rows-1)/2 rounds to 0 for rows=2,
-        // so the offset approach can't center. Use Margin.Top to shift the button
-        // into the correct visual position within the multi-row column space.
-        // Grid does not clip children, so overflow into adjacent row space is safe.
-        if (g_settings.fillOrder != L"rowFirst" && layout.rows > 1
-                && g_settings.shortGroupAlign != L"start") {
-            int lastCount = count % layout.rows;
-            if (lastCount == 0) lastCount = layout.rows;
-            if (lastCount < layout.rows) {
-                int group = i / layout.rows;
-                bool isLastGroup = (group == (count - 1) / layout.rows);
-                if (isLastGroup) {
-                    int k = i % layout.rows;  // 0-based index within this short column
-                    double unitH = (double)(g_settings.buttonHeight + g_settings.buttonSpacing);
-                    double topOff = (g_settings.shortGroupAlign == L"end")
-                        ? unitH * (rows - lastCount)
-                        : unitH * (rows - lastCount) / 2.0;
-                    // Span all desktop rows so the full column height is available,
-                    // then use Margin.Top to place each button at its correct position.
-                    // This avoids the layout-clip that occurs when Margin.Top exceeds
-                    // a single row's height.
-                    Grid::SetRow(btn, deskRowOff);
-                    Grid::SetRowSpan(btn, rows);
-                    btn.Height((double)g_settings.buttonHeight);
-                    btn.VerticalAlignment(VerticalAlignment::Top);
-                    btn.Margin({ 0.0, topOff + (double)k * unitH, 0.0, 0.0 });
-                }
-            }
-        }
-
+        Grid::SetRow(btn, row);
+        Grid::SetColumn(btn, col);
         grid.Children().Append(btn);
     }
-
-    // Master button: spans all rows in its column.
-    if (hasMaster) {
-        Button masterBtn;
-        masterBtn.Name(L"VdMasterBtn");
-        masterBtn.Content(winrt::box_value(winrt::hstring(g_settings.masterButtonLabel)));
-        StyleButton(masterBtn, false, inactiveBrush, inactiveBrush,
-                    inactiveTextBrush, inactiveTextBrush, borderBrush);
-        ToolTipService::SetToolTip(masterBtn,
-            winrt::box_value(winrt::hstring(L"Task View (Win+Tab)")));
-        masterBtn.Click([](auto const&, auto const&) {
-            if (g_unloading) return;
-            INPUT inputs[4]{};
-            inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_LWIN;
-            inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = VK_TAB;
-            inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = VK_TAB;  inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
-            inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = VK_LWIN; inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
-            SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
-        });
-        if (masterIsRow) {
-            Grid::SetRow(masterBtn, masterRow);
-            Grid::SetColumn(masterBtn, 0);
-            if (cols > 1) Grid::SetColumnSpan(masterBtn, cols);
-        } else {
-            Grid::SetColumn(masterBtn, masterCol);
-            Grid::SetRow(masterBtn, deskRowOff);
-            if (rows > 1) Grid::SetRowSpan(masterBtn, rows);
-        }
-        grid.Children().Append(masterBtn);
-    }
-
     return grid;
 }
 
@@ -1273,17 +801,11 @@ static void UpdateHighlights(int current) {
     auto inactiveBrush     = MakeShineBrush(ParseColorBrush(g_settings.inactiveColor));
     auto activeTextBrush   = ParseColorBrush(g_settings.activeTextColor);
     auto inactiveTextBrush = ParseColorBrush(g_settings.inactiveTextColor);
-    static const std::wstring kPrefix = L"VdBtn_";
     int n = (int)g_buttonGrid.Children().Size();
     for (int i = 0; i < n; i++) {
         auto btn = g_buttonGrid.Children().GetAt(i).try_as<Button>();
         if (!btn) continue;
-        auto name = std::wstring(btn.Name());
-        // Skip master button and anything that isn't a desktop button.
-        if (name.size() <= kPrefix.size() || name.compare(0, kPrefix.size(), kPrefix) != 0)
-            continue;
-        int desktopIdx = _wtoi(name.c_str() + kPrefix.size());
-        bool isActive = (desktopIdx == current);
+        bool isActive = (i == current);
         if (g_settings.labelFormat == L"dot")
             btn.Content(winrt::box_value(std::wstring(isActive ? L"●" : L"○")));
         Brush bg = isActive ? activeBrush : inactiveBrush;
@@ -1382,17 +904,12 @@ static bool InjectButtonGrid(FrameworkElement root) {
         gridParent.ColumnDefinitions().Append(cd);
 
     // Shift every existing child whose column is >= insertCol to make room.
-    // Elements that start before insertCol but span through it get their span widened
-    // so they continue to cover the same original columns (plus the new one).
     for (auto child : gridParent.Children()) {
         auto fe = child.try_as<FrameworkElement>();
         if (!fe) continue;
-        int col  = Grid::GetColumn(fe);
-        int span = Grid::GetColumnSpan(fe);
+        int col = Grid::GetColumn(fe);
         if (col >= insertCol)
             Grid::SetColumn(fe, col + 1);
-        else if (col + span > insertCol)
-            Grid::SetColumnSpan(fe, span + 1);
     }
 
     Grid::SetColumn(grid, insertCol);
@@ -1406,59 +923,27 @@ static bool InjectButtonGrid(FrameworkElement root) {
     return true;
 }
 
-static Grid FindLiveSystemTrayFrameGrid() {
-    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (!hWnd) return nullptr;
-
-    auto xamlRoot = GetTaskbarXamlRoot(hWnd);
-    if (!xamlRoot) return nullptr;
-    auto root = xamlRoot.Content().try_as<FrameworkElement>();
-    if (!root) return nullptr;
-
-    auto parent = FindChildRecursive(root, [](FrameworkElement fe) {
-        return fe.Name() == L"SystemTrayFrameGrid";
-    });
-    return parent ? parent.try_as<Grid>() : nullptr;
-}
-
-static bool RemoveButtonGridFrom(Grid gridParent, int col) {
-    if (!gridParent) return false;
-
-    uint32_t removeIdx = (uint32_t)-1;
-    for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
-        auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
-        if (fe && fe.Name() == L"VdSwitcherBar") {
-            removeIdx = i;
-            break;
-        }
-    }
-    if (removeIdx == (uint32_t)-1) return false;
-
-    gridParent.Children().RemoveAt(removeIdx);
-
-    if (col >= 0) {
-        uint32_t colU = (uint32_t)col;
-        if (colU < gridParent.ColumnDefinitions().Size())
-            gridParent.ColumnDefinitions().RemoveAt(colU);
-        for (auto child : gridParent.Children()) {
-            auto fe = child.try_as<FrameworkElement>();
-            if (!fe) continue;
-            int c    = Grid::GetColumn(fe);
-            int span = Grid::GetColumnSpan(fe);
-            if (c > col)
-                Grid::SetColumn(fe, c - 1);
-            else if (c < col && c + span > col)
-                Grid::SetColumnSpan(fe, span - 1);
-        }
-    }
-    return true;
-}
-
 static void RemoveButtonGrid() {
-    auto gridParent = FindLiveSystemTrayFrameGrid();
-    if (!RemoveButtonGridFrom(gridParent, g_injectedColumn))
-        Wh_Log(L"[Remove] VdSwitcherBar not found");
+    if (!g_buttonGrid) return;
+    auto gridParent = g_injectionParent ? g_injectionParent.try_as<Grid>() : nullptr;
+    if (gridParent) {
+        uint32_t idx;
+        if (gridParent.Children().IndexOf(g_buttonGrid, idx))
+            gridParent.Children().RemoveAt(idx);
 
+        if (g_injectedColumn >= 0) {
+            uint32_t col = (uint32_t)g_injectedColumn;
+            if (col < gridParent.ColumnDefinitions().Size())
+                gridParent.ColumnDefinitions().RemoveAt(col);
+            for (auto child : gridParent.Children()) {
+                auto fe = child.try_as<FrameworkElement>();
+                if (!fe) continue;
+                int c = Grid::GetColumn(fe);
+                if (c > g_injectedColumn)
+                    Grid::SetColumn(fe, c - 1);
+            }
+        }
+    }
     g_buttonGrid      = nullptr;
     g_injectionParent = nullptr;
     g_injectedColumn  = -1;
@@ -1603,7 +1088,7 @@ static HMODULE GetTaskbarViewModule() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] VD Switcher v1.1");
+    Wh_Log(L"[Init] VD Switcher v1.0");
     LoadSettings();
     DetectExplorerBuild();
 
@@ -1630,41 +1115,22 @@ void Wh_ModAfterInit() {
     if (g_taskbarViewDllLoaded)
         ApplyAllSettingsOnWindowThread();
 
-    g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    g_retryThread = CreateThread(nullptr, 0, [](void*) -> DWORD {
+    std::thread([]() {
         for (int i = 0; i < 5 && !g_unloading; i++) {
-            if (WaitForSingleObject(g_retryStopEvent, 2000) != WAIT_TIMEOUT) break;
-            if (g_buttonGrid || g_unloading) break;
+            Sleep(2000);
+            if (g_buttonGrid) break;
             Wh_Log(L"[AfterInit] Retry %d", i + 1);
             ApplyAllSettingsOnWindowThread();
         }
-        return 0;
-    }, nullptr, 0, nullptr);
+    }).detach();
 }
 
-static void DoUninitRemove(int col) {
-    // Re-walk the live tree — stored refs may be stale if taskbar rebuilt between inject and uninit.
-    auto xamlRoot = GetTaskbarXamlRoot(g_taskbarWnd);
-    if (!xamlRoot) { Wh_Log(L"[Uninit] No XamlRoot"); return; }
-    auto root = xamlRoot.Content().try_as<FrameworkElement>();
-    if (!root) return;
-
-    auto parent = FindChildRecursive(root, [](FrameworkElement fe) {
-        return fe.Name() == L"SystemTrayFrameGrid";
-    });
+static void DoUninitRemove(FrameworkElement const& parent, Grid const& grid, int col) {
     auto gp = parent ? parent.try_as<Grid>() : nullptr;
-    if (!gp) { Wh_Log(L"[Uninit] SystemTrayFrameGrid not found"); return; }
-
-    // Find by name — avoids WinRT proxy identity mismatch with IndexOf.
-    uint32_t removeIdx = UINT32_MAX;
-    for (uint32_t i = 0; i < gp.Children().Size(); i++) {
-        auto fe = gp.Children().GetAt(i).try_as<FrameworkElement>();
-        if (fe && fe.Name() == L"VdSwitcherBar") { removeIdx = i; break; }
-    }
-    if (removeIdx == UINT32_MAX) { Wh_Log(L"[Uninit] VdSwitcherBar not found"); return; }
-    gp.Children().RemoveAt(removeIdx);
-    Wh_Log(L"[Uninit] Removed VdSwitcherBar");
-
+    if (!gp || !grid) return;
+    uint32_t idx;
+    if (gp.Children().IndexOf(grid, idx))
+        gp.Children().RemoveAt(idx);
     if (col >= 0) {
         uint32_t colU = (uint32_t)col;
         if (colU < gp.ColumnDefinitions().Size())
@@ -1672,12 +1138,8 @@ static void DoUninitRemove(int col) {
         for (auto child : gp.Children()) {
             auto fe = child.try_as<FrameworkElement>();
             if (!fe) continue;
-            int c    = Grid::GetColumn(fe);
-            int span = Grid::GetColumnSpan(fe);
-            if (c > col)
-                Grid::SetColumn(fe, c - 1);
-            else if (c + span > col)
-                Grid::SetColumnSpan(fe, span - 1);
+            int c = Grid::GetColumn(fe);
+            if (c > col) Grid::SetColumn(fe, c - 1);
         }
     }
 }
@@ -1686,30 +1148,41 @@ void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
 
-    StopRetryThread();
     StopNotificationThread();
 
-    int col = g_injectedColumn;
+    auto grid   = g_buttonGrid;
+    auto parent = g_injectionParent;
+    int  col    = g_injectedColumn;
     g_buttonGrid      = nullptr;
     g_injectionParent = nullptr;
     g_injectedColumn  = -1;
 
-    // RunFromWindowThread is synchronous — blocks until the UI thread has removed the grid,
-    // so all WinRT object lifetimes are safe and no FreeLibrary dance is needed.
-    if (g_taskbarWnd) {
-        RunFromWindowThread(g_taskbarWnd, [](void* p) {
-            DoUninitRemove((int)(intptr_t)p);
-        }, (void*)(intptr_t)col);
-    } else {
-        DoUninitRemove(col);
-    }
+    if (!grid) return;
+
+    // Attempt sync removal (may or may not be on UI thread).
+    DoUninitRemove(parent, grid, col);
+
+    // Async backup to ensure removal on UI thread.
+    HMODULE hSelf = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)&Wh_ModUninit, &hSelf);
+    try {
+        auto disp = grid.Dispatcher();
+        if (disp) {
+            auto _ = disp.RunAsync(winrt::Windows::UI::Core::CoreDispatcherPriority::Normal,
+                [grid, parent, col, hSelf]() {
+                    DoUninitRemove(parent, grid, col);
+                    if (hSelf) FreeLibrary(hSelf);
+                });
+            return;
+        }
+    } catch (...) {}
+    if (hSelf) FreeLibrary(hSelf);
 }
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
     Wh_Log(L"[Settings] Changed");
 
-    StopRetryThread();
     // Signal notification thread to stop; it will be restarted by ApplyAllSettings.
     if (g_notificationStopEvent) SetEvent(g_notificationStopEvent);
 

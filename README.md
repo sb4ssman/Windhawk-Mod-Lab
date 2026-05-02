@@ -11,8 +11,9 @@ Mods are submitted to the community via a fork of [ramensoftware/windhawk-mods](
 |--------|--------|-------------|
 | [vertical-omnibutton/](vertical-omnibutton/) | v1.2, PR submitted | Vertical stacking of system tray OmniButton (wifi/volume/battery) |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar (Windows 10 & 11) |
-| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.0, PR submitted | Virtual desktop switcher buttons injected into system tray |
+| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.1, PR update ready | Virtual desktop switcher buttons injected into system tray |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.1, in development | Keeps location/mic privacy indicator always visible; dim when idle to prevent taskbar icon shifts |
+| [clock-spacer/](clock-spacer/) | v0.1, in development | Adds %s% elastic spacer to clock format strings (companion to Taskbar Clock Customization) |
 
 ---
 
@@ -44,6 +45,13 @@ Keeps the system tray privacy indicator (location / microphone) permanently visi
 
 ---
 
+### [Clock Spacer](clock-spacer/)
+**Status:** v0.1 — in development  
+Companion to Taskbar Clock Customization. Adds a `%s%` elastic spacer token to clock line format strings — items on either side of `%s%` are separated by flexible gaps that fill the available width.  
+→ [Source](clock-spacer/clock-spacer.wh.cpp)
+
+---
+
 ## Structure
 
 ```
@@ -51,5 +59,7 @@ Windhawk-Mod-Lab/
   vertical-omnibutton/      — mod source + notes
   taskmanager-tail/         — mod source + notes
   virtual-desktop-switcher/ — mod source + notes
+  privacy-indicator-anchor/ — mod source
+  clock-spacer/             — mod source
   _claude_notes/            — lab-wide notes and design docs
 ```
