@@ -55,6 +55,7 @@ No more sudden shifts. You can still tell at a glance when location is active.
 #include <functional>
 #include <list>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <windhawk_utils.h>
@@ -85,8 +86,6 @@ static void LoadSettings() {
 static std::atomic<bool> g_unloading{false};
 static HWND              g_taskbarWnd           = nullptr;
 static bool              g_taskbarViewDllLoaded = false;
-static HANDLE            g_retryThread          = nullptr;
-static HANDLE            g_retryStopEvent       = nullptr;
 
 struct PrivacyState {
     winrt::weak_ref<FrameworkElement> iconViewRef;
@@ -105,7 +104,6 @@ static std::list<FrameworkElementLoadedRevoker> g_loadedRevokers;
 static void ApplyStyle();
 static void ApplyStyleOnWindowThread();
 static void ClearPrivacyStates();
-static void StopRetryThread();
 
 // ============================================================
 // GetTaskbarXamlRoot — same boilerplate as other lab mods
@@ -399,25 +397,6 @@ static void ApplyStyleOnWindowThread() {
     if (!ok) Wh_Log(L"[ASOWT] RunFromWindowThread failed");
 }
 
-static void StopRetryThread() {
-    HANDLE thread = g_retryThread;
-    HANDLE event = g_retryStopEvent;
-
-    if (event)
-        SetEvent(event);
-
-    if (thread) {
-        WaitForSingleObject(thread, 3000);
-        CloseHandle(thread);
-    }
-
-    if (event)
-        CloseHandle(event);
-
-    g_retryThread = nullptr;
-    g_retryStopEvent = nullptr;
-}
-
 // Restore elements to the state Windows shows without this mod.
 static void ClearPrivacyStates() {
     for (auto& state : g_privacyStates) {
@@ -572,33 +551,19 @@ void Wh_ModAfterInit() {
     if (g_taskbarViewDllLoaded)
         ApplyStyleOnWindowThread();
 
-    g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!g_retryStopEvent)
-        return;
-
-    HANDLE stopEvent = g_retryStopEvent;
-    g_retryThread = CreateThread(nullptr, 0, [](void* param) -> DWORD {
-        HANDLE stopEvent = static_cast<HANDLE>(param);
+    std::thread([]() {
         for (int i = 0; i < 5 && !g_unloading; i++) {
-            if (WaitForSingleObject(stopEvent, 2000) != WAIT_TIMEOUT) break;
+            Sleep(2000);
             if (!g_privacyStates.empty()) break;
             Wh_Log(L"[AfterInit] Retry %d", i + 1);
             ApplyStyleOnWindowThread();
         }
-        return 0;
-    }, stopEvent, 0, nullptr);
-
-    if (!g_retryThread) {
-        CloseHandle(g_retryStopEvent);
-        g_retryStopEvent = nullptr;
-    }
+    }).detach();
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
-
-    StopRetryThread();
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {

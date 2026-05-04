@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Indicator Trigger Test</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: Canvas;
+      color: CanvasText;
+    }
+
+    main {
+      width: min(680px, calc(100vw - 32px));
+      display: grid;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 650;
+    }
+
+    p {
+      margin: 0;
+      line-height: 1.45;
+      color: color-mix(in srgb, CanvasText 78%, Canvas);
+    }
+
+    section {
+      border: 1px solid color-mix(in srgb, CanvasText 22%, Canvas);
+      border-radius: 8px;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      border: 1px solid color-mix(in srgb, CanvasText 24%, Canvas);
+      background: ButtonFace;
+      color: ButtonText;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 120px;
+      max-height: 240px;
+      overflow: auto;
+      padding: 12px;
+      border-radius: 6px;
+      background: color-mix(in srgb, CanvasText 8%, Canvas);
+      white-space: pre-wrap;
+      font: 13px/1.45 Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Privacy Indicator Trigger Test</h1>
+    <p>
+      Use this from a localhost server in Edge or Chrome. The microphone buttons
+      should light the Windows privacy indicator while capture is active. The
+      location buttons depend on Windows location permissions and browser support.
+    </p>
+
+    <section>
+      <h2>Microphone</h2>
+      <div class="buttons">
+        <button id="startMic">Start microphone</button>
+        <button id="stopMic" disabled>Stop microphone</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Location</h2>
+      <div class="buttons">
+        <button id="getLocation">Get location once</button>
+        <button id="watchLocation">Watch location</button>
+        <button id="stopLocation" disabled>Stop location watch</button>
+      </div>
+    </section>
+
+    <pre id="log" aria-live="polite"></pre>
+  </main>
+
+  <script>
+    const logEl = document.querySelector("#log");
+    const startMic = document.querySelector("#startMic");
+    const stopMic = document.querySelector("#stopMic");
+    const getLocation = document.querySelector("#getLocation");
+    const watchLocation = document.querySelector("#watchLocation");
+    const stopLocation = document.querySelector("#stopLocation");
+
+    let micStream = null;
+    let locationWatchId = null;
+
+    function log(message) {
+      const now = new Date().toLocaleTimeString();
+      logEl.textContent += `[${now}] ${message}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    startMic.addEventListener("click", async () => {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        startMic.disabled = true;
+        stopMic.disabled = false;
+        log("Microphone capture started. The taskbar privacy icon should be active.");
+      } catch (error) {
+        log(`Microphone failed: ${error.name}: ${error.message}`);
+      }
+    });
+
+    stopMic.addEventListener("click", () => {
+      if (micStream) {
+        for (const track of micStream.getTracks()) {
+          track.stop();
+        }
+        micStream = null;
+      }
+      startMic.disabled = false;
+      stopMic.disabled = true;
+      log("Microphone capture stopped. The indicator should return to idle.");
+    });
+
+    function reportPosition(position) {
+      const { latitude, longitude, accuracy } = position.coords;
+      log(`Location received: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} +/- ${Math.round(accuracy)}m`);
+    }
+
+    function reportLocationError(error) {
+      log(`Location failed: ${error.code}: ${error.message}`);
+    }
+
+    getLocation.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        log("Geolocation API is not available in this browser.");
+        return;
+      }
+
+      log("Requesting one location fix...");
+      navigator.geolocation.getCurrentPosition(reportPosition, reportLocationError, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000
+      });
+    });
+
+    watchLocation.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        log("Geolocation API is not available in this browser.");
+        return;
+      }
+
+      locationWatchId = navigator.geolocation.watchPosition(reportPosition, reportLocationError, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000
+      });
+      watchLocation.disabled = true;
+      stopLocation.disabled = false;
+      log("Location watch started. The location indicator may activate while Windows resolves position.");
+    });
+
+    stopLocation.addEventListener("click", () => {
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+      }
+      watchLocation.disabled = false;
+      stopLocation.disabled = true;
+      log("Location watch stopped.");
+    });
+
+    log(`Secure context: ${window.isSecureContext ? "yes" : "no"}. Use http://localhost for best results.`);
+  </script>
+</body>
+</html>

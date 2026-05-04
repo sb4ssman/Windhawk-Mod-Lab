@@ -31,7 +31,8 @@ The compact grid adapts to how many desktops you have.
 ![Five desktops in a 3×2 grid — column-first fill, short column centered](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot4.png)
 
 ## Settings
-- **Position** — five positions within the system tray
+- **Position** — system tray positions plus experimental Start-adjacent positions
+- **Start-adjacent positions** — experimental placement next to or above the Start button
 - **Size** — button width × height in pixels; spacing between buttons
 - **Grid mode** — smart automatic layout, single row/column, fixed rows, fixed columns, or fixed grid
 - **Smart layout** — balanced, vertical pack, or horizontal pack behavior
@@ -68,6 +69,8 @@ The compact grid adapts to how many desktops you have.
   - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
   - "beforeIcons": "Before notification icons"
   - "afterShowDesktop": "After Show Desktop strip"
+  - "nextToStart": "Next to Start button (experimental)"
+  - "aboveStart": "Above Start button (experimental)"
 
 - buttonWidth: 20
   $name: Button width (px)
@@ -228,6 +231,7 @@ The compact grid adapts to how many desktops you have.
 #include <winrt/Windows.UI.Core.h>
 #include <winrt/Windows.UI.Text.h>
 #include <winrt/Windows.UI.Xaml.h>
+#include <winrt/Windows.UI.Xaml.Automation.h>
 #include <winrt/Windows.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
@@ -240,12 +244,14 @@ The compact grid adapts to how many desktops you have.
 #include <functional>
 #include <algorithm>
 #include <climits>
+#include <cmath>
 
 #include <windhawk_utils.h>
 #include <combaseapi.h>
 #include <winver.h>
 
 using namespace winrt::Windows::UI::Xaml;
+using namespace winrt::Windows::UI::Xaml::Automation;
 using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Media;
 
@@ -337,6 +343,10 @@ static HWND              g_taskbarWnd      = nullptr;
 static Grid              g_buttonGrid      = nullptr;
 static FrameworkElement  g_injectionParent = nullptr;
 static int               g_injectedColumn  = -1;
+static bool              g_startOverlayMode = false;
+static FrameworkElement  g_startOverlayRoot = nullptr;
+static FrameworkElement  g_startOverlayStart = nullptr;
+static winrt::event_token g_startOverlayLayoutToken{};
 static std::atomic<int>  g_currentDesktop{0};
 static std::atomic<int>  g_desktopCount{1};
 
@@ -1077,6 +1087,34 @@ static void GetButtonGridPosition(int index, int count, const GridLayout& layout
     }
 }
 
+static double EstimateButtonGridWidth(int count) {
+    auto layout = ComputeLayout(count);
+    bool hasMaster    = g_settings.showMasterButton;
+    bool masterIsRow  = g_settings.masterButtonPosition == L"bottom" ||
+                         g_settings.masterButtonPosition == L"top";
+    int gridCols = layout.cols + (hasMaster && !masterIsRow ? 1 : 0);
+    int gaps = std::max(0, gridCols - 1);
+    int masterExtra = (hasMaster && !masterIsRow)
+        ? (g_settings.masterButtonWidth - g_settings.buttonWidth)
+        : 0;
+    return (double)(gridCols * g_settings.buttonWidth + masterExtra +
+                    gaps * g_settings.buttonSpacing);
+}
+
+static double EstimateButtonGridHeight(int count) {
+    auto layout = ComputeLayout(count);
+    bool hasMaster    = g_settings.showMasterButton;
+    bool masterIsRow  = g_settings.masterButtonPosition == L"bottom" ||
+                         g_settings.masterButtonPosition == L"top";
+    int gridRows = layout.rows + (hasMaster && masterIsRow ? 1 : 0);
+    int gaps = std::max(0, gridRows - 1);
+    int masterExtra = (hasMaster && masterIsRow)
+        ? (g_settings.masterButtonHeight - g_settings.buttonHeight)
+        : 0;
+    return (double)(gridRows * g_settings.buttonHeight + masterExtra +
+                    gaps * g_settings.buttonSpacing);
+}
+
 // Apply shared visual style to a desktop button.
 static void StyleButton(Button& btn, bool isActive,
     Brush activeBrush, Brush inactiveBrush,
@@ -1306,8 +1344,145 @@ static void UpdateHighlights(int current) {
 // Injection into XAML tree
 // ============================================================
 
+static FrameworkElement FindStartButton(FrameworkElement root) {
+    return FindChildRecursive(root, [](FrameworkElement fe) {
+        if (winrt::get_class_name(fe) != L"Taskbar.ExperienceToggleButton")
+            return false;
+        return AutomationProperties::GetAutomationId(fe) == L"StartButton";
+    });
+}
+
+static FrameworkElement FindTaskbarRootGrid(FrameworkElement root) {
+    auto taskbarFrame = FindChildRecursive(root, [](FrameworkElement fe) {
+        return winrt::get_class_name(fe) == L"Taskbar.TaskbarFrame";
+    });
+    if (!taskbarFrame) return nullptr;
+
+    int n = VisualTreeHelper::GetChildrenCount(taskbarFrame);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(taskbarFrame, i).try_as<FrameworkElement>();
+        if (child && child.Name() == L"RootGrid")
+            return child;
+    }
+    return nullptr;
+}
+
+static void PositionButtonGridNearStart() {
+    if (!g_buttonGrid || !g_startOverlayRoot || !g_startOverlayStart)
+        return;
+
+    int count = g_desktopCount.load();
+    double gridW = EstimateButtonGridWidth(count);
+    double gridH = EstimateButtonGridHeight(count);
+
+    double startW = g_startOverlayStart.ActualWidth();
+    double startH = g_startOverlayStart.ActualHeight();
+    if (startW <= 0.0) startW = 44.0;
+    if (startH <= 0.0) startH = std::max((double)g_settings.buttonHeight, gridH);
+
+    double x = 0.0;
+    double y = 0.0;
+    try {
+        auto transform = g_startOverlayStart.TransformToVisual(g_startOverlayRoot);
+        winrt::Windows::Foundation::Point origin{ 0.0f, 0.0f };
+        auto p = transform.TransformPoint(origin);
+        x = p.X;
+        y = p.Y;
+    } catch (...) {
+    }
+
+    double left = x;
+    double top = y;
+    if (g_settings.position == L"aboveStart") {
+        left = x + (startW - gridW) / 2.0;
+        top = y - gridH - (double)g_settings.buttonSpacing;
+        if (top < 0.0)
+            top = 0.0;
+    } else {
+        left = x + startW + (double)g_settings.buttonSpacing;
+        top = y + (startH - gridH) / 2.0;
+        if (top < 0.0)
+            top = 0.0;
+    }
+
+    if (left < 0.0)
+        left = 0.0;
+
+    g_buttonGrid.HorizontalAlignment(HorizontalAlignment::Left);
+    g_buttonGrid.VerticalAlignment(VerticalAlignment::Top);
+    auto current = g_buttonGrid.Margin();
+    if (std::fabs(current.Left - left) > 0.5 ||
+        std::fabs(current.Top - top) > 0.5 ||
+        current.Right != 0.0 ||
+        current.Bottom != 0.0) {
+        g_buttonGrid.Margin({ left, top, 0.0, 0.0 });
+    }
+}
+
+static bool InjectButtonGridNearStart(FrameworkElement root) {
+    auto rootGrid = FindTaskbarRootGrid(root);
+    if (!rootGrid) {
+        Wh_Log(L"[Inject] Taskbar RootGrid not found");
+        return false;
+    }
+
+    auto gridParent = rootGrid.try_as<Grid>();
+    if (!gridParent) {
+        Wh_Log(L"[Inject] Taskbar RootGrid is not a Grid");
+        return false;
+    }
+
+    for (auto child : gridParent.Children()) {
+        if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == L"VdSwitcherBar")
+            return true;
+    }
+
+    auto startButton = FindStartButton(root);
+    if (!startButton) {
+        Wh_Log(L"[Inject] StartButton not found");
+        return false;
+    }
+
+    int count   = ReadDesktopCount();
+    int current = ReadCurrentDesktop();
+    g_desktopCount.store(count);
+    g_currentDesktop.store(current);
+
+    if (g_settings.hideWhenSingle && count <= 1) {
+        Wh_Log(L"[Inject] Skipping start overlay - hideWhenSingle, count=%d", count);
+        return true;
+    }
+
+    auto grid = BuildButtonGrid(count, current);
+    grid.IsHitTestVisible(true);
+    Grid::SetColumn(grid, 0);
+    Grid::SetColumnSpan(grid, std::max(1, (int)gridParent.ColumnDefinitions().Size()));
+    Panel::SetZIndex(grid, 1000);
+    gridParent.Children().Append(grid);
+
+    g_buttonGrid = grid;
+    g_injectionParent = rootGrid;
+    g_injectedColumn = -1;
+    g_startOverlayMode = true;
+    g_startOverlayRoot = rootGrid;
+    g_startOverlayStart = startButton;
+
+    PositionButtonGridNearStart();
+    g_startOverlayLayoutToken = rootGrid.LayoutUpdated(
+        [](winrt::Windows::Foundation::IInspectable const&, auto const&) {
+            if (!g_unloading)
+                PositionButtonGridNearStart();
+        });
+
+    Wh_Log(L"[Inject] VdSwitcherBar near Start (%d desktops, current=%d)", count, current);
+    return true;
+}
+
 static bool InjectButtonGrid(FrameworkElement root) {
     const auto& pos = g_settings.position;
+
+    if (pos == L"nextToStart" || pos == L"aboveStart")
+        return InjectButtonGridNearStart(root);
 
     FrameworkElement parent = FindChildRecursive(root, [](FrameworkElement fe) {
         return fe.Name() == L"SystemTrayFrameGrid";
@@ -1455,6 +1630,32 @@ static bool RemoveButtonGridFrom(Grid gridParent, int col) {
 }
 
 static void RemoveButtonGrid() {
+    if (g_startOverlayMode) {
+        if (g_startOverlayRoot && g_startOverlayLayoutToken.value) {
+            g_startOverlayRoot.LayoutUpdated(g_startOverlayLayoutToken);
+            g_startOverlayLayoutToken = {};
+        }
+
+        auto gridParent = g_injectionParent ? g_injectionParent.try_as<Grid>() : nullptr;
+        if (gridParent) {
+            for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
+                auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
+                if (fe && fe.Name() == L"VdSwitcherBar") {
+                    gridParent.Children().RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
+        g_buttonGrid = nullptr;
+        g_injectionParent = nullptr;
+        g_injectedColumn = -1;
+        g_startOverlayMode = false;
+        g_startOverlayRoot = nullptr;
+        g_startOverlayStart = nullptr;
+        return;
+    }
+
     auto gridParent = FindLiveSystemTrayFrameGrid();
     if (!RemoveButtonGridFrom(gridParent, g_injectedColumn))
         Wh_Log(L"[Remove] VdSwitcherBar not found");
@@ -1491,9 +1692,17 @@ static void RebuildOrUpdate(bool fullRebuild) {
         if (!gridParent.Children().IndexOf(g_buttonGrid, idx)) return;
         gridParent.Children().RemoveAt(idx);
         g_buttonGrid = BuildButtonGrid(count, current);
-        if (g_injectedColumn >= 0)
+        if (g_startOverlayMode) {
+            Grid::SetColumn(g_buttonGrid, 0);
+            Grid::SetColumnSpan(g_buttonGrid, std::max(1, (int)gridParent.ColumnDefinitions().Size()));
+            Panel::SetZIndex(g_buttonGrid, 1000);
+            g_buttonGrid.IsHitTestVisible(true);
+        } else if (g_injectedColumn >= 0) {
             Grid::SetColumn(g_buttonGrid, g_injectedColumn);
+        }
         gridParent.Children().InsertAt(idx, g_buttonGrid);
+        if (g_startOverlayMode)
+            PositionButtonGridNearStart();
     } else {
         UpdateHighlights(current);
     }
@@ -1642,46 +1851,6 @@ void Wh_ModAfterInit() {
     }, nullptr, 0, nullptr);
 }
 
-static void DoUninitRemove(int col) {
-    // Re-walk the live tree — stored refs may be stale if taskbar rebuilt between inject and uninit.
-    auto xamlRoot = GetTaskbarXamlRoot(g_taskbarWnd);
-    if (!xamlRoot) { Wh_Log(L"[Uninit] No XamlRoot"); return; }
-    auto root = xamlRoot.Content().try_as<FrameworkElement>();
-    if (!root) return;
-
-    auto parent = FindChildRecursive(root, [](FrameworkElement fe) {
-        return fe.Name() == L"SystemTrayFrameGrid";
-    });
-    auto gp = parent ? parent.try_as<Grid>() : nullptr;
-    if (!gp) { Wh_Log(L"[Uninit] SystemTrayFrameGrid not found"); return; }
-
-    // Find by name — avoids WinRT proxy identity mismatch with IndexOf.
-    uint32_t removeIdx = UINT32_MAX;
-    for (uint32_t i = 0; i < gp.Children().Size(); i++) {
-        auto fe = gp.Children().GetAt(i).try_as<FrameworkElement>();
-        if (fe && fe.Name() == L"VdSwitcherBar") { removeIdx = i; break; }
-    }
-    if (removeIdx == UINT32_MAX) { Wh_Log(L"[Uninit] VdSwitcherBar not found"); return; }
-    gp.Children().RemoveAt(removeIdx);
-    Wh_Log(L"[Uninit] Removed VdSwitcherBar");
-
-    if (col >= 0) {
-        uint32_t colU = (uint32_t)col;
-        if (colU < gp.ColumnDefinitions().Size())
-            gp.ColumnDefinitions().RemoveAt(colU);
-        for (auto child : gp.Children()) {
-            auto fe = child.try_as<FrameworkElement>();
-            if (!fe) continue;
-            int c    = Grid::GetColumn(fe);
-            int span = Grid::GetColumnSpan(fe);
-            if (c > col)
-                Grid::SetColumn(fe, c - 1);
-            else if (c + span > col)
-                Grid::SetColumnSpan(fe, span - 1);
-        }
-    }
-}
-
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
@@ -1689,19 +1858,14 @@ void Wh_ModUninit() {
     StopRetryThread();
     StopNotificationThread();
 
-    int col = g_injectedColumn;
-    g_buttonGrid      = nullptr;
-    g_injectionParent = nullptr;
-    g_injectedColumn  = -1;
-
     // RunFromWindowThread is synchronous — blocks until the UI thread has removed the grid,
     // so all WinRT object lifetimes are safe and no FreeLibrary dance is needed.
     if (g_taskbarWnd) {
-        RunFromWindowThread(g_taskbarWnd, [](void* p) {
-            DoUninitRemove((int)(intptr_t)p);
-        }, (void*)(intptr_t)col);
+        RunFromWindowThread(g_taskbarWnd, [](void*) {
+            RemoveButtonGrid();
+        }, nullptr);
     } else {
-        DoUninitRemove(col);
+        RemoveButtonGrid();
     }
 }
 

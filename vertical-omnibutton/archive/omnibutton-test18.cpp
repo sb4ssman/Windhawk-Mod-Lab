@@ -11,158 +11,17 @@
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Vertical OmniButton
-
-Rearranges the Windows 11 system tray OmniButton (wifi, volume/sound, battery) from
-horizontal layout to clean vertical stacking.
-
-You gain granular control over the X-Y pixel location of each item in the button.
-
-
-## Screenshots (clock modded separately)
-
-**Stacked mode** — battery percentage as a 4th row below the battery icon:
-
-![Stacked mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-stacked.png)
-
-**Inline mode** — percentage shown within the battery icon slot:
-
-![Inline mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-inline.png)
-
-**Off mode** — battery icon only, clean three-icon stack:
-
-![Off mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-off.png)
-
-## How it works
-
-Hooks into the `Taskbar.View.dll` system tray implementation via symbol-based
-function hooks. When OmniButton elements appear, the mod forces
-`Orientation=Vertical` on the inner StackPanel and positions each icon slot
-according to your settings.
-
-## Usage
-
-The mod applies automatically on startup and after explorer restarts. If icons don't appear within a few seconds of enabling the mod, toggle it off and back on in Windhawk.
-
-## Settings
-
-Default offsets are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows 
-of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align icons for your theme, scaling,
-or taskbar layout.
-
-- **Battery percentage** — Off / Inline / Stacked. All modes apply live. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is drawn off-screen via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).
-- **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own
-  X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
-
-## Windows 11 Taskbar Styler compatibility
-
-This mod does not use the Windows XAML Diagnostics API, so it is compatible
-with the Windows 11 Taskbar Styler out of the box — no special settings required.
-
-For basic vertical stacking without battery percentage, paste [style.yaml](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
-into Windows 11 Taskbar Styler → Settings → Advanced.
-
-## Related mods
-
-These mods inspired this one and combine well with it for a fully customized taskbar:
-
-- [Taskbar height and icon size](https://windhawk.net/mods/taskbar-icon-size) — resize the taskbar to give the vertical stack room to breathe
-- [Taskbar Clock Customization](https://windhawk.net/mods/taskbar-clock-customization) — rich clock formatting options that complement the vertical layout
-- [Multirow taskbar for Windows 11](https://windhawk.net/mods/taskbar-multirow) — span taskbar items across multiple rows
-- [Taskbar tray icon spacing and grid](https://windhawk.net/mods/taskbar-notification-icon-spacing) — control spacing and grid layout of system tray icons
-- [Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler) — full XAML-level taskbar theming; existing style.yaml configs work alongside this mod
-
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- batteryMode: "stacked"
-  $name: Battery percentage
-  $description: "Off: battery icon only — percentage is drawn off-screen (see Off mode percent settings below).\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon.\n\nAll modes apply live — no explorer restart needed. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is hidden via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).\n\nDefaults are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows of system-tray) in the Windhawk ecosystem. Use the per-mode offsets below to align icons for your theme, scaling, or taskbar layout. Suggestions welcome — open an issue or PR on GitHub."
-  $options:
-    - "off": "Off — battery icon only"
-    - "inline": "Inline — percentage in battery slot (3rd row)"
-    - "stacked": "Stacked — percentage as 4th row below battery"
-- offWifiX: -2
-  $name: "Off mode: Wifi X"
-  $description: "Wifi horizontal offset when battery % is Off. Negative = left, positive = right."
-- offWifiY: 0
-  $name: "Off mode: Wifi Y"
-  $description: "Wifi vertical offset when battery % is Off. Negative = up, positive = down."
-- offVolumeX: 0
-  $name: "Off mode: Volume X"
-  $description: "Volume horizontal offset when battery % is Off. Negative = left, positive = right."
-- offVolumeY: 0
-  $name: "Off mode: Volume Y"
-  $description: "Volume vertical offset when battery % is Off. Negative = up, positive = down."
-- offBatteryX: 2
-  $name: "Off mode: Battery X"
-  $description: "Battery icon horizontal offset when battery % is Off. Negative = left, positive = right."
-- offBatteryY: 0
-  $name: "Off mode: Battery Y"
-  $description: "Battery icon vertical offset when battery % is Off. Negative = up, positive = down."
-- offPercentX: 0
-  $name: "Off mode: Battery percent X"
-  $description: "Horizontal offset applied to the battery percentage text in Off mode to push it out of view. Adjust if the text bleeds into view on your theme."
-- offPercentY: 50
-  $name: "Off mode: Battery percent Y"
-  $description: "Vertical offset applied to the battery percentage text in Off mode to push it out of view. Increase if the text bleeds into view on your theme; decrease if the slot clips it cleanly already."
-- inlineWifiX: -2
-  $name: "Inline mode: Wifi X"
-  $description: "Wifi horizontal offset in Inline mode. Negative = left, positive = right."
-- inlineWifiY: 0
-  $name: "Inline mode: Wifi Y"
-  $description: "Wifi vertical offset in Inline mode. Negative = up, positive = down."
-- inlineVolumeX: 0
-  $name: "Inline mode: Volume X"
-  $description: "Volume horizontal offset in Inline mode. Negative = left, positive = right."
-- inlineVolumeY: 0
-  $name: "Inline mode: Volume Y"
-  $description: "Volume vertical offset in Inline mode. Negative = up, positive = down."
-- inlineBatteryX: 2
-  $name: "Inline mode: Battery X"
-  $description: "Battery slot horizontal offset in Inline mode. Negative = left, positive = right. Default: 2."
-- inlineBatteryY: 0
-  $name: "Inline mode: Battery Y"
-  $description: "Battery slot vertical offset in Inline mode. Negative = up, positive = down."
-- inlinePercentX: 2
-  $name: "Inline mode: Battery percent X"
-  $description: "Percentage text horizontal offset within the inline battery slot. Negative = left, positive = right."
-- inlinePercentY: -1
-  $name: "Inline mode: Battery percent Y"
-  $description: "Percentage text vertical offset within the inline battery slot. Negative = up, positive = down."
-- stackedWifiX: -2
-  $name: "Stacked mode: Wifi X"
-  $description: "Wifi horizontal offset in Stacked mode. Negative = left, positive = right."
-- stackedWifiY: 7
-  $name: "Stacked mode: Wifi Y"
-  $description: "Wifi vertical offset in Stacked mode. Negative = up, positive = down."
-- stackedVolumeX: 0
-  $name: "Stacked mode: Volume X"
-  $description: "Volume horizontal offset in Stacked mode. Negative = left, positive = right."
-- stackedVolumeY: 0
-  $name: "Stacked mode: Volume Y"
-  $description: "Volume vertical offset in Stacked mode. Negative = up, positive = down."
-- stackedBatteryX: 8
-  $name: "Stacked mode: Battery X"
-  $description: "Battery icon row horizontal offset in Stacked mode. Negative = left, positive = right. Default: 8."
-- stackedBatteryY: -6
-  $name: "Stacked mode: Battery Y"
-  $description: "Battery icon row vertical offset in Stacked mode. Negative = up, positive = down. Default: -6."
-- stackedPercentX: 2
-  $name: "Stacked mode: Battery percent X"
-  $description: "Percentage row horizontal offset in Stacked mode. Negative = left, positive = right. Default: 2."
-- stackedPercentY: -11
-  $name: "Stacked mode: Battery percent Y"
-  $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -11."
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #include <atomic>
 #include <functional>
 #include <limits>
+#include <thread>
 #include <winrt/base.h>
 #include <windhawk_api.h>
 #include <windhawk_utils.h>
@@ -172,6 +31,7 @@ These mods inspired this one and combine well with it for a fully customized tas
 #include <windows.h>
 
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.UI.Core.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
@@ -258,10 +118,6 @@ static FrameworkElement g_batteryInlinePercentFE{ nullptr };
 
 static StackPanel       g_layoutUpdatedSP{ nullptr };
 static winrt::event_token g_layoutUpdatedToken{};
-
-static HWND   g_taskbarWnd       = nullptr;
-static HANDLE g_retryThread      = nullptr;
-static HANDLE g_retryStopEvent   = nullptr;
 
 // ── Battery XAML helpers ──────────────────────────────────────────────────
 
@@ -487,58 +343,6 @@ static void CleanupXamlElements(
             }
         }
     } catch (...) {}
-}
-
-static void StopRetryThread() {
-    HANDLE thread = g_retryThread;
-    HANDLE event = g_retryStopEvent;
-
-    if (event)
-        SetEvent(event);
-
-    if (thread) {
-        WaitForSingleObject(thread, 3000);
-        CloseHandle(thread);
-    }
-
-    if (event)
-        CloseHandle(event);
-
-    g_retryThread = nullptr;
-    g_retryStopEvent = nullptr;
-}
-
-static void ResetElementRefs() {
-    g_omniStackPanel         = nullptr;
-    g_omniButton             = nullptr;
-    g_wifiPresenter          = nullptr;
-    g_volumePresenter        = nullptr;
-    g_batteryPresenter       = nullptr;
-    g_batteryInnerPanel      = nullptr;
-    g_batteryInlinePercentFE = nullptr;
-}
-
-static void RevokeLayoutUpdated() {
-    if (g_layoutUpdatedSP && g_layoutUpdatedToken.value) {
-        g_layoutUpdatedSP.LayoutUpdated(g_layoutUpdatedToken);
-        g_layoutUpdatedToken = {};
-    }
-    g_layoutUpdatedSP = nullptr;
-}
-
-static void CleanupAndResetCurrentElements() {
-    RevokeLayoutUpdated();
-
-    auto sp    = g_omniStackPanel;
-    auto btn   = g_omniButton;
-    auto wifi  = g_wifiPresenter;
-    auto vol   = g_volumePresenter;
-    auto bp    = g_batteryPresenter;
-    auto bip   = g_batteryInnerPanel;
-    auto bipct = g_batteryInlinePercentFE;
-
-    ResetElementRefs();
-    CleanupXamlElements(sp, btn, wifi, vol, bp, bip, bipct);
 }
 
 // ── Layout application ────────────────────────────────────────────────────
@@ -838,7 +642,6 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
 static void ApplyAllSettings() {
     HWND hTaskbarWnd = FindCurrentProcessTaskbarWnd();
     if (!hTaskbarWnd) { Wh_Log(L"[Apply] No taskbar window found"); return; }
-    g_taskbarWnd = hTaskbarWnd;
 
     auto xamlRoot = GetTaskbarXamlRoot(hTaskbarWnd);
     if (!xamlRoot) { Wh_Log(L"[Apply] GetTaskbarXamlRoot failed"); return; }
@@ -877,7 +680,7 @@ static void ApplyAllSettings() {
 }
 
 static void ApplyAllSettingsOnWindowThread() {
-    HWND hTaskbarWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+    HWND hTaskbarWnd = FindCurrentProcessTaskbarWnd();
     if (!hTaskbarWnd) return;
     RunFromWindowThread(hTaskbarWnd, [](void*) { ApplyAllSettings(); }, nullptr);
 }
@@ -1019,55 +822,98 @@ void Wh_ModAfterInit() {
         ApplyAllSettingsOnWindowThread();
     Wh_Log(L"[AfterInit] taskbarViewLoaded=%d", (int)g_taskbarViewDllLoaded);
 
-    // Retry on a stoppable background thread to handle early-startup timing
-    // where the XAML tree isn't ready when the mod first loads into explorer.
-    g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!g_retryStopEvent)
-        return;
-
-    HANDLE stopEvent = g_retryStopEvent;
-    g_retryThread = CreateThread(nullptr, 0, [](void* param) -> DWORD {
-        HANDLE stopEvent = static_cast<HANDLE>(param);
+    // Retry on a background thread to handle early-startup timing where the
+    // XAML tree isn't ready when the mod first loads into explorer.
+    std::thread([]() {
         for (int i = 0; i < 5 && !g_unloading; i++) {
-            if (WaitForSingleObject(stopEvent, 2000) != WAIT_TIMEOUT) break;
-            if (g_omniStackPanel || g_unloading) break;
+            Sleep(2000);
+            if (g_omniStackPanel) break;
             Wh_Log(L"[AfterInit] Retry %d — XAML not yet applied", i + 1);
             ApplyAllSettingsOnWindowThread();
         }
-        return 0;
-    }, stopEvent, 0, nullptr);
-
-    if (!g_retryThread) {
-        CloseHandle(g_retryStopEvent);
-        g_retryStopEvent = nullptr;
-    }
+    }).detach();
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
 
-    StopRetryThread();
+    if (g_layoutUpdatedSP && g_layoutUpdatedToken.value) {
+        g_layoutUpdatedSP.LayoutUpdated(g_layoutUpdatedToken);
+        g_layoutUpdatedToken = {};
+        g_layoutUpdatedSP = nullptr;
+    }
 
-    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (hWnd)
-        RunFromWindowThread(hWnd, [](void*) { CleanupAndResetCurrentElements(); }, nullptr);
-    else
-        CleanupAndResetCurrentElements();
+    auto sp    = g_omniStackPanel;
+    auto btn   = g_omniButton;
+    auto wifi  = g_wifiPresenter;
+    auto vol   = g_volumePresenter;
+    auto bp    = g_batteryPresenter;
+    auto bip   = g_batteryInnerPanel;
+    auto bipct = g_batteryInlinePercentFE;
+    g_omniStackPanel         = nullptr;
+    g_omniButton             = nullptr;
+    g_wifiPresenter          = nullptr;
+    g_volumePresenter        = nullptr;
+    g_batteryPresenter       = nullptr;
+    g_batteryInnerPanel      = nullptr;
+    g_batteryInlinePercentFE = nullptr;
+
+    CleanupXamlElements(sp, btn, wifi, vol, bp, bip, bipct);
+
+    // Also schedule async dispatch for wrong-thread cases.
+    auto dispSrc = sp ? sp.try_as<FrameworkElement>() : nullptr;
+    if (!dispSrc) return;
+    auto disp = dispSrc.Dispatcher();
+    if (!disp) return;
+
+    HMODULE hSelf = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+        reinterpret_cast<LPCWSTR>(&Wh_ModUninit), &hSelf);
+
+    try {
+        auto _ = disp.RunAsync(
+            winrt::Windows::UI::Core::CoreDispatcherPriority::Normal,
+            [sp, btn, wifi, vol, bp, bip, bipct, hSelf]() {
+                Wh_Log(L"[Uninit] Async cleanup running");
+                CleanupXamlElements(sp, btn, wifi, vol, bp, bip, bipct);
+                Wh_Log(L"[Uninit] Async cleanup done");
+                if (hSelf) FreeLibrary(hSelf);
+            });
+    } catch (...) {
+        if (hSelf) FreeLibrary(hSelf);
+    }
 }
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
 
-    StopRetryThread();
-
-    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+    HWND hWnd = FindCurrentProcessTaskbarWnd();
     if (!hWnd) { Wh_Log(L"[Settings] No taskbar window found"); return; }
 
     // On the UI thread: clean up existing XAML properties, reset globals, re-apply from scratch.
     RunFromWindowThread(hWnd, [](void*) {
-        CleanupAndResetCurrentElements();
+        // Revoke LayoutUpdated before resetting.
+        if (g_layoutUpdatedSP && g_layoutUpdatedToken.value) {
+            g_layoutUpdatedSP.LayoutUpdated(g_layoutUpdatedToken);
+            g_layoutUpdatedToken = {};
+            g_layoutUpdatedSP = nullptr;
+        }
+        // Clear XAML properties on whatever elements we currently hold.
+        CleanupXamlElements(g_omniStackPanel, g_omniButton,
+                            g_wifiPresenter, g_volumePresenter,
+                            g_batteryPresenter, g_batteryInnerPanel,
+                            g_batteryInlinePercentFE);
+        // Reset all globals so ApplyAllSettings re-traverses from scratch.
+        g_omniStackPanel         = nullptr;
+        g_omniButton             = nullptr;
+        g_wifiPresenter          = nullptr;
+        g_volumePresenter        = nullptr;
+        g_batteryPresenter       = nullptr;
+        g_batteryInnerPanel      = nullptr;
+        g_batteryInlinePercentFE = nullptr;
+        // Re-apply.
         ApplyAllSettings();
     }, nullptr);
 }

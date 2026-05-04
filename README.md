@@ -14,6 +14,7 @@ Mods are submitted to the community via a fork of [ramensoftware/windhawk-mods](
 | [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.1, PR update ready | Virtual desktop switcher buttons injected into system tray |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.1, in development | Keeps location/mic privacy indicator always visible; dim when idle to prevent taskbar icon shifts |
 | [clock-spacer/](clock-spacer/) | v0.1, in development | Adds %s% elastic spacer to clock format strings (companion to Taskbar Clock Customization) |
+| [taskbar-folder-menu/](taskbar-folder-menu/) | v0.1, prototype | Compact taskbar buttons that open configured folders as popup menus |
 
 ---
 
@@ -52,6 +53,13 @@ Companion to Taskbar Clock Customization. Adds a `%s%` elastic spacer token to c
 
 ---
 
+### [Taskbar Folder Menu](taskbar-folder-menu/)
+**Status:** v0.1 — prototype
+Adds compact taskbar buttons that open configured folders as native popup menus, recreating the useful part of classic taskbar folder toolbars such as Desktop.
+→ [README](taskbar-folder-menu/README.md)
+
+---
+
 ## Structure
 
 ```
@@ -61,5 +69,6 @@ Windhawk-Mod-Lab/
   virtual-desktop-switcher/ — mod source + notes
   privacy-indicator-anchor/ — mod source
   clock-spacer/             — mod source
+  taskbar-folder-menu/      — mod source + notes
   _claude_notes/            — lab-wide notes and design docs
 ```

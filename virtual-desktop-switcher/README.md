@@ -20,7 +20,7 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 - Smart grid layout with balanced, vertical-pack, horizontal-pack, and fixed override modes
 - Highlights the active desktop immediately on switch
 - Buttons appear/disappear as desktops are added or removed
-- Five placement positions within the system tray
+- Five placement positions within the system tray, plus experimental Start-adjacent positions
 - Configurable size, spacing, colors, opacity, and shine effect
 - Per-state text color, font size, corner radius, bold, and border
 - Tooltip on each button shows the desktop's display name
@@ -30,7 +30,7 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Position | After clock | Where in the system tray to inject |
+| Position | After clock | Where to place the switcher: system tray positions, next to Start, or above Start |
 | Button width | 20 px | Width of each button |
 | Button height | 22 px | Height of each button |
 | Button spacing | 2 px | Gap between buttons in the grid |

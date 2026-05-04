@@ -3,9 +3,9 @@
 ## Current focus
 
 1. **Privacy Indicator Anchor** — v0.1, needs testing. Hook arrays renamed for PR validation.
-2. **Virtual Desktop Switcher** — v1.1, tested, ready for PR update. Changes since v1.0: grid layout controls (fillDirection, autoBalance, maxColumns, shortGroupAlign), master button (column/sliver, configurable width/height), crash-on-disable fix, half-click ColumnSpan fix, UpdateHighlights VdBtn_N named lookup, short-column centering via RowSpan+Margin.
+2. **Virtual Desktop Switcher** — v1.1, tested, ready for PR update. Changes since v1.0: grid layout controls (fillDirection, autoBalance, maxColumns, shortGroupAlign), master button (column/sliver, configurable width/height), crash-on-disable fix, half-click ColumnSpan fix, UpdateHighlights VdBtn_N named lookup, short-column centering via RowSpan+Margin. New local experiment: Start-adjacent positions `nextToStart` and `aboveStart` requested by Salyts on PR #3932; implemented as RootGrid overlay and needs visual testing.
 3. **Clock Spacer** — v0.1, new mod. Companion to Taskbar Clock Customization. Hooks DateTimeIconContent::OnApplyTemplate; detects %s% in TextBlock text, replaces with a Grid of Auto + * columns for elastic spacing. Needs testing with clock mod installed.
-3. **Vertical OmniButton** — v1.2, PR submitted. Awaiting review.
+3. **Vertical OmniButton** — v1.2, PR submitted. Maintainer asked to apply VD switcher review comments here too; local lab copy now replaces detached retry thread with stoppable CreateThread/event cleanup and synchronous UI-thread uninit cleanup.
 
 ---
 
@@ -52,6 +52,12 @@ Potential issues to test:
   3. Creates or updates a PR on the fork with appropriate commit message
   - Should handle both new mod submissions and version bumps to existing ones
   - The windhawk-mods fork lives at `t:/Github/sb4ssman/windhawk-mods/`
+
+## Current experiments
+
+- Virtual Desktop Switcher has experimental `nextToStart` and `aboveStart` positions for PR #3932 feedback. It injects into `TaskbarFrame > RootGrid`, spans the root grid with a high z-index, and tracks Start button layout instead of joining the taskbar item panel. Needs visual testing in Windhawk.
+- Privacy Indicator Anchor tray-grid direction is documented in `_research/privacy-indicator-anchor-design.md`. Preferred implementation is a persistent mirrored icon near `NotifyIconStack`, not moving Windows' real privacy `IconView`.
+- Taskbar Folder Menu prototype added in `taskbar-folder-menu/`. It injects compact folder buttons into `SystemTrayFrameGrid` and opens native popup menus with `TrackPopupMenu`. Future placement experiment: line buttons up directly with the tray overflow button if the XAML tree has a stable parent.
 
 ## Completed
 
