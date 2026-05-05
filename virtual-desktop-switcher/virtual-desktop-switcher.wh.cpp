@@ -2,7 +2,7 @@
 // @id              taskbar-vd-switcher
 // @name            Taskbar Virtual Desktop Switcher
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
-// @version         1.1
+// @version         1.2
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -348,6 +348,8 @@ static FrameworkElement  g_startOverlayRoot = nullptr;
 static FrameworkElement  g_startOverlayStart = nullptr;
 static winrt::event_token g_startOverlayLayoutToken{};
 static int               g_startColumnIndex = -1;
+static FrameworkElement  g_taskItemsPanel = nullptr;
+static Thickness         g_taskItemsPanelOriginalMargin{};
 static std::atomic<int>  g_currentDesktop{0};
 static std::atomic<int>  g_desktopCount{1};
 
@@ -1382,6 +1384,16 @@ static FrameworkElement FindTaskbarRootGrid(FrameworkElement root) {
     return nullptr;
 }
 
+static FrameworkElement FindTaskbarFrameRepeater(FrameworkElement rootGrid) {
+    int n = VisualTreeHelper::GetChildrenCount(rootGrid);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(rootGrid, i).try_as<FrameworkElement>();
+        if (child && child.Name() == L"TaskbarFrameRepeater")
+            return child;
+    }
+    return nullptr;
+}
+
 static void PositionButtonGridNearStart() {
     if (!g_buttonGrid || !g_startOverlayRoot || !g_startOverlayStart)
         return;
@@ -1395,7 +1407,6 @@ static void PositionButtonGridNearStart() {
     double startH = g_startOverlayStart.ActualHeight();
     if (startW <= 0.0 && !startHidden) startW = 44.0;
     if (startH <= 0.0) startH = std::max((double)g_settings.buttonHeight, gridH);
-    double reservedStartW = startHidden ? gridW : std::max(startW, gridW);
 
     double x = 0.0;
     double y = 0.0;
@@ -1408,22 +1419,35 @@ static void PositionButtonGridNearStart() {
     } catch (...) {
     }
 
-    double left = x;
-    double top = y;
-    if (g_settings.position == L"aboveStart") {
-        left = x + (reservedStartW - gridW) / 2.0;
-        top = y - gridH - (double)g_settings.buttonSpacing;
-        if (top < 0.0)
-            top = 0.0;
-    } else {
-        left = x + startW + (double)g_settings.buttonSpacing;
-        top = y + (startH - gridH) / 2.0;
-        if (top < 0.0)
-            top = 0.0;
-    }
+    double left = 0.0;
+    double top  = 0.0;
 
-    if (left < 0.0)
-        left = 0.0;
+    if (g_settings.position == L"aboveStart") {
+        double reservedStartW = startHidden ? gridW : std::max(startW, gridW);
+        left = x + (reservedStartW - gridW) / 2.0;
+        top  = y - gridH - (double)g_settings.buttonSpacing;
+        if (top < 0.0) top = 0.0;
+        if (left < 0.0) left = 0.0;
+    } else {
+        // nextToStart: anchor VD grid at the left edge; push TaskbarFrameRepeater
+        // rightward so Start button and task items don't overlap the VD grid.
+        // y from TransformToVisual is unaffected by Margin.Left changes, so it
+        // stays valid for vertical centering even after we push the panel right.
+        left = (double)g_settings.paddingLeft;
+        top  = y + (startH - gridH) / 2.0;
+        if (top < 0.0) top = 0.0;
+
+        if (g_taskItemsPanel) {
+            double neededLeft = g_taskItemsPanelOriginalMargin.Left +
+                                gridW + (double)g_settings.buttonSpacing +
+                                (double)g_settings.paddingLeft;
+            auto m = g_taskItemsPanel.Margin();
+            if (std::fabs(m.Left - neededLeft) > 0.5) {
+                m.Left = neededLeft;
+                g_taskItemsPanel.Margin(m);
+            }
+        }
+    }
 
     g_buttonGrid.HorizontalAlignment(HorizontalAlignment::Left);
     g_buttonGrid.VerticalAlignment(VerticalAlignment::Top);
@@ -1433,26 +1457,6 @@ static void PositionButtonGridNearStart() {
         current.Right != 0.0 ||
         current.Bottom != 0.0) {
         g_buttonGrid.Margin({ left, top, 0.0, 0.0 });
-    }
-
-    // Reserve space in the Start column so task items don't slide under the
-    // overlay, including when the Start button itself is hidden/collapsed.
-    auto rootGrid = g_startOverlayRoot.try_as<Grid>();
-    if (rootGrid) {
-        auto startChild = GetRootGridDirectChildContaining(rootGrid, g_startOverlayStart);
-        if (startChild) {
-            int col = Grid::GetColumn(startChild);
-            g_startColumnIndex = col;
-            if (col >= 0 && col < (int)rootGrid.ColumnDefinitions().Size()) {
-                double colWidth = reservedStartW;
-                if (g_settings.position == L"nextToStart")
-                    colWidth = startW + gridW + (double)g_settings.buttonSpacing;
-                auto colDef = rootGrid.ColumnDefinitions().GetAt(col);
-                if (std::fabs(colDef.Width().Value - colWidth) > 0.5 ||
-                    colDef.Width().GridUnitType != GridUnitType::Pixel)
-                    colDef.Width({ colWidth, GridUnitType::Pixel });
-            }
-        }
     }
 }
 
@@ -1503,6 +1507,14 @@ static bool InjectButtonGridNearStart(FrameworkElement root) {
     g_startOverlayMode = true;
     g_startOverlayRoot = rootGrid;
     g_startOverlayStart = startButton;
+
+    if (g_settings.position == L"nextToStart") {
+        auto repeater = FindTaskbarFrameRepeater(rootGrid);
+        if (repeater) {
+            g_taskItemsPanel = repeater;
+            g_taskItemsPanelOriginalMargin = repeater.Margin();
+        }
+    }
 
     PositionButtonGridNearStart();
     g_startOverlayLayoutToken = rootGrid.LayoutUpdated(
@@ -1637,10 +1649,12 @@ static bool RemoveButtonGridFrom(Grid gridParent, int col) {
     if (!gridParent) return false;
 
     uint32_t removeIdx = (uint32_t)-1;
+    int liveCol = col;
     for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
         auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
         if (fe && fe.Name() == L"VdSwitcherBar") {
             removeIdx = i;
+            liveCol = Grid::GetColumn(fe);
             break;
         }
     }
@@ -1648,8 +1662,8 @@ static bool RemoveButtonGridFrom(Grid gridParent, int col) {
 
     gridParent.Children().RemoveAt(removeIdx);
 
-    if (col >= 0) {
-        uint32_t colU = (uint32_t)col;
+    if (liveCol >= 0) {
+        uint32_t colU = (uint32_t)liveCol;
         if (colU < gridParent.ColumnDefinitions().Size())
             gridParent.ColumnDefinitions().RemoveAt(colU);
         for (auto child : gridParent.Children()) {
@@ -1657,9 +1671,9 @@ static bool RemoveButtonGridFrom(Grid gridParent, int col) {
             if (!fe) continue;
             int c    = Grid::GetColumn(fe);
             int span = Grid::GetColumnSpan(fe);
-            if (c > col)
+            if (c > liveCol)
                 Grid::SetColumn(fe, c - 1);
-            else if (c < col && c + span > col)
+            else if (c < liveCol && c + span > liveCol)
                 Grid::SetColumnSpan(fe, span - 1);
         }
     }
@@ -1682,13 +1696,11 @@ static void RemoveButtonGrid() {
                     break;
                 }
             }
+        }
 
-            // Restore start column to auto if we widened it.
-            if (g_startColumnIndex >= 0 &&
-                g_startColumnIndex < (int)gridParent.ColumnDefinitions().Size()) {
-                gridParent.ColumnDefinitions().GetAt(g_startColumnIndex)
-                    .Width({ 1.0, GridUnitType::Auto });
-            }
+        if (g_taskItemsPanel) {
+            g_taskItemsPanel.Margin(g_taskItemsPanelOriginalMargin);
+            g_taskItemsPanel = nullptr;
         }
         g_startColumnIndex = -1;
 

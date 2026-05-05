@@ -2,10 +2,10 @@
 
 ## Current focus
 
-1. **Privacy Indicator Anchor** — v0.3 (Codex). Added layoutMode (row/col), position setting, hideNativeIndicator. Root-cause fix: InjectSyntheticIcons now uses FindChildRecursive for SystemTrayFrameGrid. IsPrivacyGlyph guard prevents false positives. Needs real-device test of: vertical stacking, position options, settings-reinject state tracking, hideNativeIndicator.
-2. **Virtual Desktop Switcher** — nextToStart/aboveStart: reservedStartW = startHidden ? gridW : max(startW, gridW). Needs visual test; user saw encroachment with hidden start button.
-3. **Clock Spacer** — v0.4. ApplySpacerToDateTimeContent now uses FindChildRecursive to find TimeInnerTextBlock/DateInnerTextBlock directly (fixes root cause: shallow ContainerGrid search failed when intermediate elements exist). User needs MaxWidth set in clock mod (or lineWidth in spacer settings) for * columns to have real width. Needs test.
-4. **Taskbar Folder Menu** — v0.3. Default label changed from "Desktop" to "📁" everywhere (YAML, C++ fallback, empty-parse fallback). Comma-split already in SplitFolderLines. Needs test with multi-folder entry.
+1. **Privacy Indicator Anchor** — v0.6/vNext. Actual user-default target: idleOpacity=50, iconSize=16, layoutMode=row, position=beforeOmni, paddingLeft=2, paddingRight=2, iconSpacing=4, barOffset=(2,2), locationOffset=(0,0), micOffset=(0,0). Native Windows indicator is hidden automatically; exposed showLocation/showMic settings should remain boolean true/false.
+2. **Virtual Desktop Switcher** — nextToStart/aboveStart still needs visual test. Settings-save Show Desktop disappearance was likely stale tray-column cleanup after multiple injected tray mods; `RemoveButtonGridFrom` now uses the live `VdSwitcherBar` column instead of only the cached injected column.
+3. **Clock Spacer** — v0.7. Current user lines: top `🤖%cpu%🍵%ram%%s%%time%`; bottom `%weekday%%s%📅%s%%date%%n%🛫%upload_speed%%s%🛬%download_speed%%n%🧮%gpu%🧮%gpu%%s%💽%disk_read%%n%%weather%`. Screenshot looks good with multiple `%s%` instances across generated multiline panel. Known limitation: spacer does not work inside the weather string.
+4. **Taskbar Folder Menu** — v0.4/vNext. Confirmed working folders string: `📁=%DESKTOP%, C:=C:\, T:=T:\`. `%DESKTOP%` is the Desktop folder, not the live desktop shell namespace, so visible desktop icons can differ. Need explore a mode that commandeers or nests beside the show-hidden-icons chevron area for a compact 2-3 button column.
 5. **Vertical OmniButton** — v1.2, PR submitted. Maintainer asked to apply VD switcher review comments; local lab copy uses stoppable CreateThread/event cleanup.
 
 ---
@@ -46,6 +46,9 @@ Potential issues to test:
 - Does `MainStack > Content > IconStack > ItemsPresenter > StackPanel` path match current Windows builds?
 
 ## TODO (future)
+
+- **Privacy Indicator Anchor filler/status idea** — consider a future mode that fills the two-icon vertical stack with useful status/controls when space allows, e.g. microphone decibel level and a small globe/location affordance that can help locate the device.
+- **Taskbar Folder Menu chevron experiment** — explore replacing or sharing the show-hidden-icons chevron area with a small vertical stack of two or three folder buttons. Need inspect live XAML names for the chevron/overflow host and decide whether to hide the native chevron, wrap it with custom folder buttons, or inject adjacent to its parent.
 
 - **windhawk-mods PR update script** — a script that:
   1. Pulls latest from `ramensoftware/windhawk-mods` upstream into the local fork

@@ -2,7 +2,7 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.2
+// @version         1.3
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -52,6 +52,7 @@ of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align ico
 or taskbar layout.
 
 - **Battery percentage** — Off / Inline / Stacked. All modes apply live. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is drawn off-screen via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).
+- **Button horizontal padding** — adjusts the overall OmniButton width while keeping the 32px icon column and per-icon X/Y offsets intact. Lower it to reduce the gap between the OmniButton, neighboring tray icons, and the clock.
 - **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own
   X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
 
@@ -85,6 +86,9 @@ These mods inspired this one and combine well with it for a fully customized tas
     - "off": "Off — battery icon only"
     - "inline": "Inline — percentage in battery slot (3rd row)"
     - "stacked": "Stacked — percentage as 4th row below battery"
+- buttonHorizontalPadding: 8
+  $name: Button horizontal padding
+  $description: "Horizontal padding on each side of the 32px icon column. Lower values make the OmniButton narrower so it sits closer to neighboring tray icons and the clock. Range: 0-24. Default: 8 (about 48px total width)."
 - offWifiX: -2
   $name: "Off mode: Wifi X"
   $description: "Wifi horizontal offset when battery % is Off. Negative = left, positive = right."
@@ -185,6 +189,7 @@ using winrt::Windows::Foundation::IInspectable;
 
 struct {
     int  batteryMode;          // 0=off, 1=inline (3rd row), 2=stacked (4th row)
+    int  buttonHorizontalPadding;
     int  offWifiX,    offWifiY;
     int  inlineWifiX, inlineWifiY;
     int  stackedWifiX,stackedWifiY;
@@ -215,6 +220,8 @@ void LoadSettings() {
     }
     auto clampOffset = [](int v) { return v < -20 ? -20 : v > 20 ? 20 : v; };
     auto clampHide   = [](int v) { return v < -100 ? -100 : v > 100 ? 100 : v; };
+    auto clampPadding = [](int v) { return v < 0 ? 0 : v > 24 ? 24 : v; };
+    g_settings.buttonHorizontalPadding = clampPadding(Wh_GetIntSetting(L"buttonHorizontalPadding"));
     g_settings.offWifiX      = clampOffset(Wh_GetIntSetting(L"offWifiX"));
     g_settings.offWifiY      = clampOffset(Wh_GetIntSetting(L"offWifiY"));
     g_settings.inlineWifiX   = clampOffset(Wh_GetIntSetting(L"inlineWifiX"));
@@ -417,6 +424,25 @@ static void FreeOmniButtonHeight() {
     }
 }
 
+static void ApplyOmniButtonWidth() {
+    if (!g_omniButton) return;
+
+    double padding = static_cast<double>(g_settings.buttonHorizontalPadding);
+    double width = 32.0 + padding * 2.0;
+
+    g_omniButton.Width(width);
+    g_omniButton.MinWidth(width);
+
+    auto ctrl = g_omniButton.try_as<Control>();
+    if (ctrl) {
+        ctrl.Padding(Thickness{ padding, 0.0, padding, 0.0 });
+        ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
+        ctrl.VerticalContentAlignment(VerticalAlignment::Center);
+    }
+
+    g_omniButton.InvalidateMeasure();
+}
+
 // ── XAML cleanup ─────────────────────────────────────────────────────────
 
 // Clears all locally-set properties from elements we modified.
@@ -452,10 +478,12 @@ static void CleanupXamlElements(
     try {
         if (btn) {
             btn.ClearValue(FrameworkElement::WidthProperty());
+            btn.ClearValue(FrameworkElement::MinWidthProperty());
             btn.ClearValue(FrameworkElement::HeightProperty());
             btn.InvalidateMeasure();
             auto ctrl = btn.try_as<Control>();
             if (ctrl) {
+                ctrl.ClearValue(Control::PaddingProperty());
                 ctrl.ClearValue(Control::HorizontalContentAlignmentProperty());
                 ctrl.ClearValue(Control::VerticalContentAlignmentProperty());
             }
@@ -554,11 +582,7 @@ static void ApplyLayout(StackPanel const& sp) {
     sp.Spacing(0);
 
     if (g_omniButton) {
-        auto ctrl = g_omniButton.try_as<Control>();
-        if (ctrl) {
-            ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
-            ctrl.VerticalContentAlignment(VerticalAlignment::Center);
-        }
+        ApplyOmniButtonWidth();
         if (g_settings.batteryMode == 2)
             FreeOmniButtonHeight();
     }
@@ -983,7 +1007,7 @@ static HMODULE GetTaskbarViewModuleHandle() {
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.1");
+    Wh_Log(L"[Init] Vertical OmniButton v1.3");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())

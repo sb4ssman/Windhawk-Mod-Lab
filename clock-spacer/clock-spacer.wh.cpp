@@ -2,7 +2,7 @@
 // @id              taskbar-clock-spacer
 // @name            Taskbar Clock Spacer
 // @description     Adds a %s% elastic spacer token to clock format strings, distributing leftover space evenly between items. Works with Taskbar Clock Customization.
-// @version         0.4
+// @version         0.7
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -40,8 +40,9 @@ items and the remaining width is distributed evenly as gaps.
   Customization settings. This constrains the clock area so the gap columns
   have real space to fill. Without it the spacer columns are zero-width and
   `%s%` is silently removed from the display but no gap appears.
-- As an alternative, set the `Line width override` here to the same pixel
-  value if you prefer not to touch the clock mod settings.
+- As an alternative, set `Max clock width` here to the same pixel value if
+  you prefer not to touch the clock mod settings. This also applies MaxWidth to
+  the generated spacer rows and the immediate clock panel.
 - If no `%s%` is present the line renders exactly as before — this mod is a
   no-op for those lines.
 - Font and color of inner text segments follow the original TextBlock's current
@@ -57,6 +58,12 @@ items and the remaining width is distributed evenly as gaps.
     Explicit width for the spacer grid. Usually 0 is correct — the clock area
     inherits its width from the Max width set in Taskbar Clock Customization.
     Set this only if the spacer doesn't expand as expected.
+- maxWidth: 0
+  $name: Max clock width (px, 0 = off)
+  $description: >-
+    Applies a hard MaxWidth to the clock TextBlocks, generated spacer rows, and
+    their immediate clock panel. Use this to stop changing clock text from
+    resizing the taskbar/tray area. Set to the same width you use for the clock.
 */
 // ==/WindhawkModSettings==
 
@@ -85,11 +92,15 @@ using namespace winrt::Windows::UI::Xaml::Media;
 
 struct ModSettings {
     int lineWidth = 0;
+    int maxWidth = 0;
 };
 static ModSettings g_settings;
 
 static void LoadSettings() {
     g_settings.lineWidth = Wh_GetIntSetting(L"lineWidth", 0);
+    g_settings.maxWidth = Wh_GetIntSetting(L"maxWidth", 0);
+    if (g_settings.lineWidth < 0) g_settings.lineWidth = 0;
+    if (g_settings.maxWidth < 0) g_settings.maxWidth = 0;
 }
 
 // ============================================================
@@ -170,7 +181,7 @@ static constexpr PCWSTR kTimeBlock      = L"TimeInnerTextBlock";
 struct SpacerState {
     winrt::weak_ref<TextBlock>  originalRef;
     winrt::weak_ref<StackPanel> parentRef;
-    winrt::weak_ref<Grid>       spacerGridRef;
+    winrt::weak_ref<StackPanel> generatedRef;
     int64_t                     textToken = 0;
 };
 static std::vector<SpacerState> g_states;
@@ -231,16 +242,74 @@ static void CopyTextStyle(TextBlock src, TextBlock dst) {
     dst.TextWrapping(TextWrapping::NoWrap);
 }
 
+static double EffectiveLineWidth(TextBlock original, StackPanel parent) {
+    if (g_settings.lineWidth > 0)
+        return (double)g_settings.lineWidth;
+    if (g_settings.maxWidth > 0)
+        return (double)g_settings.maxWidth;
+    if (parent && parent.ActualWidth() > 1.0)
+        return parent.ActualWidth();
+    if (original && original.ActualWidth() > 1.0)
+        return original.ActualWidth();
+    return 0.0;
+}
+
+static void ApplyWidthConstraint(FrameworkElement fe) {
+    if (!fe) return;
+    if (g_settings.maxWidth > 0) {
+        fe.MaxWidth((double)g_settings.maxWidth);
+    } else {
+        fe.ClearValue(FrameworkElement::MaxWidthProperty());
+    }
+}
+
+static void ApplyClockWidthConstraints(TextBlock original, StackPanel parent) {
+    ApplyWidthConstraint(original);
+    ApplyWidthConstraint(parent);
+
+    double width = g_settings.lineWidth > 0 ? (double)g_settings.lineWidth
+                 : g_settings.maxWidth > 0 ? (double)g_settings.maxWidth
+                 : 0.0;
+    if (width <= 1.0) {
+        original.ClearValue(FrameworkElement::WidthProperty());
+        if (parent)
+            parent.ClearValue(FrameworkElement::WidthProperty());
+        return;
+    }
+
+    original.Width(width);
+    if (parent)
+        parent.Width(width);
+}
+
+static void CollapseSourceTextBlock(TextBlock original) {
+    if (!original) return;
+    original.Height(0.0);
+    original.MinHeight(0.0);
+    original.MaxHeight(0.0);
+    original.Visibility(Visibility::Collapsed);
+}
+
+static void RestoreSourceTextBlock(TextBlock original) {
+    if (!original) return;
+    original.ClearValue(FrameworkElement::HeightProperty());
+    original.ClearValue(FrameworkElement::MinHeightProperty());
+    original.ClearValue(FrameworkElement::MaxHeightProperty());
+    original.Visibility(Visibility::Visible);
+}
+
 // Build: [Auto TB] [* spacer] [Auto TB] [* spacer] ... [Auto TB]
 static Grid BuildSpacerGrid(winrt::hstring const& name,
                              const std::vector<std::wstring>& segs,
-                             TextBlock styleSrc) {
+                             TextBlock styleSrc,
+                             double width) {
     Grid g;
     g.Name(name + L"_Spacer");
     g.HorizontalAlignment(HorizontalAlignment::Stretch);
     g.VerticalAlignment(VerticalAlignment::Center);
-    if (g_settings.lineWidth > 0)
-        g.Width((double)g_settings.lineWidth);
+    ApplyWidthConstraint(g);
+    if (width > 1.0)
+        g.Width(width);
 
     int nSegs = (int)segs.size();
     for (int i = 0; i < nSegs; i++) {
@@ -268,87 +337,94 @@ static Grid BuildSpacerGrid(winrt::hstring const& name,
     return g;
 }
 
-static void UpdateSpacerGridWidth(Grid g, TextBlock original, StackPanel parent) {
-    if (!g) return;
-
-    double width = 0.0;
-    if (g_settings.lineWidth > 0) {
-        width = (double)g_settings.lineWidth;
-    } else if (parent && parent.ActualWidth() > 1.0) {
-        width = parent.ActualWidth();
-    } else if (original && original.ActualWidth() > 1.0) {
-        width = original.ActualWidth();
+static std::vector<std::wstring> SplitLines(std::wstring_view text) {
+    std::vector<std::wstring> lines;
+    size_t pos = 0;
+    while (pos <= text.size()) {
+        size_t found = text.find(L'\n', pos);
+        if (found == std::wstring_view::npos) {
+            lines.emplace_back(text.substr(pos));
+            break;
+        }
+        lines.emplace_back(text.substr(pos, found - pos));
+        pos = found + 1;
     }
-
-    if (width > 1.0)
-        g.Width(width);
-    else
-        g.ClearValue(FrameworkElement::WidthProperty());
+    return lines;
 }
 
-static bool TryUpdateSpacerGrid(Grid g, const std::vector<std::wstring>& segs,
-                                 TextBlock styleSrc) {
-    if (!g) return false;
-    int tbIdx = 0;
-    for (auto ch : g.Children()) {
-        auto tb = ch.try_as<TextBlock>();
-        if (!tb) continue;
-        if (tbIdx >= (int)segs.size()) return false;
-        tb.Text(segs[tbIdx]);
-        CopyTextStyle(styleSrc, tb);
-        tbIdx++;
-    }
-    return tbIdx == (int)segs.size();
+static FrameworkElement BuildLineElement(winrt::hstring const& baseName,
+                                          std::wstring const& line,
+                                          TextBlock styleSrc,
+                                          StackPanel parent,
+                                          int lineIndex) {
+    auto segs = SplitOnSpacer(line);
+    double width = EffectiveLineWidth(styleSrc, parent);
+
+    if (segs.size() > 1)
+        return BuildSpacerGrid(baseName + L"_Line" + winrt::to_hstring(lineIndex),
+                               segs, styleSrc, width);
+
+    TextBlock tb;
+    tb.Name(baseName + L"_Line" + winrt::to_hstring(lineIndex));
+    tb.Text(line);
+    tb.VerticalAlignment(VerticalAlignment::Center);
+    CopyTextStyle(styleSrc, tb);
+    ApplyWidthConstraint(tb);
+    if (width > 1.0)
+        tb.Width(width);
+    return tb;
 }
 
 // ============================================================
 // Per-line update
 // ============================================================
 
-static void HandleTextChange(SpacerState& state, std::wstring_view newText) {
+static void HandleTextChange(SpacerState& state, std::wstring_view fullText) {
     auto original = state.originalRef.get();
     auto parent   = state.parentRef.get();
     if (!original || !parent) return;
 
-    auto segs = SplitOnSpacer(newText);
+    ApplyClockWidthConstraints(original, parent);
 
-    if (segs.size() <= 1) {
-        if (auto sg = state.spacerGridRef.get())
-            sg.Visibility(Visibility::Collapsed);
-        original.Visibility(Visibility::Visible);
+    bool hasSpacer = fullText.find(kSpacerToken) != std::wstring_view::npos;
+    if (!hasSpacer) {
+        if (auto generated = state.generatedRef.get())
+            generated.Visibility(Visibility::Collapsed);
+        RestoreSourceTextBlock(original);
         return;
     }
 
-    // Fast path: existing Grid with correct segment count.
-    if (auto existing = state.spacerGridRef.get()) {
-        if (TryUpdateSpacerGrid(existing, segs, original)) {
-            UpdateSpacerGridWidth(existing, original, parent);
-            existing.Visibility(Visibility::Visible);
-            original.Visibility(Visibility::Collapsed);
-            return;
-        }
+    auto oldGenerated = state.generatedRef.get();
+    if (oldGenerated) {
+        uint32_t oldIdx;
+        if (parent.Children().IndexOf(oldGenerated, oldIdx))
+            parent.Children().RemoveAt(oldIdx);
     }
 
-    auto oldGrid = state.spacerGridRef.get();
+    StackPanel generated;
+    generated.Name(original.Name() + L"_SpacerPanel");
+    generated.Orientation(Orientation::Vertical);
+    generated.HorizontalAlignment(HorizontalAlignment::Stretch);
+    generated.VerticalAlignment(VerticalAlignment::Center);
+    ApplyWidthConstraint(generated);
 
-    // Build (or rebuild with new segment count).
-    auto newGrid = BuildSpacerGrid(original.Name(), segs, original);
-    UpdateSpacerGridWidth(newGrid, original, parent);
+    double width = EffectiveLineWidth(original, parent);
+    if (width > 1.0)
+        generated.Width(width);
 
-    // Remove old spacer Grid if present.
-    if (oldGrid) {
-        uint32_t oldIdx;
-        if (parent.Children().IndexOf(oldGrid, oldIdx))
-            parent.Children().RemoveAt(oldIdx);
+    auto lines = SplitLines(fullText);
+    for (int i = 0; i < (int)lines.size(); i++) {
+        auto lineElement = BuildLineElement(original.Name(), lines[i], original, parent, i);
+        generated.Children().Append(lineElement);
     }
 
     uint32_t origIdx = 0;
     parent.Children().IndexOf(original, origIdx);
-    parent.Children().InsertAt(origIdx + 1, newGrid);
-    state.spacerGridRef = winrt::make_weak(newGrid);
+    parent.Children().InsertAt(origIdx + 1, generated);
+    state.generatedRef = winrt::make_weak(generated);
 
-    original.Visibility(Visibility::Collapsed);
-    newGrid.Visibility(Visibility::Visible);
+    CollapseSourceTextBlock(original);
+    generated.Visibility(Visibility::Visible);
 }
 
 // ============================================================
@@ -524,12 +600,16 @@ static void ClearSpacerStates() {
         if (auto tb = state.originalRef.get()) {
             if (state.textToken)
                 tb.UnregisterPropertyChangedCallback(TextBlock::TextProperty(), state.textToken);
-            tb.Visibility(Visibility::Visible);
+            tb.ClearValue(FrameworkElement::WidthProperty());
+            tb.ClearValue(FrameworkElement::MaxWidthProperty());
+            RestoreSourceTextBlock(tb);
         }
         if (auto sp = state.parentRef.get()) {
-            if (auto sg = state.spacerGridRef.get()) {
+            sp.ClearValue(FrameworkElement::WidthProperty());
+            sp.ClearValue(FrameworkElement::MaxWidthProperty());
+            if (auto generated = state.generatedRef.get()) {
                 uint32_t idx;
-                if (sp.Children().IndexOf(sg, idx))
+                if (sp.Children().IndexOf(generated, idx))
                     sp.Children().RemoveAt(idx);
             }
         }
@@ -542,7 +622,7 @@ static void ClearSpacerStates() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Clock Spacer v0.4");
+    Wh_Log(L"[Init] Clock Spacer v0.7");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
@@ -596,14 +676,27 @@ void Wh_ModAfterInit() {
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
-    ClearSpacerStates();
+    // ClearSpacerStates touches WinRT objects — must run on the UI thread.
+    if (HWND hWnd = FindCurrentProcessTaskbarWnd()) {
+        RunFromWindowThread(hWnd, [](void*) { ClearSpacerStates(); }, nullptr);
+    } else {
+        ClearSpacerStates();
+    }
 }
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
-    Wh_Log(L"[Settings] lineWidth=%d", g_settings.lineWidth);
-    for (auto& state : g_states) {
-        if (auto tb = state.originalRef.get())
-            HandleTextChange(state, std::wstring_view(tb.Text()));
+    Wh_Log(L"[Settings] lineWidth=%d maxWidth=%d", g_settings.lineWidth, g_settings.maxWidth);
+    HWND hWnd = FindCurrentProcessTaskbarWnd();
+    if (!hWnd) {
+        Wh_Log(L"[Settings] No taskbar window found");
+        return;
     }
+
+    RunFromWindowThread(hWnd, [](void*) {
+        for (auto& state : g_states) {
+            if (auto tb = state.originalRef.get())
+                HandleTextChange(state, std::wstring_view(tb.Text()));
+        }
+    }, nullptr);
 }

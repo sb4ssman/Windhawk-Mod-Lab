@@ -2,7 +2,7 @@
 // @id              tray-privacy-indicator-anchor
 // @name            Tray Privacy Indicator Anchor
 // @description     Permanently shows location/microphone icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
-// @version         0.6
+// @version         0.5
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -11,104 +11,11 @@
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Tray Privacy Indicator Anchor
-
-Windows 11 shows a location/microphone icon in the system tray when an app
-accesses those features, then removes it — causing nearby icons to shift.
-
-This mod injects permanent placeholder icons into the system tray:
-
-- **Always visible** — dim when nothing is using the feature
-- **Full brightness** when location or microphone is actively in use
-
-No more sudden layout shifts.
-
-## Settings
-
-- **Idle opacity** — how visible the icon is when not in use (0–100). `0` = invisible
-  but space is reserved; `100` = always full brightness.
-- **Show location icon** — include the geolocation placeholder.
-- **Show microphone icon** — include the microphone placeholder.
-- **Layout** — arrange the placeholders horizontally or vertically.
-- **Icon spacing and offsets** — tune the gap between placeholders and nudge
-  the whole bar or each icon by individual pixels.
-- **Position** — choose where the placeholder column is inserted in the tray.
-- The transient native Windows privacy icon is hidden automatically after this
-  mod reads its state.
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- idleOpacity: 50
-  $name: Idle opacity (0-100)
-  $description: >-
-    Opacity when no app is using the feature. 0 = invisible but space is
-    reserved (prevents shifts); 100 = always full brightness.
-
-- showLocation: true
-  $name: Show location icon
-
-- showMic: true
-  $name: Show microphone icon
-
-- iconSize: 16
-  $name: Icon size (pt)
-  $description: Font size for the placeholder icons. Match your taskbar density.
-
-- layoutMode: "row"
-  $name: Layout
-  $options:
-  - "row": "Side by side"
-  - "column": "Stack vertically"
-
-- position: "beforeOmni"
-  $name: Position
-  $description: Where to place the privacy placeholders in the tray.
-  $options:
-  - "beforeIcons": "Before notification icons"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeClock": "Before clock"
-  - "afterClock": "After clock"
-  - "afterShowDesktop": "After Show Desktop strip"
-
-- paddingLeft: 2
-  $name: Padding left (px)
-  $description: Extra space to the left of the privacy icon bar.
-
-- paddingRight: 2
-  $name: Padding right (px)
-  $description: Extra space to the right of the privacy icon bar.
-
-- iconSpacing: 4
-  $name: Icon spacing (px)
-  $description: Gap between the location and microphone placeholders. Applies horizontally in row layout and vertically in column layout.
-
-- barOffsetX: 2
-  $name: Bar X offset (px)
-  $description: Move the entire privacy icon bar left/right. Negative = left, positive = right.
-
-- barOffsetY: 2
-  $name: Bar Y offset (px)
-  $description: Move the entire privacy icon bar up/down. Negative = up, positive = down.
-
-- locationOffsetX: 0
-  $name: Location X offset (px)
-  $description: Move only the location placeholder left/right.
-
-- locationOffsetY: 0
-  $name: Location Y offset (px)
-  $description: Move only the location placeholder up/down.
-
-- micOffsetX: 0
-  $name: Microphone X offset (px)
-  $description: Move only the microphone placeholder left/right.
-
-- micOffsetY: 0
-  $name: Microphone Y offset (px)
-  $description: Move only the microphone placeholder up/down.
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
@@ -146,11 +53,12 @@ struct ModSettings {
     int  iconSize      = 16;
     std::wstring layoutMode = L"row";
     std::wstring position = L"beforeOmni";
+    bool hideNativeIndicator = true;
     int  paddingLeft  = 2;
     int  paddingRight = 2;
-    int  iconSpacing  = 4;
-    int  barOffsetX   = 2;
-    int  barOffsetY   = 2;
+    int  iconSpacing  = 2;
+    int  barOffsetX   = 0;
+    int  barOffsetY   = 0;
     int  locationOffsetX = 0;
     int  locationOffsetY = 0;
     int  micOffsetX   = 0;
@@ -175,11 +83,12 @@ static void LoadSettings() {
     g_settings.iconSize     = std::max(8, std::min(32, Wh_GetIntSetting(L"iconSize", 16)));
     g_settings.layoutMode   = GetStringSetting(L"layoutMode", L"row");
     g_settings.position     = GetStringSetting(L"position", L"beforeOmni");
+    g_settings.hideNativeIndicator = Wh_GetIntSetting(L"hideNativeIndicator", 1) != 0;
     g_settings.paddingLeft  = clampPx(Wh_GetIntSetting(L"paddingLeft",  2), -40, 40);
     g_settings.paddingRight = clampPx(Wh_GetIntSetting(L"paddingRight", 2), -40, 40);
-    g_settings.iconSpacing  = clampPx(Wh_GetIntSetting(L"iconSpacing", 4), 0, 40);
-    g_settings.barOffsetX   = clampPx(Wh_GetIntSetting(L"barOffsetX", 2), -40, 40);
-    g_settings.barOffsetY   = clampPx(Wh_GetIntSetting(L"barOffsetY", 2), -40, 40);
+    g_settings.iconSpacing  = clampPx(Wh_GetIntSetting(L"iconSpacing", 2), 0, 40);
+    g_settings.barOffsetX   = clampPx(Wh_GetIntSetting(L"barOffsetX", 0), -40, 40);
+    g_settings.barOffsetY   = clampPx(Wh_GetIntSetting(L"barOffsetY", 0), -40, 40);
     g_settings.locationOffsetX = clampPx(Wh_GetIntSetting(L"locationOffsetX", 0), -40, 40);
     g_settings.locationOffsetY = clampPx(Wh_GetIntSetting(L"locationOffsetY", 0), -40, 40);
     g_settings.micOffsetX   = clampPx(Wh_GetIntSetting(L"micOffsetX", 0), -40, 40);
@@ -391,28 +300,6 @@ static void UpdateSyntheticOpacity() {
         g_micIcon.Opacity(g_micActive.load() ? 1.0 : idleOp);
 }
 
-static void SetIconTooltip(TextBlock const& tb, PCWSTR label, bool active) {
-    if (!tb) return;
-
-    winrt::hstring state = active ? L"In use" : L"Not requested";
-    winrt::hstring tooltip = winrt::hstring(label) + L" Privacy:\n" + state;
-    ToolTipService::SetToolTip(tb, winrt::box_value(tooltip));
-    winrt::Windows::UI::Xaml::Automation::AutomationProperties::SetName(
-        tb, winrt::hstring(label) + L" Privacy: " + state);
-}
-
-static void UpdateSyntheticTooltips() {
-    if (g_locIcon)
-        SetIconTooltip(g_locIcon, L"Location", g_locActive.load());
-    if (g_micIcon)
-        SetIconTooltip(g_micIcon, L"Microphone", g_micActive.load());
-}
-
-static void UpdateSyntheticState() {
-    UpdateSyntheticOpacity();
-    UpdateSyntheticTooltips();
-}
-
 static void SetPrivacyActive(PrivacyState::Type type, bool active) {
     switch (type) {
         case PrivacyState::Type::Location:
@@ -426,7 +313,7 @@ static void SetPrivacyActive(PrivacyState::Type type, bool active) {
             g_micActive.store(active);
             break;
     }
-    UpdateSyntheticState();
+    UpdateSyntheticOpacity();
 }
 
 static TextBlock MakeIconTextBlock(const wchar_t* glyph) {
@@ -558,7 +445,6 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         }
         auto loc = MakeIconTextBlock(L"\xE37A");
         loc.Opacity(g_locActive.load() ? 1.0 : idleOp);
-        SetIconTooltip(loc, L"Location", g_locActive.load());
         ApplyOffset(loc, g_settings.locationOffsetX, g_settings.locationOffsetY);
         ApplyIconSpacing(loc, vertical, itemIdx + 1 < visibleIconCount);
         if (vertical)
@@ -580,7 +466,6 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         }
         auto mic = MakeIconTextBlock(L"\xE720");
         mic.Opacity(g_micActive.load() ? 1.0 : idleOp);
-        SetIconTooltip(mic, L"Microphone", g_micActive.load());
         ApplyOffset(mic, g_settings.micOffsetX, g_settings.micOffsetY);
         ApplyIconSpacing(mic, vertical, itemIdx + 1 < visibleIconCount);
         if (vertical)
@@ -708,10 +593,11 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
         });
 
     g_privacyStates.push_back(std::move(state));
-    // Collapse the native transient indicator so the anchored replacements own
-    // both layout and visibility.
-    iconView.Visibility(Visibility::Collapsed);
-    iconView.IsHitTestVisible(false);
+    if (g_settings.hideNativeIndicator) {
+        // Collapse the element so it takes no layout space (no spacer artefact).
+        iconView.Visibility(Visibility::Collapsed);
+        iconView.IsHitTestVisible(false);
+    }
     Wh_Log(L"[Privacy] Tracking indicator type=%d", (int)type);
 }
 
@@ -732,7 +618,7 @@ static void ClearPrivacyStates() {
     for (auto& state : g_privacyStates) {
         if (auto tb = state.textBlockRef.get())
             tb.UnregisterPropertyChangedCallback(TextBlock::TextProperty(), state.textToken);
-        if (auto iv = state.iconViewRef.get()) {
+        if (auto iv = state.iconViewRef.get(); iv && g_settings.hideNativeIndicator) {
             // Restore visibility so the element works normally after mod unloads.
             try { iv.Visibility(Visibility::Visible); } catch (...) {}
         }
@@ -740,7 +626,6 @@ static void ClearPrivacyStates() {
     g_privacyStates.clear();
     g_locActive.store(false);
     g_micActive.store(false);
-    UpdateSyntheticState();
 }
 
 // ============================================================
@@ -883,7 +768,7 @@ static bool HookTaskbarViewDllSymbols(HMODULE h) {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Privacy Anchor v0.6");
+    Wh_Log(L"[Init] Privacy Anchor v0.5");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())

@@ -3,6 +3,8 @@
 Development home for all of sb4ssman's [Windhawk](https://windhawk.net) mods.
 Mods are submitted to the community via a fork of [ramensoftware/windhawk-mods](https://github.com/ramensoftware/windhawk-mods).
 
+These mods are generally intended to take advantage of a double-height, two row task bar and the extra space in the system tray it affords. 
+
 ---
 
 ## Mods
@@ -14,7 +16,7 @@ Mods are submitted to the community via a fork of [ramensoftware/windhawk-mods](
 | [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.1, PR update ready | Virtual desktop switcher buttons injected into system tray |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.1, in development | Keeps location/mic privacy indicator always visible; dim when idle to prevent taskbar icon shifts |
 | [clock-spacer/](clock-spacer/) | v0.1, in development | Adds %s% elastic spacer to clock format strings (companion to Taskbar Clock Customization) |
-| [taskbar-folder-menu/](taskbar-folder-menu/) | v0.1, prototype | Compact taskbar buttons that open configured folders as popup menus |
+| [taskbar-folder-menu/](taskbar-folder-menu/) | v0.5, prototype | Compact taskbar buttons that open configured folders as popup menus |
 
 ---
 
@@ -53,8 +55,8 @@ Companion to Taskbar Clock Customization. Adds a `%s%` elastic spacer token to c
 
 ---
 
-### [Taskbar Folder Menu](taskbar-folder-menu/)
-**Status:** v0.1 — prototype
+### [Taskbar Folder Menus](taskbar-folder-menu/)
+**Status:** v0.5 — prototype
 Adds compact taskbar buttons that open configured folders as native popup menus, recreating the useful part of classic taskbar folder toolbars such as Desktop.
 → [README](taskbar-folder-menu/README.md)
 

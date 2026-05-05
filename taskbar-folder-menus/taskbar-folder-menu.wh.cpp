@@ -1,8 +1,8 @@
 // ==WindhawkMod==
 // @id              taskbar-folder-menu
-// @name            Taskbar Folder Menu
+// @name            Taskbar Folder Menus
 // @description     Adds compact taskbar buttons that open configured folders as popup menus, similar to classic Windows taskbar toolbars.
-// @version         0.3
+// @version         0.5
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -12,7 +12,7 @@
 
 // ==WindhawkModReadme==
 /*
-# Taskbar Folder Menu
+# Taskbar Folder Menus
 
 Adds compact taskbar buttons that open folders as native popup menus.
 
@@ -23,19 +23,38 @@ item without minimizing the windows that are covering the desktop.
 ## Settings
 
 - **Position** - where to inject the button group in the system tray area.
-- **Folders** - one folder per line, using `Label=Path`. `|` and commas also
-  work as quick separators.
+- **Folders** - folder entries using `Label=Path`. Separate entries with
+  newlines, `|`, or commas.
 - **Layout mode** - single row, single column, or grid.
 - **Grid columns** - number of columns used in grid mode.
-- **Button size and spacing** - compact by default, suitable for multi-row trays.
+- **Button size, spacing, and font size** - compact by default, suitable for multi-row trays.
 
 Example folders:
 
 ```text
-Desktop=%USERPROFILE%\Desktop
-Downloads=%USERPROFILE%\Downloads
-Tools=C:\Tools
+📄=%DOCUMENTS%
+📁=%DESKTOP%
+C:=C:\
+GH=C:\%DOCUMENTS%\Github
 ```
+
+Compact labels work best. One- or two-character labels such as emoji, drive
+letters, or symbols are shown directly on the button. Longer text labels can be
+clipped by the configured button size; the full label and path remain available
+in the tooltip.
+
+Label ideas: 📁 folder, 🖥 desktop PC, 💻 laptop, 🪟 desktop/window, 📥 downloads,
+🌐 network, 🗄 drive, 📄 documents, 🔧 tools, ⚙ settings, ⭐ favorites.
+
+Quick multi-folder string example:
+
+```text
+📄=%DOCUMENTS%,📁=%DESKTOP%,C:=C:\
+```
+
+Note: `%DESKTOP%` points to the user's Desktop folder. It may not match every
+icon visible on the actual desktop shell view, which can also include virtual
+items such as This PC, Network, Recycle Bin, and special shortcuts.
 
 The first version intentionally uses the system tray grid as its home. A future
 version can add an experimental mode that places the buttons directly beside the
@@ -55,11 +74,13 @@ version can add an experimental mode that places the buttons directly beside the
   - "afterClock": "After clock"
   - "afterShowDesktop": "After Show Desktop strip"
 
-- folders: "📁=%USERPROFILE%\\Desktop"
+- folders: "📄=%DOCUMENTS%,📁=%DESKTOP%,C:=C:\\"
   $name: Folders
   $description: >-
-    Folder buttons to show. Use one entry per line: Label=Path.
-    Environment variables such as %USERPROFILE% are expanded.
+    Folder buttons to show. Use entries in Label=Path form, separated by
+    newlines, |, or commas. Environment variables such as %USERPROFILE% are
+    expanded. Use compact labels such as emoji, symbols, or drive letters; text
+    labels can be clipped by the configured button size.
 
 - layoutMode: row
   $name: Layout mode
@@ -79,14 +100,14 @@ version can add an experimental mode that places the buttons directly beside the
 - buttonHeight: 22
   $name: Button height (px)
 
-- buttonSpacing: 2
+- buttonSpacing: 4
   $name: Button spacing (px)
 
-- maxMenuItems: 80
+- maxMenuItems: 0
   $name: Max menu items per folder
   $description: Limit menu size for very large folders. 0 = unlimited.
 
-- maxDepth: 2
+- maxDepth: 0
   $name: Subfolder depth
   $description: How many subfolder levels to include as nested menus. 0 = unlimited.
 
@@ -98,6 +119,38 @@ version can add an experimental mode that places the buttons directly beside the
   $description: >-
     Icon shown for folder entries with long labels. One- or two-character
     labels are shown directly. Supports Unicode and emoji.
+
+- fontSize: 10
+  $name: Text/icon size (pt)
+  $description: Size of the button label, including emoji labels.
+
+- textColor: ""
+  $name: Text color
+  $description: "Optional #RRGGBB or #AARRGGBB. Empty = system default."
+
+- backgroundColor: ""
+  $name: Background color
+  $description: "Optional #RRGGBB or #AARRGGBB. Empty = system default."
+
+- hoverBackgroundColor: ""
+  $name: Hover background color
+  $description: "Optional #RRGGBB or #AARRGGBB. Empty = system default."
+
+- pressedBackgroundColor: ""
+  $name: Click background color
+  $description: "Optional #RRGGBB or #AARRGGBB. Empty = system default."
+
+- borderColor: ""
+  $name: Border color
+  $description: "Optional #RRGGBB or #AARRGGBB. Empty = system default."
+
+- borderThickness: -1
+  $name: Border thickness (px)
+  $description: "-1 = system default. 0 = no border. Positive values set a custom border thickness."
+
+- cornerRadius: -1
+  $name: Corner rounding (px)
+  $description: "-1 = system default. 0 = square corners. Positive values round the button corners."
 */
 // ==/WindhawkModSettings==
 
@@ -105,10 +158,12 @@ version can add an experimental mode that places the buttons directly beside the
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Text.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Controls.Primitives.h>
+#include <winrt/Windows.UI.Xaml.Input.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
 
 #include <algorithm>
@@ -125,6 +180,7 @@ version can add an experimental mode that places the buttons directly beside the
 
 using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::UI::Xaml::Controls;
+using namespace winrt::Windows::UI::Xaml::Input;
 using namespace winrt::Windows::UI::Xaml::Media;
 
 // ============================================================
@@ -144,10 +200,18 @@ struct ModSettings {
     int gridColumns = 2;
     int buttonWidth = 20;
     int buttonHeight = 22;
-    int buttonSpacing = 2;
-    int maxMenuItems = 80;
-    int maxDepth = 2;
+    int buttonSpacing = 4;
+    int maxMenuItems = 0;
+    int maxDepth = 0;
     bool showHidden = false;
+    int fontSize = 10;
+    std::wstring textColor;
+    std::wstring backgroundColor;
+    std::wstring hoverBackgroundColor;
+    std::wstring pressedBackgroundColor;
+    std::wstring borderColor;
+    int borderThickness = -1;
+    int cornerRadius = -1;
 };
 static ModSettings g_settings;
 
@@ -158,12 +222,34 @@ static std::wstring Trim(std::wstring s) {
     return s;
 }
 
+// Expand a KNOWNFOLDERID token (e.g. %DESKTOP%) in text.
+static std::wstring ExpandKnownFolder(std::wstring text,
+                                       const wchar_t* token,
+                                       REFKNOWNFOLDERID id) {
+    size_t pos = 0;
+    while ((pos = text.find(token, pos)) != std::wstring::npos) {
+        PWSTR path = nullptr;
+        if (SUCCEEDED(SHGetKnownFolderPath(id, 0, nullptr, &path)) && path) {
+            text.replace(pos, wcslen(token), path);
+            CoTaskMemFree(path);
+        } else {
+            pos += wcslen(token);
+        }
+    }
+    return text;
+}
+
 static std::wstring ExpandEnv(std::wstring const& s) {
-    DWORD needed = ExpandEnvironmentStringsW(s.c_str(), nullptr, 0);
-    if (!needed) return s;
+    // Expand known-folder tokens before the standard ExpandEnvironmentStrings call.
+    std::wstring result = ExpandKnownFolder(s, L"%DESKTOP%",   FOLDERID_Desktop);
+    result = ExpandKnownFolder(result, L"%DOWNLOADS%", FOLDERID_Downloads);
+    result = ExpandKnownFolder(result, L"%DOCUMENTS%", FOLDERID_Documents);
+
+    DWORD needed = ExpandEnvironmentStringsW(result.c_str(), nullptr, 0);
+    if (!needed) return result;
     std::wstring out(needed, L'\0');
-    DWORD written = ExpandEnvironmentStringsW(s.c_str(), out.data(), needed);
-    if (!written || written > needed) return s;
+    DWORD written = ExpandEnvironmentStringsW(result.c_str(), out.data(), needed);
+    if (!written || written > needed) return result;
     if (!out.empty() && out.back() == L'\0') out.pop_back();
     return out;
 }
@@ -236,14 +322,22 @@ static void LoadSettings() {
     g_settings.position = GetStringSetting(L"position", L"beforeIcons");
     g_settings.layoutMode = GetStringSetting(L"layoutMode", L"row");
     g_settings.buttonText = GetStringSetting(L"buttonText", L"📁");
-    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"📁=%USERPROFILE%\\Desktop"));
+    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"📄=%DOCUMENTS%,📁=%DESKTOP%,C:=C:\\"));
     g_settings.gridColumns = std::max(1, Wh_GetIntSetting(L"gridColumns", 2));
     g_settings.buttonWidth = std::max(10, Wh_GetIntSetting(L"buttonWidth", 20));
     g_settings.buttonHeight = std::max(10, Wh_GetIntSetting(L"buttonHeight", 22));
-    g_settings.buttonSpacing = std::max(0, Wh_GetIntSetting(L"buttonSpacing", 2));
-    g_settings.maxMenuItems = std::max(0, Wh_GetIntSetting(L"maxMenuItems", 80));
-    g_settings.maxDepth = std::max(0, Wh_GetIntSetting(L"maxDepth", 2));
+    g_settings.buttonSpacing = std::max(0, Wh_GetIntSetting(L"buttonSpacing", 4));
+    g_settings.maxMenuItems = std::max(0, Wh_GetIntSetting(L"maxMenuItems", 0));
+    g_settings.maxDepth = std::max(0, Wh_GetIntSetting(L"maxDepth", 0));
     g_settings.showHidden = Wh_GetIntSetting(L"showHidden", 0) != 0;
+    g_settings.fontSize = std::max(1, Wh_GetIntSetting(L"fontSize", 10));
+    g_settings.textColor = GetStringSetting(L"textColor", L"");
+    g_settings.backgroundColor = GetStringSetting(L"backgroundColor", L"");
+    g_settings.hoverBackgroundColor = GetStringSetting(L"hoverBackgroundColor", L"");
+    g_settings.pressedBackgroundColor = GetStringSetting(L"pressedBackgroundColor", L"");
+    g_settings.borderColor = GetStringSetting(L"borderColor", L"");
+    g_settings.borderThickness = std::max(-1, Wh_GetIntSetting(L"borderThickness", -1));
+    g_settings.cornerRadius = std::max(-1, Wh_GetIntSetting(L"cornerRadius", -1));
 }
 
 // ============================================================
@@ -500,6 +594,102 @@ static void ShowFolderMenu(FolderEntry folder) {
 // Button grid
 // ============================================================
 
+static Brush ParseColorBrush(std::wstring const& hex) {
+    if (hex.empty() || hex[0] != L'#')
+        return nullptr;
+
+    std::wstring h = hex.substr(1);
+    if (h.size() == 6)
+        h = L"FF" + h;
+    if (h.size() != 8)
+        return nullptr;
+
+    UINT32 val = 0;
+    for (wchar_t c : h) {
+        val <<= 4;
+        if (c >= L'0' && c <= L'9')
+            val |= (UINT32)(c - L'0');
+        else if (c >= L'A' && c <= L'F')
+            val |= (UINT32)(10 + c - L'A');
+        else if (c >= L'a' && c <= L'f')
+            val |= (UINT32)(10 + c - L'a');
+        else
+            return nullptr;
+    }
+
+    winrt::Windows::UI::Color color;
+    color.A = (BYTE)(val >> 24);
+    color.R = (BYTE)(val >> 16);
+    color.G = (BYTE)(val >> 8);
+    color.B = (BYTE)val;
+    SolidColorBrush brush;
+    brush.Color(color);
+    return brush;
+}
+
+static void ApplyButtonStyle(Button btn,
+                             Brush const& textBrush,
+                             Brush const& bgBrush,
+                             Brush const& hoverBgBrush,
+                             Brush const& pressedBgBrush,
+                             Brush const& borderBrush) {
+    if (textBrush)
+        btn.Foreground(textBrush);
+    if (bgBrush)
+        btn.Background(bgBrush);
+
+    if (borderBrush)
+        btn.BorderBrush(borderBrush);
+    if (g_settings.borderThickness >= 0) {
+        double t = (double)g_settings.borderThickness;
+        btn.BorderThickness({ t, t, t, t });
+    }
+
+    if (g_settings.cornerRadius >= 0) {
+        double r = (double)g_settings.cornerRadius;
+        btn.CornerRadius({ r, r, r, r });
+    }
+
+    if (hoverBgBrush || pressedBgBrush || bgBrush) {
+        btn.PointerEntered([btn, hoverBgBrush, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (hoverBgBrush)
+                btn.Background(hoverBgBrush);
+            else if (bgBrush)
+                btn.Background(bgBrush);
+        });
+        btn.PointerExited([btn, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (bgBrush)
+                btn.Background(bgBrush);
+            else
+                btn.ClearValue(Control::BackgroundProperty());
+        });
+        btn.PointerPressed([btn, pressedBgBrush, hoverBgBrush, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (pressedBgBrush)
+                btn.Background(pressedBgBrush);
+            else if (hoverBgBrush)
+                btn.Background(hoverBgBrush);
+            else if (bgBrush)
+                btn.Background(bgBrush);
+        });
+        btn.PointerReleased([btn, hoverBgBrush, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (hoverBgBrush)
+                btn.Background(hoverBgBrush);
+            else if (bgBrush)
+                btn.Background(bgBrush);
+            else
+                btn.ClearValue(Control::BackgroundProperty());
+        });
+    }
+}
+
 static Grid BuildFolderButtonGrid() {
     int count = (int)g_settings.folders.size();
     int cols = count;
@@ -531,6 +721,12 @@ static Grid BuildFolderButtonGrid() {
         grid.ColumnDefinitions().Append(cd);
     }
 
+    auto textBrush = ParseColorBrush(g_settings.textColor);
+    auto bgBrush = ParseColorBrush(g_settings.backgroundColor);
+    auto hoverBgBrush = ParseColorBrush(g_settings.hoverBackgroundColor);
+    auto pressedBgBrush = ParseColorBrush(g_settings.pressedBackgroundColor);
+    auto borderBrush = ParseColorBrush(g_settings.borderColor);
+
     for (int i = 0; i < count; i++) {
         auto entry = g_settings.folders[i];
         std::wstring caption = entry.label;
@@ -543,10 +739,11 @@ static Grid BuildFolderButtonGrid() {
         btn.Width((double)g_settings.buttonWidth);
         btn.Height((double)g_settings.buttonHeight);
         btn.Padding({ 0.0, 0.0, 0.0, 1.0 });
-        btn.FontSize(10.0);
+        btn.FontSize((double)g_settings.fontSize);
         btn.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
         btn.HorizontalAlignment(HorizontalAlignment::Stretch);
         btn.VerticalAlignment(VerticalAlignment::Stretch);
+        ApplyButtonStyle(btn, textBrush, bgBrush, hoverBgBrush, pressedBgBrush, borderBrush);
         ToolTipService::SetToolTip(btn,
             winrt::box_value(winrt::hstring(entry.label + L"\n" + entry.path)));
 
@@ -573,17 +770,19 @@ static bool RemoveButtonGridFrom(Grid gridParent, int col) {
     if (!gridParent) return false;
 
     bool removed = false;
+    int liveCol = col;
     for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
         auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
         if (fe && fe.Name() == L"TaskbarFolderMenuBar") {
+            liveCol = Grid::GetColumn(fe);
             gridParent.Children().RemoveAt(i);
             removed = true;
             break;
         }
     }
 
-    if (removed && col >= 0) {
-        uint32_t colU = (uint32_t)col;
+    if (removed && liveCol >= 0) {
+        uint32_t colU = (uint32_t)liveCol;
         if (colU < gridParent.ColumnDefinitions().Size())
             gridParent.ColumnDefinitions().RemoveAt(colU);
         for (auto child : gridParent.Children()) {
@@ -591,9 +790,9 @@ static bool RemoveButtonGridFrom(Grid gridParent, int col) {
             if (!fe) continue;
             int c = Grid::GetColumn(fe);
             int span = Grid::GetColumnSpan(fe);
-            if (c > col)
+            if (c > liveCol)
                 Grid::SetColumn(fe, c - 1);
-            else if (c + span > col)
+            else if (c < liveCol && c + span > liveCol)
                 Grid::SetColumnSpan(fe, span - 1);
         }
     }
@@ -790,7 +989,7 @@ static void StopRetryThread() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Taskbar Folder Menu v0.1");
+    Wh_Log(L"[Init] Taskbar Folder Menus v0.5");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
