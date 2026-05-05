@@ -21,7 +21,7 @@ Downloads=%USERPROFILE%\Downloads
 Tools=C:\Tools
 ```
 
-Use one entry per line in the `Folders` setting. `|` also works as a separator for quick testing. Labels of one or two characters are shown on the button; longer labels use the default chevron text and remain visible in the tooltip.
+Use one entry per line in the `Folders` setting. `|` and commas also work as separators for quick testing, so `Desktop=%USERPROFILE%\Desktop, Github=T:\Github` is valid. Labels of one or two characters are shown on the button; longer labels use the default folder icon and remain visible in the tooltip.
 
 ## Design Notes
 

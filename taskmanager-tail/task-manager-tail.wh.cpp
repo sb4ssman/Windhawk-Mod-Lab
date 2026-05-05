@@ -588,6 +588,7 @@ void WhTool_ModSettingsChanged() {
 
 bool g_isToolModProcessLauncher;
 HANDLE g_toolModProcessMutex;
+HANDLE g_toolModChildProcess = nullptr;
 
 void WINAPI EntryPoint_Hook() {
     Wh_Log(L">");
@@ -722,7 +723,7 @@ void Wh_ModAfterInit() {
         return;
     }
 
-    CloseHandle(pi.hProcess);
+    g_toolModChildProcess = pi.hProcess;
     CloseHandle(pi.hThread);
 }
 
@@ -736,6 +737,11 @@ void Wh_ModSettingsChanged() {
 
 void Wh_ModUninit() {
     if (g_isToolModProcessLauncher) {
+        if (g_toolModChildProcess) {
+            TerminateProcess(g_toolModChildProcess, 0);
+            CloseHandle(g_toolModChildProcess);
+            g_toolModChildProcess = nullptr;
+        }
         return;
     }
 

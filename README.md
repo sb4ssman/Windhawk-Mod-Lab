@@ -33,8 +33,8 @@ Automatically keeps Task Manager (or any configured app) pinned to the end of th
 ---
 
 ### [Virtual Desktop Switcher](virtual-desktop-switcher/)
-**Status:** v1.0 — PR submitted  
-Injects numbered buttons into the system tray — one per virtual desktop — for direct switching by click. Grid layout auto-sizes rows from taskbar height. Fully customizable colors, labels, fonts, borders, and placement.  
+**Status:** v1.1 — PR update ready  
+Injects numbered buttons into the system tray — one per virtual desktop — for direct switching by click. Configurable grid layout (smart auto, fixed rows/columns, fill order), master Task View button, and experimental Start-adjacent placement. Fully customizable colors, labels, fonts, borders, and placement.  
 → [README](virtual-desktop-switcher/README.md)
 
 ---

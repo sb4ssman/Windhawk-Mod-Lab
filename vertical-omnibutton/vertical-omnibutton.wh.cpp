@@ -432,7 +432,7 @@ static void CleanupXamlElements(
 {
     try {
         if (sp) {
-            sp.ClearValue(StackPanel::OrientationProperty());
+            sp.Orientation(Orientation::Horizontal);
             sp.ClearValue(StackPanel::SpacingProperty());
             sp.ClearValue(FrameworkElement::VerticalAlignmentProperty());
             int n = VisualTreeHelper::GetChildrenCount(sp);

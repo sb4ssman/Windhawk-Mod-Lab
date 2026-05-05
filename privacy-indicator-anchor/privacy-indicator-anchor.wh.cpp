@@ -1,8 +1,8 @@
 // ==WindhawkMod==
 // @id              tray-privacy-indicator-anchor
 // @name            Tray Privacy Indicator Anchor
-// @description     Keeps the system tray privacy indicator (location/microphone) permanently visible — dim when idle, full brightness when in use — preventing taskbar layout shifts.
-// @version         0.1
+// @description     Permanently shows location/microphone icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
+// @version         0.3
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -15,21 +15,25 @@
 # Tray Privacy Indicator Anchor
 
 Windows 11 shows a location/microphone icon in the system tray when an app
-accesses those privacy features, then hides it again — causing nearby icons to
-shift position. This can be visibly distracting,
-especially with apps that access location frequently (such as the Windows Web
-Experience Pack / Widgets).
+accesses those features, then removes it — causing nearby icons to shift.
 
-This mod keeps the privacy indicator permanently present in the tray:
+This mod injects permanent placeholder icons into the system tray:
 
-- **Dim** when idle — no app is using location or microphone
-- **Full brightness** when in use — location or microphone is active
+- **Always visible** — dim when nothing is using the feature
+- **Full brightness** when location or microphone is actively in use
 
-No more sudden shifts. You can still tell at a glance when location is active.
+No more sudden layout shifts.
 
 ## Settings
-- **Idle opacity** — how opaque the icon is when nothing is using it (0–100).
-  `0` = invisible but space reserved (no layout shifts); `100` = always full brightness.
+
+- **Idle opacity** — how visible the icon is when not in use (0–100). `0` = invisible
+  but space is reserved; `100` = always full brightness.
+- **Show location icon** — include the geolocation placeholder.
+- **Show microphone icon** — include the microphone placeholder.
+- **Layout** — arrange the placeholders horizontally or vertically.
+- **Position** — choose where the placeholder column is inserted in the tray.
+- **Hide native Windows indicator** — keep the synthetic placeholders but hide
+  the live Windows privacy icon after its state is read.
 */
 // ==/WindhawkModReadme==
 
@@ -38,15 +42,48 @@ No more sudden shifts. You can still tell at a glance when location is active.
 - idleOpacity: 20
   $name: Idle opacity (0-100)
   $description: >-
-    Opacity when no app is using location or microphone.
-    0 = invisible but space reserved (no layout shift); 100 = always full brightness.
+    Opacity when no app is using the feature. 0 = invisible but space is
+    reserved (prevents shifts); 100 = always full brightness.
+
+- showLocation: true
+  $name: Show location icon
+
+- showMic: true
+  $name: Show microphone icon
+
+- iconSize: 14
+  $name: Icon size (pt)
+  $description: Font size for the placeholder icons. Match your taskbar density.
+
+- layoutMode: "row"
+  $name: Layout
+  $options:
+  - "row": "Side by side"
+  - "column": "Stack vertically"
+
+- position: "beforeIcons"
+  $name: Position
+  $description: Where to place the privacy placeholders in the tray.
+  $options:
+  - "beforeIcons": "Before notification icons"
+  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
+  - "beforeClock": "Before clock"
+  - "afterClock": "After clock"
+  - "afterShowDesktop": "After Show Desktop strip"
+
+- hideNativeIndicator: true
+  $name: Hide native Windows privacy icon
+  $description: Hide the real transient Windows privacy icon after this mod reads its active/idle state.
 */
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
 
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.UI.Text.h>
 #include <winrt/Windows.UI.Xaml.h>
+#include <winrt/Windows.UI.Xaml.Automation.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
 
@@ -69,13 +106,31 @@ using namespace winrt::Windows::UI::Xaml::Media;
 // ============================================================
 
 struct ModSettings {
-    int idleOpacity = 20;
+    int  idleOpacity   = 20;
+    bool showLocation  = true;
+    bool showMic       = true;
+    int  iconSize      = 14;
+    std::wstring layoutMode = L"row";
+    std::wstring position = L"beforeIcons";
+    bool hideNativeIndicator = true;
 };
 static ModSettings g_settings;
 
+static std::wstring GetStringSetting(PCWSTR name, PCWSTR fallback) {
+    PCWSTR raw = Wh_GetStringSetting(name);
+    std::wstring value = raw ? raw : fallback;
+    Wh_FreeStringSetting(raw);
+    return value;
+}
+
 static void LoadSettings() {
-    int v = Wh_GetIntSetting(L"idleOpacity", 20);
-    g_settings.idleOpacity = std::max(0, std::min(100, v));
+    g_settings.idleOpacity  = std::max(0, std::min(100, Wh_GetIntSetting(L"idleOpacity", 20)));
+    g_settings.showLocation = Wh_GetIntSetting(L"showLocation", 1) != 0;
+    g_settings.showMic      = Wh_GetIntSetting(L"showMic", 1) != 0;
+    g_settings.iconSize     = std::max(8, std::min(32, Wh_GetIntSetting(L"iconSize", 14)));
+    g_settings.layoutMode   = GetStringSetting(L"layoutMode", L"row");
+    g_settings.position     = GetStringSetting(L"position", L"beforeIcons");
+    g_settings.hideNativeIndicator = Wh_GetIntSetting(L"hideNativeIndicator", 1) != 0;
 }
 
 // ============================================================
@@ -88,11 +143,23 @@ static bool              g_taskbarViewDllLoaded = false;
 static HANDLE            g_retryThread          = nullptr;
 static HANDLE            g_retryStopEvent       = nullptr;
 
+// Synthetic icon state
+static std::atomic<bool> g_locActive{false};
+static std::atomic<bool> g_micActive{false};
+static Grid              g_syntheticGrid   = nullptr;
+static TextBlock         g_locIcon         = nullptr;
+static TextBlock         g_micIcon         = nullptr;
+static FrameworkElement  g_syntheticParent = nullptr;
+static int               g_syntheticColumn = -1;
+
+// Tracks real privacy indicator elements so we can read their active/idle state.
 struct PrivacyState {
+    enum class Type { Location, Mic, Both };
     winrt::weak_ref<FrameworkElement> iconViewRef;
     winrt::weak_ref<TextBlock>        textBlockRef;
-    int64_t textToken       = 0;
-    int64_t visibilityToken = 0;
+    int64_t textToken     = 0;
+    int64_t unloadedToken = 0;
+    Type    type          = Type::Location;
 };
 static std::vector<PrivacyState> g_privacyStates;
 
@@ -105,10 +172,12 @@ static std::list<FrameworkElementLoadedRevoker> g_loadedRevokers;
 static void ApplyStyle();
 static void ApplyStyleOnWindowThread();
 static void ClearPrivacyStates();
+static void RemoveSyntheticIcons();
 static void StopRetryThread();
+static bool HookTaskbarViewDllSymbols(HMODULE h);
 
 // ============================================================
-// GetTaskbarXamlRoot — same boilerplate as other lab mods
+// GetTaskbarXamlRoot
 // ============================================================
 
 using CTaskBand_GetTaskbarHost_t = void* (WINAPI*)(void* pThis, void* result);
@@ -217,16 +286,6 @@ static FrameworkElement FindChildByClassName(FrameworkElement element, PCWSTR cl
     return nullptr;
 }
 
-static void EnumChildElements(FrameworkElement element,
-    std::function<bool(FrameworkElement)> cb) {
-    int n = VisualTreeHelper::GetChildrenCount(element);
-    for (int i = 0; i < n; i++) {
-        auto child = VisualTreeHelper::GetChild(element, i).try_as<FrameworkElement>();
-        if (!child) continue;
-        if (cb(child)) break;
-    }
-}
-
 static FrameworkElement FindChildRecursive(FrameworkElement const& element,
     std::function<bool(FrameworkElement)> const& cb, int maxDepth = 20) {
     int n = VisualTreeHelper::GetChildrenCount(element);
@@ -240,113 +299,347 @@ static FrameworkElement FindChildRecursive(FrameworkElement const& element,
     return nullptr;
 }
 
-static bool IsChildOfElementByName(FrameworkElement element, PCWSTR name) {
-    auto parent = element;
-    while (true) {
-        parent = VisualTreeHelper::GetParent(parent).try_as<FrameworkElement>();
-        if (!parent) return false;
-        if (parent.Name() == name) return true;
+// ============================================================
+// Privacy type detection
+// ============================================================
+
+// Unicode chars from taskbar-tray-system-icon-tweaks.wh.cpp (m417z).
+static PrivacyState::Type DetectPrivacyType(std::wstring_view text) {
+    if (text.empty()) return PrivacyState::Type::Location; // default fallback
+    switch (text[0]) {
+        case 0xE37A: return PrivacyState::Type::Location;
+        case 0xF47F: return PrivacyState::Type::Both;
+        case 0xE361:
+        case 0xE720:
+        case 0xEC71: return PrivacyState::Type::Mic;
+        default:     return PrivacyState::Type::Location;
     }
 }
 
+static bool IsPrivacyGlyph(wchar_t c) {
+    return c == 0xE37A || c == 0xF47F ||
+           c == 0xE361 || c == 0xE720 || c == 0xEC71;
+}
+
+// Returns true only for known privacy indicator text (glyph or empty/idle).
+// Guards against false matches on battery %, volume glyph, etc.
+static bool IsPrivacyText(std::wstring_view text) {
+    return text.empty() || (text.length() == 1 && IsPrivacyGlyph(text[0]));
+}
+
 // ============================================================
-// Privacy indicator logic
+// Synthetic icon management
 // ============================================================
 
-// Unicode chars that appear in the privacy indicator TextBlock when active.
-// Char values sourced from taskbar-tray-system-icon-tweaks.wh.cpp (m417z).
-static bool IsPrivacyActiveText(std::wstring_view text) {
-    if (text.empty()) return false;
-    switch (text[0]) {
-        case 0xE37A:  // Geolocation arrow
-        case 0xF47F:  // Microphone + Geolocation (combined icon)
-        case 0xE361:  // Microphone (private use area variant)
-        case 0xE720:  // Microphone
-        case 0xEC71:  // MicOn
+static void UpdateSyntheticOpacity() {
+    double idleOp = g_settings.idleOpacity / 100.0;
+    if (g_locIcon)
+        g_locIcon.Opacity(g_locActive.load() ? 1.0 : idleOp);
+    if (g_micIcon)
+        g_micIcon.Opacity(g_micActive.load() ? 1.0 : idleOp);
+}
+
+static void SetPrivacyActive(PrivacyState::Type type, bool active) {
+    switch (type) {
+        case PrivacyState::Type::Location:
+            g_locActive.store(active);
+            break;
+        case PrivacyState::Type::Mic:
+            g_micActive.store(active);
+            break;
+        case PrivacyState::Type::Both:
+            g_locActive.store(active);
+            g_micActive.store(active);
+            break;
+    }
+    UpdateSyntheticOpacity();
+}
+
+static TextBlock MakeIconTextBlock(const wchar_t* glyph) {
+    TextBlock tb;
+    tb.Text(glyph);
+    tb.FontFamily(FontFamily(L"Segoe MDL2 Assets"));
+    tb.FontSize((double)g_settings.iconSize);
+    tb.VerticalAlignment(VerticalAlignment::Center);
+    tb.HorizontalAlignment(HorizontalAlignment::Center);
+    tb.TextWrapping(TextWrapping::NoWrap);
+    tb.Opacity(g_settings.idleOpacity / 100.0);
+    return tb;
+}
+
+static bool InjectSyntheticIcons(FrameworkElement root) {
+    // Find SystemTrayFrameGrid by recursive name search (same approach as VDS).
+    // FindChildByClassName is shallow; SystemTrayFrameGrid is nested several levels deep.
+    auto gridElem = FindChildRecursive(root, [](FrameworkElement fe) {
+        return fe.Name() == L"SystemTrayFrameGrid";
+    });
+    if (!gridElem) { Wh_Log(L"[Inject] SystemTrayFrameGrid not found"); return false; }
+    auto gridParent = gridElem.try_as<Grid>();
+    if (!gridParent) { Wh_Log(L"[Inject] SystemTrayFrameGrid not a Grid"); return false; }
+
+    // Already injected?
+    for (auto child : gridParent.Children()) {
+        if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == L"PrivacyAnchorBar")
             return true;
     }
-    return false;
+
+    if (!g_settings.showLocation && !g_settings.showMic) {
+        Wh_Log(L"[Inject] Both icons disabled — nothing to inject");
+        return true;
+    }
+
+    auto findNamedDirect = [&](const wchar_t* name) -> FrameworkElement {
+        for (auto child : gridParent.Children()) {
+            if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == name)
+                return fe;
+        }
+        return nullptr;
+    };
+
+    FrameworkElement refElem = nullptr;
+    bool insertAfterRef = false;
+    if      (g_settings.position == L"beforeOmni")
+        refElem = findNamedDirect(L"ControlCenterButton");
+    else if (g_settings.position == L"beforeClock")
+        refElem = findNamedDirect(L"NotificationCenterButton");
+    else if (g_settings.position == L"afterClock")
+        refElem = findNamedDirect(L"ShowDesktopStack");
+    else if (g_settings.position == L"afterShowDesktop") {
+        refElem = findNamedDirect(L"ShowDesktopStack");
+        insertAfterRef = true;
+    }
+
+    int insertCol = 0;
+    if (insertAfterRef && refElem)
+        insertCol = Grid::GetColumn(refElem) + 1;
+    else if (refElem)
+        insertCol = Grid::GetColumn(refElem);
+
+    // Insert a new Auto column at the selected tray position.
+    ColumnDefinition cd;
+    cd.Width({ 1.0, GridUnitType::Auto });
+    if ((uint32_t)insertCol < gridParent.ColumnDefinitions().Size())
+        gridParent.ColumnDefinitions().InsertAt(insertCol, cd);
+    else
+        gridParent.ColumnDefinitions().Append(cd);
+
+    for (auto child : gridParent.Children()) {
+        auto fe = child.try_as<FrameworkElement>();
+        if (!fe) continue;
+        int col  = Grid::GetColumn(fe);
+        int span = Grid::GetColumnSpan(fe);
+        if (col >= insertCol)
+            Grid::SetColumn(fe, col + 1);
+        else if (col + span > insertCol)
+            Grid::SetColumnSpan(fe, span + 1);
+    }
+
+    // Build the anchor bar.
+    Grid bar;
+    bar.Name(L"PrivacyAnchorBar");
+    bar.VerticalAlignment(VerticalAlignment::Stretch);
+    bar.HorizontalAlignment(HorizontalAlignment::Center);
+    bar.Margin({ 2.0, 0.0, 2.0, 0.0 });
+
+    double idleOp = g_settings.idleOpacity / 100.0;
+    bool vertical = g_settings.layoutMode == L"column";
+    int itemIdx = 0;
+
+    if (g_settings.showLocation) {
+        if (vertical) {
+            RowDefinition rd;
+            rd.Height({ 1.0, GridUnitType::Auto });
+            bar.RowDefinitions().Append(rd);
+        } else {
+            ColumnDefinition lc;
+            lc.Width({ 1.0, GridUnitType::Auto });
+            bar.ColumnDefinitions().Append(lc);
+        }
+        auto loc = MakeIconTextBlock(L"\xE37A");
+        loc.Opacity(g_locActive.load() ? 1.0 : idleOp);
+        if (vertical)
+            Grid::SetRow(loc, itemIdx++);
+        else
+            Grid::SetColumn(loc, itemIdx++);
+        bar.Children().Append(loc);
+        g_locIcon = loc;
+    }
+    if (g_settings.showMic) {
+        if (vertical) {
+            RowDefinition rd;
+            rd.Height({ 1.0, GridUnitType::Auto });
+            bar.RowDefinitions().Append(rd);
+        } else {
+            ColumnDefinition mc;
+            mc.Width({ 1.0, GridUnitType::Auto });
+            bar.ColumnDefinitions().Append(mc);
+        }
+        auto mic = MakeIconTextBlock(L"\xE720");
+        mic.Opacity(g_micActive.load() ? 1.0 : idleOp);
+        if (vertical)
+            Grid::SetRow(mic, itemIdx++);
+        else
+            Grid::SetColumn(mic, itemIdx++);
+        bar.Children().Append(mic);
+        g_micIcon = mic;
+    }
+
+    Grid::SetColumn(bar, insertCol);
+    gridParent.Children().Append(bar);
+
+    g_syntheticGrid   = bar;
+    g_syntheticParent = gridElem;
+    g_syntheticColumn = insertCol;
+
+    Wh_Log(L"[Inject] PrivacyAnchorBar injected at col=%d (loc=%d mic=%d)",
+           insertCol, g_settings.showLocation ? 1 : 0, g_settings.showMic ? 1 : 0);
+    return true;
 }
 
-static void SetPrivacyIconOpacity(FrameworkElement iconView, bool active) {
-    if (!iconView) return;
-    iconView.Visibility(Visibility::Visible);
-    iconView.Opacity(active ? 1.0 : (g_settings.idleOpacity / 100.0));
+static void RemoveSyntheticIcons() {
+    auto gridParent = g_syntheticParent ? g_syntheticParent.try_as<Grid>() : nullptr;
+    if (!gridParent) {
+        g_syntheticGrid = nullptr; g_locIcon = nullptr; g_micIcon = nullptr;
+        g_syntheticParent = nullptr; g_syntheticColumn = -1;
+        return;
+    }
+
+    // Remove the grid child.
+    for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
+        auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
+        if (fe && fe.Name() == L"PrivacyAnchorBar") {
+            gridParent.Children().RemoveAt(i);
+            break;
+        }
+    }
+
+    // Remove the column and shift other elements back.
+    int col = g_syntheticColumn;
+    if (col >= 0 && (uint32_t)col < gridParent.ColumnDefinitions().Size())
+        gridParent.ColumnDefinitions().RemoveAt((uint32_t)col);
+
+    for (auto child : gridParent.Children()) {
+        auto fe = child.try_as<FrameworkElement>();
+        if (!fe) continue;
+        int c    = Grid::GetColumn(fe);
+        int span = Grid::GetColumnSpan(fe);
+        if (c > col)
+            Grid::SetColumn(fe, c - 1);
+        else if (c < col && c + span > col)
+            Grid::SetColumnSpan(fe, span - 1);
+    }
+
+    g_syntheticGrid = nullptr; g_locIcon = nullptr; g_micIcon = nullptr;
+    g_syntheticParent = nullptr; g_syntheticColumn = -1;
+    Wh_Log(L"[Remove] PrivacyAnchorBar removed");
 }
 
-static void ApplyPrivacyIndicatorBehavior(FrameworkElement notifyIconViewElement) {
-    // Avoid double-applying to the same element
+// ============================================================
+// Privacy indicator state tracking
+// ============================================================
+
+static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
+    // Avoid double-tracking.
     for (auto& s : g_privacyStates)
-        if (s.iconViewRef.get() == notifyIconViewElement) return;
+        if (s.iconViewRef.get() == iconView) return;
 
-    // Path: SystemTrayIcon > ContainerGrid > ContentPresenter > ContentGrid >
-    //       SystemTray.TextIconContent > ContainerGrid > Base > InnerTextBlock
-    FrameworkElement child = notifyIconViewElement;
-    if (!(child = FindChildByName(child, L"ContainerGrid")))    { Wh_Log(L"[PIB] ContainerGrid not found"); return; }
-    if (!(child = FindChildByName(child, L"ContentPresenter"))) { Wh_Log(L"[PIB] ContentPresenter not found"); return; }
-    if (!(child = FindChildByName(child, L"ContentGrid")))      { Wh_Log(L"[PIB] ContentGrid not found"); return; }
+    // Navigate to InnerTextBlock to read the privacy icon character.
+    FrameworkElement child = iconView;
+    if (!(child = FindChildByName(child, L"ContainerGrid")))    return;
+    if (!(child = FindChildByName(child, L"ContentPresenter"))) return;
+    if (!(child = FindChildByName(child, L"ContentGrid")))      return;
     child = FindChildByClassName(child, L"SystemTray.TextIconContent");
-    if (!child) { Wh_Log(L"[PIB] TextIconContent not found — not a privacy icon, skipping"); return; }
-    if (!(child = FindChildByName(child, L"ContainerGrid")))  { Wh_Log(L"[PIB] inner ContainerGrid not found"); return; }
-    if (!(child = FindChildByName(child, L"Base")))           { Wh_Log(L"[PIB] Base not found"); return; }
-    if (!(child = FindChildByName(child, L"InnerTextBlock"))) { Wh_Log(L"[PIB] InnerTextBlock not found"); return; }
+    if (!child) return;
+    if (!(child = FindChildByName(child, L"ContainerGrid")))  return;
+    if (!(child = FindChildByName(child, L"Base")))           return;
+    if (!(child = FindChildByName(child, L"InnerTextBlock"))) return;
 
-    auto innerTextBlock = child.try_as<TextBlock>();
-    if (!innerTextBlock) return;
+    auto tb = child.try_as<TextBlock>();
+    if (!tb) return;
 
-    bool active = IsPrivacyActiveText(std::wstring_view(innerTextBlock.Text()));
-    SetPrivacyIconOpacity(notifyIconViewElement, active);
+    std::wstring_view text = tb.Text();
+    if (!IsPrivacyText(text)) return;  // not a privacy glyph (battery %, volume, etc.)
+
+    PrivacyState::Type type = DetectPrivacyType(text);
+    SetPrivacyActive(type, !text.empty());
 
     PrivacyState state;
-    state.iconViewRef  = winrt::make_weak(notifyIconViewElement);
-    state.textBlockRef = innerTextBlock;
+    state.iconViewRef  = winrt::make_weak(iconView);
+    state.textBlockRef = tb;
+    state.type         = type;
 
-    auto iconViewRef = winrt::make_weak(notifyIconViewElement);
+    auto ivWeak  = winrt::make_weak(iconView);
+    auto tbWeak  = winrt::make_weak(tb);
 
-    // Watch text changes to update opacity when privacy state changes.
-    state.textToken = innerTextBlock.RegisterPropertyChangedCallback(
+    // When text changes, re-detect type and update active state.
+    state.textToken = tb.RegisterPropertyChangedCallback(
         TextBlock::TextProperty(),
-        [iconViewRef](DependencyObject sender, DependencyProperty) {
+        [ivWeak, tbWeak](DependencyObject sender, DependencyProperty) {
             if (g_unloading) return;
-            auto iconView = iconViewRef.get();
-            auto tb       = sender.try_as<TextBlock>();
-            if (!iconView || !tb) return;
-            bool act = IsPrivacyActiveText(std::wstring_view(tb.Text()));
-            SetPrivacyIconOpacity(iconView, act);
+            auto tbRef = sender.try_as<TextBlock>();
+            if (!tbRef) return;
+            std::wstring_view newText = tbRef.Text();
+            if (!IsPrivacyText(newText)) return;  // ignore non-privacy text changes
+            auto type = DetectPrivacyType(newText);
+            SetPrivacyActive(type, !newText.empty());
         });
 
-    // Watch visibility changes to prevent the system from collapsing the element.
-    // When the system sets Collapsed, we immediately override back to Visible.
-    // This callback fires at most twice per transition (once for Collapsed, once
-    // for our Visible override) — not an infinite loop.
-    state.visibilityToken = notifyIconViewElement.RegisterPropertyChangedCallback(
+    // When removed from tree, mark idle.
+    state.unloadedToken = iconView.RegisterPropertyChangedCallback(
         UIElement::VisibilityProperty(),
-        [iconViewRef](DependencyObject sender, DependencyProperty) {
+        [ivWeak](DependencyObject sender, DependencyProperty) {
+            // Visibility callback still fires when system tries to Collapsed it.
+            // We use it as a proxy for the element going idle.
             if (g_unloading) return;
-            auto iconView = sender.try_as<FrameworkElement>();
-            if (!iconView || iconView.Visibility() != Visibility::Collapsed) return;
-            iconView.Visibility(Visibility::Visible);
+            auto iv = sender.try_as<FrameworkElement>();
+            if (!iv || iv.Visibility() != Visibility::Collapsed) return;
+            // Find and clear the state for this element.
+            for (auto& s : g_privacyStates) {
+                if (s.iconViewRef.get() == iv) {
+                    SetPrivacyActive(s.type, false);
+                    break;
+                }
+            }
         });
 
     g_privacyStates.push_back(std::move(state));
-    Wh_Log(L"[Privacy] Anchored element, initial active=%d", active);
+    if (g_settings.hideNativeIndicator) {
+        iconView.Width(0.0);
+        iconView.Opacity(0.0);
+        iconView.IsHitTestVisible(false);
+    }
+    Wh_Log(L"[Privacy] Tracking indicator type=%d", (int)type);
 }
 
-static void ApplyMainStackStyle(FrameworkElement mainStack) {
-    // Search recursively for all SystemTray.IconView elements named "SystemTrayIcon"
-    // rather than relying on a fragile fixed-depth path that may vary across Windows builds.
+static void ScanMainStack(FrameworkElement mainStack) {
     int count = 0;
     FindChildRecursive(mainStack, [&count](FrameworkElement fe) -> bool {
         if (winrt::get_class_name(fe) == L"SystemTray.IconView" &&
             fe.Name() == L"SystemTrayIcon") {
-            Wh_Log(L"[MainStack] Found SystemTrayIcon, trying to anchor");
             ApplyPrivacyIndicatorBehavior(fe);
             count++;
         }
-        return false; // always continue searching
+        return false;
     });
-    Wh_Log(L"[MainStack] Scan complete, anchored %d icon(s)", count);
+    Wh_Log(L"[Scan] MainStack scan complete, tracked %d icon(s)", count);
 }
+
+static void ClearPrivacyStates() {
+    for (auto& state : g_privacyStates) {
+        if (auto tb = state.textBlockRef.get())
+            tb.UnregisterPropertyChangedCallback(TextBlock::TextProperty(), state.textToken);
+        if (auto iv = state.iconViewRef.get())
+            iv.UnregisterPropertyChangedCallback(UIElement::VisibilityProperty(),
+                                                  state.unloadedToken);
+    }
+    g_privacyStates.clear();
+    g_locActive.store(false);
+    g_micActive.store(false);
+}
+
+// ============================================================
+// Apply
+// ============================================================
 
 static void ApplyStyle() {
     Wh_Log(L"[Apply] enter");
@@ -354,86 +647,42 @@ static void ApplyStyle() {
     if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return; }
     g_taskbarWnd = hWnd;
 
-    Wh_Log(L"[Apply] Getting XamlRoot");
     XamlRoot xamlRoot = nullptr;
-    try { xamlRoot = GetTaskbarXamlRoot(hWnd); }
-    catch (...) { Wh_Log(L"[Apply] Exception in GetTaskbarXamlRoot"); return; }
+    try { xamlRoot = GetTaskbarXamlRoot(hWnd); } catch (...) { return; }
     if (!xamlRoot) { Wh_Log(L"[Apply] XamlRoot unavailable"); return; }
 
     auto root = xamlRoot.Content().try_as<FrameworkElement>();
-    if (!root) { Wh_Log(L"[Apply] No root FrameworkElement"); return; }
+    if (!root) return;
 
-    // Navigate: root → SystemTray.SystemTrayFrame → SystemTrayFrameGrid → MainStack
-    // (Same path as taskbar-tray-system-icon-tweaks)
-    FrameworkElement child = root;
-    child = FindChildByClassName(child, L"SystemTray.SystemTrayFrame");
-    if (!child) { Wh_Log(L"[Apply] SystemTray.SystemTrayFrame not found"); return; }
-    child = FindChildByName(child, L"SystemTrayFrameGrid");
-    if (!child) { Wh_Log(L"[Apply] SystemTrayFrameGrid not found"); return; }
+    // Inject synthetic icons (idempotent).
+    if (!g_syntheticGrid)
+        InjectSyntheticIcons(root);
 
-    auto mainStack = FindChildByName(child, L"MainStack");
-    if (!mainStack) {
-        int n = VisualTreeHelper::GetChildrenCount(child);
-        Wh_Log(L"[Apply] MainStack not found; SystemTrayFrameGrid has %d children", n);
-        for (int i = 0; i < n && i < 10; i++) {
-            auto c = VisualTreeHelper::GetChild(child, i).try_as<FrameworkElement>();
-            if (c) Wh_Log(L"[Apply]   child[%d] name=%s", i, c.Name().c_str());
-        }
-        return;
+    // Scan MainStack for existing real privacy indicators.
+    auto sysGrid = FindChildRecursive(root, [](FrameworkElement fe) {
+        return fe.Name() == L"SystemTrayFrameGrid";
+    });
+    if (sysGrid) {
+        auto mainStack = FindChildByName(sysGrid, L"MainStack");
+        if (mainStack) ScanMainStack(mainStack);
     }
-
-    Wh_Log(L"[Apply] Found MainStack, traversing");
-    ApplyMainStackStyle(mainStack);
 }
 
 static void ApplyStyleOnWindowThread() {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (!hWnd) { Wh_Log(L"[ASOWT] No taskbar HWND"); return; }
-    Wh_Log(L"[ASOWT] Dispatching, hWnd=%p", hWnd);
-    bool ok = RunFromWindowThread(hWnd, [](void*) {
-        Wh_Log(L"[ASOWT] On window thread");
+    if (!hWnd) return;
+    RunFromWindowThread(hWnd, [](void*) {
         g_loadedRevokers.clear();
         ClearPrivacyStates();
         ApplyStyle();
     }, nullptr);
-    if (!ok) Wh_Log(L"[ASOWT] RunFromWindowThread failed");
 }
 
 static void StopRetryThread() {
-    HANDLE thread = g_retryThread;
-    HANDLE event = g_retryStopEvent;
-
-    if (event)
-        SetEvent(event);
-
-    if (thread) {
-        WaitForSingleObject(thread, 3000);
-        CloseHandle(thread);
-    }
-
-    if (event)
-        CloseHandle(event);
-
-    g_retryThread = nullptr;
-    g_retryStopEvent = nullptr;
-}
-
-// Restore elements to the state Windows shows without this mod.
-static void ClearPrivacyStates() {
-    for (auto& state : g_privacyStates) {
-        if (auto tb = state.textBlockRef.get())
-            tb.UnregisterPropertyChangedCallback(TextBlock::TextProperty(), state.textToken);
-
-        if (auto iconView = state.iconViewRef.get()) {
-            iconView.UnregisterPropertyChangedCallback(
-                UIElement::VisibilityProperty(), state.visibilityToken);
-            auto tb     = state.textBlockRef.get();
-            bool active = tb && IsPrivacyActiveText(std::wstring_view(tb.Text()));
-            iconView.Opacity(1.0);
-            iconView.Visibility(active ? Visibility::Visible : Visibility::Collapsed);
-        }
-    }
-    g_privacyStates.clear();
+    if (g_retryStopEvent) SetEvent(g_retryStopEvent);
+    if (g_retryThread) { WaitForSingleObject(g_retryThread, 3000); CloseHandle(g_retryThread); }
+    if (g_retryStopEvent) CloseHandle(g_retryStopEvent);
+    g_retryThread = nullptr; g_retryStopEvent = nullptr;
 }
 
 // ============================================================
@@ -446,7 +695,6 @@ IconView_IconView_t IconView_IconView_Original;
 void* WINAPI IconView_IconView_Hook(void* pThis) {
     void* ret = IconView_IconView_Original(pThis);
     if (g_unloading) return ret;
-    Wh_Log(L"[Hook] IconView created");
 
     FrameworkElement iconView = nullptr;
     ((IUnknown**)pThis)[1]->QueryInterface(winrt::guid_of<FrameworkElement>(),
@@ -454,21 +702,26 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
     if (!iconView) return ret;
 
     g_loadedRevokers.emplace_back();
-    auto it = g_loadedRevokers.end();
-    --it;
-
-    *it = iconView.Loaded(
-        winrt::auto_revoke_t{},
+    auto it = g_loadedRevokers.end(); --it;
+    *it = iconView.Loaded(winrt::auto_revoke_t{},
         [it](winrt::Windows::Foundation::IInspectable const& sender, auto const&) {
             g_loadedRevokers.erase(it);
             if (g_unloading) return;
-
             auto fe = sender.try_as<FrameworkElement>();
             if (!fe) return;
-
             if (winrt::get_class_name(fe) == L"SystemTray.IconView" &&
-                fe.Name() == L"SystemTrayIcon" &&
-                IsChildOfElementByName(fe, L"MainStack")) {
+                fe.Name() == L"SystemTrayIcon") {
+                // Ensure synthetic bar exists.
+                if (!g_syntheticGrid) {
+                    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+                    if (hWnd) {
+                        auto xamlRoot = fe.XamlRoot();
+                        if (xamlRoot) {
+                            auto root = xamlRoot.Content().try_as<FrameworkElement>();
+                            if (root) InjectSyntheticIcons(root);
+                        }
+                    }
+                }
                 ApplyPrivacyIndicatorBehavior(fe);
             }
         });
@@ -485,28 +738,18 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR path, HANDLE file, DWORD flags) {
         const wchar_t* base = wcsrchr(path, L'\\');
         base = base ? base + 1 : path;
         if (_wcsicmp(base, L"Taskbar.View.dll") == 0) {
-            Wh_Log(L"[LLEW] Taskbar.View.dll loaded, hooking");
-            // Taskbar.View.dll
-            WindhawkUtils::SYMBOL_HOOK taskbarViewHooks[] = {{
-                {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
-                &IconView_IconView_Original, IconView_IconView_Hook,
-            }};
-            if (WindhawkUtils::HookSymbols(h, taskbarViewHooks, ARRAYSIZE(taskbarViewHooks)))
-                g_taskbarViewDllLoaded = true;
-            Wh_Log(L"[LLEW] Hook result: %d", g_taskbarViewDllLoaded ? 1 : 0);
+            g_taskbarViewDllLoaded = true;
+            HookTaskbarViewDllSymbols(h);
+            ApplyStyleOnWindowThread();
         }
     }
     return h;
 }
 
-// ============================================================
-// Symbol hook setup
-// ============================================================
-
 static bool HookTaskbarDllSymbols() {
     HMODULE h = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!h) return false;
-    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
+    WindhawkUtils::SYMBOL_HOOK hooks[] = {
         { {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
           &CTaskBand_ITaskListWndSite_vftable },
         { {LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
@@ -516,24 +759,17 @@ static bool HookTaskbarDllSymbols() {
         { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
           &std__Ref_count_base__Decref_Original },
     };
-    return WindhawkUtils::HookSymbols(h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
+    return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
 }
 
 static bool HookTaskbarViewDllSymbols(HMODULE h) {
-    // Taskbar.View.dll
-    WindhawkUtils::SYMBOL_HOOK taskbarViewHooks[] = {{
+    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
-        &IconView_IconView_Original, IconView_IconView_Hook,
+        &IconView_IconView_Original,
+        IconView_IconView_Hook,
+        false,
     }};
-    if (!WindhawkUtils::HookSymbols(h, taskbarViewHooks, ARRAYSIZE(taskbarViewHooks))) return false;
-    g_taskbarViewDllLoaded = true;
-    return true;
-}
-
-static HMODULE GetTaskbarViewModule() {
-    for (auto* name : { L"Taskbar.View.dll", L"taskbar.view.dll" })
-        if (HMODULE h = GetModuleHandleW(name)) return h;
-    return nullptr;
+    return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
 }
 
 // ============================================================
@@ -541,86 +777,79 @@ static HMODULE GetTaskbarViewModule() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Privacy Indicator Anchor v0.1");
+    Wh_Log(L"[Init] Privacy Anchor v0.3");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
-        Wh_Log(L"[Init] taskbar.dll hooks failed — XamlRoot unavailable");
+        Wh_Log(L"[Init] taskbar.dll symbols failed");
 
-    if (HMODULE h = GetTaskbarViewModule()) {
-        if (!HookTaskbarViewDllSymbols(h))
-            Wh_Log(L"[Init] Taskbar.View.dll hooks failed");
-    } else {
-        HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
-        auto pLLEW = kb ? (LoadLibraryExW_t)GetProcAddress(kb, "LoadLibraryExW") : nullptr;
-        if (pLLEW)
-            Wh_SetFunctionHook((void*)pLLEW, (void*)LoadLibraryExW_Hook, (void**)&LoadLibraryExW_Original);
+    HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
+    auto pLLEW = kb ? (LoadLibraryExW_t)GetProcAddress(kb, "LoadLibraryExW") : nullptr;
+    if (pLLEW)
+        Wh_SetFunctionHook((void*)pLLEW, (void*)LoadLibraryExW_Hook, (void**)&LoadLibraryExW_Original);
+
+    HMODULE tvDll = GetModuleHandleW(L"Taskbar.View.dll");
+    if (tvDll) {
+        g_taskbarViewDllLoaded = true;
+        if (!HookTaskbarViewDllSymbols(tvDll))
+            Wh_Log(L"[Init] Taskbar.View.dll hook failed");
     }
+
     return TRUE;
 }
 
 void Wh_ModAfterInit() {
     if (!g_taskbarViewDllLoaded) {
-        if (HMODULE h = GetTaskbarViewModule()) {
-            bool ok = HookTaskbarViewDllSymbols(h);
-            Wh_Log(L"[AfterInit] HookTaskbarViewDllSymbols: %d", ok ? 1 : 0);
-        } else {
-            Wh_Log(L"[AfterInit] Taskbar.View.dll not yet loaded");
-        }
+        HMODULE h = GetModuleHandleW(L"Taskbar.View.dll");
+        if (h) { g_taskbarViewDllLoaded = true; HookTaskbarViewDllSymbols(h); }
     }
-    Wh_Log(L"[AfterInit] g_taskbarViewDllLoaded=%d", g_taskbarViewDllLoaded ? 1 : 0);
+
     if (g_taskbarViewDllLoaded)
         ApplyStyleOnWindowThread();
 
     g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!g_retryStopEvent)
-        return;
-
+    if (!g_retryStopEvent) return;
     HANDLE stopEvent = g_retryStopEvent;
     g_retryThread = CreateThread(nullptr, 0, [](void* param) -> DWORD {
-        HANDLE stopEvent = static_cast<HANDLE>(param);
+        HANDLE stop = static_cast<HANDLE>(param);
         for (int i = 0; i < 5 && !g_unloading; i++) {
-            if (WaitForSingleObject(stopEvent, 2000) != WAIT_TIMEOUT) break;
-            if (!g_privacyStates.empty()) break;
+            if (WaitForSingleObject(stop, 2000) != WAIT_TIMEOUT) break;
+            if (g_syntheticGrid) break;
             Wh_Log(L"[AfterInit] Retry %d", i + 1);
             ApplyStyleOnWindowThread();
         }
         return 0;
     }, stopEvent, 0, nullptr);
-
-    if (!g_retryThread) {
-        CloseHandle(g_retryStopEvent);
-        g_retryStopEvent = nullptr;
-    }
+    if (!g_retryThread) { CloseHandle(g_retryStopEvent); g_retryStopEvent = nullptr; }
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
-
     StopRetryThread();
-
+    g_loadedRevokers.clear();
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {
         RunFromWindowThread(hWnd, [](void*) {
-            g_loadedRevokers.clear();
             ClearPrivacyStates();
+            RemoveSyntheticIcons();
         }, nullptr);
+    } else {
+        ClearPrivacyStates();
+        RemoveSyntheticIcons();
     }
 }
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
-    Wh_Log(L"[Settings] Changed, idleOpacity=%d", g_settings.idleOpacity);
+    Wh_Log(L"[Settings] idleOpacity=%d showLoc=%d showMic=%d",
+           g_settings.idleOpacity, g_settings.showLocation ? 1 : 0, g_settings.showMic ? 1 : 0);
+
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return;
     RunFromWindowThread(hWnd, [](void*) {
-        for (auto& state : g_privacyStates) {
-            auto iconView = state.iconViewRef.get();
-            auto tb       = state.textBlockRef.get();
-            if (!iconView || !tb) continue;
-            bool active = IsPrivacyActiveText(std::wstring_view(tb.Text()));
-            SetPrivacyIconOpacity(iconView, active);
-        }
+        ClearPrivacyStates();
+        RemoveSyntheticIcons();
+        ApplyStyle();
     }, nullptr);
 }

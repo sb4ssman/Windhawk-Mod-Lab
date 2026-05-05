@@ -347,6 +347,7 @@ static bool              g_startOverlayMode = false;
 static FrameworkElement  g_startOverlayRoot = nullptr;
 static FrameworkElement  g_startOverlayStart = nullptr;
 static winrt::event_token g_startOverlayLayoutToken{};
+static int               g_startColumnIndex = -1;
 static std::atomic<int>  g_currentDesktop{0};
 static std::atomic<int>  g_desktopCount{1};
 
@@ -1352,6 +1353,20 @@ static FrameworkElement FindStartButton(FrameworkElement root) {
     });
 }
 
+// Walk up from target to find its direct parent that is a child of rootGrid.
+static FrameworkElement GetRootGridDirectChildContaining(Grid rootGrid, FrameworkElement target) {
+    if (!rootGrid || !target) return nullptr;
+    DependencyObject current = target;
+    while (current) {
+        auto parent = VisualTreeHelper::GetParent(current);
+        if (!parent) return nullptr;
+        if (parent.try_as<Grid>() == rootGrid)
+            return current.try_as<FrameworkElement>();
+        current = parent;
+    }
+    return nullptr;
+}
+
 static FrameworkElement FindTaskbarRootGrid(FrameworkElement root) {
     auto taskbarFrame = FindChildRecursive(root, [](FrameworkElement fe) {
         return winrt::get_class_name(fe) == L"Taskbar.TaskbarFrame";
@@ -1375,10 +1390,12 @@ static void PositionButtonGridNearStart() {
     double gridW = EstimateButtonGridWidth(count);
     double gridH = EstimateButtonGridHeight(count);
 
+    bool startHidden = (g_startOverlayStart.Visibility() == Visibility::Collapsed);
     double startW = g_startOverlayStart.ActualWidth();
     double startH = g_startOverlayStart.ActualHeight();
-    if (startW <= 0.0) startW = 44.0;
+    if (startW <= 0.0 && !startHidden) startW = 44.0;
     if (startH <= 0.0) startH = std::max((double)g_settings.buttonHeight, gridH);
+    double reservedStartW = startHidden ? gridW : std::max(startW, gridW);
 
     double x = 0.0;
     double y = 0.0;
@@ -1394,7 +1411,7 @@ static void PositionButtonGridNearStart() {
     double left = x;
     double top = y;
     if (g_settings.position == L"aboveStart") {
-        left = x + (startW - gridW) / 2.0;
+        left = x + (reservedStartW - gridW) / 2.0;
         top = y - gridH - (double)g_settings.buttonSpacing;
         if (top < 0.0)
             top = 0.0;
@@ -1416,6 +1433,26 @@ static void PositionButtonGridNearStart() {
         current.Right != 0.0 ||
         current.Bottom != 0.0) {
         g_buttonGrid.Margin({ left, top, 0.0, 0.0 });
+    }
+
+    // Reserve space in the Start column so task items don't slide under the
+    // overlay, including when the Start button itself is hidden/collapsed.
+    auto rootGrid = g_startOverlayRoot.try_as<Grid>();
+    if (rootGrid) {
+        auto startChild = GetRootGridDirectChildContaining(rootGrid, g_startOverlayStart);
+        if (startChild) {
+            int col = Grid::GetColumn(startChild);
+            g_startColumnIndex = col;
+            if (col >= 0 && col < (int)rootGrid.ColumnDefinitions().Size()) {
+                double colWidth = reservedStartW;
+                if (g_settings.position == L"nextToStart")
+                    colWidth = startW + gridW + (double)g_settings.buttonSpacing;
+                auto colDef = rootGrid.ColumnDefinitions().GetAt(col);
+                if (std::fabs(colDef.Width().Value - colWidth) > 0.5 ||
+                    colDef.Width().GridUnitType != GridUnitType::Pixel)
+                    colDef.Width({ colWidth, GridUnitType::Pixel });
+            }
+        }
     }
 }
 
@@ -1457,7 +1494,7 @@ static bool InjectButtonGridNearStart(FrameworkElement root) {
     grid.IsHitTestVisible(true);
     Grid::SetColumn(grid, 0);
     Grid::SetColumnSpan(grid, std::max(1, (int)gridParent.ColumnDefinitions().Size()));
-    Panel::SetZIndex(grid, 1000);
+    Canvas::SetZIndex(grid, 1000);
     gridParent.Children().Append(grid);
 
     g_buttonGrid = grid;
@@ -1645,7 +1682,15 @@ static void RemoveButtonGrid() {
                     break;
                 }
             }
+
+            // Restore start column to auto if we widened it.
+            if (g_startColumnIndex >= 0 &&
+                g_startColumnIndex < (int)gridParent.ColumnDefinitions().Size()) {
+                gridParent.ColumnDefinitions().GetAt(g_startColumnIndex)
+                    .Width({ 1.0, GridUnitType::Auto });
+            }
         }
+        g_startColumnIndex = -1;
 
         g_buttonGrid = nullptr;
         g_injectionParent = nullptr;
@@ -1695,7 +1740,7 @@ static void RebuildOrUpdate(bool fullRebuild) {
         if (g_startOverlayMode) {
             Grid::SetColumn(g_buttonGrid, 0);
             Grid::SetColumnSpan(g_buttonGrid, std::max(1, (int)gridParent.ColumnDefinitions().Size()));
-            Panel::SetZIndex(g_buttonGrid, 1000);
+            Canvas::SetZIndex(g_buttonGrid, 1000);
             g_buttonGrid.IsHitTestVisible(true);
         } else if (g_injectedColumn >= 0) {
             Grid::SetColumn(g_buttonGrid, g_injectedColumn);

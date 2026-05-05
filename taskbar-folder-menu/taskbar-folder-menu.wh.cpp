@@ -2,12 +2,12 @@
 // @id              taskbar-folder-menu
 // @name            Taskbar Folder Menu
 // @description     Adds compact taskbar buttons that open configured folders as popup menus, similar to classic Windows taskbar toolbars.
-// @version         0.1
+// @version         0.3
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -lshell32
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -lshell32 -luuid
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
@@ -23,7 +23,8 @@ item without minimizing the windows that are covering the desktop.
 ## Settings
 
 - **Position** - where to inject the button group in the system tray area.
-- **Folders** - one folder per line, using `Label=Path`.
+- **Folders** - one folder per line, using `Label=Path`. `|` and commas also
+  work as quick separators.
 - **Layout mode** - single row, single column, or grid.
 - **Grid columns** - number of columns used in grid mode.
 - **Button size and spacing** - compact by default, suitable for multi-row trays.
@@ -54,7 +55,7 @@ version can add an experimental mode that places the buttons directly beside the
   - "afterClock": "After clock"
   - "afterShowDesktop": "After Show Desktop strip"
 
-- folders: "Desktop=%USERPROFILE%\\Desktop"
+- folders: "📁=%USERPROFILE%\\Desktop"
   $name: Folders
   $description: >-
     Folder buttons to show. Use one entry per line: Label=Path.
@@ -83,27 +84,31 @@ version can add an experimental mode that places the buttons directly beside the
 
 - maxMenuItems: 80
   $name: Max menu items per folder
-  $description: Limit menu size for very large folders.
+  $description: Limit menu size for very large folders. 0 = unlimited.
 
 - maxDepth: 2
   $name: Subfolder depth
-  $description: How many subfolder levels to include as nested menus.
+  $description: How many subfolder levels to include as nested menus. 0 = unlimited.
 
 - showHidden: false
   $name: Show hidden/system items
 
-- buttonText: "▴"
+- buttonText: "📁"
   $name: Default button text
-  $description: Text used when a folder entry doesn't provide a short label.
+  $description: >-
+    Icon shown for folder entries with long labels. One- or two-character
+    labels are shown directly. Supports Unicode and emoji.
 */
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
 
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.UI.Text.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
+#include <winrt/Windows.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
 
 #include <algorithm>
@@ -134,7 +139,7 @@ struct FolderEntry {
 struct ModSettings {
     std::wstring position = L"beforeIcons";
     std::wstring layoutMode = L"row";
-    std::wstring buttonText = L"^";
+    std::wstring buttonText = L"📁";
     std::vector<FolderEntry> folders;
     int gridColumns = 2;
     int buttonWidth = 20;
@@ -172,6 +177,7 @@ static std::wstring FileNameFromPath(std::wstring path) {
 
 static std::vector<std::wstring> SplitFolderLines(std::wstring text) {
     std::replace(text.begin(), text.end(), L'|', L'\n');
+    std::replace(text.begin(), text.end(), L',', L'\n');
     std::vector<std::wstring> lines;
     size_t start = 0;
     while (start <= text.size()) {
@@ -205,8 +211,17 @@ static std::vector<FolderEntry> ParseFolders(std::wstring text) {
         if (!entry.path.empty())
             folders.push_back(entry);
     }
-    if (folders.empty())
-        folders.push_back({ L"Desktop", ExpandEnv(L"%USERPROFILE%\\Desktop") });
+    if (folders.empty()) {
+        PWSTR knownPath = nullptr;
+        std::wstring desktopPath;
+        if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &knownPath))) {
+            desktopPath = knownPath;
+            CoTaskMemFree(knownPath);
+        } else {
+            desktopPath = ExpandEnv(L"%USERPROFILE%\\Desktop");
+        }
+        folders.push_back({ L"📁", desktopPath });
+    }
     return folders;
 }
 
@@ -220,13 +235,13 @@ static std::wstring GetStringSetting(PCWSTR name, PCWSTR fallback) {
 static void LoadSettings() {
     g_settings.position = GetStringSetting(L"position", L"beforeIcons");
     g_settings.layoutMode = GetStringSetting(L"layoutMode", L"row");
-    g_settings.buttonText = GetStringSetting(L"buttonText", L"^");
-    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"Desktop=%USERPROFILE%\\Desktop"));
+    g_settings.buttonText = GetStringSetting(L"buttonText", L"📁");
+    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"📁=%USERPROFILE%\\Desktop"));
     g_settings.gridColumns = std::max(1, Wh_GetIntSetting(L"gridColumns", 2));
     g_settings.buttonWidth = std::max(10, Wh_GetIntSetting(L"buttonWidth", 20));
     g_settings.buttonHeight = std::max(10, Wh_GetIntSetting(L"buttonHeight", 22));
     g_settings.buttonSpacing = std::max(0, Wh_GetIntSetting(L"buttonSpacing", 2));
-    g_settings.maxMenuItems = std::max(1, Wh_GetIntSetting(L"maxMenuItems", 80));
+    g_settings.maxMenuItems = std::max(0, Wh_GetIntSetting(L"maxMenuItems", 80));
     g_settings.maxDepth = std::max(0, Wh_GetIntSetting(L"maxDepth", 2));
     g_settings.showHidden = Wh_GetIntSetting(L"showHidden", 0) != 0;
 }
@@ -420,7 +435,7 @@ static std::vector<MenuItemInfo> EnumerateFolder(std::wstring const& folder) {
         if (a.isDir != b.isDir) return a.isDir > b.isDir;
         return _wcsicmp(a.name.c_str(), b.name.c_str()) < 0;
     });
-    if ((int)items.size() > g_settings.maxMenuItems)
+    if (g_settings.maxMenuItems > 0 && (int)items.size() > g_settings.maxMenuItems)
         items.resize(g_settings.maxMenuItems);
     return items;
 }
@@ -435,7 +450,7 @@ static void AddFolderItemsToMenu(HMENU menu, std::wstring const& folder,
     }
 
     for (auto const& item : items) {
-        if (item.isDir && depth < g_settings.maxDepth) {
+        if (item.isDir && (g_settings.maxDepth == 0 || depth < g_settings.maxDepth)) {
             HMENU sub = CreatePopupMenu();
             AddFolderItemsToMenu(sub, item.path, depth + 1, nextId, idToPath);
             AppendMenuW(menu, MF_POPUP | MF_STRING, (UINT_PTR)sub, item.name.c_str());
@@ -467,7 +482,7 @@ static void ShowFolderMenu(FolderEntry folder) {
     GetCursorPos(&pt);
     SetForegroundWindow(owner);
     UINT cmd = TrackPopupMenu(menu,
-        TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY | TPM_VERTICALALIGN,
+        TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY | TPM_BOTTOMALIGN,
         pt.x, pt.y, 0, owner, nullptr);
 
     if (cmd >= 1000) {
@@ -518,11 +533,9 @@ static Grid BuildFolderButtonGrid() {
 
     for (int i = 0; i < count; i++) {
         auto entry = g_settings.folders[i];
-        std::wstring caption = entry.label.size() <= 2
-            ? entry.label
-            : g_settings.buttonText;
-        if (caption.empty())
-            caption = L"^";
+        std::wstring caption = entry.label;
+        if (caption.empty() || caption.size() > 2)
+            caption = g_settings.buttonText.empty() ? L"📁" : g_settings.buttonText;
 
         Button btn;
         btn.Name(L"FolderMenuButton_" + std::to_wstring(i));
