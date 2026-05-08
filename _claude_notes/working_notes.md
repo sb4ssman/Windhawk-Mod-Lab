@@ -3,10 +3,10 @@
 ## Current focus
 
 1. **Privacy Indicator Anchor** — v0.6/vNext. Actual user-default target: idleOpacity=50, iconSize=16, layoutMode=row, position=beforeOmni, paddingLeft=2, paddingRight=2, iconSpacing=4, barOffset=(2,2), locationOffset=(0,0), micOffset=(0,0). Native Windows indicator is hidden automatically; exposed showLocation/showMic settings should remain boolean true/false.
-2. **Virtual Desktop Switcher** — nextToStart/aboveStart still needs visual test. Settings-save Show Desktop disappearance was likely stale tray-column cleanup after multiple injected tray mods; `RemoveButtonGridFrom` now uses the live `VdSwitcherBar` column instead of only the cached injected column.
+2. **Virtual Desktop Switcher** — v1.3 ready for PR push. Applied GetSystemTrayModuleHandle pattern, ARM64 arm, WindhawkUtils::Wh_SetFunctionHookT, fixed crash-on-disable (StopNotificationThread no longer bails on timeout), fixed half-button-clickable (Canvas::SetZIndex(100) on injected grid). nextToStart/aboveStart still needs visual test.
 3. **Clock Spacer** — v0.7. Current user lines: top `🤖%cpu%🍵%ram%%s%%time%`; bottom `%weekday%%s%📅%s%%date%%n%🛫%upload_speed%%s%🛬%download_speed%%n%🧮%gpu%🧮%gpu%%s%💽%disk_read%%n%%weather%`. Screenshot looks good with multiple `%s%` instances across generated multiline panel. Known limitation: spacer does not work inside the weather string.
 4. **Taskbar Folder Menu** — v0.4/vNext. Confirmed working folders string: `📁=%DESKTOP%, C:=C:\, T:=T:\`. `%DESKTOP%` is the Desktop folder, not the live desktop shell namespace, so visible desktop icons can differ. Need explore a mode that commandeers or nests beside the show-hidden-icons chevron area for a compact 2-3 button column.
-5. **Vertical OmniButton** — v1.2, PR submitted. Maintainer asked to apply VD switcher review comments; local lab copy uses stoppable CreateThread/event cleanup.
+5. **Vertical OmniButton** — v1.4, PR updated (#3859). Hook infrastructure updated to GetSystemTrayModuleHandle pattern, ARM64 arm added, WindhawkUtils::Wh_SetFunctionHookT used, inline mode auto-sizing fixed.
 
 ---
 

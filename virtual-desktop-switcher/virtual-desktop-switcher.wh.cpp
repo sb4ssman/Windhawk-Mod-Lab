@@ -2,7 +2,7 @@
 // @id              taskbar-vd-switcher
 // @name            Taskbar Virtual Desktop Switcher
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
-// @version         1.2
+// @version         1.3
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -360,7 +360,7 @@ static DWORD  g_notificationCookie    = 0;
 static HANDLE g_retryThread    = nullptr;
 static HANDLE g_retryStopEvent = nullptr;
 
-static bool g_taskbarViewDllLoaded = false;
+static std::atomic<bool> g_systemTrayModuleHooked{false};
 
 // Forward declarations
 static void ApplyAllSettings();
@@ -369,6 +369,7 @@ static void RebuildOrUpdate(bool fullRebuild);
 static void RemoveButtonGrid();
 static void StopNotificationThread();
 static void StopRetryThread();
+static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName);
 
 // ============================================================
 // Explorer / twinui build detection
@@ -393,22 +394,57 @@ static void DetectExplorerBuild() {
     Wh_Log(L"[Init] Explorer build %u rev %u", g_explorerBuild, g_explorerRevision);
 }
 
+static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE hModule, UINT* puPtrLen) {
+    void* pFixedFileInfo = nullptr;
+    UINT uPtrLen = 0;
+    HRSRC hResource = FindResource(hModule, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
+    if (hResource) {
+        HGLOBAL hGlobal = LoadResource(hModule, hResource);
+        if (hGlobal) {
+            void* pData = LockResource(hGlobal);
+            if (pData) {
+                if (!VerQueryValue(pData, L"\\", &pFixedFileInfo, &uPtrLen) || uPtrLen == 0) {
+                    pFixedFileInfo = nullptr;
+                    uPtrLen = 0;
+                }
+            }
+        }
+    }
+    if (puPtrLen) *puPtrLen = uPtrLen;
+    return (VS_FIXEDFILEINFO*)pFixedFileInfo;
+}
+
 static bool LoadTwinuiBuild() {
     if (g_twinuiBuild) return true;
     HMODULE h = GetModuleHandleW(L"twinui.pcshell.dll");
     if (!h) return false;
-    wchar_t path[MAX_PATH];
-    if (!GetModuleFileNameW(h, path, MAX_PATH)) return false;
-    DWORD dummy;
-    DWORD sz = GetFileVersionInfoSizeW(path, &dummy);
-    if (!sz) return false;
-    std::vector<BYTE> buf(sz);
-    if (!GetFileVersionInfoW(path, 0, sz, buf.data())) return false;
-    VS_FIXEDFILEINFO* fi = nullptr; UINT fs = 0;
-    if (!VerQueryValueW(buf.data(), L"\\", (void**)&fi, &fs)) return false;
+    VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(h, nullptr);
+    if (!fi) return false;
     g_twinuiBuild = HIWORD(fi->dwFileVersionLS);
     Wh_Log(L"[VD] twinui.pcshell.dll build %u", g_twinuiBuild);
     return true;
+}
+
+// Order matters: SystemTray.dll is the new home (Win11 Insider 26200+);
+// older builds have the symbols in Taskbar.View.dll.
+static HMODULE GetSystemTrayModuleHandle() {
+    HMODULE module = GetModuleHandleW(L"SystemTray.dll");
+    if (!module) {
+        module = GetModuleHandleW(L"Taskbar.View.dll");
+        if (module) {
+            // Starting with Taskbar.View.dll 2604.x, the SystemTray types moved
+            // out into SystemTray.dll — don't hook this version.
+            VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(module, nullptr);
+            WORD moduleMajor = fi ? HIWORD(fi->dwFileVersionMS) : 0;
+            if (!moduleMajor || moduleMajor >= 2604) {
+                Wh_Log(L"[Hooks] Skipping Taskbar.View.dll version %d", moduleMajor);
+                module = nullptr;
+            }
+        }
+    }
+    if (!module)
+        module = GetModuleHandleW(L"ExplorerExtensions.dll");
+    return module;
 }
 
 // ============================================================
@@ -486,6 +522,10 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
         else
             Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
     }
+#elif defined(_M_ARM64)
+    // Use default offset.
+#else
+#error "Unsupported architecture"
 #endif
     auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
     FrameworkElement taskbarElem = nullptr;
@@ -667,7 +707,10 @@ static void StartNotificationThread() {
 static void StopNotificationThread() {
     if (g_notificationStopEvent) SetEvent(g_notificationStopEvent);
     if (g_notificationThread) {
-        WaitForSingleObject(g_notificationThread, 3000);
+        // Wait indefinitely — the thread exits as soon as it processes the stop
+        // event and completes COM cleanup. Bailing on a timeout would leave the
+        // thread running code in the mod DLL, causing a crash on unload.
+        WaitForSingleObject(g_notificationThread, INFINITE);
         CloseHandle(g_notificationThread); g_notificationThread = nullptr;
     }
     if (g_notificationStopEvent) {
@@ -1620,6 +1663,8 @@ static bool InjectButtonGrid(FrameworkElement root) {
     }
 
     Grid::SetColumn(grid, insertCol);
+    // Ensure our grid renders and receives hits above any span-widened elements.
+    Canvas::SetZIndex(grid, 100);
     gridParent.Children().Append(grid);
     g_buttonGrid      = grid;
     g_injectionParent = parent;
@@ -1808,22 +1853,11 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
 using LoadLibraryExW_t = HMODULE (WINAPI*)(LPCWSTR, HANDLE, DWORD);
 LoadLibraryExW_t LoadLibraryExW_Original;
 
-HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR path, HANDLE file, DWORD flags) {
-    HMODULE h = LoadLibraryExW_Original(path, file, flags);
-    if (h && path && !g_taskbarViewDllLoaded) {
-        const wchar_t* base = wcsrchr(path, L'\\');
-        base = base ? base + 1 : path;
-        if (_wcsicmp(base, L"Taskbar.View.dll") == 0) {
-            // Taskbar.View.dll
-            WindhawkUtils::SYMBOL_HOOK taskbarViewHooks[] = {{
-                {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
-                &IconView_IconView_Original, IconView_IconView_Hook,
-            }};
-            if (WindhawkUtils::HookSymbols(h, taskbarViewHooks, ARRAYSIZE(taskbarViewHooks)))
-                g_taskbarViewDllLoaded = true;
-        }
-    }
-    return h;
+HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags) {
+    HMODULE hModule = LoadLibraryExW_Original(lpLibFileName, hFile, dwFlags);
+    if (hModule && lpLibFileName)
+        HandleLoadedModuleIfSystemTray(hModule, lpLibFileName);
+    return hModule;
 }
 
 // ============================================================
@@ -1846,22 +1880,25 @@ static bool HookTaskbarDllSymbols() {
     return WindhawkUtils::HookSymbols(h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
-static bool HookTaskbarViewDllSymbols(HMODULE h) {
-    // Taskbar.View.dll
-    WindhawkUtils::SYMBOL_HOOK taskbarViewHooks[] = {{
+static bool HookSystemTraySymbols(HMODULE hModule) {
+    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original, IconView_IconView_Hook,
     }};
-    if (!WindhawkUtils::HookSymbols(h, taskbarViewHooks, ARRAYSIZE(taskbarViewHooks))) return false;
-    g_taskbarViewDllLoaded = true;
+    if (!WindhawkUtils::HookSymbols(hModule, hooks, ARRAYSIZE(hooks))) {
+        Wh_Log(L"[Hooks] HookSymbols failed");
+        return false;
+    }
     return true;
 }
 
-static HMODULE GetTaskbarViewModule() {
-    for (auto* name : { L"Taskbar.View.dll", L"taskbar.view.dll" }) {
-        if (HMODULE h = GetModuleHandleW(name)) return h;
+static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName) {
+    if (!g_systemTrayModuleHooked && GetSystemTrayModuleHandle() == hModule &&
+        !g_systemTrayModuleHooked.exchange(true)) {
+        Wh_Log(L"[LoadLib] %s — hooking symbols", lpLibFileName);
+        if (HookSystemTraySymbols(hModule))
+            Wh_ApplyHookOperations();
     }
-    return nullptr;
 }
 
 // ============================================================
@@ -1869,31 +1906,42 @@ static HMODULE GetTaskbarViewModule() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] VD Switcher v1.1");
+    Wh_Log(L"[Init] VD Switcher v1.3");
     LoadSettings();
     DetectExplorerBuild();
 
     if (!HookTaskbarDllSymbols())
         Wh_Log(L"[Init] taskbar.dll hooks failed — GetTaskbarXamlRoot unavailable");
 
-    if (HMODULE h = GetTaskbarViewModule()) {
-        if (!HookTaskbarViewDllSymbols(h))
-            Wh_Log(L"[Init] Taskbar.View.dll hooks failed");
+    if (HMODULE hSystemTray = GetSystemTrayModuleHandle()) {
+        g_systemTrayModuleHooked = true;
+        if (!HookSystemTraySymbols(hSystemTray))
+            Wh_Log(L"[Init] System tray symbol hooks failed");
     } else {
-        HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
-        auto pLLEW = kb ? (LoadLibraryExW_t)GetProcAddress(kb, "LoadLibraryExW") : nullptr;
-        if (pLLEW)
-            Wh_SetFunctionHook((void*)pLLEW, (void*)LoadLibraryExW_Hook, (void**)&LoadLibraryExW_Original);
+        Wh_Log(L"[Init] System tray module not loaded yet");
+        HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
+        auto pLoadLibraryExW = kernelbase
+            ? reinterpret_cast<LoadLibraryExW_t>(GetProcAddress(kernelbase, "LoadLibraryExW"))
+            : nullptr;
+        if (pLoadLibraryExW)
+            WindhawkUtils::Wh_SetFunctionHookT(pLoadLibraryExW,
+                                               LoadLibraryExW_Hook,
+                                               &LoadLibraryExW_Original);
     }
     return TRUE;
 }
 
 void Wh_ModAfterInit() {
-    if (!g_taskbarViewDllLoaded) {
-        if (HMODULE h = GetTaskbarViewModule())
-            HookTaskbarViewDllSymbols(h);
+    if (!g_systemTrayModuleHooked) {
+        if (HMODULE hSystemTray = GetSystemTrayModuleHandle()) {
+            if (!g_systemTrayModuleHooked.exchange(true)) {
+                Wh_Log(L"[AfterInit] System tray module found — hooking symbols");
+                if (HookSystemTraySymbols(hSystemTray))
+                    Wh_ApplyHookOperations();
+            }
+        }
     }
-    if (g_taskbarViewDllLoaded)
+    if (g_systemTrayModuleHooked)
         ApplyAllSettingsOnWindowThread();
 
     g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
@@ -1931,20 +1979,15 @@ void Wh_ModSettingsChanged() {
     Wh_Log(L"[Settings] Changed");
 
     StopRetryThread();
-    // Signal notification thread to stop; it will be restarted by ApplyAllSettings.
-    if (g_notificationStopEvent) SetEvent(g_notificationStopEvent);
+    // Stop desktop-change callbacks before rebuilding tray columns. A late
+    // callback during settings save can otherwise rebuild the old bar while the
+    // UI thread is removing/reinserting columns.
+    StopNotificationThread();
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return;
 
     RunFromWindowThread(hWnd, [](void*) {
-        if (g_notificationThread) {
-            WaitForSingleObject(g_notificationThread, 1000);
-            CloseHandle(g_notificationThread); g_notificationThread = nullptr;
-        }
-        if (g_notificationStopEvent) {
-            CloseHandle(g_notificationStopEvent); g_notificationStopEvent = nullptr;
-        }
         RemoveButtonGrid();
         ApplyAllSettings();
     }, nullptr);

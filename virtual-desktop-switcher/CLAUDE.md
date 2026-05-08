@@ -1,6 +1,6 @@
 # CLAUDE.md — Virtual Desktop Switcher
 
-## Status: v1.2 — experimental nextToStart fixed, needs test
+## Status: v1.3 — hook infrastructure updated, crash-on-disable fixed, needs PR push
 
 Single file: [virtual-desktop-switcher.wh.cpp](virtual-desktop-switcher.wh.cpp)
 Design doc: [../_claude_notes/virtual-desktop-switcher-design.md](../_claude_notes/virtual-desktop-switcher-design.md)
@@ -12,7 +12,7 @@ Click switches directly to that desktop. Grid auto-sizes rows from taskbar heigh
 
 ## Architecture
 
-- Hook: `IconView::IconView` from `Taskbar.View.dll` triggers `ApplyAllSettings` once
+- Hook: `IconView::IconView` from `SystemTray.dll`/`Taskbar.View.dll`/`ExplorerExtensions.dll` (via `GetSystemTrayModuleHandle`) triggers `ApplyAllSettings` once
 - `GetTaskbarXamlRoot` → find `SystemTrayFrameGrid`
 - `InjectButtonGrid` → inserts a new `ColumnDefinition`, shifts existing columns, places `Grid`
 - Notification thread (STA): `IVirtualDesktopNotificationService` → `Notif_CurrentChanged`
