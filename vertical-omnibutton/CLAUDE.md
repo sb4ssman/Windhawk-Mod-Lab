@@ -19,7 +19,7 @@ from horizontal to vertical stacking using Taskbar.View.dll symbol hooks and Get
 
 **Do not touch** `vertical-system-tray-icons.wh.cpp` — that is a different, separate mod.
 
-## Current version: 1.2
+## Current version: 1.4
 
 ## Windhawk mod basics
 

@@ -1,10 +1,16 @@
 # Working Notes — vertical-omnibutton
 
-## Current version: 1.2
+## Current version: 1.4
 
 ## Status
 
-All work complete and pushed to PR #3859 on `ramensoftware/windhawk-mods` (branch `sb4ssman-vertical-omnibutton`).
+v1.3 changes ready in lab; not yet pushed to PR #3859 (`sb4ssman-vertical-omnibutton`).
+
+v1.3 adds:
+- `buttonHorizontalPadding` setting
+- `GetSystemTrayModuleHandle()` pattern: tries SystemTray.dll → Taskbar.View.dll (version check) → ExplorerExtensions.dll
+- ARM64 arm in `GetTaskbarXamlRoot` (#elif defined(_M_ARM64))
+- Stoppable retry thread with `g_retryThread`/`g_retryStopEvent`
 
 ## What works
 

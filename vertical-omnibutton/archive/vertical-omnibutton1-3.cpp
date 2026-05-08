@@ -2,166 +2,20 @@
 // @id              vertical-omnibutton
 // @name            Vertical OmniButton
 // @description     Stacks Windows 11 wifi/volume/battery OmniButton vertically
-// @version         1.4
+// @version         1.3
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Vertical OmniButton
-
-Rearranges the Windows 11 system tray OmniButton (wifi, volume/sound, battery) from
-horizontal layout to clean vertical stacking.
-
-You gain granular control over the X-Y pixel location of each item in the button.
-
-
-## Screenshots (clock modded separately)
-
-**Stacked mode** — battery percentage as a 4th row below the battery icon:
-
-![Stacked mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-stacked.png)
-
-**Inline mode** — percentage shown within the battery icon slot:
-
-![Inline mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-inline.png)
-
-**Off mode** — battery icon only, clean three-icon stack:
-
-![Off mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-off.png)
-
-## How it works
-
-Hooks into the Windows 11 system tray implementation via symbol-based function hooks
-(`SystemTray.dll` on newer builds, `Taskbar.View.dll` on older ones). When OmniButton
-elements appear, the mod forces `Orientation=Vertical` on the inner StackPanel and
-positions each icon slot according to your settings.
-
-## Usage
-
-The mod applies automatically on startup and after explorer restarts. If icons don't appear within a few seconds of enabling the mod, toggle it off and back on in Windhawk.
-
-## Settings
-
-Default offsets are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows 
-of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align icons for your theme, scaling,
-or taskbar layout.
-
-- **Battery percentage** — Off / Inline / Stacked. All modes apply live. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is drawn off-screen via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).
-- **Button horizontal padding** — adjusts the overall OmniButton width while keeping the 32px icon column and per-icon X/Y offsets intact. Lower it to reduce the gap between the OmniButton, neighboring tray icons, and the clock.
-- **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own
-  X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
-
-## Windows 11 Taskbar Styler compatibility
-
-This mod does not use the Windows XAML Diagnostics API, so it is compatible
-with the Windows 11 Taskbar Styler out of the box — no special settings required.
-
-For basic vertical stacking without battery percentage, paste [style.yaml](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
-into Windows 11 Taskbar Styler → Settings → Advanced.
-
-## Related mods
-
-These mods inspired this one and combine well with it for a fully customized taskbar:
-
-- [Taskbar height and icon size](https://windhawk.net/mods/taskbar-icon-size) — resize the taskbar to give the vertical stack room to breathe
-- [Taskbar Clock Customization](https://windhawk.net/mods/taskbar-clock-customization) — rich clock formatting options that complement the vertical layout
-- [Multirow taskbar for Windows 11](https://windhawk.net/mods/taskbar-multirow) — span taskbar items across multiple rows
-- [Taskbar tray icon spacing and grid](https://windhawk.net/mods/taskbar-notification-icon-spacing) — control spacing and grid layout of system tray icons
-- [Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler) — full XAML-level taskbar theming; existing style.yaml configs work alongside this mod
-
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- batteryMode: "stacked"
-  $name: Battery percentage
-  $description: "Off: battery icon only — percentage is drawn off-screen (see Off mode percent settings below).\nInline: percentage shown in the battery icon slot (3rd row).\nStacked: percentage as a separate 4th row below the battery icon.\n\nAll modes apply live — no explorer restart needed. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is hidden via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).\n\nDefaults are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows of system-tray) in the Windhawk ecosystem. Use the per-mode offsets below to align icons for your theme, scaling, or taskbar layout. Suggestions welcome — open an issue or PR on GitHub."
-  $options:
-    - "off": "Off — battery icon only"
-    - "inline": "Inline — percentage in battery slot (3rd row)"
-    - "stacked": "Stacked — percentage as 4th row below battery"
-- buttonHorizontalPadding: 8
-  $name: Button horizontal padding
-  $description: "Horizontal padding on each side of the 32px icon column. Lower values make the OmniButton narrower so it sits closer to neighboring tray icons and the clock. Range: 0-24. Default: 8 (about 48px total width)."
-- offWifiX: -2
-  $name: "Off mode: Wifi X"
-  $description: "Wifi horizontal offset when battery % is Off. Negative = left, positive = right."
-- offWifiY: 0
-  $name: "Off mode: Wifi Y"
-  $description: "Wifi vertical offset when battery % is Off. Negative = up, positive = down."
-- offVolumeX: 0
-  $name: "Off mode: Volume X"
-  $description: "Volume horizontal offset when battery % is Off. Negative = left, positive = right."
-- offVolumeY: 0
-  $name: "Off mode: Volume Y"
-  $description: "Volume vertical offset when battery % is Off. Negative = up, positive = down."
-- offBatteryX: 2
-  $name: "Off mode: Battery X"
-  $description: "Battery icon horizontal offset when battery % is Off. Negative = left, positive = right."
-- offBatteryY: 0
-  $name: "Off mode: Battery Y"
-  $description: "Battery icon vertical offset when battery % is Off. Negative = up, positive = down."
-- offPercentX: 0
-  $name: "Off mode: Battery percent X"
-  $description: "Horizontal offset applied to the battery percentage text in Off mode to push it out of view. Adjust if the text bleeds into view on your theme."
-- offPercentY: 50
-  $name: "Off mode: Battery percent Y"
-  $description: "Vertical offset applied to the battery percentage text in Off mode to push it out of view. Increase if the text bleeds into view on your theme; decrease if the slot clips it cleanly already."
-- inlineWifiX: -2
-  $name: "Inline mode: Wifi X"
-  $description: "Wifi horizontal offset in Inline mode. Negative = left, positive = right."
-- inlineWifiY: 0
-  $name: "Inline mode: Wifi Y"
-  $description: "Wifi vertical offset in Inline mode. Negative = up, positive = down."
-- inlineVolumeX: 0
-  $name: "Inline mode: Volume X"
-  $description: "Volume horizontal offset in Inline mode. Negative = left, positive = right."
-- inlineVolumeY: 0
-  $name: "Inline mode: Volume Y"
-  $description: "Volume vertical offset in Inline mode. Negative = up, positive = down."
-- inlineBatteryX: 2
-  $name: "Inline mode: Battery X"
-  $description: "Battery slot horizontal offset in Inline mode. Negative = left, positive = right. Default: 2."
-- inlineBatteryY: 0
-  $name: "Inline mode: Battery Y"
-  $description: "Battery slot vertical offset in Inline mode. Negative = up, positive = down."
-- inlinePercentX: 2
-  $name: "Inline mode: Battery percent X"
-  $description: "Percentage text horizontal offset within the inline battery slot. Negative = left, positive = right."
-- inlinePercentY: -1
-  $name: "Inline mode: Battery percent Y"
-  $description: "Percentage text vertical offset within the inline battery slot. Negative = up, positive = down."
-- stackedWifiX: -2
-  $name: "Stacked mode: Wifi X"
-  $description: "Wifi horizontal offset in Stacked mode. Negative = left, positive = right."
-- stackedWifiY: 7
-  $name: "Stacked mode: Wifi Y"
-  $description: "Wifi vertical offset in Stacked mode. Negative = up, positive = down."
-- stackedVolumeX: 0
-  $name: "Stacked mode: Volume X"
-  $description: "Volume horizontal offset in Stacked mode. Negative = left, positive = right."
-- stackedVolumeY: 0
-  $name: "Stacked mode: Volume Y"
-  $description: "Volume vertical offset in Stacked mode. Negative = up, positive = down."
-- stackedBatteryX: 8
-  $name: "Stacked mode: Battery X"
-  $description: "Battery icon row horizontal offset in Stacked mode. Negative = left, positive = right. Default: 8."
-- stackedBatteryY: -6
-  $name: "Stacked mode: Battery Y"
-  $description: "Battery icon row vertical offset in Stacked mode. Negative = up, positive = down. Default: -6."
-- stackedPercentX: 2
-  $name: "Stacked mode: Battery percent X"
-  $description: "Percentage row horizontal offset in Stacked mode. Negative = left, positive = right. Default: 2."
-- stackedPercentY: -11
-  $name: "Stacked mode: Battery percent Y"
-  $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -11."
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #include <atomic>
@@ -428,6 +282,10 @@ static void ApplyOmniButtonWidth() {
     if (!g_omniButton) return;
 
     double padding = static_cast<double>(g_settings.buttonHorizontalPadding);
+    double width = 32.0 + padding * 2.0;
+
+    g_omniButton.Width(width);
+    g_omniButton.MinWidth(width);
 
     auto ctrl = g_omniButton.try_as<Control>();
     if (ctrl) {
@@ -436,21 +294,6 @@ static void ApplyOmniButtonWidth() {
         ctrl.VerticalContentAlignment(VerticalAlignment::Center);
     }
 
-    if (g_settings.batteryMode == 1) {
-        // Inline mode: battery slot has glyph + % text side by side, so it's
-        // wider than 32px. Let the button auto-size to content + padding so
-        // the hover highlight matches exactly and nothing is clipped.
-        g_omniButton.ClearValue(FrameworkElement::WidthProperty());
-        g_omniButton.ClearValue(FrameworkElement::MinWidthProperty());
-    } else {
-        // Off/stacked: all slots are 32px wide, so fix the width explicitly.
-        double width = 32.0 + padding * 2.0;
-        g_omniButton.Width(width);
-        g_omniButton.MinWidth(width);
-    }
-
-    // Prevent the button from stretching if its grid column is wider than needed.
-    g_omniButton.HorizontalAlignment(HorizontalAlignment::Left);
     g_omniButton.InvalidateMeasure();
 }
 
@@ -491,7 +334,6 @@ static void CleanupXamlElements(
             btn.ClearValue(FrameworkElement::WidthProperty());
             btn.ClearValue(FrameworkElement::MinWidthProperty());
             btn.ClearValue(FrameworkElement::HeightProperty());
-            btn.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
             btn.InvalidateMeasure();
             auto ctrl = btn.try_as<Control>();
             if (ctrl) {
@@ -739,10 +581,6 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
         else
             Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
     }
-#elif defined(_M_ARM64)
-    // Use default offset.
-#else
-#error "Unsupported architecture"
 #endif
 
     auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
@@ -943,81 +781,31 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
     return ret;
 }
 
-// ── System tray module detection and hook setup ───────────────────────────
+// ── LoadLibraryExW hook ───────────────────────────────────────────────────
 
 using LoadLibraryExW_t = decltype(&LoadLibraryExW);
 LoadLibraryExW_t LoadLibraryExW_Original;
 
-static std::atomic<bool> g_systemTrayModuleHooked = false;
-
-static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE hModule, UINT* puPtrLen) {
-    void* pFixedFileInfo = nullptr;
-    UINT uPtrLen = 0;
-    HRSRC hResource = FindResource(hModule, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
-    if (hResource) {
-        HGLOBAL hGlobal = LoadResource(hModule, hResource);
-        if (hGlobal) {
-            void* pData = LockResource(hGlobal);
-            if (pData) {
-                if (!VerQueryValue(pData, L"\\", &pFixedFileInfo, &uPtrLen) || uPtrLen == 0) {
-                    pFixedFileInfo = nullptr;
-                    uPtrLen = 0;
-                }
-            }
-        }
-    }
-    if (puPtrLen) *puPtrLen = uPtrLen;
-    return (VS_FIXEDFILEINFO*)pFixedFileInfo;
-}
-
-// Order matters: SystemTray.dll is the new home (Win11 Insider 26200+);
-// older builds have the symbols in Taskbar.View.dll.
-static HMODULE GetSystemTrayModuleHandle() {
-    HMODULE module = GetModuleHandleW(L"SystemTray.dll");
-    if (!module) {
-        module = GetModuleHandleW(L"Taskbar.View.dll");
-        if (module) {
-            // Starting with Taskbar.View.dll 2604.x, the SystemTray types moved
-            // out into SystemTray.dll — don't hook this version.
-            VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(module, nullptr);
-            WORD moduleMajor = fi ? HIWORD(fi->dwFileVersionMS) : 0;
-            if (!moduleMajor || moduleMajor >= 2604) {
-                Wh_Log(L"[Hooks] Skipping Taskbar.View.dll version %d", moduleMajor);
-                module = nullptr;
-            }
-        }
-    }
-    if (!module)
-        module = GetModuleHandleW(L"ExplorerExtensions.dll");
-    return module;
-}
-
-static bool HookSystemTraySymbols(HMODULE hModule) {
-    // SystemTray.dll, Taskbar.View.dll
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
-        {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
-        &IconView_IconView_Original, IconView_IconView_Hook,
-    }};
-    if (!WindhawkUtils::HookSymbols(hModule, hooks, ARRAYSIZE(hooks))) {
-        Wh_Log(L"[Hooks] HookSymbols failed");
-        return false;
-    }
-    return true;
-}
-
-static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName) {
-    if (!g_systemTrayModuleHooked && GetSystemTrayModuleHandle() == hModule &&
-        !g_systemTrayModuleHooked.exchange(true)) {
-        Wh_Log(L"[LoadLib] %s — hooking symbols", lpLibFileName);
-        if (HookSystemTraySymbols(hModule))
-            Wh_ApplyHookOperations();
-    }
-}
+static bool g_taskbarViewDllLoaded = false;
 
 HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags) {
     HMODULE hModule = LoadLibraryExW_Original(lpLibFileName, hFile, dwFlags);
-    if (hModule && lpLibFileName)
-        HandleLoadedModuleIfSystemTray(hModule, lpLibFileName);
+    if (hModule && lpLibFileName) {
+        const wchar_t* base = wcsrchr(lpLibFileName, L'\\');
+        base = base ? (base + 1) : lpLibFileName;
+        if (!g_taskbarViewDllLoaded && _wcsicmp(base, L"Taskbar.View.dll") == 0) {
+            Wh_Log(L"[LoadLib] Taskbar.View.dll loaded — hooking symbols");
+            // Taskbar.View.dll
+            WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+                {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
+                &IconView_IconView_Original, IconView_IconView_Hook,
+            }};
+            if (WindhawkUtils::HookSymbols(hModule, hooks, ARRAYSIZE(hooks)))
+                g_taskbarViewDllLoaded = true;
+            else
+                Wh_Log(L"[LoadLib] HookSymbols failed for Taskbar.View.dll");
+        }
+    }
     return hModule;
 }
 
@@ -1049,47 +837,65 @@ static bool HookTaskbarDllSymbols() {
     return WindhawkUtils::HookSymbols(hTaskbar, hooks, ARRAYSIZE(hooks));
 }
 
+static bool HookTaskbarViewDllSymbols(HMODULE hTaskbarView) {
+    // Taskbar.View.dll
+    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+        {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
+        &IconView_IconView_Original, IconView_IconView_Hook,
+    }};
+    if (!WindhawkUtils::HookSymbols(hTaskbarView, hooks, ARRAYSIZE(hooks)))
+        return false;
+    g_taskbarViewDllLoaded = true;
+    return true;
+}
+
+static HMODULE GetTaskbarViewModuleHandle() {
+    static const WCHAR* names[] = { L"Taskbar.View.dll", L"taskbar.view.dll" };
+    for (auto name : names) {
+        HMODULE h = GetModuleHandleW(name);
+        if (h) return h;
+    }
+    return nullptr;
+}
+
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Vertical OmniButton v1.4");
+    Wh_Log(L"[Init] Vertical OmniButton v1.3");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
         Wh_Log(L"[Init] taskbar.dll symbol hooks failed — continuing without GetTaskbarXamlRoot");
 
-    if (HMODULE hSystemTray = GetSystemTrayModuleHandle()) {
-        g_systemTrayModuleHooked = true;
-        if (!HookSystemTraySymbols(hSystemTray))
-            Wh_Log(L"[Init] System tray symbol hooks failed");
+    if (HMODULE hTaskbarView = GetTaskbarViewModuleHandle()) {
+        if (!HookTaskbarViewDllSymbols(hTaskbarView))
+            Wh_Log(L"[Init] Taskbar.View.dll symbol hooks failed");
     } else {
-        Wh_Log(L"[Init] System tray module not loaded yet");
         HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
         auto pLoadLibraryExW = kernelbase
             ? reinterpret_cast<LoadLibraryExW_t>(GetProcAddress(kernelbase, "LoadLibraryExW"))
             : nullptr;
-        if (pLoadLibraryExW)
-            WindhawkUtils::Wh_SetFunctionHookT(pLoadLibraryExW,
-                                               LoadLibraryExW_Hook,
-                                               &LoadLibraryExW_Original);
+        if (pLoadLibraryExW) {
+            Wh_SetFunctionHook((void*)pLoadLibraryExW,
+                                (void*)LoadLibraryExW_Hook,
+                                (void**)&LoadLibraryExW_Original);
+            Wh_Log(L"[Init] LoadLibraryExW hook queued (waiting for Taskbar.View.dll)");
+        }
     }
 
     return TRUE;
 }
 
 void Wh_ModAfterInit() {
-    if (!g_systemTrayModuleHooked) {
-        if (HMODULE hSystemTray = GetSystemTrayModuleHandle()) {
-            if (!g_systemTrayModuleHooked.exchange(true)) {
-                Wh_Log(L"[AfterInit] System tray module found — hooking symbols");
-                if (HookSystemTraySymbols(hSystemTray))
-                    Wh_ApplyHookOperations();
-            }
+    if (!g_taskbarViewDllLoaded) {
+        if (HMODULE hTaskbarView = GetTaskbarViewModuleHandle()) {
+            Wh_Log(L"[AfterInit] Taskbar.View.dll found — hooking symbols");
+            HookTaskbarViewDllSymbols(hTaskbarView);
         }
     }
-    if (g_systemTrayModuleHooked)
+    if (g_taskbarViewDllLoaded)
         ApplyAllSettingsOnWindowThread();
-    Wh_Log(L"[AfterInit] systemTrayModuleHooked=%d", (int)g_systemTrayModuleHooked.load());
+    Wh_Log(L"[AfterInit] taskbarViewLoaded=%d", (int)g_taskbarViewDllLoaded);
 
     // Retry on a stoppable background thread to handle early-startup timing
     // where the XAML tree isn't ready when the mod first loads into explorer.
