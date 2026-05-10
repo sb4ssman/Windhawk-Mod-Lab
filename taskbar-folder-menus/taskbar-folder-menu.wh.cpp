@@ -354,6 +354,12 @@ static HANDLE g_retryThread = nullptr;
 static HANDLE g_retryStopEvent = nullptr;
 static bool   g_taskbarViewDllLoaded = false;
 
+// Lazy menu loading state (per-ShowFolderMenu call, single-threaded UI).
+static UINT                     g_menuNextId = 1000;
+static std::vector<std::wstring> g_menuIdToPath;
+struct PendingSubmenu { HMENU hmenu; std::wstring path; int depth; };
+static std::vector<PendingSubmenu> g_pendingSubmenus;
+
 // Forward declarations
 static void ApplyAllSettings();
 static void ApplyAllSettingsOnWindowThread();
@@ -387,9 +393,11 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     void* taskbarHostSharedPtr[2]{};
     CTaskBand_GetTaskbarHost_Original(taskBandForSite, taskbarHostSharedPtr);
     if (!taskbarHostSharedPtr[0] && !taskbarHostSharedPtr[1]) return nullptr;
-    size_t offset = 0x48;
+    size_t offset = 0x10;
 #if defined(_M_X64)
     {
+        // 48:83EC 28 | sub rsp,28
+        // 48:83C1 48 | add rcx,48
         const BYTE* b = (const BYTE*)TaskbarHost_FrameHeight_Original;
         if (b[0] == 0x48 && b[1] == 0x83 && b[2] == 0xEC && b[4] == 0x48 &&
             b[5] == 0x83 && b[6] == 0xC1 && b[7] <= 0x7F)
@@ -397,6 +405,21 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
         else
             Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
     }
+#elif defined(_M_ARM64)
+    {
+        // 7f2303d5 pacibsp
+        // fd7bbfa9 stp     fp, lr, [sp, #-0x10]!
+        // fd030091 mov     fp, sp
+        // 080c41f8 ldr     x8, [x0, #0x10]!
+        const DWORD* p = (const DWORD*)TaskbarHost_FrameHeight_Original;
+        if (p[0] == 0xD503237F && (p[1] & 0xFFC07FFF) == 0xA9807BFD &&
+            p[2] == 0x910003FD && (p[3] & 0xFFF00FE0) == 0xF8400C00)
+            offset = (p[3] >> 12) & 0xFF;
+        else
+            Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
+    }
+#else
+#error "Unsupported architecture"
 #endif
     auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
     FrameworkElement taskbarElem = nullptr;
@@ -534,26 +557,46 @@ static std::vector<MenuItemInfo> EnumerateFolder(std::wstring const& folder) {
     return items;
 }
 
-static void AddFolderItemsToMenu(HMENU menu, std::wstring const& folder,
-                                 int depth, UINT& nextId,
-                                 std::vector<std::wstring>& idToPath) {
+static void AddFolderItemsToMenu(HMENU menu, std::wstring const& folder, int depth) {
     auto items = EnumerateFolder(folder);
     if (items.empty()) {
         AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"(empty)");
         return;
     }
-
     for (auto const& item : items) {
-        if (item.isDir && (g_settings.maxDepth == 0 || depth < g_settings.maxDepth)) {
+        bool canExpand = item.isDir && (g_settings.maxDepth == 0 || depth < g_settings.maxDepth);
+        if (canExpand) {
             HMENU sub = CreatePopupMenu();
-            AddFolderItemsToMenu(sub, item.path, depth + 1, nextId, idToPath);
+            AppendMenuW(sub, MF_STRING | MF_GRAYED, 0, L"Loading...");
+            g_pendingSubmenus.push_back({ sub, item.path, depth + 1 });
             AppendMenuW(menu, MF_POPUP | MF_STRING, (UINT_PTR)sub, item.name.c_str());
         } else {
-            UINT id = nextId++;
-            idToPath.push_back(item.path);
+            UINT id = g_menuNextId++;
+            g_menuIdToPath.push_back(item.path);
             AppendMenuW(menu, MF_STRING, id, item.name.c_str());
         }
     }
+}
+
+static void PopulatePendingSubmenu(HMENU hmenu) {
+    for (size_t i = 0; i < g_pendingSubmenus.size(); i++) {
+        if (g_pendingSubmenus[i].hmenu != hmenu) continue;
+        PendingSubmenu ps = std::move(g_pendingSubmenus[i]);
+        g_pendingSubmenus.erase(g_pendingSubmenus.begin() + i);
+        while (GetMenuItemCount(hmenu) > 0)
+            RemoveMenu(hmenu, 0, MF_BYPOSITION);
+        AddFolderItemsToMenu(hmenu, ps.path, ps.depth);
+        return;
+    }
+}
+
+static LRESULT CALLBACK MenuMsgFilterProc(int nCode, WPARAM /*wParam*/, LPARAM lParam) {
+    if (nCode == MSGF_MENU && lParam) {
+        const MSG* msg = (const MSG*)lParam;
+        if (msg->message == WM_INITMENUPOPUP)
+            PopulatePendingSubmenu((HMENU)msg->wParam);
+    }
+    return CallNextHookEx(nullptr, nCode, 0, lParam);
 }
 
 static void ShowFolderMenu(FolderEntry folder) {
@@ -561,30 +604,36 @@ static void ShowFolderMenu(FolderEntry folder) {
     if (!owner)
         owner = GetForegroundWindow();
 
-    HMENU menu = CreatePopupMenu();
-    UINT nextId = 1000;
-    std::vector<std::wstring> idToPath;
+    g_menuNextId = 1000;
+    g_menuIdToPath.clear();
+    g_pendingSubmenus.clear();
 
+    HMENU menu = CreatePopupMenu();
     DWORD attrs = GetFileAttributesW(folder.path.c_str());
     if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
         AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"(folder not found)");
     } else {
-        AddFolderItemsToMenu(menu, folder.path, 0, nextId, idToPath);
+        AddFolderItemsToMenu(menu, folder.path, 0);
     }
 
     POINT pt;
     GetCursorPos(&pt);
     SetForegroundWindow(owner);
+
+    HHOOK hook = SetWindowsHookEx(WH_MSGFILTER, MenuMsgFilterProc,
+                                  nullptr, GetCurrentThreadId());
     UINT cmd = TrackPopupMenu(menu,
         TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY | TPM_BOTTOMALIGN,
         pt.x, pt.y, 0, owner, nullptr);
+    if (hook) UnhookWindowsHookEx(hook);
+
+    g_pendingSubmenus.clear();
 
     if (cmd >= 1000) {
         size_t idx = cmd - 1000;
-        if (idx < idToPath.size()) {
-            ShellExecuteW(owner, L"open", idToPath[idx].c_str(),
+        if (idx < g_menuIdToPath.size())
+            ShellExecuteW(owner, L"open", g_menuIdToPath[idx].c_str(),
                           nullptr, nullptr, SW_SHOWNORMAL);
-        }
     }
 
     DestroyMenu(menu);

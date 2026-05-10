@@ -20,22 +20,22 @@
     }
 
     main {
-      width: min(680px, calc(100vw - 32px));
+      width: min(720px, calc(100vw - 32px));
       display: grid;
       gap: 16px;
+      padding: 24px 0;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 650;
-    }
+    h1 { margin: 0; font-size: 24px; font-weight: 650; }
+    h2 { margin: 0; font-size: 15px; font-weight: 600; }
 
-    p {
+    p, li {
       margin: 0;
       line-height: 1.45;
       color: color-mix(in srgb, CanvasText 78%, Canvas);
     }
+
+    ul { margin: 0; padding-left: 20px; }
 
     section {
       border: 1px solid color-mix(in srgb, CanvasText 22%, Canvas);
@@ -45,10 +45,22 @@
       gap: 12px;
     }
 
+    .note {
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: color-mix(in srgb, CanvasText 6%, Canvas);
+      color: color-mix(in srgb, CanvasText 65%, Canvas);
+      line-height: 1.5;
+    }
+
+    .note strong { color: CanvasText; }
+
     .buttons {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      align-items: center;
     }
 
     button {
@@ -67,10 +79,36 @@
       cursor: default;
     }
 
+    .status {
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .status.active {
+      display: inline-block;
+      background: color-mix(in srgb, #4CAF50 18%, Canvas);
+      color: color-mix(in srgb, #4CAF50 90%, CanvasText);
+      border: 1px solid color-mix(in srgb, #4CAF50 35%, Canvas);
+    }
+
+    video#camPreview {
+      display: none;
+      width: 160px;
+      height: 90px;
+      border-radius: 6px;
+      border: 1px solid color-mix(in srgb, CanvasText 22%, Canvas);
+      background: #000;
+      object-fit: cover;
+    }
+
+    video#camPreview.visible { display: block; }
+
     pre {
       margin: 0;
-      min-height: 120px;
-      max-height: 240px;
+      min-height: 100px;
+      max-height: 220px;
       overflow: auto;
       padding: 12px;
       border-radius: 6px;
@@ -84,40 +122,101 @@
   <main>
     <h1>Privacy Indicator Trigger Test</h1>
     <p>
-      Use this from a localhost server in Edge or Chrome. The microphone buttons
-      should light the Windows privacy indicator while capture is active. The
-      location buttons depend on Windows location permissions and browser support.
+      Run from a localhost server (use <code>privacy-trigger-server.ps1</code>).
+      Each section triggers the corresponding Windows privacy indicator while
+      the capture is active.
     </p>
 
     <section>
-      <h2>Microphone</h2>
+      <h2>🎤 Microphone</h2>
       <div class="buttons">
         <button id="startMic">Start microphone</button>
         <button id="stopMic" disabled>Stop microphone</button>
+        <span class="status" id="micStatus">● Active</span>
       </div>
+      <p class="note">
+        The Windows microphone tray icon should appear (or brighten if the Privacy Anchor mod
+        is running) while capture is active.
+      </p>
     </section>
 
     <section>
-      <h2>Location</h2>
+      <h2>📷 Camera / Webcam</h2>
+      <div class="buttons">
+        <button id="startCam">Start camera</button>
+        <button id="stopCam" disabled>Stop camera</button>
+        <span class="status" id="camStatus">● Active</span>
+        <video id="camPreview" autoplay muted playsinline></video>
+      </div>
+      <p class="note">
+        <strong>Camera tray indicator is off by default in Windows 11.</strong>
+        To enable it, set <code>NoPhysicalCameraLED = 1 (DWORD)</code> at
+        <code>HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentPolicies\</code>
+        and restart, or use a device that has no hardware camera LED (Windows will
+        show the software indicator automatically). The Privacy Anchor mod's camera
+        placeholder is experimental — its dim/bright state will only change if
+        Windows surfaces a camera glyph in the tray.
+      </p>
+    </section>
+
+    <section>
+      <h2>🎤 + 📷 Microphone &amp; Camera together</h2>
+      <div class="buttons">
+        <button id="startBoth">Start mic + camera</button>
+        <button id="stopBoth" disabled>Stop both</button>
+        <span class="status" id="bothStatus">● Active</span>
+        <video id="bothPreview" autoplay muted playsinline style="display:none;width:160px;height:90px;border-radius:6px;border:1px solid color-mix(in srgb, CanvasText 22%, Canvas);background:#000;object-fit:cover;"></video>
+      </div>
+      <p class="note">
+        Tests the combined mic+location glyph (0xF47F) that Windows shows when
+        both are active simultaneously. Also good for verifying grid layouts in
+        the Privacy Anchor mod.
+      </p>
+    </section>
+
+    <section>
+      <h2>📍 Location</h2>
       <div class="buttons">
         <button id="getLocation">Get location once</button>
         <button id="watchLocation">Watch location</button>
         <button id="stopLocation" disabled>Stop location watch</button>
+        <span class="status" id="locStatus">● Watching</span>
       </div>
+      <p class="note">
+        Requires Windows location permissions and browser permission. The location
+        tray icon appears while Windows is actively resolving position.
+        "Watch location" keeps the indicator active longer.
+      </p>
     </section>
 
     <pre id="log" aria-live="polite"></pre>
   </main>
 
   <script>
-    const logEl = document.querySelector("#log");
-    const startMic = document.querySelector("#startMic");
-    const stopMic = document.querySelector("#stopMic");
-    const getLocation = document.querySelector("#getLocation");
-    const watchLocation = document.querySelector("#watchLocation");
-    const stopLocation = document.querySelector("#stopLocation");
+    const logEl       = document.querySelector("#log");
 
-    let micStream = null;
+    const startMic    = document.querySelector("#startMic");
+    const stopMic     = document.querySelector("#stopMic");
+    const micStatus   = document.querySelector("#micStatus");
+
+    const startCam    = document.querySelector("#startCam");
+    const stopCam     = document.querySelector("#stopCam");
+    const camStatus   = document.querySelector("#camStatus");
+    const camPreview  = document.querySelector("#camPreview");
+
+    const startBoth   = document.querySelector("#startBoth");
+    const stopBoth    = document.querySelector("#stopBoth");
+    const bothStatus  = document.querySelector("#bothStatus");
+    const bothPreview = document.querySelector("#bothPreview");
+
+    const getLocation    = document.querySelector("#getLocation");
+    const watchLocation  = document.querySelector("#watchLocation");
+    const stopLocation   = document.querySelector("#stopLocation");
+    const locStatus      = document.querySelector("#locStatus");
+
+    let micStream       = null;
+    let camStream       = null;
+    let bothStream      = null;
     let locationWatchId = null;
 
     function log(message) {
@@ -126,66 +225,113 @@
       logEl.scrollTop = logEl.scrollHeight;
     }
 
+    function stopTracks(stream) {
+      if (stream) for (const t of stream.getTracks()) t.stop();
+    }
+
+    // ── Microphone ─────────────────────────────────────────────
+
     startMic.addEventListener("click", async () => {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         startMic.disabled = true;
         stopMic.disabled = false;
-        log("Microphone capture started. The taskbar privacy icon should be active.");
-      } catch (error) {
-        log(`Microphone failed: ${error.name}: ${error.message}`);
+        micStatus.classList.add("active");
+        log("Microphone active — taskbar mic indicator should light up.");
+      } catch (e) {
+        log(`Microphone error: ${e.name}: ${e.message}`);
       }
     });
 
     stopMic.addEventListener("click", () => {
-      if (micStream) {
-        for (const track of micStream.getTracks()) {
-          track.stop();
-        }
-        micStream = null;
-      }
+      stopTracks(micStream);
+      micStream = null;
       startMic.disabled = false;
       stopMic.disabled = true;
-      log("Microphone capture stopped. The indicator should return to idle.");
+      micStatus.classList.remove("active");
+      log("Microphone stopped.");
     });
 
-    function reportPosition(position) {
-      const { latitude, longitude, accuracy } = position.coords;
-      log(`Location received: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} +/- ${Math.round(accuracy)}m`);
+    // ── Camera ─────────────────────────────────────────────────
+
+    startCam.addEventListener("click", async () => {
+      try {
+        camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        camPreview.srcObject = camStream;
+        camPreview.classList.add("visible");
+        startCam.disabled = true;
+        stopCam.disabled = false;
+        camStatus.classList.add("active");
+        log("Camera active — check tray for camera indicator (requires NoPhysicalCameraLED or no hardware LED).");
+      } catch (e) {
+        log(`Camera error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    stopCam.addEventListener("click", () => {
+      stopTracks(camStream);
+      camStream = null;
+      camPreview.srcObject = null;
+      camPreview.classList.remove("visible");
+      startCam.disabled = false;
+      stopCam.disabled = true;
+      camStatus.classList.remove("active");
+      log("Camera stopped.");
+    });
+
+    // ── Mic + Camera together ──────────────────────────────────
+
+    startBoth.addEventListener("click", async () => {
+      try {
+        bothStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        bothPreview.srcObject = bothStream;
+        bothPreview.style.display = "block";
+        startBoth.disabled = true;
+        stopBoth.disabled = false;
+        bothStatus.classList.add("active");
+        log("Mic + camera active — check for combined indicator or individual icons in grid layout.");
+      } catch (e) {
+        log(`Mic+Camera error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    stopBoth.addEventListener("click", () => {
+      stopTracks(bothStream);
+      bothStream = null;
+      bothPreview.srcObject = null;
+      bothPreview.style.display = "none";
+      startBoth.disabled = false;
+      stopBoth.disabled = true;
+      bothStatus.classList.remove("active");
+      log("Mic + camera stopped.");
+    });
+
+    // ── Location ───────────────────────────────────────────────
+
+    function reportPosition(p) {
+      const { latitude: lat, longitude: lon, accuracy: acc } = p.coords;
+      log(`Location: ${lat.toFixed(5)}, ${lon.toFixed(5)}  ±${Math.round(acc)}m`);
     }
 
-    function reportLocationError(error) {
-      log(`Location failed: ${error.code}: ${error.message}`);
+    function reportLocationError(e) {
+      log(`Location error: ${e.code}: ${e.message}`);
     }
 
     getLocation.addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        log("Geolocation API is not available in this browser.");
-        return;
-      }
-
+      if (!navigator.geolocation) { log("Geolocation unavailable."); return; }
       log("Requesting one location fix...");
-      navigator.geolocation.getCurrentPosition(reportPosition, reportLocationError, {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 15000
-      });
+      navigator.geolocation.getCurrentPosition(reportPosition, reportLocationError,
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
     });
 
     watchLocation.addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        log("Geolocation API is not available in this browser.");
-        return;
-      }
-
-      locationWatchId = navigator.geolocation.watchPosition(reportPosition, reportLocationError, {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 15000
-      });
+      if (!navigator.geolocation) { log("Geolocation unavailable."); return; }
+      locationWatchId = navigator.geolocation.watchPosition(reportPosition, reportLocationError,
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
       watchLocation.disabled = true;
       stopLocation.disabled = false;
-      log("Location watch started. The location indicator may activate while Windows resolves position.");
+      locStatus.classList.add("active");
+      log("Location watch active — location tray icon may appear.");
     });
 
     stopLocation.addEventListener("click", () => {
@@ -195,10 +341,15 @@
       }
       watchLocation.disabled = false;
       stopLocation.disabled = true;
+      locStatus.classList.remove("active");
       log("Location watch stopped.");
     });
 
-    log(`Secure context: ${window.isSecureContext ? "yes" : "no"}. Use http://localhost for best results.`);
+    // ── Init ───────────────────────────────────────────────────
+
+    log(`Secure context: ${window.isSecureContext ? "yes ✓" : "no — use http://localhost, not file://"}`);
+    log(`Supports getUserMedia: ${typeof navigator.mediaDevices?.getUserMedia === "function" ? "yes ✓" : "no"}`);
+    log(`Supports geolocation: ${typeof navigator.geolocation?.getCurrentPosition === "function" ? "yes ✓" : "no"}`);
   </script>
 </body>
 </html>

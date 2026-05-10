@@ -6,6 +6,8 @@ Go to [_claude_notes/](_claude_notes/) and read:
 1. [working_notes.md](_claude_notes/working_notes.md) — current goals, active work, key facts
 2. [work_log.md](_claude_notes/work_log.md) — completed work log (per-mod sections)
 
+Also check [_research/](_research/) for investigation notes, design docs, and open questions on specific problems.
+
 Keep notes up to date. Keep working_notes short.
 
 ## Keep README.md updated

@@ -2,12 +2,12 @@
 // @id              taskbar-clock-spacer
 // @name            Taskbar Clock Spacer
 // @description     Adds a %s% elastic spacer token to clock format strings, distributing leftover space evenly between items. Works with Taskbar Clock Customization.
-// @version         0.7
+// @version         0.8
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
@@ -81,6 +81,7 @@ items and the remaining width is distributed evenly as gaps.
 #include <vector>
 
 #include <windhawk_utils.h>
+#include <winver.h>
 
 using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::UI::Xaml::Controls;
@@ -171,7 +172,10 @@ static bool HookTaskbarDllSymbols() {
 
 static std::atomic<bool> g_unloading{false};
 static std::atomic<bool> g_scanDone{false};
-static bool              g_systemTrayModuleHooked = false;
+static std::atomic<bool> g_systemTrayModuleHooked{false};
+
+// Forward declaration
+static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName);
 
 static constexpr PCWSTR kSpacerToken    = L"%s%";
 static constexpr size_t kSpacerTokenLen = 3;
@@ -584,9 +588,36 @@ static bool HookSystemTraySymbols(HMODULE h) {
     return WindhawkUtils::HookSymbols(h, systemTrayHooks, ARRAYSIZE(systemTrayHooks));
 }
 
-static HMODULE GetSystemTrayModule() {
-    if (HMODULE h = GetModuleHandleW(L"SystemTray.dll"))      return h;
-    if (HMODULE h = GetModuleHandleW(L"Taskbar.View.dll"))    return h;
+static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE hModule, UINT* puPtrLen) {
+    void* pFixedFileInfo = nullptr;
+    UINT uPtrLen = 0;
+    HRSRC hResource = FindResourceW(hModule, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
+    if (hResource) {
+        HGLOBAL hGlobal = LoadResource(hModule, hResource);
+        if (hGlobal) {
+            void* pData = LockResource(hGlobal);
+            if (pData) {
+                if (!VerQueryValueW(pData, L"\\", &pFixedFileInfo, &uPtrLen) || !uPtrLen)
+                    pFixedFileInfo = nullptr;
+            }
+        }
+    }
+    if (puPtrLen) *puPtrLen = uPtrLen;
+    return static_cast<VS_FIXEDFILEINFO*>(pFixedFileInfo);
+}
+
+// Order matters: SystemTray.dll is the new home (Win11 Insider 26200+);
+// older builds have the symbols in Taskbar.View.dll.
+static HMODULE GetSystemTrayModuleHandle() {
+    if (HMODULE h = GetModuleHandleW(L"SystemTray.dll")) return h;
+    if (HMODULE h = GetModuleHandleW(L"Taskbar.View.dll")) {
+        // Starting with Taskbar.View.dll 2604.x, the SystemTray types moved
+        // out into SystemTray.dll — don't hook this version.
+        VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(h, nullptr);
+        WORD moduleMajor = fi ? HIWORD(fi->dwFileVersionMS) : 0;
+        if (!moduleMajor || moduleMajor >= 2604) return nullptr;
+        return h;
+    }
     if (HMODULE h = GetModuleHandleW(L"ExplorerExtensions.dll")) return h;
     return nullptr;
 }
@@ -617,38 +648,65 @@ static void ClearSpacerStates() {
     g_states.clear();
 }
 
+using LoadLibraryExW_t = HMODULE (WINAPI*)(LPCWSTR, HANDLE, DWORD);
+LoadLibraryExW_t LoadLibraryExW_Original;
+
+HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags) {
+    HMODULE hModule = LoadLibraryExW_Original(lpLibFileName, hFile, dwFlags);
+    if (hModule && lpLibFileName)
+        HandleLoadedModuleIfSystemTray(hModule, lpLibFileName);
+    return hModule;
+}
+
+static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName) {
+    if (!g_systemTrayModuleHooked && GetSystemTrayModuleHandle() == hModule &&
+        !g_systemTrayModuleHooked.exchange(true)) {
+        Wh_Log(L"[LoadLib] %s — hooking symbols", lpLibFileName);
+        if (HookSystemTraySymbols(hModule))
+            Wh_ApplyHookOperations();
+    }
+}
+
 // ============================================================
 // Windhawk lifecycle
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Clock Spacer v0.7");
+    Wh_Log(L"[Init] Clock Spacer v0.8");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
         Wh_Log(L"[Init] taskbar.dll symbols failed — initial scan disabled");
 
-    HMODULE h = GetSystemTrayModule();
-    if (h) {
-        if (HookSystemTraySymbols(h))
-            g_systemTrayModuleHooked = true;
-        else
-            Wh_Log(L"[Init] Hook failed");
+    if (HMODULE hSystemTray = GetSystemTrayModuleHandle()) {
+        g_systemTrayModuleHooked = true;
+        if (!HookSystemTraySymbols(hSystemTray))
+            Wh_Log(L"[Init] System tray symbol hooks failed");
     } else {
-        Wh_Log(L"[Init] SystemTray module not yet loaded");
+        Wh_Log(L"[Init] System tray module not loaded yet");
+        HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
+        auto pLoadLibraryExW = kernelbase
+            ? reinterpret_cast<LoadLibraryExW_t>(GetProcAddress(kernelbase, "LoadLibraryExW"))
+            : nullptr;
+        if (pLoadLibraryExW)
+            WindhawkUtils::Wh_SetFunctionHookT(pLoadLibraryExW,
+                                               LoadLibraryExW_Hook,
+                                               &LoadLibraryExW_Original);
     }
-
     return TRUE;
 }
 
 void Wh_ModAfterInit() {
     if (!g_systemTrayModuleHooked) {
-        if (HMODULE h = GetSystemTrayModule()) {
-            if (HookSystemTraySymbols(h))
-                g_systemTrayModuleHooked = true;
+        if (HMODULE hSystemTray = GetSystemTrayModuleHandle()) {
+            if (!g_systemTrayModuleHooked.exchange(true)) {
+                Wh_Log(L"[AfterInit] System tray module found — hooking symbols");
+                if (HookSystemTraySymbols(hSystemTray))
+                    Wh_ApplyHookOperations();
+            }
         }
     }
-    Wh_Log(L"[AfterInit] hooked=%d", g_systemTrayModuleHooked ? 1 : 0);
+    Wh_Log(L"[AfterInit] hooked=%d", (int)g_systemTrayModuleHooked.load());
 
     // Scan for DateTimeIconContent elements already rendered before mod load.
     HANDLE thread = CreateThread(nullptr, 0, [](void*) -> DWORD {

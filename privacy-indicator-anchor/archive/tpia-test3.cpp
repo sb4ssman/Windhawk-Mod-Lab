@@ -2,11 +2,11 @@
 // @id              tray-privacy-indicator-anchor
 // @name            Tray Privacy Indicator Anchor
 // @description     Permanently shows location/microphone/camera icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
-// @version         0.7
+// @version         0.6
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
-// @architecture    x86-64
+// @architecture    x86-64,arm64
 // @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion
 // ==/WindhawkMod==
 
@@ -14,46 +14,28 @@
 /*
 # Tray Privacy Indicator Anchor
 
-Windows 11 shows location and microphone icons in the system tray when an app
-accesses those features, then removes them — causing nearby icons to shift.
+Windows 11 shows a location/microphone/camera icon in the system tray when an app
+accesses those features, then removes it — causing nearby icons to shift.
 
-This mod injects permanent placeholder icons:
+This mod injects permanent placeholder icons into the system tray:
 
 - **Always visible** — dim when nothing is using the feature
-- **Full brightness** when the feature is actively in use
-- **Camera** — experimental placeholder; activates only on devices where
-  Windows shows a software camera indicator (requires `NoPhysicalCameraLED`
-  registry value, or a device with no hardware camera LED)
+- **Full brightness** when location, microphone, or camera is actively in use
 
-## Icon order and grid layout
+No more sudden layout shifts.
 
-`itemOrder` is a comma-separated list of icon tokens that controls which icons
-appear and in what sequence: `location`, `mic`, `camera`. Remove a token to
-hide that icon; reorder tokens to change the display order.
+## Settings
 
-`gridColumns` sets how many columns the icon bar uses:
-
-- `1` — single column (vertical stack)
-- `2` — two-column grid (default); with 3 icons this gives one short row
-- `3` or more — single row when icon count ≤ columns
-
-When one row or column has fewer icons than the rest, use `shortGroupPosition`
-and `shortGroupAlign` to control where it sits and how it's aligned:
-
-| shortGroupPosition | shortGroupAlign | Result with location,mic,camera in 2 cols |
-| --- | --- | --- |
-| last (default) | center | `[loc  mic]` / `[  cam  ]` |
-| first          | center | `[  loc  ]` / `[mic  cam]` |
-| last           | start  | `[loc  mic]` / `[cam     ]` |
-| last           | end    | `[loc  mic]` / `[     cam]` |
-
-`gridFillOrder: colFirst` fills columns instead of rows, giving vertical
-arrangements like:
-
-```
-[loc] [cam]      [loc] [mic]
-[mic] [   ]  or  [   ] [cam]   (short column centered)
-```
+- **Idle opacity** — how visible the icon is when not in use (0–100). `0` = invisible
+  but space is reserved; `100` = always full brightness.
+- **Show location icon** — include the geolocation placeholder.
+- **Show microphone icon** — include the microphone placeholder.
+- **Layout** — arrange the placeholders horizontally or vertically.
+- **Icon spacing and offsets** — tune the gap between placeholders and nudge
+  the whole bar or each icon by individual pixels.
+- **Position** — choose where the placeholder column is inserted in the tray.
+- The transient native Windows privacy icon is hidden automatically after this
+  mod reads its state.
 */
 // ==/WindhawkModReadme==
 
@@ -62,49 +44,31 @@ arrangements like:
 - idleOpacity: 50
   $name: Idle opacity (0-100)
   $description: >-
-    Opacity when no app is using the feature. 0 = invisible but space reserved;
-    100 = always full brightness.
+    Opacity when no app is using the feature. 0 = invisible but space is
+    reserved (prevents shifts); 100 = always full brightness.
 
-- itemOrder: "location,mic,camera"
-  $name: Icon order
+- showLocation: true
+  $name: Show location icon
+
+- showMic: true
+  $name: Show microphone icon
+
+- showCamera: true
+  $name: Show camera icon
   $description: >-
-    Comma-separated list of icons to show, in order. Valid tokens: location,
-    mic, camera. Remove a token to hide that icon. Reorder to change layout.
-    Camera is experimental — see mod description.
-
-- gridColumns: 2
-  $name: Grid columns
-  $description: >-
-    Number of columns. 1 = vertical stack. 2 = two-column grid (default). Set
-    to 3 or more for a single row when showing 3 icons.
-
-- gridFillOrder: "rowFirst"
-  $name: Fill order
-  $description: Whether items fill left-to-right then down, or top-to-bottom then right.
-  $options:
-  - "rowFirst": "Row-first (left to right, then down)"
-  - "colFirst": "Column-first (top to bottom, then right)"
-
-- shortGroupPosition: "last"
-  $name: Short group position
-  $description: >-
-    When icons don't fill evenly, the short row/column can be at the start or end.
-  $options:
-  - "last": "Short group at end (bottom or right)"
-  - "first": "Short group at start (top or left)"
-
-- shortGroupAlign: "center"
-  $name: Short group alignment
-  $description: >-
-    How to align icons in the short row/column. Center spans the available
-    space and centers the icon(s); start and end pin them to one side.
-  $options:
-  - "center": "Center"
-  - "start": "Start (left/top)"
-  - "end": "End (right/bottom)"
+    Include a placeholder for the camera privacy indicator (appears when an app
+    accesses the camera). Uses glyph U+E722. Verify in the Windhawk log if your
+    build uses a different character.
 
 - iconSize: 16
   $name: Icon size (pt)
+  $description: Font size for the placeholder icons. Match your taskbar density.
+
+- layoutMode: "row"
+  $name: Layout
+  $options:
+  - "row": "Side by side"
+  - "column": "Stack vertically"
 
 - position: "beforeOmni"
   $name: Position
@@ -118,39 +82,47 @@ arrangements like:
 
 - paddingLeft: 0
   $name: Padding left (px)
+  $description: Extra space to the left of the privacy icon bar.
 
 - paddingRight: 0
   $name: Padding right (px)
+  $description: Extra space to the right of the privacy icon bar.
 
 - iconSpacing: 4
   $name: Icon spacing (px)
-  $description: Gap between icons in both directions.
+  $description: Gap between the location and microphone placeholders. Applies horizontally in row layout and vertically in column layout.
 
 - barOffsetX: 0
   $name: Bar X offset (px)
-  $description: Move the entire bar left (negative) or right (positive).
+  $description: Move the entire privacy icon bar left/right. Negative = left, positive = right.
 
 - barOffsetY: 0
   $name: Bar Y offset (px)
-  $description: Move the entire bar up (negative) or down (positive).
+  $description: Move the entire privacy icon bar up/down. Negative = up, positive = down.
 
 - locationOffsetX: 0
   $name: Location X offset (px)
+  $description: Move only the location placeholder left/right.
 
 - locationOffsetY: 0
   $name: Location Y offset (px)
+  $description: Move only the location placeholder up/down.
 
 - micOffsetX: 0
   $name: Microphone X offset (px)
+  $description: Move only the microphone placeholder left/right.
 
 - micOffsetY: 0
   $name: Microphone Y offset (px)
+  $description: Move only the microphone placeholder up/down.
 
 - cameraOffsetX: 0
   $name: Camera X offset (px)
+  $description: Move only the camera placeholder left/right.
 
 - cameraOffsetY: 0
   $name: Camera Y offset (px)
+  $description: Move only the camera placeholder up/down.
 */
 // ==/WindhawkModSettings==
 
@@ -166,7 +138,6 @@ arrangements like:
 
 #include <algorithm>
 #include <atomic>
-#include <cwctype>
 #include <functional>
 #include <list>
 #include <string>
@@ -184,13 +155,12 @@ using namespace winrt::Windows::UI::Xaml::Media;
 // ============================================================
 
 struct ModSettings {
-    int  idleOpacity  = 50;
-    std::wstring itemOrder          = L"location,mic,camera";
-    int  gridColumns                = 2;
-    std::wstring gridFillOrder      = L"rowFirst";
-    std::wstring shortGroupPosition = L"last";
-    std::wstring shortGroupAlign    = L"center";
-    int  iconSize     = 16;
+    int  idleOpacity   = 50;
+    bool showLocation  = true;
+    bool showMic       = true;
+    bool showCamera    = true;
+    int  iconSize      = 16;
+    std::wstring layoutMode = L"row";
     std::wstring position = L"beforeOmni";
     int  paddingLeft  = 0;
     int  paddingRight = 0;
@@ -214,26 +184,27 @@ static std::wstring GetStringSetting(PCWSTR name, PCWSTR fallback) {
 }
 
 static void LoadSettings() {
-    auto clamp = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
-    g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity", 50), 0, 100);
-    g_settings.itemOrder            = GetStringSetting(L"itemOrder", L"location,mic,camera");
-    g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns", 2), 1, 10);
-    g_settings.gridFillOrder        = GetStringSetting(L"gridFillOrder", L"rowFirst");
-    g_settings.shortGroupPosition   = GetStringSetting(L"shortGroupPosition", L"last");
-    g_settings.shortGroupAlign      = GetStringSetting(L"shortGroupAlign", L"center");
-    g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize", 16), 8, 48);
-    g_settings.position             = GetStringSetting(L"position", L"beforeOmni");
-    g_settings.paddingLeft          = clamp(Wh_GetIntSetting(L"paddingLeft",  0), -40, 40);
-    g_settings.paddingRight         = clamp(Wh_GetIntSetting(L"paddingRight", 0), -40, 40);
-    g_settings.iconSpacing          = clamp(Wh_GetIntSetting(L"iconSpacing", 4), 0, 40);
-    g_settings.barOffsetX           = clamp(Wh_GetIntSetting(L"barOffsetX", 0), -40, 40);
-    g_settings.barOffsetY           = clamp(Wh_GetIntSetting(L"barOffsetY", 0), -40, 40);
-    g_settings.locationOffsetX      = clamp(Wh_GetIntSetting(L"locationOffsetX", 0), -40, 40);
-    g_settings.locationOffsetY      = clamp(Wh_GetIntSetting(L"locationOffsetY", 0), -40, 40);
-    g_settings.micOffsetX           = clamp(Wh_GetIntSetting(L"micOffsetX", 0), -40, 40);
-    g_settings.micOffsetY           = clamp(Wh_GetIntSetting(L"micOffsetY", 0), -40, 40);
-    g_settings.cameraOffsetX        = clamp(Wh_GetIntSetting(L"cameraOffsetX", 0), -40, 40);
-    g_settings.cameraOffsetY        = clamp(Wh_GetIntSetting(L"cameraOffsetY", 0), -40, 40);
+    auto clampPx = [](int v, int minValue, int maxValue) {
+        return std::max(minValue, std::min(maxValue, v));
+    };
+    g_settings.idleOpacity  = std::max(0, std::min(100, Wh_GetIntSetting(L"idleOpacity", 50)));
+    g_settings.showLocation = Wh_GetIntSetting(L"showLocation", 1) != 0;
+    g_settings.showMic      = Wh_GetIntSetting(L"showMic", 1) != 0;
+    g_settings.showCamera   = Wh_GetIntSetting(L"showCamera", 1) != 0;
+    g_settings.iconSize     = std::max(8, std::min(32, Wh_GetIntSetting(L"iconSize", 16)));
+    g_settings.layoutMode   = GetStringSetting(L"layoutMode", L"row");
+    g_settings.position     = GetStringSetting(L"position", L"beforeOmni");
+    g_settings.paddingLeft  = clampPx(Wh_GetIntSetting(L"paddingLeft",  0), -40, 40);
+    g_settings.paddingRight = clampPx(Wh_GetIntSetting(L"paddingRight", 0), -40, 40);
+    g_settings.iconSpacing  = clampPx(Wh_GetIntSetting(L"iconSpacing", 4), 0, 40);
+    g_settings.barOffsetX   = clampPx(Wh_GetIntSetting(L"barOffsetX", 0), -40, 40);
+    g_settings.barOffsetY   = clampPx(Wh_GetIntSetting(L"barOffsetY", 0), -40, 40);
+    g_settings.locationOffsetX = clampPx(Wh_GetIntSetting(L"locationOffsetX", 0), -40, 40);
+    g_settings.locationOffsetY = clampPx(Wh_GetIntSetting(L"locationOffsetY", 0), -40, 40);
+    g_settings.micOffsetX   = clampPx(Wh_GetIntSetting(L"micOffsetX", 0), -40, 40);
+    g_settings.micOffsetY   = clampPx(Wh_GetIntSetting(L"micOffsetY", 0), -40, 40);
+    g_settings.cameraOffsetX = clampPx(Wh_GetIntSetting(L"cameraOffsetX", 0), -40, 40);
+    g_settings.cameraOffsetY = clampPx(Wh_GetIntSetting(L"cameraOffsetY", 0), -40, 40);
 }
 
 // ============================================================
@@ -246,6 +217,7 @@ static bool              g_taskbarViewDllLoaded = false;
 static HANDLE            g_retryThread          = nullptr;
 static HANDLE            g_retryStopEvent       = nullptr;
 
+// Synthetic icon state
 static std::atomic<bool> g_locActive{false};
 static std::atomic<bool> g_micActive{false};
 static std::atomic<bool> g_camActive{false};
@@ -256,6 +228,7 @@ static TextBlock         g_camIcon         = nullptr;
 static FrameworkElement  g_syntheticParent = nullptr;
 static int               g_syntheticColumn = -1;
 
+// Tracks real privacy indicator elements so we can read their active/idle state.
 struct PrivacyState {
     enum class Type { Location, Mic, Camera, Both };
     winrt::weak_ref<FrameworkElement> iconViewRef;
@@ -308,6 +281,8 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     size_t offset = 0x10;
 #if defined(_M_X64)
     {
+        // 48:83EC 28 | sub rsp,28
+        // 48:83C1 48 | add rcx,48
         const BYTE* b = (const BYTE*)TaskbarHost_FrameHeight_Original;
         if (b[0]==0x48 && b[1]==0x83 && b[2]==0xEC && b[4]==0x48 &&
             b[5]==0x83 && b[6]==0xC1 && b[7]<=0x7F)
@@ -317,6 +292,10 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     }
 #elif defined(_M_ARM64)
     {
+        // 7f2303d5 pacibsp
+        // fd7bbfa9 stp     fp, lr, [sp, #-0x10]!
+        // fd030091 mov     fp, sp
+        // 080c41f8 ldr     x8, [x0, #0x10]!
         const DWORD* p = (const DWORD*)TaskbarHost_FrameHeight_Original;
         if (p[0] == 0xD503237F && (p[1] & 0xFFC07FFF) == 0xA9807BFD &&
             p[2] == 0x910003FD && (p[3] & 0xFFF00FE0) == 0xF8400C00)
@@ -416,8 +395,9 @@ static FrameworkElement FindChildRecursive(FrameworkElement const& element,
 // Privacy type detection
 // ============================================================
 
+// Unicode chars from taskbar-tray-system-icon-tweaks.wh.cpp (m417z).
 static PrivacyState::Type DetectPrivacyType(std::wstring_view text) {
-    if (text.empty()) return PrivacyState::Type::Location;
+    if (text.empty()) return PrivacyState::Type::Location; // default fallback
     switch (text[0]) {
         case 0xE37A: return PrivacyState::Type::Location;
         case 0xF47F: return PrivacyState::Type::Both;
@@ -435,133 +415,10 @@ static bool IsPrivacyGlyph(wchar_t c) {
            c == 0xE722;
 }
 
+// Returns true only for known privacy indicator text (glyph or empty/idle).
+// Guards against false matches on battery %, volume glyph, etc.
 static bool IsPrivacyText(std::wstring_view text) {
     return text.empty() || (text.length() == 1 && IsPrivacyGlyph(text[0]));
-}
-
-// ============================================================
-// Icon order parsing
-// ============================================================
-
-static std::vector<std::wstring> ParseItemOrder(std::wstring const& s) {
-    std::vector<std::wstring> result;
-    size_t start = 0;
-    while (start <= s.size()) {
-        size_t end = s.find(L',', start);
-        if (end == std::wstring::npos) end = s.size();
-        size_t ts = start, te = end;
-        while (ts < te && std::iswspace(s[ts])) ts++;
-        while (te > ts && std::iswspace(s[te - 1])) te--;
-        if (ts < te) {
-            std::wstring token = s.substr(ts, te - ts);
-            for (auto& c : token) c = std::towlower(c);
-            if (token == L"location" || token == L"mic" || token == L"camera") {
-                // Deduplicate
-                bool already = false;
-                for (auto& r : result) if (r == token) { already = true; break; }
-                if (!already) result.push_back(token);
-            }
-        }
-        if (end == s.size()) break;
-        start = end + 1;
-    }
-    return result;
-}
-
-// ============================================================
-// Grid placement helper (Option C)
-// ============================================================
-
-struct GridPlacement {
-    int row, col, rowSpan, colSpan;
-    HorizontalAlignment hAlign;
-    VerticalAlignment   vAlign;
-};
-
-static GridPlacement ComputeIconPlacement(
-    int i, int N, int cols,
-    bool colFirst, bool shortFirst,
-    const std::wstring& align)
-{
-    GridPlacement p;
-    p.rowSpan = 1; p.colSpan = 1;
-    p.hAlign  = HorizontalAlignment::Stretch;
-    p.vAlign  = VerticalAlignment::Stretch;
-
-    int rows = (N + cols - 1) / cols;
-
-    if (!colFirst) {
-        // Row-first: fill left-to-right, then down.
-        int remainder = N % cols;  // items in the short row (0 = no short row)
-        bool hasShort = remainder > 0;
-
-        if (!shortFirst) {
-            // Short row at end (default).
-            p.row = i / cols;
-            p.col = i % cols;
-            bool inShortRow = hasShort && (p.row == rows - 1);
-            if (inShortRow) {
-                if (remainder == 1) {
-                    if (align == L"center") { p.colSpan = cols; p.hAlign = HorizontalAlignment::Center; }
-                    else if (align == L"end") p.col = cols - 1;
-                }
-                // Multi-item short row: leave as-is (start alignment).
-            }
-        } else {
-            // Short row at start.
-            if (hasShort && i < remainder) {
-                p.row = 0;
-                p.col = i;
-                if (remainder == 1) {
-                    if (align == L"center") { p.colSpan = cols; p.hAlign = HorizontalAlignment::Center; }
-                    else if (align == L"end") p.col = cols - 1;
-                }
-            } else {
-                int j = hasShort ? i - remainder : i;
-                p.row = (hasShort ? 1 : 0) + j / cols;
-                p.col = j % cols;
-            }
-        }
-    } else {
-        // Col-first: fill top-to-bottom, then right.
-        // Each full column gets `rows` items. The short column has (N % rows) items.
-        int itemsPerFullCol = rows;
-        int fullCols        = N / itemsPerFullCol;
-        int remainder       = N % itemsPerFullCol;  // items in short col (0 = no short col)
-        bool hasShort       = remainder > 0;
-
-        if (!shortFirst) {
-            // Short col at end (default).
-            if (i < fullCols * itemsPerFullCol) {
-                p.col = i / itemsPerFullCol;
-                p.row = i % itemsPerFullCol;
-            } else {
-                int j = i - fullCols * itemsPerFullCol;
-                p.col = fullCols;
-                p.row = j;
-                if (remainder == 1) {
-                    if (align == L"center") { p.rowSpan = rows; p.vAlign = VerticalAlignment::Center; }
-                    else if (align == L"end") p.row = rows - 1;
-                }
-            }
-        } else {
-            // Short col at start.
-            if (hasShort && i < remainder) {
-                p.col = 0;
-                p.row = i;
-                if (remainder == 1) {
-                    if (align == L"center") { p.rowSpan = rows; p.vAlign = VerticalAlignment::Center; }
-                    else if (align == L"end") p.row = rows - 1;
-                }
-            } else {
-                int j = hasShort ? i - remainder : i;
-                p.col = (hasShort ? 1 : 0) + j / itemsPerFullCol;
-                p.row = j % itemsPerFullCol;
-            }
-        }
-    }
-
-    return p;
 }
 
 // ============================================================
@@ -570,13 +427,17 @@ static GridPlacement ComputeIconPlacement(
 
 static void UpdateSyntheticOpacity() {
     double idleOp = g_settings.idleOpacity / 100.0;
-    if (g_locIcon) g_locIcon.Opacity(g_locActive.load() ? 1.0 : idleOp);
-    if (g_micIcon) g_micIcon.Opacity(g_micActive.load() ? 1.0 : idleOp);
-    if (g_camIcon) g_camIcon.Opacity(g_camActive.load() ? 1.0 : idleOp);
+    if (g_locIcon)
+        g_locIcon.Opacity(g_locActive.load() ? 1.0 : idleOp);
+    if (g_micIcon)
+        g_micIcon.Opacity(g_micActive.load() ? 1.0 : idleOp);
+    if (g_camIcon)
+        g_camIcon.Opacity(g_camActive.load() ? 1.0 : idleOp);
 }
 
 static void SetIconTooltip(TextBlock const& tb, PCWSTR label, bool active) {
     if (!tb) return;
+
     winrt::hstring state = active ? L"In use" : L"Not requested";
     winrt::hstring tooltip = winrt::hstring(label) + L" Privacy:\n" + state;
     ToolTipService::SetToolTip(tb, winrt::box_value(tooltip));
@@ -585,9 +446,12 @@ static void SetIconTooltip(TextBlock const& tb, PCWSTR label, bool active) {
 }
 
 static void UpdateSyntheticTooltips() {
-    if (g_locIcon) SetIconTooltip(g_locIcon, L"Location",    g_locActive.load());
-    if (g_micIcon) SetIconTooltip(g_micIcon, L"Microphone",  g_micActive.load());
-    if (g_camIcon) SetIconTooltip(g_camIcon, L"Camera",      g_camActive.load());
+    if (g_locIcon)
+        SetIconTooltip(g_locIcon, L"Location", g_locActive.load());
+    if (g_micIcon)
+        SetIconTooltip(g_micIcon, L"Microphone", g_micActive.load());
+    if (g_camIcon)
+        SetIconTooltip(g_camIcon, L"Camera", g_camActive.load());
 }
 
 static void UpdateSyntheticState() {
@@ -597,9 +461,15 @@ static void UpdateSyntheticState() {
 
 static void SetPrivacyActive(PrivacyState::Type type, bool active) {
     switch (type) {
-        case PrivacyState::Type::Location: g_locActive.store(active); break;
-        case PrivacyState::Type::Mic:      g_micActive.store(active); break;
-        case PrivacyState::Type::Camera:   g_camActive.store(active); break;
+        case PrivacyState::Type::Location:
+            g_locActive.store(active);
+            break;
+        case PrivacyState::Type::Mic:
+            g_micActive.store(active);
+            break;
+        case PrivacyState::Type::Camera:
+            g_camActive.store(active);
+            break;
         case PrivacyState::Type::Both:
             g_locActive.store(active);
             g_micActive.store(active);
@@ -624,14 +494,30 @@ static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
     if (!fe) return;
     if (x != 0 || y != 0) {
         TranslateTransform tt;
-        tt.X((double)x); tt.Y((double)y);
+        tt.X((double)x);
+        tt.Y((double)y);
         fe.RenderTransform(tt);
     } else {
         fe.ClearValue(UIElement::RenderTransformProperty());
     }
 }
 
+static void ApplyIconSpacing(FrameworkElement const& fe, bool vertical, bool hasNextIcon) {
+    if (!fe) return;
+    if (!hasNextIcon || g_settings.iconSpacing <= 0) {
+        fe.ClearValue(FrameworkElement::MarginProperty());
+        return;
+    }
+
+    if (vertical)
+        fe.Margin({ 0.0, 0.0, 0.0, (double)g_settings.iconSpacing });
+    else
+        fe.Margin({ 0.0, 0.0, (double)g_settings.iconSpacing, 0.0 });
+}
+
 static bool InjectSyntheticIcons(FrameworkElement root) {
+    // Find SystemTrayFrameGrid by recursive name search (same approach as VDS).
+    // FindChildByClassName is shallow; SystemTrayFrameGrid is nested several levels deep.
     auto gridElem = FindChildRecursive(root, [](FrameworkElement fe) {
         return fe.Name() == L"SystemTrayFrameGrid";
     });
@@ -639,15 +525,14 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     auto gridParent = gridElem.try_as<Grid>();
     if (!gridParent) { Wh_Log(L"[Inject] SystemTrayFrameGrid not a Grid"); return false; }
 
-    // Idempotent check.
+    // Already injected?
     for (auto child : gridParent.Children()) {
         if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == L"PrivacyAnchorBar")
             return true;
     }
 
-    auto activeItems = ParseItemOrder(g_settings.itemOrder);
-    if (activeItems.empty()) {
-        Wh_Log(L"[Inject] itemOrder has no valid tokens");
+    if (!g_settings.showLocation && !g_settings.showMic && !g_settings.showCamera) {
+        Wh_Log(L"[Inject] All icons disabled — nothing to inject");
         return true;
     }
 
@@ -673,9 +558,12 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     }
 
     int insertCol = 0;
-    if (insertAfterRef && refElem)  insertCol = Grid::GetColumn(refElem) + 1;
-    else if (refElem)               insertCol = Grid::GetColumn(refElem);
+    if (insertAfterRef && refElem)
+        insertCol = Grid::GetColumn(refElem) + 1;
+    else if (refElem)
+        insertCol = Grid::GetColumn(refElem);
 
+    // Insert a new Auto column at the selected tray position.
     ColumnDefinition cd;
     cd.Width({ 1.0, GridUnitType::Auto });
     if ((uint32_t)insertCol < gridParent.ColumnDefinitions().Size())
@@ -688,11 +576,13 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         if (!fe) continue;
         int col  = Grid::GetColumn(fe);
         int span = Grid::GetColumnSpan(fe);
-        if (col >= insertCol)             Grid::SetColumn(fe, col + 1);
-        else if (col + span > insertCol)  Grid::SetColumnSpan(fe, span + 1);
+        if (col >= insertCol)
+            Grid::SetColumn(fe, col + 1);
+        else if (col + span > insertCol)
+            Grid::SetColumnSpan(fe, span + 1);
     }
 
-    // ── Build the anchor bar ────────────────────────────────────
+    // Build the anchor bar.
     Grid bar;
     bar.Name(L"PrivacyAnchorBar");
     bar.VerticalAlignment(VerticalAlignment::Center);
@@ -700,76 +590,76 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     bar.Margin({ (double)g_settings.paddingLeft, 0.0, (double)g_settings.paddingRight, 0.0 });
     ApplyOffset(bar, g_settings.barOffsetX, g_settings.barOffsetY);
 
-    int N    = (int)activeItems.size();
-    int cols = std::max(1, std::min(N, g_settings.gridColumns));
-    int rows = (N + cols - 1) / cols;
-    bool colFirst   = (g_settings.gridFillOrder      == L"colFirst");
-    bool shortFirst = (g_settings.shortGroupPosition == L"first");
-    const auto& align = g_settings.shortGroupAlign;
-
-    for (int r = 0; r < rows; r++) {
-        RowDefinition rd;
-        rd.Height({ 1.0, GridUnitType::Auto });
-        bar.RowDefinitions().Append(rd);
-    }
-    for (int c = 0; c < cols; c++) {
-        ColumnDefinition bcd;
-        bcd.Width({ 1.0, GridUnitType::Auto });
-        bar.ColumnDefinitions().Append(bcd);
-    }
-    if (g_settings.iconSpacing > 0) {
-        bar.ColumnSpacing((double)g_settings.iconSpacing);
-        bar.RowSpacing((double)g_settings.iconSpacing);
-    }
-
     double idleOp = g_settings.idleOpacity / 100.0;
-    g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr;
+    bool vertical = g_settings.layoutMode == L"column";
+    int visibleIconCount = (g_settings.showLocation ? 1 : 0) + (g_settings.showMic ? 1 : 0) + (g_settings.showCamera ? 1 : 0);
+    int itemIdx = 0;
 
-    for (int i = 0; i < N; i++) {
-        const auto& token = activeItems[i];
-        const wchar_t* glyph;
-        bool  isActive;
-        int   offX, offY;
-        const wchar_t* label;
-
-        if (token == L"location") {
-            glyph    = L"\xE37A";
-            isActive = g_locActive.load();
-            offX     = g_settings.locationOffsetX;
-            offY     = g_settings.locationOffsetY;
-            label    = L"Location";
-        } else if (token == L"mic") {
-            glyph    = L"\xE720";
-            isActive = g_micActive.load();
-            offX     = g_settings.micOffsetX;
-            offY     = g_settings.micOffsetY;
-            label    = L"Microphone";
-        } else {  // camera
-            glyph    = L"\xE722";
-            isActive = g_camActive.load();
-            offX     = g_settings.cameraOffsetX;
-            offY     = g_settings.cameraOffsetY;
-            label    = L"Camera";
+    if (g_settings.showLocation) {
+        if (vertical) {
+            RowDefinition rd;
+            rd.Height({ 1.0, GridUnitType::Auto });
+            bar.RowDefinitions().Append(rd);
+        } else {
+            ColumnDefinition lc;
+            lc.Width({ 1.0, GridUnitType::Auto });
+            bar.ColumnDefinitions().Append(lc);
         }
-
-        auto tb = MakeIconTextBlock(glyph);
-        tb.Opacity(isActive ? 1.0 : idleOp);
-        SetIconTooltip(tb, label, isActive);
-        ApplyOffset(tb, offX, offY);
-
-        auto placement = ComputeIconPlacement(i, N, cols, colFirst, shortFirst, align);
-        Grid::SetRow(tb, placement.row);
-        Grid::SetColumn(tb, placement.col);
-        if (placement.rowSpan > 1) Grid::SetRowSpan(tb, placement.rowSpan);
-        if (placement.colSpan > 1) Grid::SetColumnSpan(tb, placement.colSpan);
-        if (placement.hAlign != HorizontalAlignment::Stretch) tb.HorizontalAlignment(placement.hAlign);
-        if (placement.vAlign != VerticalAlignment::Stretch)   tb.VerticalAlignment(placement.vAlign);
-
-        if (token == L"location") g_locIcon = tb;
-        else if (token == L"mic") g_micIcon = tb;
-        else                      g_camIcon = tb;
-
-        bar.Children().Append(tb);
+        auto loc = MakeIconTextBlock(L"\xE37A");
+        loc.Opacity(g_locActive.load() ? 1.0 : idleOp);
+        SetIconTooltip(loc, L"Location", g_locActive.load());
+        ApplyOffset(loc, g_settings.locationOffsetX, g_settings.locationOffsetY);
+        ApplyIconSpacing(loc, vertical, itemIdx + 1 < visibleIconCount);
+        if (vertical)
+            Grid::SetRow(loc, itemIdx++);
+        else
+            Grid::SetColumn(loc, itemIdx++);
+        bar.Children().Append(loc);
+        g_locIcon = loc;
+    }
+    if (g_settings.showMic) {
+        if (vertical) {
+            RowDefinition rd;
+            rd.Height({ 1.0, GridUnitType::Auto });
+            bar.RowDefinitions().Append(rd);
+        } else {
+            ColumnDefinition mc;
+            mc.Width({ 1.0, GridUnitType::Auto });
+            bar.ColumnDefinitions().Append(mc);
+        }
+        auto mic = MakeIconTextBlock(L"\xE720");
+        mic.Opacity(g_micActive.load() ? 1.0 : idleOp);
+        SetIconTooltip(mic, L"Microphone", g_micActive.load());
+        ApplyOffset(mic, g_settings.micOffsetX, g_settings.micOffsetY);
+        ApplyIconSpacing(mic, vertical, itemIdx + 1 < visibleIconCount);
+        if (vertical)
+            Grid::SetRow(mic, itemIdx++);
+        else
+            Grid::SetColumn(mic, itemIdx++);
+        bar.Children().Append(mic);
+        g_micIcon = mic;
+    }
+    if (g_settings.showCamera) {
+        if (vertical) {
+            RowDefinition rd;
+            rd.Height({ 1.0, GridUnitType::Auto });
+            bar.RowDefinitions().Append(rd);
+        } else {
+            ColumnDefinition cc;
+            cc.Width({ 1.0, GridUnitType::Auto });
+            bar.ColumnDefinitions().Append(cc);
+        }
+        auto cam = MakeIconTextBlock(L"\xE722");
+        cam.Opacity(g_camActive.load() ? 1.0 : idleOp);
+        SetIconTooltip(cam, L"Camera", g_camActive.load());
+        ApplyOffset(cam, g_settings.cameraOffsetX, g_settings.cameraOffsetY);
+        ApplyIconSpacing(cam, vertical, itemIdx + 1 < visibleIconCount);
+        if (vertical)
+            Grid::SetRow(cam, itemIdx++);
+        else
+            Grid::SetColumn(cam, itemIdx++);
+        bar.Children().Append(cam);
+        g_camIcon = cam;
     }
 
     Grid::SetColumn(bar, insertCol);
@@ -779,8 +669,9 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     g_syntheticParent = gridElem;
     g_syntheticColumn = insertCol;
 
-    Wh_Log(L"[Inject] PrivacyAnchorBar: %d icons, %d cols, %d rows, colFirst=%d, shortFirst=%d",
-           N, cols, rows, colFirst ? 1 : 0, shortFirst ? 1 : 0);
+    Wh_Log(L"[Inject] PrivacyAnchorBar injected at col=%d (loc=%d mic=%d cam=%d)",
+           insertCol, g_settings.showLocation ? 1 : 0, g_settings.showMic ? 1 : 0,
+           g_settings.showCamera ? 1 : 0);
     return true;
 }
 
@@ -792,6 +683,7 @@ static void RemoveSyntheticIcons() {
         return;
     }
 
+    // Remove the grid child.
     for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
         auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
         if (fe && fe.Name() == L"PrivacyAnchorBar") {
@@ -800,6 +692,7 @@ static void RemoveSyntheticIcons() {
         }
     }
 
+    // Remove the column and shift other elements back.
     int col = g_syntheticColumn;
     if (col >= 0 && (uint32_t)col < gridParent.ColumnDefinitions().Size())
         gridParent.ColumnDefinitions().RemoveAt((uint32_t)col);
@@ -809,8 +702,10 @@ static void RemoveSyntheticIcons() {
         if (!fe) continue;
         int c    = Grid::GetColumn(fe);
         int span = Grid::GetColumnSpan(fe);
-        if (c > col)                     Grid::SetColumn(fe, c - 1);
-        else if (c < col && c + span > col) Grid::SetColumnSpan(fe, span - 1);
+        if (c > col)
+            Grid::SetColumn(fe, c - 1);
+        else if (c < col && c + span > col)
+            Grid::SetColumnSpan(fe, span - 1);
     }
 
     g_syntheticGrid = nullptr; g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr;
@@ -823,9 +718,11 @@ static void RemoveSyntheticIcons() {
 // ============================================================
 
 static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
+    // Avoid double-tracking.
     for (auto& s : g_privacyStates)
         if (s.iconViewRef.get() == iconView) return;
 
+    // Navigate to InnerTextBlock to read the privacy icon character.
     FrameworkElement child = iconView;
     if (!(child = FindChildByName(child, L"ContainerGrid")))    return;
     if (!(child = FindChildByName(child, L"ContentPresenter"))) return;
@@ -838,8 +735,9 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
 
     auto tb = child.try_as<TextBlock>();
     if (!tb) return;
+
     std::wstring_view text = tb.Text();
-    if (!IsPrivacyText(text)) return;
+    if (!IsPrivacyText(text)) return;  // not a privacy glyph (battery %, volume, etc.)
 
     PrivacyState::Type type = DetectPrivacyType(text);
     SetPrivacyActive(type, !text.empty());
@@ -849,6 +747,9 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
     state.textBlockRef = tb;
     state.type         = type;
 
+    // When text changes, update active state using the state's own type.
+    // DetectPrivacyType("") returns Location as a fallback, which is wrong for mic
+    // indicators — so when text goes empty we look up the state to get the real type.
     state.textToken = tb.RegisterPropertyChangedCallback(
         TextBlock::TextProperty(),
         [](DependencyObject sender, DependencyProperty) {
@@ -858,6 +759,7 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
             std::wstring_view newText = tbRef.Text();
             if (!IsPrivacyText(newText)) return;
             if (newText.empty()) {
+                // Indicator went idle — use the state's tracked type, not re-detect.
                 for (auto& s : g_privacyStates) {
                     if (s.textBlockRef.get() == tbRef) {
                         SetPrivacyActive(s.type, false);
@@ -865,18 +767,21 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
                     }
                 }
             } else {
-                auto detectedType = DetectPrivacyType(newText);
+                auto type = DetectPrivacyType(newText);
+                // Update the state's type in case it changed (e.g., Location→Mic).
                 for (auto& s : g_privacyStates) {
                     if (s.textBlockRef.get() == tbRef) {
-                        s.type = detectedType;
+                        s.type = type;
                         break;
                     }
                 }
-                SetPrivacyActive(detectedType, true);
+                SetPrivacyActive(type, true);
             }
         });
 
     g_privacyStates.push_back(std::move(state));
+    // Collapse the native transient indicator so the anchored replacements own
+    // both layout and visibility.
     iconView.Visibility(Visibility::Collapsed);
     iconView.IsHitTestVisible(false);
     Wh_Log(L"[Privacy] Tracking indicator type=%d", (int)type);
@@ -899,8 +804,10 @@ static void ClearPrivacyStates() {
     for (auto& state : g_privacyStates) {
         if (auto tb = state.textBlockRef.get())
             tb.UnregisterPropertyChangedCallback(TextBlock::TextProperty(), state.textToken);
-        if (auto iv = state.iconViewRef.get())
+        if (auto iv = state.iconViewRef.get()) {
+            // Restore visibility so the element works normally after mod unloads.
             try { iv.Visibility(Visibility::Visible); } catch (...) {}
+        }
     }
     g_privacyStates.clear();
     g_locActive.store(false);
@@ -926,8 +833,11 @@ static void ApplyStyle() {
     auto root = xamlRoot.Content().try_as<FrameworkElement>();
     if (!root) return;
 
-    if (!g_syntheticGrid) InjectSyntheticIcons(root);
+    // Inject synthetic icons (idempotent).
+    if (!g_syntheticGrid)
+        InjectSyntheticIcons(root);
 
+    // Scan MainStack for existing real privacy indicators.
     auto sysGrid = FindChildRecursive(root, [](FrameworkElement fe) {
         return fe.Name() == L"SystemTrayFrameGrid";
     });
@@ -980,11 +890,15 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
             if (!fe) return;
             if (winrt::get_class_name(fe) == L"SystemTray.IconView" &&
                 fe.Name() == L"SystemTrayIcon") {
+                // Ensure synthetic bar exists.
                 if (!g_syntheticGrid) {
-                    auto xamlRoot = fe.XamlRoot();
-                    if (xamlRoot) {
-                        auto root = xamlRoot.Content().try_as<FrameworkElement>();
-                        if (root) InjectSyntheticIcons(root);
+                    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+                    if (hWnd) {
+                        auto xamlRoot = fe.XamlRoot();
+                        if (xamlRoot) {
+                            auto root = xamlRoot.Content().try_as<FrameworkElement>();
+                            if (root) InjectSyntheticIcons(root);
+                        }
                     }
                 }
                 ApplyPrivacyIndicatorBehavior(fe);
@@ -1042,7 +956,7 @@ static bool HookTaskbarViewDllSymbols(HMODULE h) {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Privacy Anchor v0.7");
+    Wh_Log(L"[Init] Privacy Anchor v0.6");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
@@ -1068,6 +982,7 @@ void Wh_ModAfterInit() {
         HMODULE h = GetModuleHandleW(L"Taskbar.View.dll");
         if (h) { g_taskbarViewDllLoaded = true; HookTaskbarViewDllSymbols(h); }
     }
+
     if (g_taskbarViewDllLoaded)
         ApplyStyleOnWindowThread();
 
@@ -1106,10 +1021,14 @@ void Wh_ModUninit() {
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
-    Wh_Log(L"[Settings] order=%s cols=%d fill=%s shortPos=%s shortAlign=%s",
-           g_settings.itemOrder.c_str(), g_settings.gridColumns,
-           g_settings.gridFillOrder.c_str(), g_settings.shortGroupPosition.c_str(),
-           g_settings.shortGroupAlign.c_str());
+    Wh_Log(L"[Settings] idleOpacity=%d showLoc=%d showMic=%d showCam=%d iconSize=%d layout=%s position=%s spacing=%d bar=(%d,%d) loc=(%d,%d) mic=(%d,%d) cam=(%d,%d)",
+           g_settings.idleOpacity, g_settings.showLocation ? 1 : 0, g_settings.showMic ? 1 : 0,
+           g_settings.showCamera ? 1 : 0,
+           g_settings.iconSize, g_settings.layoutMode.c_str(), g_settings.position.c_str(),
+           g_settings.iconSpacing, g_settings.barOffsetX, g_settings.barOffsetY,
+           g_settings.locationOffsetX, g_settings.locationOffsetY,
+           g_settings.micOffsetX, g_settings.micOffsetY,
+           g_settings.cameraOffsetX, g_settings.cameraOffsetY);
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return;

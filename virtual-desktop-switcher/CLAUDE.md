@@ -1,6 +1,6 @@
 # CLAUDE.md — Virtual Desktop Switcher
 
-## Status: v1.3 — hook infrastructure updated, crash-on-disable fixed, needs PR push
+## Status: v1.4 — all bug fixes applied, ready for PR push
 
 Single file: [virtual-desktop-switcher.wh.cpp](virtual-desktop-switcher.wh.cpp)
 Design doc: [../_claude_notes/virtual-desktop-switcher-design.md](../_claude_notes/virtual-desktop-switcher-design.md)

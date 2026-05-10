@@ -51,7 +51,7 @@ This mod does not use the Windows XAML Diagnostics API, so it is compatible
 with the Windows 11 Taskbar Styler out of the box — no special settings required.
 
 For basic vertical stacking without battery percentage, paste [style.yaml](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
-into Windows 11 Taskbar Styler → Settings → Advanced.
+into Windows 11 Taskbar Styler → Settings → Textual mode.
 
 ## Related mods
 

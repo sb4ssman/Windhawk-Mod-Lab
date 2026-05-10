@@ -167,6 +167,7 @@ These mods inspired this one and combine well with it for a fully customized tas
 #include <atomic>
 #include <functional>
 #include <limits>
+#include <list>
 #include <winrt/base.h>
 #include <windhawk_api.h>
 #include <windhawk_utils.h>
@@ -267,8 +268,8 @@ static StackPanel       g_layoutUpdatedSP{ nullptr };
 static winrt::event_token g_layoutUpdatedToken{};
 
 static HWND   g_taskbarWnd       = nullptr;
-static HANDLE g_retryThread      = nullptr;
-static HANDLE g_retryStopEvent   = nullptr;
+
+static std::list<FrameworkElement::Loaded_revoker> g_autoRevokerList;
 
 // ── Battery XAML helpers ──────────────────────────────────────────────────
 
@@ -307,7 +308,7 @@ static bool WalkBatteryTree(DependencyObject const& node, int depth) {
 
 static void FlipBatteryLayout(FrameworkElement const& batteryCP) {
     if (!WalkBatteryTree(batteryCP, 0))
-        Wh_Log(L"[Battery4] No inner StackPanel found (% may not be in tree yet)");
+        Wh_Log(L"[Battery4] No inner StackPanel found (%% may not be in tree yet)");
 }
 
 // Like WalkBatteryTree but does NOT flip orientation — used in Off mode so the
@@ -529,25 +530,6 @@ static void CleanupXamlElements(
     } catch (...) {}
 }
 
-static void StopRetryThread() {
-    HANDLE thread = g_retryThread;
-    HANDLE event = g_retryStopEvent;
-
-    if (event)
-        SetEvent(event);
-
-    if (thread) {
-        WaitForSingleObject(thread, 3000);
-        CloseHandle(thread);
-    }
-
-    if (event)
-        CloseHandle(event);
-
-    g_retryThread = nullptr;
-    g_retryStopEvent = nullptr;
-}
-
 static void ResetElementRefs() {
     g_omniStackPanel         = nullptr;
     g_omniButton             = nullptr;
@@ -729,9 +711,11 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     CTaskBand_GetTaskbarHost_Original(taskBandForSite, taskbarHostSharedPtr);
     if (!taskbarHostSharedPtr[0] && !taskbarHostSharedPtr[1]) return nullptr;
 
-    size_t offset = 0x48;
+    size_t offset = 0x10;
 #if defined(_M_X64)
     {
+        // 48:83EC 28 | sub rsp,28
+        // 48:83C1 48 | add rcx,48
         const BYTE* b = (const BYTE*)TaskbarHost_FrameHeight_Original;
         if (b[0]==0x48 && b[1]==0x83 && b[2]==0xEC && b[4]==0x48 &&
             b[5]==0x83 && b[6]==0xC1 && b[7]<=0x7F)
@@ -740,7 +724,18 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
             Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
     }
 #elif defined(_M_ARM64)
-    // Use default offset.
+    {
+        // 7f2303d5 pacibsp
+        // fd7bbfa9 stp     fp, lr, [sp, #-0x10]!
+        // fd030091 mov     fp, sp
+        // 080c41f8 ldr     x8, [x0, #0x10]!
+        const DWORD* p = (const DWORD*)TaskbarHost_FrameHeight_Original;
+        if (p[0] == 0xD503237F && (p[1] & 0xFFC07FFF) == 0xA9807BFD &&
+            p[2] == 0x910003FD && (p[3] & 0xFFF00FE0) == 0xF8400C00)
+            offset = (p[3] >> 12) & 0xFF;
+        else
+            Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
+    }
 #else
 #error "Unsupported architecture"
 #endif
@@ -935,10 +930,15 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
                                            winrt::put_abi(iconView));
     if (!iconView) return ret;
 
-    iconView.Loaded([](IInspectable const&, RoutedEventArgs const&) {
-        if (!g_unloading && !g_omniStackPanel)
-            ApplyAllSettings();
-    });
+    g_autoRevokerList.emplace_back();
+    auto autoRevokerIt = std::prev(g_autoRevokerList.end());
+    *autoRevokerIt = iconView.Loaded(
+        winrt::auto_revoke_t{},
+        [autoRevokerIt](IInspectable const&, RoutedEventArgs const&) {
+            g_autoRevokerList.erase(autoRevokerIt);
+            if (!g_unloading && !g_omniStackPanel)
+                ApplyAllSettings();
+        });
 
     return ret;
 }
@@ -1090,36 +1090,14 @@ void Wh_ModAfterInit() {
     if (g_systemTrayModuleHooked)
         ApplyAllSettingsOnWindowThread();
     Wh_Log(L"[AfterInit] systemTrayModuleHooked=%d", (int)g_systemTrayModuleHooked.load());
-
-    // Retry on a stoppable background thread to handle early-startup timing
-    // where the XAML tree isn't ready when the mod first loads into explorer.
-    g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!g_retryStopEvent)
-        return;
-
-    HANDLE stopEvent = g_retryStopEvent;
-    g_retryThread = CreateThread(nullptr, 0, [](void* param) -> DWORD {
-        HANDLE stopEvent = static_cast<HANDLE>(param);
-        for (int i = 0; i < 5 && !g_unloading; i++) {
-            if (WaitForSingleObject(stopEvent, 2000) != WAIT_TIMEOUT) break;
-            if (g_omniStackPanel || g_unloading) break;
-            Wh_Log(L"[AfterInit] Retry %d — XAML not yet applied", i + 1);
-            ApplyAllSettingsOnWindowThread();
-        }
-        return 0;
-    }, stopEvent, 0, nullptr);
-
-    if (!g_retryThread) {
-        CloseHandle(g_retryStopEvent);
-        g_retryStopEvent = nullptr;
-    }
+    // Initial application covers the hot-inject case (XAML tree already ready).
+    // The IconView::IconView hook + auto-revoke Loaded subscription covers startup:
+    // it fires for each new IconView construction and applies when the element loads.
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
-
-    StopRetryThread();
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd)
@@ -1131,8 +1109,6 @@ void Wh_ModUninit() {
 void Wh_ModSettingsChanged() {
     LoadSettings();
     Wh_Log(L"[Settings] Updated");
-
-    StopRetryThread();
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) { Wh_Log(L"[Settings] No taskbar window found"); return; }

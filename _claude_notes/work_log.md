@@ -10,6 +10,59 @@ Lab-level milestones only. Per-mod version history lives in each mod's own `_cla
 - Added profiles/ folder for per-machine Windhawk config snapshots
 - VD switcher design doc in place; implementation not yet started
 
+## 2026-05-08 — Maintainer review pass (session 2)
+
+### Vertical OmniButton → v1.4 (PR #3859 updated)
+- Applied GetSystemTrayModuleHandle 3-DLL pattern
+- Added GetModuleVersionInfo helper
+- ARM64 arm in GetTaskbarXamlRoot
+- WindhawkUtils::Wh_SetFunctionHookT throughout
+- std::atomic<bool> g_systemTrayModuleHooked
+- Wh_ApplyHookOperations after late-hooks
+- Inline mode auto-sizing fixed
+- HandleLoadedModuleIfSystemTray + LoadLibraryExW fallback
+
+### Clock Spacer → v0.8 (in-tree, not yet committed — needs test confirmation)
+- Fixed restart persistence: system tray DLL hook not surviving explorer restart
+- Added GetModuleVersionInfo + GetSystemTrayModuleHandle (with Taskbar.View.dll version check)
+- Added LoadLibraryExW hook + HandleLoadedModuleIfSystemTray
+- g_systemTrayModuleHooked → std::atomic<bool>
+- Wh_ApplyHookOperations() in Wh_ModAfterInit after late-hook
+- Added -lversion to compilerOptions
+
+### Virtual Desktop Switcher → v1.4 (in-tree, SET ASIDE — layout bug under investigation)
+- All infrastructure: GetSystemTrayModuleHandle, ARM64, atomic hook flag, Wh_ApplyHookOperations
+- Crash-on-disable: StopNotificationThread now waits INFINITE
+- Half-button-clickable: Canvas::SetZIndex(100) on injection
+- Stale parent on desktop-add: RebuildOrUpdate uses FindLiveSystemTrayFrameGrid + ApplyAllSettings fallback
+- Must-move-mouse: SwitchToDesktop dispatched to background COM thread
+- Sliver height: subtracted from GetAvailableRows when sliver mode active
+- Layout scoring: only penalize wide layouts (cols>rows), not tall (rows>cols)
+- Layout diagnostics: Wh_Log in GetAvailableRows and ComputeLayout
+- Outstanding: 2-column layout on 3-desktop restart — needs log inspection to determine if height detection or scoring issue
+
+## 2026-05-09 — Maintainer review applied (PR #3859 + #3932)
+
+### Vertical OmniButton
+- ARM64 disasm probe in `GetTaskbarXamlRoot` (default `0x48` → `0x10`, full 4-instruction pattern check)
+- `iconView.Loaded` → auto-revoke pattern via `std::list<FrameworkElement::Loaded_revoker> g_autoRevokerList` (prevents crash-on-unload from stale callbacks)
+- `%` → `%%` escape fix in one `Wh_Log` call
+- README: `→ Settings → Advanced` → `→ Settings → Textual mode.`
+
+### Virtual Desktop Switcher
+- ARM64 disasm probe in `GetTaskbarXamlRoot` (same fix)
+- `rightOfStart` position added (grid floats right of Start button)
+- `aboveStart` width expansion: pushes `TaskbarFrameRepeater.Margin.Left` by `(gridW−startW)/2` to center Start under VD grid; uses `g_startButtonOriginalX` stable anchor to prevent `LayoutUpdated` oscillation
+- `gridVerticalOffset` setting now applies in all overlay modes (previously only applied in tray-injection path)
+- `gridVerticalOffset` + `gridVerticalOffset` struct/LoadSettings wired
+- Sliver distortion fix: explicit `VerticalAlignment::Top` + computed `marginTop` replaces `Center`+compensation approach
+- Fill order default: `columnFirst` → `rowFirst`
+- `masterButtonSpacing`: sentinel model removed, pure additive margin offset
+- Row-first short-group centering: pixel-precise via column-span + `Margin.Left` (mirrors column-first approach)
+
+### Infra checklist updated
+- Added two new required patterns: ARM64 disasm probe and auto-revoke `Loaded`
+
 ## 2026-05-05 — Clock Spacer live tuning
 
 - Clock Spacer v0.7 is visually close with multiple `%s%` instances across top and bottom clock lines.
