@@ -62,7 +62,7 @@ This mod does not use the Windows XAML Diagnostics API, so it is compatible
 with the Windows 11 Taskbar Styler out of the box — no special settings required.
 
 For basic vertical stacking without battery percentage, paste [style.yaml](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
-into Windows 11 Taskbar Styler → Settings → Advanced.
+into Windows 11 Taskbar Styler → Settings → Textual mode.
 
 ## Related mods
 
@@ -86,6 +86,7 @@ These mods inspired this one and combine well with it for a fully customized tas
     - "off": "Off — battery icon only"
     - "inline": "Inline — percentage in battery slot (3rd row)"
     - "stacked": "Stacked — percentage as 4th row below battery"
+    - "grid": "Grid — wifi/volume top row, battery/% bottom row"
 - buttonHorizontalPadding: 8
   $name: Button horizontal padding
   $description: "Horizontal padding on each side of the 32px icon column. Lower values make the OmniButton narrower so it sits closer to neighboring tray icons and the clock. Range: 0-24. Default: 8 (about 48px total width)."
@@ -161,6 +162,35 @@ These mods inspired this one and combine well with it for a fully customized tas
 - stackedPercentY: -11
   $name: "Stacked mode: Battery percent Y"
   $description: "Percentage row vertical offset in Stacked mode. Negative = up, positive = down. Default: -11."
+- gridSlotWidth: 34
+  $name: "Grid mode: Column width (px)"
+  $description: >-
+    Width of each column in the 2x2 grid. Controls how far Volume and Battery %%
+    move into the right column. Default 34 = 32px icon + 2px gap.
+- gridWifiX: 0
+  $name: "Grid mode: Wifi X"
+  $description: "Fine-tune wifi horizontal position in grid mode."
+- gridWifiY: 0
+  $name: "Grid mode: Wifi Y"
+  $description: "Fine-tune wifi vertical position in grid mode."
+- gridVolumeX: 0
+  $name: "Grid mode: Volume X"
+  $description: "Fine-tune volume horizontal offset in grid mode (added on top of the column offset)."
+- gridVolumeY: 0
+  $name: "Grid mode: Volume Y"
+  $description: "Fine-tune volume vertical offset in grid mode (added on top of the -28px row offset)."
+- gridBatteryX: 0
+  $name: "Grid mode: Battery X"
+  $description: "Fine-tune battery icon horizontal position in grid mode."
+- gridBatteryY: 0
+  $name: "Grid mode: Battery Y"
+  $description: "Fine-tune battery icon vertical offset in grid mode (added on top of the -28px row offset)."
+- gridPercentX: 0
+  $name: "Grid mode: Battery %% X"
+  $description: "Fine-tune battery percentage horizontal position in grid mode."
+- gridPercentY: 0
+  $name: "Grid mode: Battery %% Y"
+  $description: "Fine-tune battery percentage vertical position in grid mode."
 */
 // ==/WindhawkModSettings==
 
@@ -189,7 +219,7 @@ using winrt::Windows::Foundation::IInspectable;
 // ── Settings ───────────────────────────────────────────────────────────────
 
 struct {
-    int  batteryMode;          // 0=off, 1=inline (3rd row), 2=stacked (4th row)
+    int  batteryMode;          // 0=off, 1=inline (3rd row), 2=stacked (4th row), 3=grid 2x2
     int  buttonHorizontalPadding;
     int  offWifiX,    offWifiY;
     int  inlineWifiX, inlineWifiY;
@@ -203,6 +233,11 @@ struct {
     int  stackedPercentX, stackedPercentY;
     int  inlineBatteryX,  inlineBatteryY;
     int  inlinePercentX, inlinePercentY;
+    int  gridSlotWidth;
+    int  gridWifiX,    gridWifiY;
+    int  gridVolumeX,  gridVolumeY;
+    int  gridBatteryX, gridBatteryY;
+    int  gridPercentX, gridPercentY;
 } g_settings;
 
 std::atomic<bool> g_unloading = false;
@@ -213,6 +248,7 @@ void LoadSettings() {
         if (bm) {
             if (wcscmp(bm, L"inline") == 0)       g_settings.batteryMode = 1;
             else if (wcscmp(bm, L"stacked") == 0) g_settings.batteryMode = 2;
+            else if (wcscmp(bm, L"grid") == 0)    g_settings.batteryMode = 3;
             else                                   g_settings.batteryMode = 0;
             Wh_FreeStringSetting(bm);
         } else {
@@ -247,12 +283,50 @@ void LoadSettings() {
     g_settings.inlineBatteryY  = clampOffset(Wh_GetIntSetting(L"inlineBatteryY"));
     g_settings.inlinePercentX = clampOffset(Wh_GetIntSetting(L"inlinePercentX"));
     g_settings.inlinePercentY = clampOffset(Wh_GetIntSetting(L"inlinePercentY"));
+    auto clampSlot = [](int v) { return v < 16 ? 16 : v > 60 ? 60 : v; };
+    g_settings.gridSlotWidth  = clampSlot(Wh_GetIntSetting(L"gridSlotWidth"));
+    g_settings.gridWifiX      = clampOffset(Wh_GetIntSetting(L"gridWifiX"));
+    g_settings.gridWifiY      = clampOffset(Wh_GetIntSetting(L"gridWifiY"));
+    g_settings.gridVolumeX    = clampOffset(Wh_GetIntSetting(L"gridVolumeX"));
+    g_settings.gridVolumeY    = clampOffset(Wh_GetIntSetting(L"gridVolumeY"));
+    g_settings.gridBatteryX   = clampOffset(Wh_GetIntSetting(L"gridBatteryX"));
+    g_settings.gridBatteryY   = clampOffset(Wh_GetIntSetting(L"gridBatteryY"));
+    g_settings.gridPercentX   = clampOffset(Wh_GetIntSetting(L"gridPercentX"));
+    g_settings.gridPercentY   = clampOffset(Wh_GetIntSetting(L"gridPercentY"));
 }
 
-static int WifiX()   { return g_settings.batteryMode==1 ? g_settings.inlineWifiX   : g_settings.batteryMode==2 ? g_settings.stackedWifiX   : g_settings.offWifiX;   }
-static int WifiY()   { return g_settings.batteryMode==1 ? g_settings.inlineWifiY   : g_settings.batteryMode==2 ? g_settings.stackedWifiY   : g_settings.offWifiY;   }
-static int VolumeX() { return g_settings.batteryMode==1 ? g_settings.inlineVolumeX : g_settings.batteryMode==2 ? g_settings.stackedVolumeX : g_settings.offVolumeX; }
-static int VolumeY() { return g_settings.batteryMode==1 ? g_settings.inlineVolumeY : g_settings.batteryMode==2 ? g_settings.stackedVolumeY : g_settings.offVolumeY; }
+static int WifiX()   {
+    switch (g_settings.batteryMode) {
+        case 1:  return g_settings.inlineWifiX;
+        case 2:  return g_settings.stackedWifiX;
+        case 3:  return g_settings.gridWifiX;
+        default: return g_settings.offWifiX;
+    }
+}
+static int WifiY()   {
+    switch (g_settings.batteryMode) {
+        case 1:  return g_settings.inlineWifiY;
+        case 2:  return g_settings.stackedWifiY;
+        case 3:  return g_settings.gridWifiY;
+        default: return g_settings.offWifiY;
+    }
+}
+static int VolumeX() {
+    switch (g_settings.batteryMode) {
+        case 1:  return g_settings.inlineVolumeX;
+        case 2:  return g_settings.stackedVolumeX;
+        case 3:  return g_settings.gridSlotWidth + g_settings.gridVolumeX;
+        default: return g_settings.offVolumeX;
+    }
+}
+static int VolumeY() {
+    switch (g_settings.batteryMode) {
+        case 1:  return g_settings.inlineVolumeY;
+        case 2:  return g_settings.stackedVolumeY;
+        case 3:  return -28 + g_settings.gridVolumeY;
+        default: return g_settings.offVolumeY;
+    }
+}
 
 // ── Cached element references ─────────────────────────────────────────────
 
@@ -373,6 +447,38 @@ static bool WalkFindInlinePercent(DependencyObject const& node, int depth = 0) {
     return false;
 }
 
+// Grid mode: force inner SP horizontal, widen glyph to gridSlotWidth so % lands in col 1.
+static bool WalkFindGridPercent(DependencyObject const& node, int depth = 0) {
+    if (depth > 5) return false;
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (!child) continue;
+        auto sp = child.try_as<StackPanel>();
+        if (sp && !sp.IsItemsHost()) {
+            if (sp.Orientation() == Orientation::Vertical) sp.Orientation(Orientation::Horizontal);
+            g_batteryInnerPanel = sp;
+            int spN = VisualTreeHelper::GetChildrenCount(sp);
+            if (spN >= 1) {
+                // Widen glyph to exactly one column width so % naturally lands at col 1 x-position.
+                auto glyph = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
+                if (glyph) glyph.Width((double)g_settings.gridSlotWidth);
+            }
+            if (spN >= 2) {
+                auto pct = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
+                if (pct) {
+                    g_batteryInlinePercentFE = pct;
+                    ApplyOffset(pct, g_settings.gridPercentX, g_settings.gridPercentY);
+                    Wh_Log(L"[Grid] Battery %% positioned in col 1");
+                }
+            }
+            return true;
+        }
+        if (WalkFindGridPercent(child, depth + 1)) return true;
+    }
+    return false;
+}
+
 static void SizeStackedBatteryRows(StackPanel const& innerSP) {
     int n = VisualTreeHelper::GetChildrenCount(innerSP);
     if (n >= 1) {
@@ -443,6 +549,14 @@ static void ApplyOmniButtonWidth() {
         // the hover highlight matches exactly and nothing is clipped.
         g_omniButton.ClearValue(FrameworkElement::WidthProperty());
         g_omniButton.ClearValue(FrameworkElement::MinWidthProperty());
+    } else if (g_settings.batteryMode == 3) {
+        // Grid mode: 2-column layout; width = 2 columns + padding.
+        double width = g_settings.gridSlotWidth * 2.0 + padding * 2.0;
+        g_omniButton.Width(width);
+        g_omniButton.MinWidth(width);
+        // Height: 2 rows of 28px (slots are the visible content; StackPanel reports 3*28=84 in layout
+        // but transforms bring Volume and Battery into a 56px visual bounding box).
+        g_omniButton.Height(56.0);
     } else {
         // Off/stacked: all slots are 32px wide, so fix the width explicitly.
         double width = 32.0 + padding * 2.0;
@@ -614,6 +728,13 @@ static void ApplyLayout(StackPanel const& sp) {
                     g_batteryInnerPanel.Spacing(0.0);
                     SizeStackedBatteryRows(g_batteryInnerPanel);
                 }
+            } else if (g_settings.batteryMode == 3) {
+                // Grid mode: battery moves from slot 2 (Y=56) to row 1 (Y=28).
+                // Volume already moved to row 0 via VolumeX()/VolumeY() transforms.
+                child.Width(std::numeric_limits<double>::quiet_NaN());
+                child.Height(28.0);
+                ApplyOffset(child, g_settings.gridBatteryX, -28 + g_settings.gridBatteryY);
+                WalkFindGridPercent(child);
             } else {
                 // Off mode: outer slot position unchanged; push % text off-screen without
                 // touching inner panel orientation so the battery glyph renders normally.
@@ -811,8 +932,9 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
     }
 
     bool needsBatteryFind = !g_batteryPresenter;
-    bool needsFlip = (g_settings.batteryMode == 2 || g_settings.batteryMode == 0) &&
-                     g_batteryPresenter && !g_batteryInnerPanel;
+    bool needsFlip = ((g_settings.batteryMode == 2 || g_settings.batteryMode == 0) &&
+                      g_batteryPresenter && !g_batteryInnerPanel) ||
+                     (g_settings.batteryMode == 3 && g_batteryPresenter && !g_batteryInlinePercentFE);
 
     if (!needsBatteryFind && !needsFlip && g_wifiPresenter && g_volumePresenter) {
         sp.LayoutUpdated(g_layoutUpdatedToken);
@@ -847,9 +969,8 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
         }
     }
 
-    if ((g_settings.batteryMode == 2 || g_settings.batteryMode == 0) &&
-         g_batteryPresenter && !g_batteryInnerPanel) {
-        if (g_settings.batteryMode == 2) {
+    if (needsFlip && g_batteryPresenter) {
+        if (g_settings.batteryMode == 2 && !g_batteryInnerPanel) {
             FlipBatteryLayout(g_batteryPresenter);
             if (g_batteryInnerPanel) {
                 g_batteryInnerPanel.Spacing(0.0);
@@ -857,7 +978,7 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
                 FreeOmniButtonHeight();
                 Wh_Log(L"[Layout] Deferred battery inner StackPanel flipped (stacked)");
             }
-        } else {
+        } else if (g_settings.batteryMode == 0 && !g_batteryInnerPanel) {
             if (WalkFindInnerSP(g_batteryPresenter) && g_batteryInnerPanel) {
                 int bspN = VisualTreeHelper::GetChildrenCount(g_batteryInnerPanel);
                 if (bspN >= 2) {
@@ -866,6 +987,9 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
                 }
                 Wh_Log(L"[Layout] Deferred battery %% text hidden (off mode)");
             }
+        } else if (g_settings.batteryMode == 3 && !g_batteryInlinePercentFE) {
+            WalkFindGridPercent(g_batteryPresenter);
+            Wh_Log(L"[Layout] Deferred grid battery %% positioned");
         }
     }
 }
@@ -896,7 +1020,8 @@ static void ApplyAllSettings() {
                 ApplyLayout(sp);
                 bool needsDeferred = !g_wifiPresenter || !g_volumePresenter ||
                                      !g_batteryPresenter ||
-                                     ((g_settings.batteryMode == 2 || g_settings.batteryMode == 0) && !g_batteryInnerPanel);
+                                     ((g_settings.batteryMode == 2 || g_settings.batteryMode == 0) && !g_batteryInnerPanel) ||
+                                     (g_settings.batteryMode == 3 && !g_batteryInlinePercentFE);
                 if (needsDeferred) {
                     g_layoutUpdatedSP = sp;
                     g_layoutUpdatedToken = sp.LayoutUpdated(OnLayoutUpdated);
