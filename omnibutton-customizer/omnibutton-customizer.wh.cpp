@@ -1,8 +1,8 @@
 // ==WindhawkMod==
-// @id              vertical-omnibutton
+// @id              omnibutton-customizer
 // @name            OmniButton Customizer
 // @description     Rearrange the Windows 11 wifi/volume/battery OmniButton into any grid layout with per-element nudging
-// @version         2.0
+// @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
