@@ -265,6 +265,7 @@ The compact grid adapts to how many desktops you have.
 #include <winrt/Windows.UI.Xaml.Media.h>
 
 #include <atomic>
+#include <list>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -395,6 +396,7 @@ static HANDLE g_retryStopEvent = nullptr;
 
 static std::atomic<bool> g_systemTrayModuleHooked{false};
 static std::atomic<int>  g_activeSwitchThreads{0};
+static std::list<FrameworkElement::Loaded_revoker> g_autoRevokerList;
 
 // Forward declarations
 static void ApplyAllSettings();
@@ -535,9 +537,16 @@ std__Ref_count_base__Decref_t std__Ref_count_base__Decref_Original;
 static void* CTaskBand_ITaskListWndSite_vftable = nullptr;
 
 static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
+    // Guard: symbols must be resolved before any dereference.
+    if (!CTaskBand_GetTaskbarHost_Original || !TaskbarHost_FrameHeight_Original ||
+        !std__Ref_count_base__Decref_Original)
+        return nullptr;
+
     HWND hTaskSwWnd = (HWND)GetProp(hTaskbarWnd, L"TaskbandHWND");
     if (!hTaskSwWnd) return nullptr;
     void* taskBand = (void*)GetWindowLongPtr(hTaskSwWnd, 0);
+    // Guard: taskBand is null during early startup before the taskband stores its this-pointer.
+    if (!taskBand) return nullptr;
     void* taskBandForSite = taskBand;
     for (int i = 0; *(void**)taskBandForSite != CTaskBand_ITaskListWndSite_vftable; i++) {
         if (i == 20) return nullptr;
@@ -575,6 +584,11 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
 #error "Unsupported architecture"
 #endif
     auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
+    // Guard: iunk is null during early startup before the TaskbarElement is set at offset.
+    if (!iunk) {
+        std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
+        return nullptr;
+    }
     FrameworkElement taskbarElem = nullptr;
     iunk->QueryInterface(winrt::guid_of<FrameworkElement>(), winrt::put_abi(taskbarElem));
     auto result = taskbarElem ? taskbarElem.XamlRoot() : nullptr;
@@ -1787,8 +1801,17 @@ static bool InjectButtonGrid(FrameworkElement root) {
 
     // Already injected?
     for (auto child : gridParent.Children()) {
-        if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == L"VdSwitcherBar")
+        if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == L"VdSwitcherBar") {
+            // Re-acquire state in case it was lost (e.g., transient null from GetTaskbarXamlRoot
+            // during RebuildOrUpdate caused g_buttonGrid to be cleared while grid stayed in tree).
+            if (!g_buttonGrid) {
+                g_buttonGrid = fe.try_as<Grid>();
+                g_injectionParent = parent;
+                g_injectedColumn = Grid::GetColumn(fe);
+                Wh_Log(L"[Inject] Re-acquired existing VdSwitcherBar at col=%d", g_injectedColumn);
+            }
             return true;
+        }
     }
 
     int count   = ReadDesktopCount();
@@ -2009,7 +2032,15 @@ static void RebuildOrUpdate(bool fullRebuild) {
             // Use the live XAML tree — g_injectionParent may be stale if Windows
             // rebuilt the tray after a desktop add/remove.
             gridParent = FindLiveSystemTrayFrameGrid();
-            if (!gridParent || !gridParent.Children().IndexOf(g_buttonGrid, idx)) {
+            if (!gridParent) {
+                // XAML tree temporarily inaccessible (e.g., mid-rebuild by Windows).
+                // Do NOT null g_buttonGrid — the grid is still in the tree; we just
+                // can't reach it right now. The next notification will retry.
+                Wh_Log(L"[Rebuild] XAML tree not accessible, deferring");
+                return;
+            }
+            if (!gridParent.Children().IndexOf(g_buttonGrid, idx)) {
+                // Our grid is genuinely gone (tray was rebuilt). Reinject from scratch.
                 g_buttonGrid = nullptr;
                 g_injectionParent = nullptr;
                 g_injectedColumn = -1;
@@ -2017,6 +2048,10 @@ static void RebuildOrUpdate(bool fullRebuild) {
                 return;
             }
         }
+        // Capture the live column BEFORE removing the old grid, so even if
+        // g_injectedColumn is stale (columns were renumbered by Windows), we
+        // reinsert at the correct position.
+        int liveColumn = g_startOverlayMode ? 0 : Grid::GetColumn(g_buttonGrid);
         gridParent.Children().RemoveAt(idx);
         g_buttonGrid = BuildButtonGrid(count, current);
         if (g_startOverlayMode) {
@@ -2024,8 +2059,9 @@ static void RebuildOrUpdate(bool fullRebuild) {
             Grid::SetColumnSpan(g_buttonGrid, std::max(1, (int)gridParent.ColumnDefinitions().Size()));
             Canvas::SetZIndex(g_buttonGrid, 1000);
             g_buttonGrid.IsHitTestVisible(true);
-        } else if (g_injectedColumn >= 0) {
-            Grid::SetColumn(g_buttonGrid, g_injectedColumn);
+        } else if (liveColumn >= 0) {
+            Grid::SetColumn(g_buttonGrid, liveColumn);
+            g_injectedColumn = liveColumn;
             Canvas::SetZIndex(g_buttonGrid, 10000);
         }
         gridParent.Children().InsertAt(idx, g_buttonGrid);
@@ -2045,15 +2081,19 @@ static void ApplyAllSettings() {
     if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return; }
     g_taskbarWnd = hWnd;
 
-    auto xamlRoot = GetTaskbarXamlRoot(hWnd);
-    if (!xamlRoot) { Wh_Log(L"[Apply] GetTaskbarXamlRoot failed"); return; }
-    auto root = xamlRoot.Content().try_as<FrameworkElement>();
-    if (!root) { Wh_Log(L"[Apply] No XAML root content"); return; }
+    try {
+        auto xamlRoot = GetTaskbarXamlRoot(hWnd);
+        if (!xamlRoot) { Wh_Log(L"[Apply] GetTaskbarXamlRoot failed"); return; }
+        auto root = xamlRoot.Content().try_as<FrameworkElement>();
+        if (!root) { Wh_Log(L"[Apply] No XAML root content"); return; }
 
-    if (InjectButtonGrid(root))
-        StartNotificationThread();
-    else
-        Wh_Log(L"[Apply] Injection failed");
+        if (InjectButtonGrid(root))
+            StartNotificationThread();
+        else
+            Wh_Log(L"[Apply] Injection failed");
+    } catch (...) {
+        Wh_Log(L"[Apply] Exception during injection (XAML not ready)");
+    }
 }
 
 static void ApplyAllSettingsOnWindowThread() {
@@ -2071,8 +2111,31 @@ IconView_IconView_t IconView_IconView_Original;
 
 void* WINAPI IconView_IconView_Hook(void* pThis) {
     auto result = IconView_IconView_Original(pThis);
-    if (!g_unloading && !g_buttonGrid)
+    if (g_unloading || g_buttonGrid) return result;
+
+    // Defer until the element is live in the XAML tree. Calling ApplyAllSettings
+    // immediately from the constructor fires before the XamlRoot is stable, causing
+    // null dereferences and WinRT exceptions that propagate through WH_CALLWNDPROC
+    // and crash the process on startup.
+    FrameworkElement iconView = nullptr;
+    ((IUnknown**)pThis)[1]->QueryInterface(winrt::guid_of<FrameworkElement>(),
+                                           winrt::put_abi(iconView));
+    if (!iconView) {
+        // Fallback: element isn't a FrameworkElement; try immediate path.
         ApplyAllSettingsOnWindowThread();
+        return result;
+    }
+
+    g_autoRevokerList.emplace_back();
+    auto autoRevokerIt = std::prev(g_autoRevokerList.end());
+    *autoRevokerIt = iconView.Loaded(
+        winrt::auto_revoke_t{},
+        [autoRevokerIt](auto const&, auto const&) {
+            g_autoRevokerList.erase(autoRevokerIt);
+            if (!g_unloading && !g_buttonGrid)
+                ApplyAllSettingsOnWindowThread();
+        });
+
     return result;
 }
 
@@ -2197,11 +2260,15 @@ void Wh_ModUninit() {
 
     // RunFromWindowThread is synchronous — blocks until the UI thread has removed the grid,
     // so all WinRT object lifetimes are safe and no FreeLibrary dance is needed.
+    // Clear pending Loaded revokers on the UI thread so WinRT auto-revoke objects
+    // are destroyed on the correct thread before the DLL is unloaded.
     if (g_taskbarWnd) {
         RunFromWindowThread(g_taskbarWnd, [](void*) {
+            g_autoRevokerList.clear();
             RemoveButtonGrid();
         }, nullptr);
     } else {
+        g_autoRevokerList.clear();
         RemoveButtonGrid();
     }
 }

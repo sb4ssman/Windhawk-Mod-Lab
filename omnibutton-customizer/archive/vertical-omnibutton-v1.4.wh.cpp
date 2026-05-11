@@ -818,10 +818,15 @@ std__Ref_count_base__Decref_t std__Ref_count_base__Decref_Original;
 static void* CTaskBand_ITaskListWndSite_vftable = nullptr;
 
 static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
+    if (!CTaskBand_GetTaskbarHost_Original || !TaskbarHost_FrameHeight_Original ||
+        !std__Ref_count_base__Decref_Original)
+        return nullptr;
+
     HWND hTaskSwWnd = (HWND)GetProp(hTaskbarWnd, L"TaskbandHWND");
     if (!hTaskSwWnd) return nullptr;
 
     void* taskBand = (void*)GetWindowLongPtr(hTaskSwWnd, 0);
+    if (!taskBand) return nullptr;
     void* taskBandForSite = taskBand;
     for (int i = 0; *(void**)taskBandForSite != CTaskBand_ITaskListWndSite_vftable; i++) {
         if (i == 20) return nullptr;
@@ -862,6 +867,10 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
 #endif
 
     auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
+    if (!iunk) {
+        std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
+        return nullptr;
+    }
     FrameworkElement taskbarElem = nullptr;
     iunk->QueryInterface(winrt::guid_of<FrameworkElement>(), winrt::put_abi(taskbarElem));
     auto result = taskbarElem ? taskbarElem.XamlRoot() : nullptr;
