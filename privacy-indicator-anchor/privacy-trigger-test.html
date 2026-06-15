@@ -189,6 +189,38 @@
       </p>
     </section>
 
+    <section>
+      <h2>🖥️ Screen Capture (getDisplayMedia)</h2>
+      <div class="buttons">
+        <button id="startCapture">Start screen capture</button>
+        <button id="stopCapture" disabled>Stop capture</button>
+        <span class="status" id="captureStatus">● Active</span>
+      </div>
+      <p class="note">
+        Uses <code>getDisplayMedia</code> to capture the screen. Windows 11 may show a
+        screen-recording tray indicator while active — check the Windhawk log for any
+        unknown glyph code points logged by the Privacy Anchor mod. You will be asked to
+        pick a screen/window to share; pick anything and click Share.
+      </p>
+    </section>
+
+    <section>
+      <h2>📡 Presence Sensing &amp; Voice Activation (manual)</h2>
+      <p class="note">
+        <strong>Presence sensing</strong> uses the IR camera to detect whether someone is
+        at the PC (auto-lock / wake). There is no browser API for this. To trigger it
+        manually: Settings → System → Power &amp; sleep → Screen → "Turn off when I look
+        away" (if the device supports it). The tray indicator glyph, if any, will appear
+        in the Windhawk log.
+      </p>
+      <p class="note">
+        <strong>Voice activation</strong> (always-on wake word) is controlled in Settings
+        → Privacy &amp; security → Voice activation. Enabling "Let apps use voice
+        activation" while a compatible app is running may surface a tray glyph. Log
+        any unknown code points that appear.
+      </p>
+    </section>
+
     <pre id="log" aria-live="polite"></pre>
   </main>
 
@@ -209,6 +241,10 @@
     const bothStatus  = document.querySelector("#bothStatus");
     const bothPreview = document.querySelector("#bothPreview");
 
+    const startCapture  = document.querySelector("#startCapture");
+    const stopCapture   = document.querySelector("#stopCapture");
+    const captureStatus = document.querySelector("#captureStatus");
+
     const getLocation    = document.querySelector("#getLocation");
     const watchLocation  = document.querySelector("#watchLocation");
     const stopLocation   = document.querySelector("#stopLocation");
@@ -217,6 +253,7 @@
     let micStream       = null;
     let camStream       = null;
     let bothStream      = null;
+    let captureStream   = null;
     let locationWatchId = null;
 
     function log(message) {
@@ -306,6 +343,41 @@
       log("Mic + camera stopped.");
     });
 
+    // ── Screen Capture ────────────────────────────────────────
+
+    startCapture.addEventListener("click", async () => {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        log("getDisplayMedia not supported in this browser.");
+        return;
+      }
+      try {
+        captureStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        captureStream.getVideoTracks()[0].addEventListener("ended", () => {
+          // User stopped sharing via the browser's built-in stop button
+          captureStream = null;
+          startCapture.disabled = false;
+          stopCapture.disabled = true;
+          captureStatus.classList.remove("active");
+          log("Screen capture ended (user stopped).");
+        });
+        startCapture.disabled = true;
+        stopCapture.disabled = false;
+        captureStatus.classList.add("active");
+        log("Screen capture active — check Windhawk log for any tray indicator glyph codes.");
+      } catch (e) {
+        log(`Screen capture error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    stopCapture.addEventListener("click", () => {
+      stopTracks(captureStream);
+      captureStream = null;
+      startCapture.disabled = false;
+      stopCapture.disabled = true;
+      captureStatus.classList.remove("active");
+      log("Screen capture stopped.");
+    });
+
     // ── Location ───────────────────────────────────────────────
 
     function reportPosition(p) {
@@ -349,6 +421,7 @@
 
     log(`Secure context: ${window.isSecureContext ? "yes ✓" : "no — use http://localhost, not file://"}`);
     log(`Supports getUserMedia: ${typeof navigator.mediaDevices?.getUserMedia === "function" ? "yes ✓" : "no"}`);
+    log(`Supports getDisplayMedia: ${typeof navigator.mediaDevices?.getDisplayMedia === "function" ? "yes ✓" : "no"}`);
     log(`Supports geolocation: ${typeof navigator.geolocation?.getCurrentPosition === "function" ? "yes ✓" : "no"}`);
   </script>
 </body>

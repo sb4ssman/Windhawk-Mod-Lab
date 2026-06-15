@@ -13,6 +13,8 @@
 ## Current focus
 
 1. **Clock Spacer** — v0.8 (in-tree, NOT committed). ⚠️ Retry thread uses `CloseHandle(thread)` without waiting — same crash risk the maintainer flagged in OmniButton. Fix before PR: convert to `CreateThread` + `g_retryStopEvent` + `WaitForSingleObject` in `Wh_ModUninit`, or remove the thread (Clock Spacer has no IconView hook so can't fully remove — must convert). Fixed restart persistence: LoadLibraryExW fallback hook, Wh_ApplyHookOperations in AfterInit, atomic g_systemTrayModuleHooked, GetSystemTrayModuleHandle version check, added -lversion to compilerOptions. **Next: load and test. Confirm restart survives. Then commit v0.8 and push to PR.**
+   - Important discovery: `%s%` at line edges is useful. `%s%content` right-aligns, `content%s%` left-aligns, `%s%content%s%` centers. This makes Clock Spacer a per-row alignment tool, not only a between-token gap tool.
+   - Upstream posture: polish standalone first, then respectfully ask m417z whether an elastic `%s%` token belongs inside Taskbar Clock Customization. Best native implementation would use the clock mod's raw format strings plus real XAML text measurement to choose/cap width.
 
 2. **Virtual Desktop Switcher** — v1.4 (in-tree, NOT committed). All crash fixes applied. New positions: overStart (VD grid overlays start button), belowStart (VD grid below start button on tall taskbars). All start-adjacent positions need visual test.
    - **Outstanding**: 2-column layout on 3-desktop restart. Load mod, check Windhawk log for `[Layout] taskbarH=XX denom=XX -> N rows available`.

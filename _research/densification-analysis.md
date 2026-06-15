@@ -72,6 +72,13 @@ icon) and add optional chevron-sharing as a placement mode.
 - `%s%` token distributes leftover space as gap columns between text segments
 - Multi-line format strings with `\n` produce separate spacer rows per line
 - Style (font, color, size) copied from source TextBlock
+- `%s%` also works at the beginning and/or end of a line, which makes it an
+  alignment primitive, not only an inter-item spacer:
+  - `%s%content` pushes the content right
+  - `content%s%` keeps the content left
+  - `%s%content%s%` centers the content
+  This is important for mixed clock/stat layouts where each row may need its
+  own alignment while still sharing the same fixed clock width.
 
 **What doesn't work well:**
 - Width detection is unreliable without a fixed `Max Width` set in the Clock mod
@@ -87,22 +94,45 @@ icon) and add optional chevron-sharing as a placement mode.
   need to agree on the fixed width, and the user must set it
 
 **Path to improvement:**
-- Add a `Measure widest` button or auto-detection: scan the TextBlock's font metrics and
-  the format string to estimate the widest plausible content, then apply that as MaxWidth.
-  Hard to do correctly for arbitrary emoji/unicode content.
-- Better UX: expose a single `Fixed width (px)` setting that our mod forwards to both the
-  source TextBlock and the generated spacer grid, so the user only has to set it once (here).
-  The user already has `Max clock width` setting — verify it's being applied correctly.
-- Consider: should the mod snap to the widest currently-observed width and lock it in?
-  A `Calibrate` approach: after a few minutes, measure peak ActualWidth and store it.
+- Near-term standalone UX:
+  - Keep fixed width manual for now (`Max clock width` here or `Clock max width` in
+    Taskbar Clock Customization).
+  - Add/readme-document outside spacers as the recommended way to left/right/center
+    individual rows.
+  - Consider optional `minGap` / `maxGap` settings so short rows do not look absurdly
+    stretched when the width is chosen to survive a long day name.
+- Best sizing algorithm:
+  1. Parse each row into segments split by `%s%`.
+  2. Generate candidate strings for variable tokens, especially all seven weekdays.
+  3. Measure each segment using real XAML `TextBlock.Measure()` with the active font,
+     weight, stretch, size, character spacing, and DPI.
+  4. Compute `requiredWidth = sum(segmentWidths) + minGap * spacerCount`.
+  5. Pick the max required width across candidate rows, then optionally cap visual
+     spacer width with `maxGap`.
+- Important constraint: fixed width + fill means shorter strings necessarily get larger
+  gaps than longer strings. Measurement can prevent clipping and pick a better width,
+  but it cannot make every weekday look equally spaced without allowing dynamic width,
+  capped gaps, or abbreviated/custom weekdays.
+- The slickest implementation probably belongs inside Taskbar Clock Customization,
+  because that mod owns the raw format strings and token expansion logic. As a
+  standalone companion, Clock Spacer mostly sees only the already-rendered final text.
 
 **Maintainer pitch:**
-- The spacer logic is small enough (~200 lines of active code) to propose as a direct
-  addition to m417z's Taskbar Clock Customization mod.
-- Pitch angle: "adds elastic spacer token `%s%` — drops in alongside existing token
-  processing in OnApplyTemplate, no new hooks needed if inside the same mod."
-- Separately, the maintainer may prefer to keep mods small and composable.
-  Either way, the Clock Spacer should be PR-ready as a standalone mod first.
+- Approach with respect for m417z's ownership:
+  - First, polish the standalone companion mod enough to demonstrate the behavior,
+    limitations, and unload safety.
+  - Open a discussion/issue or PR comment before proposing a direct patch to
+    Taskbar Clock Customization: frame it as "I built a companion experiment; would
+    you be open to this as a native token?"
+  - Keep the patch minimal if upstreamed: add an elastic spacer token to the existing
+    formatter/layout pipeline, with no broad refactor and no duplicate copy of the
+    whole mod.
+  - Be explicit that m417z may prefer this to remain a separate companion mod.
+    The goal is to offer a clean contribution, not to impose a design direction.
+- Pitch angle if upstream is welcome:
+  "Adds an elastic spacer token `%s%` for dense multi-line clock layouts. Internal and
+  edge spacers allow per-row left/right/center alignment while preserving a fixed clock
+  width."
 
 ---
 

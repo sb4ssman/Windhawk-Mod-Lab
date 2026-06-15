@@ -2,232 +2,36 @@
 // @id              tray-privacy-indicator-anchor
 // @name            Tray Privacy Indicator Anchor
 // @description     Permanently shows location/microphone/camera/Copilot icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
-// @version         0.9
+// @version         0.8
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -lsetupapi -lcfgmgr32
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -lsetupapi
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Tray Privacy Indicator Anchor
-
-Windows 11 shows location and microphone icons in the system tray when an app
-accesses those features, then removes them — causing nearby icons to shift.
-
-This mod injects permanent placeholder icons:
-
-- **Always visible** — dim when nothing is using the feature
-- **Full brightness** when the feature is actively in use
-- **Camera** — experimental placeholder; activates only on devices where
-  Windows shows a software camera indicator (requires `NoPhysicalCameraLED`
-  registry value, or a device with no hardware camera LED)
-- **Copilot** — experimental; shows whether the Windows Web Experience Pack
-  (Copilot) is installed and/or actively running. Slash overlay = not installed.
-
-## Icon order and grid layout
-
-`itemOrder` is a comma-separated list of icon tokens that controls which icons
-appear and in what sequence: `location`, `mic`, `camera`. Remove a token to
-hide that icon; reorder tokens to change the display order.
-
-`gridColumns` sets how many columns the icon bar uses:
-
-- `1` — single column (vertical stack)
-- `2` — two-column grid (default); with 3 icons this gives one short row
-- `3` or more — single row when icon count ≤ columns
-
-When one row or column has fewer icons than the rest, use `shortGroupPosition`
-and `shortGroupAlign` to control where it sits and how it's aligned:
-
-| shortGroupPosition | shortGroupAlign | Result with location,mic,camera in 2 cols |
-| --- | --- | --- |
-| last (default) | center | `[loc  mic]` / `[  cam  ]` |
-| first          | center | `[  loc  ]` / `[mic  cam]` |
-| last           | start  | `[loc  mic]` / `[cam     ]` |
-| last           | end    | `[loc  mic]` / `[     cam]` |
-
-`gridFillOrder: colFirst` fills columns instead of rows, giving vertical
-arrangements like:
-
-```
-[loc] [cam]      [loc] [mic]
-[mic] [   ]  or  [   ] [cam]   (short column centered)
-```
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- idleOpacity: 50
-  $name: Idle opacity (0-100)
-  $description: >-
-    Opacity when no app is using the feature. 0 = invisible but space reserved;
-    100 = always full brightness.
-
-- itemOrder: "location,mic,camera"
-  $name: Icon order
-  $description: >-
-    Comma-separated list of icons to show, in order. Valid tokens: location,
-    mic, camera, copilot. Remove a token to hide that icon. Reorder to change
-    layout. Camera and copilot are experimental — see mod description.
-
-- gridColumns: 2
-  $name: Grid columns
-  $description: >-
-    Number of columns. 1 = vertical stack. 2 = two-column grid (default). Set
-    to 3 or more for a single row when showing 3 icons.
-
-- gridFillOrder: "rowFirst"
-  $name: Fill order
-  $description: Whether items fill left-to-right then down, or top-to-bottom then right.
-  $options:
-  - "rowFirst": "Row-first (left to right, then down)"
-  - "colFirst": "Column-first (top to bottom, then right)"
-
-- shortGroupPosition: "last"
-  $name: Short group position
-  $description: >-
-    When icons don't fill evenly, the short row/column can be at the start or end.
-  $options:
-  - "last": "Short group at end (bottom or right)"
-  - "first": "Short group at start (top or left)"
-
-- shortGroupAlign: "center"
-  $name: Short group alignment
-  $description: >-
-    How to align icons in the short row/column. Center spans the available
-    space and centers the icon(s); start and end pin them to one side.
-  $options:
-  - "center": "Center"
-  - "start": "Start (left/top)"
-  - "end": "End (right/bottom)"
-
-- iconSize: 16
-  $name: Icon size (pt)
-
-- position: "beforeOmni"
-  $name: Position
-  $description: Where to place the privacy placeholders in the tray.
-  $options:
-  - "beforeIcons": "Before notification icons"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeClock": "Before clock"
-  - "afterClock": "After clock"
-  - "afterShowDesktop": "After Show Desktop strip"
-
-- paddingLeft: 0
-  $name: Padding left (px)
-
-- paddingRight: 0
-  $name: Padding right (px)
-
-- iconSpacing: 4
-  $name: Icon spacing (px)
-  $description: Gap between icons in both directions.
-
-- barOffsetX: 0
-  $name: Bar X offset (px)
-  $description: Move the entire bar left (negative) or right (positive).
-
-- barOffsetY: 0
-  $name: Bar Y offset (px)
-  $description: Move the entire bar up (negative) or down (positive).
-
-- locationOffsetX: 0
-  $name: Location X offset (px)
-
-- locationOffsetY: 0
-  $name: Location Y offset (px)
-
-- micOffsetX: 0
-  $name: Microphone X offset (px)
-
-- micOffsetY: 0
-  $name: Microphone Y offset (px)
-
-- cameraOffsetX: 0
-  $name: Camera X offset (px)
-
-- cameraOffsetY: 0
-  $name: Camera Y offset (px)
-
-- copilotOffsetX: 0
-  $name: Copilot X offset (px)
-
-- copilotOffsetY: 0
-  $name: Copilot Y offset (px)
-
-- glowEnabled: 0
-  $name: Glow when active (1=on, 0=off)
-  $description: >-
-    Adds a larger bloom glyph behind the icon when active. Uses the Windows
-    accent color unless custom active color is enabled.
-
-- glowOpacity: 40
-  $name: Glow opacity (0-100)
-  $description: Brightness of the bloom layer. 0 = invisible; 100 = same as icon.
-
-- activeColorEnabled: 0
-  $name: Custom active color (1=on, 0=off)
-  $description: >-
-    When off (default), active icons show at full brightness in the system
-    foreground color. When on, applies the R/G/B color below instead.
-
-- activeColorR: 255
-  $name: Active color — R (0-255)
-
-- activeColorG: 180
-  $name: Active color — G (0-255)
-
-- activeColorB: 60
-  $name: Active color — B (0-255)
-  $description: >-
-    RGB tint applied to icons in use when custom active color is enabled.
-    Default warm orange (255,180,60).
-
-- slashColor: ""
-  $name: Slash color (hex, empty = system)
-  $description: >-
-    Color of the slash overlay shown when a feature is disabled. Leave empty
-    (default) to use the system foreground color, matching the dimmed icon.
-    Enter a hex color without the # sign, e.g. DC1E1E for red.
-
-- slashDirection: "rising"
-  $name: Slash direction
-  $description: Direction of the diagonal line drawn through the icon when disabled.
-  $options:
-  - "rising": "Rising (/ lower-left to upper-right)"
-  - "falling": "Falling (\ upper-left to lower-right)"
-
-- slashOpacity: 100
-  $name: Slash opacity (0-100)
-  $description: >-
-    Opacity of the disabled slash overlay. 100 = fully visible (default).
-    Lower values make the slash more subtle.
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
 
-#include <winrt/Windows.Devices.Enumeration.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Text.h>
-#include <winrt/Windows.UI.ViewManagement.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Automation.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
-#include <winrt/Windows.UI.Xaml.Markup.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
 #include <winrt/Windows.UI.Xaml.Shapes.h>
 
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
-#include <cfgmgr32.h>
 #include <setupapi.h>
 #include <tlhelp32.h>
 
@@ -272,11 +76,10 @@ struct ModSettings {
     int  cameraOffsetY = 0;
     int  copilotOffsetX = 0;
     int  copilotOffsetY = 0;
-    bool activeColorEnabled = false;
     int  activeColorR   = 255;
     int  activeColorG   = 180;
     int  activeColorB   = 60;
-    bool glowEnabled    = false;
+    bool glowEnabled    = true;
     int  glowOpacity    = 40;
     int  slashColor     = -1;  // -1 = system theme; otherwise 0x00RRGGBB
     std::wstring slashDirection = L"rising";
@@ -314,12 +117,11 @@ static void LoadSettings() {
     g_settings.cameraOffsetY        = clamp(Wh_GetIntSetting(L"cameraOffsetY", 0), -40, 40);
     g_settings.copilotOffsetX       = clamp(Wh_GetIntSetting(L"copilotOffsetX", 0), -40, 40);
     g_settings.copilotOffsetY       = clamp(Wh_GetIntSetting(L"copilotOffsetY", 0), -40, 40);
-    g_settings.glowEnabled          = Wh_GetIntSetting(L"glowEnabled", 0) != 0;
-    g_settings.glowOpacity          = clamp(Wh_GetIntSetting(L"glowOpacity", 40), 0, 100);
-    g_settings.activeColorEnabled   = Wh_GetIntSetting(L"activeColorEnabled", 0) != 0;
     g_settings.activeColorR         = clamp(Wh_GetIntSetting(L"activeColorR", 255), 0, 255);
     g_settings.activeColorG         = clamp(Wh_GetIntSetting(L"activeColorG", 180), 0, 255);
     g_settings.activeColorB         = clamp(Wh_GetIntSetting(L"activeColorB",  60), 0, 255);
+    g_settings.glowEnabled          = Wh_GetIntSetting(L"glowEnabled", 1) != 0;
+    g_settings.glowOpacity          = clamp(Wh_GetIntSetting(L"glowOpacity", 40), 0, 100);
     {
         std::wstring hex = GetStringSetting(L"slashColor", L"");
         const wchar_t* p = hex.c_str();
@@ -350,16 +152,15 @@ static std::atomic<bool> g_micDisabled{false};
 static std::atomic<bool> g_camDisabled{false};
 static std::atomic<bool> g_copilotInstalled{false};
 static std::atomic<bool> g_copilotActive{false};
-static std::atomic<bool> g_copilotDisabled{true};
 static Grid              g_syntheticGrid   = nullptr;
-static FrameworkElement  g_locIcon         = nullptr;
-static FrameworkElement  g_micIcon         = nullptr;
-static FrameworkElement  g_camIcon         = nullptr;
-static FrameworkElement  g_copilotIcon     = nullptr;
-static FrameworkElement  g_locGlowIcon     = nullptr;
-static FrameworkElement  g_micGlowIcon     = nullptr;
-static FrameworkElement  g_camGlowIcon     = nullptr;
-static FrameworkElement  g_copilotGlowIcon = nullptr;
+static TextBlock         g_locIcon         = nullptr;
+static TextBlock         g_micIcon         = nullptr;
+static TextBlock         g_camIcon         = nullptr;
+static TextBlock         g_copilotIcon     = nullptr;
+static TextBlock         g_locGlowIcon     = nullptr;
+static TextBlock         g_micGlowIcon     = nullptr;
+static TextBlock         g_camGlowIcon     = nullptr;
+static TextBlock         g_copilotGlowIcon = nullptr;
 static FrameworkElement  g_locSlashIcon    = nullptr;
 static FrameworkElement  g_micSlashIcon    = nullptr;
 static FrameworkElement  g_camSlashIcon    = nullptr;
@@ -687,55 +488,43 @@ static void UpdateSyntheticOpacity() {
         (BYTE)g_settings.activeColorG,
         (BYTE)g_settings.activeColorB};
 
-    // active   = feature in use → full opacity, optional custom color + glow
-    // disabled = service off   → idle opacity, slash visible
-    // idle     = neither       → idle opacity, system foreground, no slash
-    //
-    // setShapeFill: sets Fill on icon. Shape branch handles TextBlock-based icons;
-    // VisualTreeHelper fallback handles Viewbox/Path icons once mounted in the tree.
-    auto setShapeFill = [](FrameworkElement fe, winrt::Windows::UI::Color color) {
-        SolidColorBrush br; br.Color(color);
-        if (auto shape = fe.try_as<winrt::Windows::UI::Xaml::Shapes::Shape>()) {
-            shape.Fill(br); return;
-        }
-        // VisualTreeHelper fallback (requires mounted tree — works during runtime updates)
-        auto child = FindChildRecursive(fe,
-            [](FrameworkElement e) { return e.try_as<winrt::Windows::UI::Xaml::Shapes::Shape>() != nullptr; });
-        if (auto cs = child.try_as<winrt::Windows::UI::Xaml::Shapes::Shape>()) cs.Fill(br);
-    };
-
-    auto applySlot = [&](FrameworkElement icon, FrameworkElement glow, FrameworkElement slash,
+    // Apply full visual state to one icon slot.
+    // active   = feature in use  → colored foreground + glow
+    // disabled = hardware off    → neutral foreground + slash, no glow
+    // idle     = neither         → system-theme foreground, reduced opacity, no glow
+    auto applySlot = [&](TextBlock icon, TextBlock glow, FrameworkElement slash,
                          bool active, bool disabled) {
         if (!icon) return;
         icon.Opacity(active ? 1.0 : idleOp);
 
-        // Custom active tint — only when the user explicitly enables it.
-        // Default: clear any explicit brush so system theme foreground applies.
-        if (g_settings.activeColorEnabled && active) {
-            if (auto tb = icon.try_as<TextBlock>()) {
-                SolidColorBrush activeBrush; activeBrush.Color(activeColor);
-                tb.Foreground(activeBrush);
-            } else {
-                setShapeFill(icon, activeColor);
-            }
+        // Active: user's color. Idle/disabled: restore system theme (no explicit brush).
+        if (active) {
+            SolidColorBrush brush;
+            brush.Color(activeColor);
+            icon.Foreground(brush);
         } else {
-            if (auto tb = icon.try_as<TextBlock>()) {
-                tb.ClearValue(TextBlock::ForegroundProperty());
-            } else {
-                // Shapes and Viewbox containers: restore neutral system-foreground color.
-                // (Shape.Fill default is null/transparent, so ClearValue would hide it.)
-                bool isDark = (Application::Current().RequestedTheme() == ApplicationTheme::Dark);
-                setShapeFill(icon, isDark ? winrt::Windows::UI::Color{255, 255, 255, 255}
-                                          : winrt::Windows::UI::Color{255,  30,  30,  30});
-            }
+            icon.ClearValue(TextBlock::ForegroundProperty());
         }
 
+        // Glow: visible only when active
         if (glow) {
-            glow.Visibility((active && g_settings.glowEnabled) ? Visibility::Visible : Visibility::Collapsed);
+            bool show = active && g_settings.glowEnabled;
+            glow.Visibility(show ? Visibility::Visible : Visibility::Collapsed);
+            if (show) {
+                // Refresh glow color in case settings changed
+                if (auto b = glow.Foreground().try_as<SolidColorBrush>()) b.Color(activeColor);
+            }
         }
 
         if (slash) {
             slash.Visibility(disabled ? Visibility::Visible : Visibility::Collapsed);
+            // Sync Line stroke to the icon's computed foreground so slash matches icon color.
+            // Only when no explicit user color — slashColor >= 0 was baked in at inject time.
+            if (disabled && g_settings.slashColor < 0) {
+                if (auto line = slash.try_as<winrt::Windows::UI::Xaml::Shapes::Line>()) {
+                    line.Stroke(icon.Foreground());
+                }
+            }
         }
     };
 
@@ -746,29 +535,29 @@ static void UpdateSyntheticOpacity() {
     applySlot(g_camIcon, g_camGlowIcon, g_camSlashIcon,
               g_camActive.load(), g_camDisabled.load());
     applySlot(g_copilotIcon, g_copilotGlowIcon, g_copilotSlashIcon,
-              g_copilotActive.load(), g_copilotDisabled.load());
+              g_copilotActive.load(), !g_copilotInstalled.load());
 }
 
-static void SetIconTooltip(FrameworkElement const& fe, PCWSTR label, bool active, bool disabled,
+static void SetIconTooltip(TextBlock const& tb, PCWSTR label, bool active, bool disabled,
                            PCWSTR idleLabel     = L"Not requested",
                            PCWSTR disabledLabel = L"Hardware disabled") {
-    if (!fe) return;
+    if (!tb) return;
     const wchar_t* state = disabled ? disabledLabel
                          : active  ? L"In use"
                                    : idleLabel;
     winrt::hstring tooltip = winrt::hstring(label) + L":\n" + state;
-    ToolTipService::SetToolTip(fe, winrt::box_value(tooltip));
+    ToolTipService::SetToolTip(tb, winrt::box_value(tooltip));
     winrt::Windows::UI::Xaml::Automation::AutomationProperties::SetName(
-        fe, winrt::hstring(label) + L": " + state);
+        tb, winrt::hstring(label) + L": " + state);
 }
 
 static void UpdateSyntheticTooltips() {
     if (g_locIcon) SetIconTooltip(g_locIcon, L"Location",   g_locActive.load(), g_locDisabled.load());
     if (g_micIcon) SetIconTooltip(g_micIcon, L"Microphone", g_micActive.load(), g_micDisabled.load());
     if (g_camIcon) SetIconTooltip(g_camIcon, L"Camera",     g_camActive.load(), g_camDisabled.load());
-    if (g_copilotIcon) SetIconTooltip(g_copilotIcon,
-        L"Copilot", g_copilotActive.load(), g_copilotDisabled.load(),
-        L"Installed (not running)", L"Not installed / disabled");
+    if (g_copilotIcon) SetIconTooltip(g_copilotIcon, L"Copilot",
+        g_copilotActive.load(), !g_copilotInstalled.load(),
+        L"Installed (not running)", L"Not installed");
 }
 
 static void UpdateSyntheticState() {
@@ -829,108 +618,39 @@ static bool CheckMicDisabled() {
 // Returns true if a camera device exists in the Windows device database but none is
 // currently accessible — i.e. the physical kill switch has cut power to the camera.
 static bool CheckCameraDisabled() {
-    // Check 1: WinRT DeviceAccessInformation (most reliable for Privacy Settings toggle)
-    try {
-        using namespace winrt::Windows::Devices::Enumeration;
-        static const winrt::guid kCameraClass{0xca3e7ab9, 0xb4c3, 0x4ae6,
-            {0x82, 0x51, 0x57, 0x9e, 0xf9, 0x33, 0x89, 0x0f}};
-        auto info = DeviceAccessInformation::CreateFromDeviceClassId(kCameraClass);
-        auto status = info.CurrentStatus();
-        Wh_Log(L"[Cam] DeviceAccessStatus=%d (1=DeniedByUser,2=DeniedBySystem)", (int)status);
-        if (status == DeviceAccessStatus::DeniedByUser ||
-            status == DeviceAccessStatus::DeniedBySystem) {
-            Wh_Log(L"[Cam] => disabled (DeviceAccess consent)"); return true;
-        }
-    } catch (...) {
-        Wh_Log(L"[Cam] DeviceAccessInformation threw");
-    }
-
     static const GUID GUID_DEVCLASS_CAMERA_LOCAL =
         {0xca3e7ab9, 0xb4c3, 0x4ae6, {0x82, 0x51, 0x57, 0x9e, 0xf9, 0x33, 0x89, 0x0f}};
     // Check if any camera device is registered in the system at all
     HDEVINFO allDevs = SetupDiGetClassDevs(&GUID_DEVCLASS_CAMERA_LOCAL, nullptr, nullptr, 0);
-    if (allDevs == INVALID_HANDLE_VALUE) {
-        Wh_Log(L"[Cam] allDevs INVALID_HANDLE_VALUE err=%u", GetLastError());
-        return false;
-    }
+    if (allDevs == INVALID_HANDLE_VALUE) return false;
     SP_DEVINFO_DATA d{}; d.cbSize = sizeof(d);
     bool hasAny = SetupDiEnumDeviceInfo(allDevs, 0, &d) == TRUE;
     SetupDiDestroyDeviceInfoList(allDevs);
-    Wh_Log(L"[Cam] hasAny=%d", hasAny);
-    if (!hasAny) { Wh_Log(L"[Cam] => enabled (no camera hardware)"); return false; }
-    // Check if any non-IR camera is present (powered on)
-    // Filter out IR/Hello cameras which are always-on and would mask a hardware kill switch.
+    if (!hasAny) return false; // no camera hardware in this machine
+    // Check if any camera is present (powered on)
     HDEVINFO presentDevs = SetupDiGetClassDevs(&GUID_DEVCLASS_CAMERA_LOCAL, nullptr, nullptr, DIGCF_PRESENT);
     bool hasPresent = false;
     if (presentDevs != INVALID_HANDLE_VALUE) {
         SP_DEVINFO_DATA pd{}; pd.cbSize = sizeof(pd);
-        for (DWORD idx = 0; !hasPresent && SetupDiEnumDeviceInfo(presentDevs, idx, &pd); idx++) {
-            wchar_t name[256] = {}; DWORD type = 0, sz = sizeof(name);
-            SetupDiGetDeviceRegistryPropertyW(presentDevs, &pd, SPDRP_FRIENDLYNAME,
-                                              &type, (BYTE*)name, sz, nullptr);
-            std::wstring_view nm{name};
-            bool isIR = nm.find(L"IR") != std::wstring_view::npos ||
-                        (nm.find(L"Hello") != std::wstring_view::npos) ||
-                        (nm.find(L"Face")  != std::wstring_view::npos);
-            if (!isIR) {
-                // Also check if the device is disabled in Device Manager.
-                // Hardware kill switches sometimes disable the device rather than
-                // removing it from DIGCF_PRESENT entirely.
-                ULONG devStatus = 0, devProblem = 0;
-                bool dmDisabled = false;
-                if (CM_Get_DevNode_Status(&devStatus, &devProblem, pd.DevInst, 0) == CR_SUCCESS) {
-                    dmDisabled = (devStatus & DN_HAS_PROBLEM) && devProblem == CM_PROB_DISABLED;
-                }
-                Wh_Log(L"[Cam] present device: '%s' isIR=%d dmDisabled=%d (status=0x%X prob=%u)",
-                    name, isIR ? 1 : 0, dmDisabled ? 1 : 0, devStatus, devProblem);
-                if (!dmDisabled) hasPresent = true;
-            } else {
-                Wh_Log(L"[Cam] present device: '%s' isIR=1 (filtered)", name);
-            }
-        }
+        hasPresent = SetupDiEnumDeviceInfo(presentDevs, 0, &pd) == TRUE;
         SetupDiDestroyDeviceInfoList(presentDevs);
     }
-    Wh_Log(L"[Cam] hasPresent(non-IR)=%d", hasPresent);
-    if (!hasPresent) { Wh_Log(L"[Cam] => disabled (kill switch)"); return true; }
-    // Check: per-user consent (Privacy & Security → Camera toggle → HKCU)
+    if (!hasPresent) return true; // device known but not present = kill switch off
+    // Check: app-level consent denied (Settings → Privacy → Camera toggle off)
     {
         HKEY hk = nullptr;
-        LONG openR = RegOpenKeyExW(HKEY_CURRENT_USER,
-                L"Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager"
-                L"\\ConsentStore\\webcam",
-                0, KEY_READ, &hk);
-        Wh_Log(L"[Cam] HKCU webcam ConsentStore open=%d", openR);
-        if (openR == ERROR_SUCCESS) {
-            wchar_t val[64] = {};
-            DWORD valLen = sizeof(val), type = 0;
-            LONG r = RegQueryValueExW(hk, L"Value", nullptr, &type, (LPBYTE)val, &valLen);
-            RegCloseKey(hk);
-            Wh_Log(L"[Cam] HKCU Value: r=%d type=%u val='%s'", r, type, val);
-            if (r == ERROR_SUCCESS && type == REG_SZ && _wcsicmp(val, L"Deny") == 0) {
-                Wh_Log(L"[Cam] => disabled (HKCU consent)"); return true;
-            }
-        }
-    }
-    // Check: machine-wide policy (HKLM)
-    {
-        HKEY hk = nullptr;
-        LONG openR = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
                 L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager"
                 L"\\ConsentStore\\webcam",
-                0, KEY_READ, &hk);
-        Wh_Log(L"[Cam] HKLM webcam ConsentStore open=%d", openR);
-        if (openR == ERROR_SUCCESS) {
-            wchar_t val[64] = {};
+                0, KEY_READ, &hk) == ERROR_SUCCESS) {
+            wchar_t val[16] = {};
             DWORD valLen = sizeof(val), type = 0;
             LONG r = RegQueryValueExW(hk, L"Value", nullptr, &type, (LPBYTE)val, &valLen);
             RegCloseKey(hk);
-            Wh_Log(L"[Cam] HKLM Value: r=%d type=%u val='%s'", r, type, val);
-            if (r == ERROR_SUCCESS && type == REG_SZ && _wcsicmp(val, L"Deny") == 0) {
-                Wh_Log(L"[Cam] => disabled (HKLM consent)"); return true;
-            }
+            if (r == ERROR_SUCCESS && type == REG_SZ && _wcsicmp(val, L"Deny") == 0)
+                return true;
         }
     }
-    Wh_Log(L"[Cam] => enabled");
     return false;
 }
 
@@ -953,10 +673,9 @@ static bool CheckCopilotInstalled() {
     static const HKEY kHives[] = { HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE };
     for (int h = 0; h < 2; h++) {
         HKEY hPkg = nullptr;
-        LONG openR = RegOpenKeyExW(kHives[h], kRoots[h], 0,
-                                   KEY_READ | KEY_ENUMERATE_SUB_KEYS, &hPkg);
-        Wh_Log(L"[Copilot] AppModel %s open=%d", h == 0 ? L"HKCU" : L"HKLM", openR);
-        if (openR != ERROR_SUCCESS) continue;
+        if (RegOpenKeyExW(kHives[h], kRoots[h], 0,
+                          KEY_READ | KEY_ENUMERATE_SUB_KEYS, &hPkg) != ERROR_SUCCESS)
+            continue;
         wchar_t name[256]; DWORD nameLen;
         bool found = false;
         for (DWORD i = 0; !found; i++) {
@@ -965,15 +684,11 @@ static bool CheckCopilotInstalled() {
                                    nullptr, nullptr, nullptr, nullptr);
             if (e == ERROR_NO_MORE_ITEMS) break;
             if (e != ERROR_SUCCESS)       continue;
-            if (wcsncmp(name, kPrefix, kPrefixLen) == 0) {
-                Wh_Log(L"[Copilot] found package: %s", name);
-                found = true;
-            }
+            if (wcsncmp(name, kPrefix, kPrefixLen) == 0) found = true;
         }
         RegCloseKey(hPkg);
-        if (found) { Wh_Log(L"[Copilot] => installed"); return true; }
+        if (found) return true;
     }
-    Wh_Log(L"[Copilot] => not installed");
     return false;
 }
 
@@ -997,99 +712,37 @@ static bool CheckCopilotActive() {
     return found;
 }
 
-// Returns true if Copilot is disabled: not installed OR user explicitly hid it via Settings.
-// "Installed but not running" is idle, not disabled — same as mic existing but unmuted.
-static bool CheckCopilotDisabled() {
-    // ShowCopilotButton=0 means the user deliberately turned Copilot off in
-    // Settings > Personalization > Taskbar. Treat this as the explicit-disable signal,
-    // analogous to revoking mic/camera consent.
-    DWORD showButton = 1;
-    DWORD cbData = sizeof(showButton);
-    HKEY hKey = nullptr;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
-            0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-        RegQueryValueExW(hKey, L"ShowCopilotButton", nullptr, nullptr,
-                         reinterpret_cast<BYTE*>(&showButton), &cbData);
-        RegCloseKey(hKey);
-    }
-    Wh_Log(L"[Copilot] ShowCopilotButton=%u  installed=%d", showButton, g_copilotInstalled.load() ? 1 : 0);
-    if (showButton == 0) return true;      // explicitly disabled in Settings
-    if (!g_copilotInstalled.load()) return true;  // package not found at all
-    return false;
-}
-
 // Returns true if location is disabled at either the OS service level or the app consent level.
 static bool CheckLocationDisabled() {
-    // Check 0: Group Policy hard-disable
+    // Check 1: Geolocation service master switch (Settings → Privacy → Location services)
+    // Status DWORD = 0 means the service is turned off system-wide.
     {
         HKEY hk = nullptr;
         if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                L"SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors",
-                0, KEY_READ, &hk) == ERROR_SUCCESS) {
-            DWORD val = 0; DWORD sz = sizeof(val);
-            LONG r = RegQueryValueExW(hk, L"DisableLocation", nullptr, nullptr, (LPBYTE)&val, &sz);
-            RegCloseKey(hk);
-            if (r == ERROR_SUCCESS && val != 0) {
-                Wh_Log(L"[Loc] => disabled (Group Policy)"); return true;
-            }
-        }
-    }
-    // Check 1: Geolocation service master switch (lfsvc service configuration)
-    {
-        HKEY hk = nullptr;
-        LONG openR = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
                 L"SYSTEM\\CurrentControlSet\\Services\\lfsvc\\Service\\Configuration",
-                0, KEY_READ, &hk);
-        Wh_Log(L"[Loc] lfsvc key open=%d", openR);
-        if (openR == ERROR_SUCCESS) {
+                0, KEY_READ, &hk) == ERROR_SUCCESS) {
             DWORD status = 0xFFFFFFFF, valLen = sizeof(status);
-            LONG qr = RegQueryValueExW(hk, L"Status", nullptr, nullptr, (LPBYTE)&status, &valLen);
+            bool off = (RegQueryValueExW(hk, L"Status", nullptr, nullptr,
+                                         (LPBYTE)&status, &valLen) == ERROR_SUCCESS
+                        && status == 0);
             RegCloseKey(hk);
-            Wh_Log(L"[Loc] lfsvc Status: qr=%d val=%u", qr, status);
-            if (qr == ERROR_SUCCESS && status == 0) { Wh_Log(L"[Loc] => disabled (lfsvc)"); return true; }
+            if (off) return true;
         }
     }
-    // Check 2: per-user consent (Privacy & Security → Location services toggle → HKCU)
+    // Check 2: App-level consent denied (Settings → Privacy → Let apps access your location)
     {
         HKEY hk = nullptr;
-        LONG openR = RegOpenKeyExW(HKEY_CURRENT_USER,
-                L"Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager"
-                L"\\ConsentStore\\location",
-                0, KEY_READ, &hk);
-        Wh_Log(L"[Loc] HKCU ConsentStore open=%d", openR);
-        if (openR == ERROR_SUCCESS) {
-            wchar_t val[64] = {};
-            DWORD valLen = sizeof(val), type = 0;
-            LONG r = RegQueryValueExW(hk, L"Value", nullptr, &type, (LPBYTE)val, &valLen);
-            RegCloseKey(hk);
-            Wh_Log(L"[Loc] HKCU Value: r=%d type=%u val='%s'", r, type, val);
-            if (r == ERROR_SUCCESS && type == REG_SZ && _wcsicmp(val, L"Deny") == 0) {
-                Wh_Log(L"[Loc] => disabled (HKCU consent)"); return true;
-            }
-        }
-    }
-    // Check 3: machine-wide policy (HKLM)
-    {
-        HKEY hk = nullptr;
-        LONG openR = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
                 L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager"
                 L"\\ConsentStore\\location",
-                0, KEY_READ, &hk);
-        Wh_Log(L"[Loc] HKLM ConsentStore open=%d", openR);
-        if (openR == ERROR_SUCCESS) {
-            wchar_t val[64] = {};
-            DWORD valLen = sizeof(val), type = 0;
-            LONG r = RegQueryValueExW(hk, L"Value", nullptr, &type, (LPBYTE)val, &valLen);
-            RegCloseKey(hk);
-            Wh_Log(L"[Loc] HKLM Value: r=%d type=%u val='%s'", r, type, val);
-            if (r == ERROR_SUCCESS && type == REG_SZ && _wcsicmp(val, L"Deny") == 0) {
-                Wh_Log(L"[Loc] => disabled (HKLM consent)"); return true;
-            }
-        }
+                0, KEY_READ, &hk) != ERROR_SUCCESS)
+            return false;
+        wchar_t val[16] = {};
+        DWORD valLen = sizeof(val), type = 0;
+        LONG r = RegQueryValueExW(hk, L"Value", nullptr, &type, (LPBYTE)val, &valLen);
+        RegCloseKey(hk);
+        return r == ERROR_SUCCESS && type == REG_SZ && _wcsicmp(val, L"Deny") == 0;
     }
-    Wh_Log(L"[Loc] => enabled");
-    return false;
 }
 
 // Poll all privacy states and push UI update if anything changed.
@@ -1101,21 +754,17 @@ static void UpdateDisabledStates() {
     bool camDis  = CheckCameraDisabled();
     bool copInst = CheckCopilotInstalled();
     bool copAct  = CheckCopilotActive();
-    // Update installed first so CheckCopilotDisabled can read it.
-    g_copilotInstalled.store(copInst);
-    bool copDis  = CheckCopilotDisabled();
     bool prevLoc  = g_locDisabled.load();
     bool prevMic  = g_micDisabled.load(),  prevCam  = g_camDisabled.load();
     bool prevCopI = g_copilotInstalled.load(), prevCopA = g_copilotActive.load();
-    bool prevCopD = g_copilotDisabled.load();
     bool changed = (g_locDisabled.exchange(locDis)           != locDis)  ||
                    (g_micDisabled.exchange(micDis)           != micDis)  ||
                    (g_camDisabled.exchange(camDis)           != camDis)  ||
-                   (g_copilotActive.exchange(copAct)         != copAct)  ||
-                   (g_copilotDisabled.exchange(copDis)       != copDis);
-    Wh_Log(L"[Poll] loc %d->%d  mic %d->%d  cam %d->%d  copInst=%d copAct %d->%d  copDis %d->%d  changed=%d",
-           prevLoc, locDis, prevMic, micDis, prevCam, camDis,
-           copInst, prevCopA, copAct, prevCopD, copDis, changed ? 1 : 0);
+                   (g_copilotInstalled.exchange(copInst)     != copInst) ||
+                   (g_copilotActive.exchange(copAct)         != copAct);
+    if (changed)
+        Wh_Log(L"[Poll] loc %d->%d  mic %d->%d  cam %d->%d  copInst %d->%d  copAct %d->%d",
+               prevLoc, locDis, prevMic, micDis, prevCam, camDis, prevCopI, copInst, prevCopA, copAct);
     if (changed && !g_unloading && g_taskbarWnd) {
         RunFromWindowThread(g_taskbarWnd, [](void*) {
             if (!g_unloading) UpdateSyntheticState();
@@ -1242,8 +891,8 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
 
     for (int i = 0; i < N; i++) {
         const auto& token = activeItems[i];
-        const wchar_t* glyph    = L"";
-        const wchar_t* iconFont = L"Segoe MDL2 Assets";
+        const wchar_t* glyph;
+        const wchar_t* iconFont      = L"Segoe MDL2 Assets";
         bool  isActive, isDisabled;
         int   offX, offY;
         const wchar_t* label;
@@ -1251,33 +900,35 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         const wchar_t* disabledLabel = L"Hardware disabled";
 
         if (token == L"location") {
-            glyph        = L"\xE37A";
-            isActive     = g_locActive.load();
-            isDisabled   = g_locDisabled.load();
-            offX         = g_settings.locationOffsetX;
-            offY         = g_settings.locationOffsetY;
-            label        = L"Location";
+            glyph      = L"\xE37A";
+            isActive   = g_locActive.load();
+            isDisabled = g_locDisabled.load();
+            offX       = g_settings.locationOffsetX;
+            offY       = g_settings.locationOffsetY;
+            label      = L"Location";
         } else if (token == L"mic") {
-            glyph        = L"\xE720";
-            isActive     = g_micActive.load();
-            isDisabled   = g_micDisabled.load();
-            offX         = g_settings.micOffsetX;
-            offY         = g_settings.micOffsetY;
-            label        = L"Microphone";
+            glyph      = L"\xE720";
+            isActive   = g_micActive.load();
+            isDisabled = g_micDisabled.load();
+            offX       = g_settings.micOffsetX;
+            offY       = g_settings.micOffsetY;
+            label      = L"Microphone";
         } else if (token == L"camera") {
-            glyph        = L"\xE722";
-            isActive     = g_camActive.load();
-            isDisabled   = g_camDisabled.load();
-            offX         = g_settings.cameraOffsetX;
-            offY         = g_settings.cameraOffsetY;
-            label        = L"Camera";
+            glyph      = L"\xE722";
+            isActive   = g_camActive.load();
+            isDisabled = g_camDisabled.load();
+            offX       = g_settings.cameraOffsetX;
+            offY       = g_settings.cameraOffsetY;
+            label      = L"Camera";
         } else {  // copilot
-            isActive      = g_copilotActive.load();
-            isDisabled    = g_copilotDisabled.load();
-            offX          = g_settings.copilotOffsetX;
-            offY          = g_settings.copilotOffsetY;
-            label         = L"Copilot";
-            idleLabel     = L"Installed (not running)";
+            glyph        = L"\xF6FA";  // Segoe Fluent Icons: globe (best available Copilot placeholder — real glyph TBD)
+            iconFont     = L"Segoe Fluent Icons";
+            isActive     = g_copilotActive.load();
+            isDisabled   = !g_copilotInstalled.load();  // slash = not installed
+            offX         = g_settings.copilotOffsetX;
+            offY         = g_settings.copilotOffsetY;
+            label        = L"Copilot";
+            idleLabel    = L"Installed (not running)";
             disabledLabel = L"Not installed";
         }
 
@@ -1286,148 +937,31 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         slot.HorizontalAlignment(HorizontalAlignment::Center);
         slot.VerticalAlignment(VerticalAlignment::Center);
 
-        winrt::Windows::UI::Color glowColor;
-        if (g_settings.activeColorEnabled) {
-            glowColor = {255, (BYTE)g_settings.activeColorR,
-                              (BYTE)g_settings.activeColorG,
-                              (BYTE)g_settings.activeColorB};
-        } else {
-            try {
-                winrt::Windows::UI::ViewManagement::UISettings ui;
-                glowColor = ui.GetColorValue(
-                    winrt::Windows::UI::ViewManagement::UIColorType::Accent);
-            } catch (...) {
-                glowColor = {255, 0, 120, 215};  // Windows blue fallback
-            }
+        // Glow layer — same glyph at 1.5× size, active color; behind the main icon
+        TextBlock glowTb;
+        glowTb.Text(glyph);
+        glowTb.FontFamily(FontFamily(iconFont));
+        glowTb.FontSize((double)g_settings.iconSize * 1.5);
+        glowTb.HorizontalAlignment(HorizontalAlignment::Center);
+        glowTb.VerticalAlignment(VerticalAlignment::Center);
+        glowTb.IsHitTestVisible(false);
+        glowTb.Opacity(g_settings.glowOpacity / 100.0);
+        {
+            SolidColorBrush glowBrush;
+            winrt::Windows::UI::Color glowColor{255,
+                (BYTE)g_settings.activeColorR,
+                (BYTE)g_settings.activeColorG,
+                (BYTE)g_settings.activeColorB};
+            glowBrush.Color(glowColor);
+            glowTb.Foreground(glowBrush);
         }
+        glowTb.Visibility(Visibility::Collapsed);
+        slot.Children().Append(glowTb);
 
-        FrameworkElement iconFe = nullptr;
-        FrameworkElement glowFe = nullptr;
-
-        if (token == L"copilot") {
-            bool isDark = (Application::Current().RequestedTheme() == ApplicationTheme::Dark);
-            winrt::Windows::UI::Color neutralColor = isDark
-                ? winrt::Windows::UI::Color{255, 255, 255, 255}
-                : winrt::Windows::UI::Color{255,  30,  30,  30};
-
-            // Try XamlReader to create the real Microsoft Copilot path icon.
-            // F1 = EvenOdd fill rule (creates the inner cutout characteristic of the logo).
-            // SVG viewBox is 0 0 24 24; Stretch=Uniform scales to the requested icon size.
-            static constexpr wchar_t kPathData[] =
-                L"F1 M9 23l.073-.001a2.53 2.53 0 01-2.347-1.838l-.697-2.433"
-                L"a2.529 2.529 0 00-2.426-1.839h-.497l-.104-.002"
-                L"c-4.485 0-2.935-5.278-1.75-9.225l.162-.525"
-                L"C2.412 3.99 3.883 1 6.25 1h8.86"
-                L"c1.12 0 2.106.745 2.422 1.829l.715 2.453"
-                L"a2.53 2.53 0 002.247 1.823l.147.005.534.001"
-                L"c3.557.115 3.088 3.745 2.156 7.206l-.113.413"
-                L"c-.154.548-.315 1.089-.47 1.607l-.163.525"
-                L"C21.588 20.01 20.116 23 17.75 23h-8.75"
-                L"zm8.22-15.89l-3.856.001a2.526 2.526 0 00-2.35 1.615"
-                L"L9.21 15.04a2.529 2.529 0 01-2.43 1.847"
-                L"l3.853.002c1.056 0 1.992-.661 2.361-1.644"
-                L"l1.796-6.287a2.529 2.529 0 012.43-1.848z";
-
-            auto toHexColor = [](winrt::Windows::UI::Color c) -> std::wstring {
-                wchar_t buf[10];
-                swprintf_s(buf, L"#%02X%02X%02X%02X", c.A, c.R, c.G, c.B);
-                return std::wstring(buf);
-            };
-
-            auto tryMakePath = [&](double sz, bool isGlow) -> FrameworkElement {
-                try {
-                    double szN = isGlow ? sz * 1.5 : sz;
-                    std::wstring sizeStr = std::to_wstring((int)std::round(szN));
-                    std::wstring fillHex = toHexColor(isGlow ? glowColor : neutralColor);
-                    std::wstring xaml =
-                        std::wstring(
-                            L"<Viewbox"
-                            L" xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\""
-                            L" Width=\"") + sizeStr +
-                        L"\" Height=\"" + sizeStr +
-                        L"\">"
-                        L"<Path Width=\"24\" Height=\"24\" Stretch=\"Uniform\""
-                        L" HorizontalAlignment=\"Center\" VerticalAlignment=\"Center\""
-                        L" IsHitTestVisible=\"False\""
-                        L" Fill=\"" + fillHex +
-                        L"\" Data=\"" + kPathData +
-                        L"\"/>"
-                        L"</Viewbox>";
-                    auto elem = winrt::Windows::UI::Xaml::Markup::XamlReader::Load(xaml);
-                    auto vb = elem.try_as<winrt::Windows::UI::Xaml::Controls::Viewbox>();
-                    if (!vb) { Wh_Log(L"[Copilot] XamlReader returned null or non-Viewbox (isGlow=%d)", isGlow); return nullptr; }
-                    if (isGlow) {
-                        vb.Opacity(g_settings.glowOpacity / 100.0);
-                        vb.Visibility(Visibility::Collapsed);
-                    }
-                    Wh_Log(L"[Copilot] XamlReader OK (isGlow=%d)", isGlow);
-                    return vb.try_as<FrameworkElement>();
-                } catch (...) {
-                    Wh_Log(L"[Copilot] XamlReader threw (isGlow=%d)", isGlow);
-                    return nullptr;
-                }
-            };
-
-            // Fallback: 4-pointed sparkle Polygon when XamlReader fails
-            auto makeStar = [&](double sz, bool isGlow) {
-                winrt::Windows::UI::Xaml::Shapes::Polygon p;
-                double cx = sz / 2.0, w = sz * 0.14;
-                p.Points().Append({(float)cx,       0.0f});
-                p.Points().Append({(float)(cx + w), (float)(cx - w)});
-                p.Points().Append({(float)sz,        (float)cx});
-                p.Points().Append({(float)(cx + w), (float)(cx + w)});
-                p.Points().Append({(float)cx,        (float)sz});
-                p.Points().Append({(float)(cx - w), (float)(cx + w)});
-                p.Points().Append({0.0f,             (float)cx});
-                p.Points().Append({(float)(cx - w), (float)(cx - w)});
-                p.Width(sz); p.Height(sz);
-                p.Stretch(winrt::Windows::UI::Xaml::Media::Stretch::Uniform);
-                p.HorizontalAlignment(HorizontalAlignment::Center);
-                p.VerticalAlignment(VerticalAlignment::Center);
-                p.IsHitTestVisible(false);
-                SolidColorBrush br;
-                br.Color(isGlow ? glowColor : neutralColor);
-                p.Fill(br);
-                if (isGlow) {
-                    p.Opacity(g_settings.glowOpacity / 100.0);
-                    p.Visibility(Visibility::Collapsed);
-                }
-                return p.try_as<FrameworkElement>();
-            };
-
-            auto gp = tryMakePath((double)g_settings.iconSize, true);
-            if (!gp) gp = makeStar((double)g_settings.iconSize * 1.5, true);
-            glowFe = gp; slot.Children().Append(gp);
-
-            auto ip = tryMakePath((double)g_settings.iconSize, false);
-            if (!ip) ip = makeStar((double)g_settings.iconSize, false);
-            SetIconTooltip(ip, label, isActive, isDisabled, idleLabel, disabledLabel);
-            iconFe = ip; slot.Children().Append(ip);
-        } else {
-            // Glow layer — same glyph at 1.5× size, active color; behind the main icon
-            TextBlock glowTb;
-            glowTb.Text(glyph);
-            glowTb.FontFamily(FontFamily(iconFont));
-            glowTb.FontSize((double)g_settings.iconSize * 1.5);
-            glowTb.HorizontalAlignment(HorizontalAlignment::Center);
-            glowTb.VerticalAlignment(VerticalAlignment::Center);
-            glowTb.IsHitTestVisible(false);
-            glowTb.Opacity(g_settings.glowOpacity / 100.0);
-            {
-                SolidColorBrush glowBrush;
-                glowBrush.Color(glowColor);
-                glowTb.Foreground(glowBrush);
-            }
-            glowTb.Visibility(Visibility::Collapsed);
-            glowFe = glowTb;
-            slot.Children().Append(glowTb);
-
-            auto tb = MakeIconTextBlock(glyph);
-            tb.FontFamily(FontFamily(iconFont));
-            SetIconTooltip(tb, label, isActive, isDisabled, idleLabel, disabledLabel);
-            iconFe = tb;
-            slot.Children().Append(tb);
-        }
+        auto tb = MakeIconTextBlock(glyph);
+        tb.FontFamily(FontFamily(iconFont));
+        SetIconTooltip(tb, label, isActive, isDisabled, idleLabel, disabledLabel);
+        slot.Children().Append(tb);
 
         // Slash overlay — diagonal line across the icon, direction from settings
         double sz = (double)g_settings.iconSize;
@@ -1457,10 +991,8 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                     (BYTE)((g_settings.slashColor >>  8) & 0xFF),
                     (BYTE)( g_settings.slashColor        & 0xFF)});
             } else {
-                bool isDark = (Application::Current().RequestedTheme()
-                               == ApplicationTheme::Dark);
-                slashBrush.Color(isDark ? winrt::Windows::UI::Color{255, 255, 255, 255}
-                                        : winrt::Windows::UI::Color{255,  30,  30,  30});
+                // Placeholder color; applySlot syncs this to icon foreground when shown.
+                slashBrush.Color({255, 255, 255, 255});
             }
             slashLine.Stroke(slashBrush);
         }
@@ -1469,11 +1001,6 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
 
         ApplyOffset(slot, offX, offY);
 
-        if (token == L"location")      { g_locIcon     = iconFe; g_locGlowIcon     = glowFe; g_locSlashIcon     = slashLine; }
-        else if (token == L"mic")      { g_micIcon     = iconFe; g_micGlowIcon     = glowFe; g_micSlashIcon     = slashLine; }
-        else if (token == L"camera")   { g_camIcon     = iconFe; g_camGlowIcon     = glowFe; g_camSlashIcon     = slashLine; }
-        else /* copilot */             { g_copilotIcon = iconFe; g_copilotGlowIcon = glowFe; g_copilotSlashIcon = slashLine; }
-
         auto placement = ComputeIconPlacement(i, N, cols, colFirst, shortFirst, align);
         Grid::SetRow(slot, placement.row);
         Grid::SetColumn(slot, placement.col);
@@ -1481,6 +1008,11 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         if (placement.colSpan > 1) Grid::SetColumnSpan(slot, placement.colSpan);
         if (placement.hAlign != HorizontalAlignment::Stretch) slot.HorizontalAlignment(placement.hAlign);
         if (placement.vAlign != VerticalAlignment::Stretch)   slot.VerticalAlignment(placement.vAlign);
+
+        if (token == L"location")      { g_locIcon     = tb; g_locGlowIcon     = glowTb; g_locSlashIcon     = slashLine; }
+        else if (token == L"mic")      { g_micIcon     = tb; g_micGlowIcon     = glowTb; g_micSlashIcon     = slashLine; }
+        else if (token == L"camera")   { g_camIcon     = tb; g_camGlowIcon     = glowTb; g_camSlashIcon     = slashLine; }
+        else /* copilot */             { g_copilotIcon = tb; g_copilotGlowIcon = glowTb; g_copilotSlashIcon = slashLine; }
 
         bar.Children().Append(slot);
     }
@@ -1645,7 +1177,6 @@ static void ClearPrivacyStates() {
     g_camDisabled.store(false);
     g_copilotInstalled.store(false);
     g_copilotActive.store(false);
-    g_copilotDisabled.store(true);
     UpdateSyntheticState();
 }
 
@@ -1782,7 +1313,7 @@ static bool HookTaskbarViewDllSymbols(HMODULE h) {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Privacy Anchor v0.9");
+    Wh_Log(L"[Init] Privacy Anchor v0.8");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
@@ -1827,9 +1358,9 @@ void Wh_ModAfterInit() {
         if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return 0;
         Wh_Log(L"[Poll] Phase 2 starting — initial hardware state check");
         UpdateDisabledStates();
-        Wh_Log(L"[Poll] Baseline: loc=%d mic=%d cam=%d copInst=%d copAct=%d copDis=%d",
+        Wh_Log(L"[Poll] Baseline: loc=%d mic=%d cam=%d copInst=%d copAct=%d",
                g_locDisabled.load(), g_micDisabled.load(), g_camDisabled.load(),
-               g_copilotInstalled.load(), g_copilotActive.load(), g_copilotDisabled.load());
+               g_copilotInstalled.load(), g_copilotActive.load());
         while (!g_unloading) {
             if (WaitForSingleObject(stop, 3000) != WAIT_TIMEOUT) break;
             UpdateDisabledStates();

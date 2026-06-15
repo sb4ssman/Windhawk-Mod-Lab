@@ -1,8 +1,8 @@
 # sb4ssman Folder Structure
 
-**Generated**: 2026-05-01 12:42:51
-**Total Directories**: 5313
-**Total Files**: 31190
+**Generated**: 2026-05-15 20:50:03
+**Total Directories**: 5427
+**Total Files**: 32606
 
 ```
 📁 sb4ssman/
@@ -1828,16 +1828,96 @@
 │   │   ├── vd-switcher-design.md
 │   │   ├── work_log.md
 │   │   └── working_notes.md
-│   ├── 📁 _research/
-│   ├── 📁 privacy-indicator-anchor/
-│   │   └── privacy-indicator-anchor.wh.cpp
-│   ├── 📁 profiles/
+│   ├── 📁 _profiles/
 │   │   ├── 📁 Laptop2/
 │   │   │   ├── another_backup.txt
 │   │   │   ├── style.yaml
 │   │   │   ├── windhawk-backup_20260427_232153.zip
 │   │   │   └── windhawk-backup_20260428_165640.zip
 │   │   └── README.md
+│   ├── 📁 _research/
+│   │   ├── densification-analysis.md
+│   │   ├── hit-test-analysis.md
+│   │   ├── maintainer-feedback.md
+│   │   ├── maintainer-pr-feedback.md
+│   │   ├── privacy-indicator-anchor-design.md
+│   │   ├── README.md
+│   │   └── windhawk-mod-development.md
+│   ├── 📁 clock-customization-bonus/
+│   │   └── notes.txt
+│   ├── 📁 clock-spacer/
+│   │   └── clock-spacer.wh.cpp
+│   ├── 📁 omnibutton-customizer/
+│   │   ├── 📁 _claude_notes/
+│   │   │   ├── Claude_notes.md
+│   │   │   ├── root_causes.md
+│   │   │   ├── work_log.md
+│   │   │   └── working_notes.md
+│   │   ├── 📁 archive/
+│   │   │   ├── DEVELOPMENT.md
+│   │   │   ├── NEXT-STEPS.md
+│   │   │   ├── omnibutton-test1.cpp
+│   │   │   ├── omnibutton-test10.cpp
+│   │   │   ├── omnibutton-test11.cpp
+│   │   │   ├── omnibutton-test12.cpp
+│   │   │   ├── omnibutton-test13.cpp
+│   │   │   ├── omnibutton-test14.cpp
+│   │   │   ├── omnibutton-test15.cpp
+│   │   │   ├── omnibutton-test16.cpp
+│   │   │   ├── omnibutton-test17.cpp
+│   │   │   ├── omnibutton-test18.cpp
+│   │   │   ├── omnibutton-test2.cpp
+│   │   │   ├── omnibutton-test3.cpp
+│   │   │   ├── omnibutton-test4.cpp
+│   │   │   ├── omnibutton-test5.cpp
+│   │   │   ├── omnibutton-test6.cpp
+│   │   │   ├── omnibutton-test7.cpp
+│   │   │   ├── omnibutton-test8.cpp
+│   │   │   ├── omnibutton-test9.cpp
+│   │   │   ├── stacked-and-nudged-sysbuttons.cpp
+│   │   │   ├── STATUS.md
+│   │   │   ├── tiled-systray-sysbuttons-v2.cpp
+│   │   │   ├── tiled-systray-sysbuttons.ccp
+│   │   │   ├── tray-system-stack.wh.cpp
+│   │   │   ├── UWPSpy-FINDINGS.md
+│   │   │   ├── vertical-omnibutton-v1.4.wh.cpp
+│   │   │   ├── vertical-omnibutton-v2-fixed.wh.cpp
+│   │   │   ├── vertical-omnibutton-v2.wh.cpp
+│   │   │   ├── vertical-omnibutton-v3.cpp
+│   │   │   ├── vertical-omnibutton.wh.cpp
+│   │   │   ├── vertical-omnibutton1-3.cpp
+│   │   │   └── vertical-system-tray-icons.wh.cpp
+│   │   ├── CLAUDE.md
+│   │   ├── omnibutton-customizer.wh.cpp
+│   │   ├── README.md
+│   │   ├── screenshot-inline.png
+│   │   ├── screenshot-off.png
+│   │   ├── screenshot-stacked.png
+│   │   └── style.yaml
+│   ├── 📁 privacy-indicator-anchor/
+│   │   ├── 📁 archive/
+│   │   │   ├── tpia-test1.cpp
+│   │   │   ├── tpia-test2.cpp
+│   │   │   ├── tpia-test3.cpp
+│   │   │   ├── tpia-test4.cpp
+│   │   │   └── tpia-test5.cpp
+│   │   ├── 📁 assets/
+│   │   │   ├── copilot (1).svg
+│   │   │   ├── copilot-color (1).svg
+│   │   │   ├── copilot-color.svg
+│   │   │   └── copilot.svg
+│   │   ├── launch-privacy-trigger-test.bat
+│   │   ├── privacy-indicator-anchor.wh.cpp
+│   │   ├── privacy-trigger-server.ps1
+│   │   ├── privacy-trigger-test.html
+│   │   └── Screenshot 2026-05-09 230734.png
+│   ├── 📁 system-tray-grid-lines/
+│   │   └── note.md
+│   ├── 📁 taskbar-folder-menus/
+│   │   ├── 📁 archive/
+│   │   │   └── tfm-test1.cpp
+│   │   ├── README.md
+│   │   └── taskbar-folder-menu.wh.cpp
 │   ├── 📁 taskmanager-tail/
 │   │   ├── 📁 _claude_notes/
 │   │   │   ├── 📁 _claude_outputs/
@@ -1889,59 +1969,25 @@
 │   │   ├── RESEARCH.md
 │   │   ├── stress-test.ps1
 │   │   └── task-manager-tail.wh.cpp
-│   ├── 📁 vertical-omnibutton/
-│   │   ├── 📁 _claude_notes/
-│   │   │   ├── Claude_notes.md
-│   │   │   ├── root_causes.md
-│   │   │   ├── work_log.md
-│   │   │   └── working_notes.md
-│   │   ├── 📁 archive/
-│   │   │   ├── DEVELOPMENT.md
-│   │   │   ├── NEXT-STEPS.md
-│   │   │   ├── omnibutton-test1.cpp
-│   │   │   ├── omnibutton-test10.cpp
-│   │   │   ├── omnibutton-test11.cpp
-│   │   │   ├── omnibutton-test12.cpp
-│   │   │   ├── omnibutton-test13.cpp
-│   │   │   ├── omnibutton-test14.cpp
-│   │   │   ├── omnibutton-test15.cpp
-│   │   │   ├── omnibutton-test16.cpp
-│   │   │   ├── omnibutton-test17.cpp
-│   │   │   ├── omnibutton-test2.cpp
-│   │   │   ├── omnibutton-test3.cpp
-│   │   │   ├── omnibutton-test4.cpp
-│   │   │   ├── omnibutton-test5.cpp
-│   │   │   ├── omnibutton-test6.cpp
-│   │   │   ├── omnibutton-test7.cpp
-│   │   │   ├── omnibutton-test8.cpp
-│   │   │   ├── omnibutton-test9.cpp
-│   │   │   ├── stacked-and-nudged-sysbuttons.cpp
-│   │   │   ├── STATUS.md
-│   │   │   ├── tiled-systray-sysbuttons-v2.cpp
-│   │   │   ├── tiled-systray-sysbuttons.ccp
-│   │   │   ├── tray-system-stack.wh.cpp
-│   │   │   ├── UWPSpy-FINDINGS.md
-│   │   │   ├── vertical-omnibutton-v2-fixed.wh.cpp
-│   │   │   ├── vertical-omnibutton-v2.wh.cpp
-│   │   │   ├── vertical-omnibutton-v3.cpp
-│   │   │   ├── vertical-omnibutton.wh.cpp
-│   │   │   └── vertical-system-tray-icons.wh.cpp
-│   │   ├── CLAUDE.md
-│   │   ├── README.md
-│   │   ├── screenshot-inline.png
-│   │   ├── screenshot-off.png
-│   │   ├── screenshot-stacked.png
-│   │   ├── style.yaml
-│   │   └── vertical-omnibutton.wh.cpp
 │   ├── 📁 virtual-desktop-switcher/
 │   │   ├── 📁 Archive/
 │   │   │   ├── vdswitcher1.cpp
-│   │   │   └── vdswitcher2.cpp
+│   │   │   ├── vdswitcher2.cpp
+│   │   │   ├── vdswitcher3.cpp
+│   │   │   ├── vdswitcher4.cpp
+│   │   │   └── vdswitcher5.cpp
 │   │   ├── CLAUDE.md
 │   │   ├── README.md
+│   │   ├── Screenshot 2026-05-09 103802.png
+│   │   ├── Screenshot 2026-05-09 103913.png
+│   │   ├── Screenshot 2026-05-09 104033.png
+│   │   ├── Screenshot 2026-05-09 104153.png
+│   │   ├── Screenshot 2026-05-09 133538.png
+│   │   ├── Screenshot 2026-05-09 133722.png
 │   │   ├── vds-screenshot1.png
 │   │   ├── vds-screenshot2.png
 │   │   ├── vds-screenshot3.png
+│   │   ├── vds-screenshot4.png
 │   │   └── virtual-desktop-switcher.wh.cpp
 │   ├── CLAUDE.md
 │   └── README.md
@@ -2308,7 +2354,6 @@
 │   │   ├── taskbar-thumbnails.wh.cpp
 │   │   ├── taskbar-tray-show-on-hover.wh.cpp
 │   │   ├── taskbar-tray-system-icon-tweaks.wh.cpp
-│   │   ├── taskbar-vd-switcher.wh.cpp
 │   │   ├── taskbar-vertical.wh.cpp
 │   │   ├── taskbar-volume-control-per-app.wh.cpp
 │   │   ├── taskbar-volume-control.wh.cpp
