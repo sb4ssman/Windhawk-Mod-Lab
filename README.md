@@ -11,7 +11,7 @@ These mods are generally intended to take advantage of a double-height, two row 
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [vertical-omnibutton/](vertical-omnibutton/) | v1.2, PR submitted | Vertical stacking of system tray OmniButton (wifi/volume/battery) |
+| [omnibutton-customizer/](omnibutton-customizer/) | v1.0, in development | Configurable grid layout for the system tray OmniButton (wifi/volume/battery/percent) |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar (Windows 10 & 11) |
 | [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.1, PR update ready | Virtual desktop switcher buttons injected into system tray |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.1, in development | Keeps location/mic privacy indicator always visible; dim when idle to prevent taskbar icon shifts |
@@ -20,10 +20,10 @@ These mods are generally intended to take advantage of a double-height, two row 
 
 ---
 
-### [Vertical OmniButton](vertical-omnibutton/)
-**Status:** v1.2 — PR submitted  
-Rearranges the system tray OmniButton (wifi / volume / battery) from horizontal to vertical stacking. Supports three battery % display modes with per-mode pixel offsets.  
-→ [README](vertical-omnibutton/README.md)
+### [OmniButton Customizer](omnibutton-customizer/)
+**Status:** v1.0 — in development
+Rearranges the system tray OmniButton (wifi / volume / battery / percent) into a configurable grid with per-item nudges.
+→ [README](omnibutton-customizer/README.md)
 
 ---
 
@@ -67,7 +67,7 @@ Adds compact taskbar buttons that open configured folders as native popup menus,
 
 ```
 Windhawk-Mod-Lab/
-  vertical-omnibutton/      — mod source + notes
+  omnibutton-customizer/    — mod source + notes
   taskmanager-tail/         — mod source + notes
   virtual-desktop-switcher/ — mod source + notes
   privacy-indicator-anchor/ — mod source

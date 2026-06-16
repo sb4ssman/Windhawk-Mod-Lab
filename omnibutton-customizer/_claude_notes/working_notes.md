@@ -1,51 +1,65 @@
-# Working Notes — vertical-omnibutton
+# Working Notes — OmniButton Customizer
 
-## Current version: 1.4
+## Current version
 
-## Status
+v1.0 in development.
 
-v1.3 changes ready in lab; not yet pushed to PR #3859 (`sb4ssman-vertical-omnibutton`).
+This is no longer the narrow Vertical OmniButton mod. It is a generalized
+OmniButton grid customizer with arbitrary item ordering, row/column fill, and
+per-item nudges.
 
-v1.3 adds:
-- `buttonHorizontalPadding` setting
-- `GetSystemTrayModuleHandle()` pattern: tries SystemTray.dll → Taskbar.View.dll (version check) → ExplorerExtensions.dll
-- ARM64 arm in `GetTaskbarXamlRoot` (#elif defined(_M_ARM64))
-- Stoppable retry thread with `g_retryThread`/`g_retryStopEvent`
+## What was fixed in the cleanup pass
 
-## What works
+- Source metadata/logging now agree on `v1.0`.
+- Symbol hook arrays are named/commented for Windhawk PR validation.
+- README now documents OmniButton Customizer instead of old Vertical OmniButton.
+- Folder `CLAUDE.md` now points to `omnibutton-customizer.wh.cpp`.
+- Root README now points to `omnibutton-customizer/` instead of the removed
+  `vertical-omnibutton/` path.
+- Cleanup hardening after user saw OmniButton stuck behind the customized clock:
+  clears a broader set of layout properties, invalidates parent layout, and
+  rediscover-cleans the live OmniButton even if cached references are stale.
+- Layout hardening after the same report: the mod no longer forces the outer
+  `ControlCenterButton` width/height/alignment. It sizes only the internal
+  items-host StackPanel to the grid footprint, leaving tray placement native.
 
-- Vertical stacking of 3 icons ✓
-- Off mode: battery glyph renders normally; % text hidden off-screen ✓
-- Inline mode: % in battery slot (3rd row) ✓
-- Stacked mode: % as 4th row below battery icon ✓
-- All modes apply live (no explorer restart) ✓
-- Per-mode X/Y offsets for wifi, volume, battery, and % text ✓
-- Uninit restores OmniButton to native horizontal layout ✓
-- Settings-changed: clean reset + re-traverse (no stale-element bugs) ✓
-- Deferred LayoutUpdated for early-startup timing ✓
-- Background retry loop (5× at 2s) in Wh_ModAfterInit ✓
+## Current implementation facts
 
-## Architecture summary
+- `@id`: `omnibutton-customizer`
+- Active source: `omnibutton-customizer.wh.cpp`
+- Uses `GetTaskbarXamlRoot`, not XAML Diagnostics.
+- Hooks `IconView::IconView` with an auto-revoked `Loaded` callback.
+- Supports `SystemTray.dll`, old `Taskbar.View.dll`, and `ExplorerExtensions.dll`.
+- Uses `LayoutUpdated` to re-apply when battery/percent elements arrive late.
+- Uses `RenderTransform` for grid placement and fine nudges.
+- Outer OmniButton placement should remain owned by Windows/tray XAML; only
+  internal padding/alignment and items-host footprint are customized.
 
-- Hooks `winrt::SystemTray::implementation::IconView::IconView` from `Taskbar.View.dll`
-- Uses `GetTaskbarXamlRoot` via taskbar.dll symbol hooks (no XAML Diagnostics API)
-- `ApplyAllSettings` → finds `ControlCenterButton` → traverses to IsItemsHost StackPanel → `ApplyLayout`
-- `OnLayoutUpdated` handles battery slot/inner panel arriving late in the XAML tree
-- `CleanupXamlElements` static function used by both Wh_ModUninit and Wh_ModSettingsChanged
-- `WalkBatteryTree` (flips inner SP to Vertical) for stacked mode
-- `WalkFindInnerSP` (no flip) for off mode — glyph renders normally, only text gets offset
-- `WalkFindInlinePercent` for inline mode % positioning
+## Known validation status
 
-## Calibrated defaults (user's display)
+Local Windhawk PR validator was clean for metadata/symbol-hook issues after the
+hook variable cleanup, apart from temp-path warnings when run outside `mods/`.
 
-batteryMode: stacked
-offWifiX: -2, offBatteryX: 2
-inlineWifiX: -2, inlineBatteryX: 2
-stackedWifiX: -2, stackedWifiY: 7
-stackedBatteryX: 8, stackedBatteryY: -6
-stackedPercentX: 2, stackedPercentY: -11
+## Test checklist before submit
 
-## Pending
+- Default 2x2 layout.
+- `gridColumns: 1`, `itemOrder: "wifi volume battery"`.
+- `gridColumns: 1`, `itemOrder: "wifi volume battery percent"`.
+- `gridColumns: 2`, `fillOrder: columnFirst`.
+- Swapped order: `itemOrder: "volume wifi battery percent"`.
+- `gridRows: 1` horizontal/original-style shape.
+- Per-item X/Y nudges.
+- Toggle off: native horizontal OmniButton restores.
+- Toggle off after several settings changes: OmniButton does not remain behind
+  clock/tray content.
+- Settings change: no stale transforms or duplicated offsets.
+- Explorer restart: layout reapplies.
 
-- GitHub issue: feature request on `ramensoftware/windhawk` for export/import settings (blurb ready, not yet filed)
-- VD switcher mod: design doc at `_claude_notes/vd-switcher-design.md`, to be implemented in a new repo
+## Submission posture
+
+PR #3859 is still the old Vertical OmniButton PR. Do not replace it with this
+Customizer without making that scope change explicit. The fast low-risk path for
+PR #3859 is still the archived fixed `vertical-omnibutton-v1.4.wh.cpp`.
+
+OmniButton Customizer should likely be submitted as a separate new mod after the
+test checklist passes.

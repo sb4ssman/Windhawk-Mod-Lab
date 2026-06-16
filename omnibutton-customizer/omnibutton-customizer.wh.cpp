@@ -34,7 +34,7 @@ icon slot using RenderTransform offsets derived from the grid geometry.
 - **Slot width / height** — size of each grid cell in pixels. Height 0 = auto (taskbar height ÷ rows).
 - **Grid columns / rows** — 0 = auto (computed from item count and taskbar height).
 - **Short group alignment** — when the last row or column has fewer items than the others, align them to start, center, or end.
-- **Button horizontal padding** — total OmniButton width = columns × slot width + 2 × padding.
+- **Button horizontal padding** — adjusts internal padding without forcing the OmniButton's tray position.
 - **Per-element nudge** — fine pixel offsets (X/Y) applied on top of the grid geometry for wifi, volume, battery icon, and battery percentage.
 
 ## Presets
@@ -84,8 +84,8 @@ Taskbar Styler out of the box.
 - slotWidth: 32
   $name: Slot width (px)
   $description: >-
-    Width of each grid column in pixels. Default 32 matches the standard 32px icon size.
-    Total button width = columns × slot width + 2 × padding.
+    Width of each internal grid column in pixels. Default 32 matches the standard
+    32px icon size. The mod doesn't force the OmniButton's outer tray position.
 
 - slotHeight: 0
   $name: Slot height (px, 0 = auto)
@@ -125,8 +125,8 @@ Taskbar Styler out of the box.
 - buttonHorizontalPadding: 2
   $name: Button horizontal padding (px)
   $description: >-
-    Horizontal padding on each side of the icon grid. Total button width =
-    columns × slot width + 2 × padding. Default 2.
+    Horizontal padding on each side of the icon grid. The mod keeps this internal
+    and doesn't force the OmniButton's outer tray position. Default 2.
 
 - itemOrder: "wifi volume battery percent"
   $name: Item order
@@ -278,6 +278,8 @@ static HWND g_taskbarWnd = nullptr;
 
 static std::list<FrameworkElement::Loaded_revoker> g_autoRevokerList;
 
+static bool CleanupLiveOmniButton();
+
 // ── Grid geometry ─────────────────────────────────────────────────────────
 //
 // Items are: 0=wifi, 1=volume, 2=battery, 3=percent (optional).
@@ -384,6 +386,20 @@ static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
     }
 }
 
+static void ClearLayoutProperties(FrameworkElement const& fe) {
+    if (!fe) return;
+    fe.ClearValue(FrameworkElement::WidthProperty());
+    fe.ClearValue(FrameworkElement::MinWidthProperty());
+    fe.ClearValue(FrameworkElement::MaxWidthProperty());
+    fe.ClearValue(FrameworkElement::HeightProperty());
+    fe.ClearValue(FrameworkElement::MinHeightProperty());
+    fe.ClearValue(FrameworkElement::MaxHeightProperty());
+    fe.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
+    fe.ClearValue(FrameworkElement::VerticalAlignmentProperty());
+    fe.ClearValue(FrameworkElement::MarginProperty());
+    fe.ClearValue(UIElement::RenderTransformProperty());
+}
+
 static bool HasBatteryDescendant(DependencyObject const& node, int depth = 0) {
     if (depth > 3) return false;
     int n = VisualTreeHelper::GetChildrenCount(node);
@@ -437,25 +453,34 @@ static bool WalkSetupBatteryInnerPanel(DependencyObject const& node, int slotW, 
     return false;
 }
 
-// ── OmniButton sizing ─────────────────────────────────────────────────────
+// ── OmniButton chrome / internal footprint ────────────────────────────────
 
-static void ApplyOmniButtonSize(const GridGeom& geom) {
+static void ApplyOmniButtonChrome() {
     if (!g_omniButton) return;
     double pad = static_cast<double>(g_settings.buttonHorizontalPadding);
-    double w   = geom.cols * g_settings.slotWidth + pad * 2.0;
-    double h   = geom.rows * geom.slotH;
 
     auto ctrl = g_omniButton.try_as<Control>();
     if (ctrl) {
         ctrl.Padding(Thickness{ pad, 0.0, pad, 0.0 });
-        ctrl.HorizontalContentAlignment(HorizontalAlignment::Left);
+        ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
         ctrl.VerticalContentAlignment(VerticalAlignment::Center);
     }
-    g_omniButton.Width(w);
-    g_omniButton.MinWidth(w);
-    g_omniButton.Height(h);
-    g_omniButton.HorizontalAlignment(HorizontalAlignment::Left);
+    g_omniButton.ClearValue(FrameworkElement::WidthProperty());
+    g_omniButton.ClearValue(FrameworkElement::MinWidthProperty());
+    g_omniButton.ClearValue(FrameworkElement::MaxWidthProperty());
+    g_omniButton.ClearValue(FrameworkElement::HeightProperty());
+    g_omniButton.ClearValue(FrameworkElement::MinHeightProperty());
+    g_omniButton.ClearValue(FrameworkElement::MaxHeightProperty());
+    g_omniButton.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
     g_omniButton.InvalidateMeasure();
+}
+
+static void ApplyItemsHostFootprint(StackPanel const& sp, const GridGeom& geom) {
+    sp.Width(static_cast<double>(geom.cols * g_settings.slotWidth));
+    sp.Height(static_cast<double>(geom.rows * geom.slotH));
+    sp.HorizontalAlignment(HorizontalAlignment::Center);
+    sp.VerticalAlignment(VerticalAlignment::Center);
+    sp.InvalidateMeasure();
 }
 
 // ── XAML cleanup ──────────────────────────────────────────────────────────
@@ -474,15 +499,12 @@ static void CleanupXamlElements(
         if (sp) {
             sp.Orientation(Orientation::Horizontal);
             sp.ClearValue(StackPanel::SpacingProperty());
-            sp.ClearValue(FrameworkElement::VerticalAlignmentProperty());  // reverts to template default (Stretch)
+            ClearLayoutProperties(sp);
             int n = VisualTreeHelper::GetChildrenCount(sp);
             for (int i = 0; i < n; i++) {
                 auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
                 if (child) {
-                    child.ClearValue(FrameworkElement::WidthProperty());
-                    child.ClearValue(FrameworkElement::HeightProperty());
-                    child.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                    child.ClearValue(UIElement::RenderTransformProperty());
+                    ClearLayoutProperties(child);
                     auto cp = child.try_as<ContentPresenter>();
                     if (cp) {
                         cp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
@@ -494,11 +516,7 @@ static void CleanupXamlElements(
     } catch (...) {}
     try {
         if (btn) {
-            btn.ClearValue(FrameworkElement::WidthProperty());
-            btn.ClearValue(FrameworkElement::MinWidthProperty());
-            btn.ClearValue(FrameworkElement::HeightProperty());
-            btn.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-            btn.InvalidateMeasure();
+            ClearLayoutProperties(btn);
             auto ctrl = btn.try_as<Control>();
             if (ctrl) {
                 ctrl.ClearValue(Control::PaddingProperty());
@@ -539,12 +557,7 @@ static void CleanupXamlElements(
             for (int i = 0; i < bipN; i++) {
                 auto fe = VisualTreeHelper::GetChild(bip, i).try_as<FrameworkElement>();
                 if (fe) {
-                    fe.ClearValue(FrameworkElement::WidthProperty());
-                    fe.ClearValue(FrameworkElement::HeightProperty());
-                    fe.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-                    fe.ClearValue(FrameworkElement::VerticalAlignmentProperty());
-                    fe.ClearValue(FrameworkElement::MarginProperty());
-                    fe.ClearValue(UIElement::RenderTransformProperty());
+                    ClearLayoutProperties(fe);
                     auto tb = fe.try_as<TextBlock>();
                     if (tb) tb.ClearValue(TextBlock::TextAlignmentProperty());
                 }
@@ -554,13 +567,27 @@ static void CleanupXamlElements(
     // Direct cleanup on stored glyph reference — belt-and-suspenders in case bip loop missed it
     try {
         if (biglyph) {
-            biglyph.ClearValue(FrameworkElement::WidthProperty());
-            biglyph.ClearValue(FrameworkElement::VerticalAlignmentProperty());
-            biglyph.ClearValue(UIElement::RenderTransformProperty());
+            ClearLayoutProperties(biglyph);
         }
     } catch (...) {}
-    // Force a synchronous layout pass so cleared properties take effect immediately
-    try { if (btn) btn.UpdateLayout(); } catch (...) {}
+    // Force remeasure up the tree so cleared sizing/alignment stops affecting the tray.
+    try {
+        if (btn) {
+            btn.InvalidateMeasure();
+            btn.InvalidateArrange();
+            auto parent = VisualTreeHelper::GetParent(btn).try_as<UIElement>();
+            if (parent) {
+                parent.InvalidateMeasure();
+                parent.InvalidateArrange();
+                auto grandparent = VisualTreeHelper::GetParent(parent).try_as<UIElement>();
+                if (grandparent) {
+                    grandparent.InvalidateMeasure();
+                    grandparent.InvalidateArrange();
+                }
+            }
+            btn.UpdateLayout();
+        }
+    } catch (...) {}
 }
 
 static void ResetElementRefs() {
@@ -594,6 +621,7 @@ static void CleanupAndResetCurrentElements() {
     auto bipct   = g_batteryPercentFE;
     ResetElementRefs();
     CleanupXamlElements(sp, btn, wifi, vol, bp, bip, biglyph, bipct);
+    CleanupLiveOmniButton();
 }
 
 // ── Layout application ────────────────────────────────────────────────────
@@ -713,8 +741,9 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
         itemCount, geom.cols, geom.rows, geom.slotH,
         posMap[0], posMap[1], posMap[2], posMap[3]);
 
-    // Size the OmniButton
-    if (g_omniButton) ApplyOmniButtonSize(geom);
+    // Keep outer OmniButton placement native; only adjust internal padding/alignment.
+    if (g_omniButton) ApplyOmniButtonChrome();
+    ApplyItemsHostFootprint(sp, geom);
 
     // Resolve (col, row) for a grid position and compute short-group center nudge.
     auto resolvePos = [&](int gridPos, int& col, int& row, int& cnx, int& cny) {
@@ -1000,6 +1029,83 @@ static FrameworkElement FindChildRecursive(FrameworkElement const& element,
     return nullptr;
 }
 
+static bool FindBatteryInnerElements(DependencyObject const& node,
+                                     StackPanel& innerPanel,
+                                     FrameworkElement& glyph,
+                                     FrameworkElement& percent,
+                                     int depth = 0) {
+    if (depth > 8) return false;
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (!child) continue;
+        auto sp = child.try_as<StackPanel>();
+        if (sp && !sp.IsItemsHost()) {
+            innerPanel = sp;
+            int spN = VisualTreeHelper::GetChildrenCount(sp);
+            if (spN >= 1)
+                glyph = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
+            if (spN >= 2)
+                percent = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
+            return true;
+        }
+        if (FindBatteryInnerElements(child, innerPanel, glyph, percent, depth + 1))
+            return true;
+    }
+    return false;
+}
+
+static bool CleanupLiveOmniButton() {
+    HWND hTaskbarWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+    if (!hTaskbarWnd) return false;
+
+    try {
+        auto xamlRoot = GetTaskbarXamlRoot(hTaskbarWnd);
+        if (!xamlRoot) return false;
+
+        auto content = xamlRoot.Content().try_as<FrameworkElement>();
+        if (!content) return false;
+
+        auto omniButton = FindChildRecursive(content, [](FrameworkElement fe) {
+            return fe.Name() == L"ControlCenterButton";
+        });
+        if (!omniButton) return false;
+
+        FrameworkElement grid = FindChildByClassName(omniButton, L"Windows.UI.Xaml.Controls.Grid");
+        FrameworkElement cp = grid ? FindChildByName(grid, L"ContentPresenter") : nullptr;
+        FrameworkElement ip = cp ? FindChildByClassName(cp, L"Windows.UI.Xaml.Controls.ItemsPresenter") : nullptr;
+        auto sp = ip ? FindChildByClassName(ip, L"Windows.UI.Xaml.Controls.StackPanel").try_as<StackPanel>() : nullptr;
+        if (!sp || !sp.IsItemsHost()) return false;
+
+        FrameworkElement wifi = nullptr;
+        FrameworkElement vol = nullptr;
+        FrameworkElement battery = nullptr;
+        StackPanel batteryInner = nullptr;
+        FrameworkElement batteryGlyph = nullptr;
+        FrameworkElement batteryPercent = nullptr;
+
+        int n = VisualTreeHelper::GetChildrenCount(sp);
+        if (n >= 1) wifi = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
+        if (n >= 2) vol = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
+        for (int i = 0; i < n; i++) {
+            auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
+            if (child && HasBatteryDescendant(child)) {
+                battery = child;
+                FindBatteryInnerElements(child, batteryInner, batteryGlyph, batteryPercent);
+                break;
+            }
+        }
+
+        CleanupXamlElements(sp, omniButton, wifi, vol, battery, batteryInner,
+                            batteryGlyph, batteryPercent);
+        Wh_Log(L"[Cleanup] Live OmniButton cleanup applied");
+        return true;
+    } catch (...) {
+        Wh_Log(L"[Cleanup] Live OmniButton cleanup failed");
+        return false;
+    }
+}
+
 // ── Apply settings ────────────────────────────────────────────────────────
 
 static void ApplyAllSettings() {
@@ -1125,11 +1231,12 @@ static HMODULE GetSystemTrayModuleHandle() {
 }
 
 static bool HookSystemTraySymbols(HMODULE hModule) {
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+    // SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll
+    WindhawkUtils::SYMBOL_HOOK systemTrayHooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original, IconView_IconView_Hook,
     }};
-    if (!WindhawkUtils::HookSymbols(hModule, hooks, ARRAYSIZE(hooks))) {
+    if (!WindhawkUtils::HookSymbols(hModule, systemTrayHooks, ARRAYSIZE(systemTrayHooks))) {
         Wh_Log(L"[Hooks] HookSymbols failed");
         return false;
     }
@@ -1158,7 +1265,7 @@ static bool HookTaskbarDllSymbols() {
     HMODULE hTaskbar = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!hTaskbar) { Wh_Log(L"[Hooks] Failed to load taskbar.dll"); return false; }
 
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         {
             {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
             &CTaskBand_ITaskListWndSite_vftable,
@@ -1176,13 +1283,13 @@ static bool HookTaskbarDllSymbols() {
             &std__Ref_count_base__Decref_Original,
         },
     };
-    return WindhawkUtils::HookSymbols(hTaskbar, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(hTaskbar, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] OmniButton Customizer v2.0");
+    Wh_Log(L"[Init] OmniButton Customizer v1.0");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
@@ -1228,10 +1335,13 @@ void Wh_ModUninit() {
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {
-        RunFromWindowThread(hWnd, [](void*) {
+        if (!RunFromWindowThread(hWnd, [](void*) {
             g_autoRevokerList.clear();
             CleanupAndResetCurrentElements();
-        }, nullptr);
+        }, nullptr)) {
+            g_autoRevokerList.clear();
+            CleanupAndResetCurrentElements();
+        }
     } else {
         g_autoRevokerList.clear();
         CleanupAndResetCurrentElements();
@@ -1245,8 +1355,11 @@ void Wh_ModSettingsChanged() {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) { Wh_Log(L"[Settings] No taskbar window found"); return; }
 
-    RunFromWindowThread(hWnd, [](void*) {
+    if (!RunFromWindowThread(hWnd, [](void*) {
         CleanupAndResetCurrentElements();
         ApplyAllSettings();
-    }, nullptr);
+    }, nullptr)) {
+        CleanupAndResetCurrentElements();
+        ApplyAllSettings();
+    }
 }

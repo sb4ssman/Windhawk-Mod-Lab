@@ -1,64 +1,87 @@
-# Vertical OmniButton — Windhawk Mod
+# OmniButton Customizer
 
-[![Windhawk](https://img.shields.io/badge/Windhawk-Mod-blue)](https://windhawk.net/)
-[![Windows 11](https://img.shields.io/badge/Windows-11-blue)](https://www.microsoft.com/windows/windows-11)
+Windhawk mod for rearranging the Windows 11 system tray OmniButton
+(wifi, volume/sound, battery, and battery percentage) into a configurable grid.
 
-Rearranges the Windows 11 system tray OmniButton (wifi, volume/sound, battery) from
-horizontal layout to clean vertical stacking.
+This grew out of Vertical OmniButton. The original vertical stack is now just
+one preset: set `gridColumns` to `1` and use `itemOrder: "wifi volume battery"`.
 
-You gain granular control over the X/Y pixel position of each item.
+## What It Does
 
-## Screenshots
+- Reorders OmniButton items with `itemOrder`
+- Lays items out by rows or columns
+- Supports 1-column, 2x2, horizontal, and custom grid layouts
+- Treats battery percentage as a separate fourth item when Windows exposes it
+- Adds per-item X/Y nudges for final pixel alignment
+- Keeps the outer OmniButton placement native while sizing the internal items
+  host to the configured grid footprint
+- Avoids XAML Diagnostics, so it can coexist with Windows 11 Taskbar Styler
 
-**Stacked mode** — battery percentage as a 4th row below the battery icon:
+## Useful Presets
 
-![Stacked mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-stacked.png)
+Standard 2x2:
 
-**Inline mode** — percentage shown within the battery icon slot:
+```text
+gridColumns: 2
+fillOrder: rowFirst
+itemOrder: "wifi volume battery percent"
+```
 
-![Inline mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-inline.png)
+Classic vertical stack, no percent:
 
-**Off mode** — battery icon only, clean three-icon stack:
+```text
+gridColumns: 1
+itemOrder: "wifi volume battery"
+```
 
-![Off mode](https://raw.githubusercontent.com/sb4ssman/Windhawk-Vertical-OmniButton/main/screenshot-off.png)
+Vertical stack with percent:
 
-## How it works
+```text
+gridColumns: 1
+itemOrder: "wifi volume battery percent"
+```
 
-Hooks into the `Taskbar.View.dll` system tray implementation via symbol-based
-function hooks. When OmniButton elements appear, the mod forces
-`Orientation=Vertical` on the inner StackPanel and positions each icon slot
-according to your settings.
+Swap wifi and volume:
 
-## Usage
+```text
+itemOrder: "volume wifi battery percent"
+```
 
-1. Install the mod via [Windhawk](https://windhawk.net/)
-2. The mod applies automatically on startup and after explorer restarts. If icons don't appear within a few seconds, toggle the mod off and back on in Windhawk.
-3. Adjust X/Y offsets per mode to pixel-perfect your display
+Column-first 2x2:
 
-## Settings
+```text
+gridColumns: 2
+fillOrder: columnFirst
+itemOrder: "wifi volume battery percent"
+```
 
-Default offsets are tuned for a non-standard Windows 11 taskbar (two rows of taskbar, three rows
-of system-tray) in the Windhawk ecosystem. Use the per-mode offsets to align icons for your theme, scaling,
-or taskbar layout.
+Original horizontal shape:
 
-- **Battery percentage** — Off / Inline / Stacked. All modes apply live — no restart needed. The mod expects battery percentage to be enabled in Windows Settings (System → Power & battery → Show battery percentage). In Off mode it is drawn off-screen via the offset settings. If battery percentage is disabled in Windows, all three modes look the same (battery icon only).
-- **Button horizontal padding** — adjusts the overall OmniButton width while keeping the 32px icon column and per-icon X/Y offsets intact. Lower it to reduce the gap between the OmniButton, neighboring tray icons, and the clock.
-- **Icon offsets** — each battery mode (Off / Inline / Stacked) has its own X/Y offsets for wifi, volume, battery, and percent. Settings are labeled by mode.
+```text
+gridRows: 1
+itemOrder: "wifi volume battery"
+```
 
-## Windows 11 Taskbar Styler compatibility
+## Test Checklist
 
-This mod does not use the Windows XAML Diagnostics API, so it is compatible
-with the Windows 11 Taskbar Styler out of the box — no special settings required.
+- Enable mod with default 2x2 layout
+- Toggle off and verify the native horizontal OmniButton returns
+- Test `gridColumns: 1` with `itemOrder: "wifi volume battery"`
+- Test `gridColumns: 1` with `itemOrder: "wifi volume battery percent"`
+- Test `fillOrder: columnFirst`
+- Test `itemOrder: "volume wifi battery percent"`
+- Change each nudge setting and verify only that item moves
+- Restart Explorer and verify the layout reapplies
+- Change settings after restart and verify there are no stale transforms
+- Verify the OmniButton stays between the expected tray elements and does not
+  overlap the customized clock
 
-For basic vertical stacking without battery percentage, paste [style.yaml](https://github.com/sb4ssman/Windhawk-Vertical-OmniButton/blob/main/style.yaml)
-into Windows 11 Taskbar Styler → Settings → Textual mode.
+## Notes
 
-## Related mods
-
-These mods inspired this one and combine well with it for a fully customized taskbar:
-
-- [Taskbar height and icon size](https://windhawk.net/mods/taskbar-icon-size) — resize the taskbar to give the vertical stack room to breathe
-- [Taskbar Clock Customization](https://windhawk.net/mods/taskbar-clock-customization) — rich clock formatting options that complement the vertical layout
-- [Multirow taskbar for Windows 11](https://windhawk.net/mods/taskbar-multirow) — span taskbar items across multiple rows
-- [Taskbar tray icon spacing and grid](https://windhawk.net/mods/taskbar-notification-icon-spacing) — control spacing and grid layout of system tray icons
-- [Windows 11 Taskbar Styler](https://windhawk.net/mods/windows-11-taskbar-styler) — full XAML-level taskbar theming; existing style.yaml configs work alongside this mod
+- Battery percentage must be enabled in Windows for the `percent` item to exist.
+- If Windows does not expose battery percentage, the `percent` token is skipped.
+- The mod hooks `IconView::IconView` and uses `GetTaskbarXamlRoot` to find the
+  live taskbar XAML tree.
+- The outer `ControlCenterButton` is not forced to a custom width or position.
+  The inner items host reports the grid footprint so Windows can reserve space
+  naturally in the tray.

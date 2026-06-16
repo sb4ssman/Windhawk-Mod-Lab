@@ -1,60 +1,52 @@
-# CLAUDE.md — Vertical OmniButton Windhawk Mod
+# CLAUDE.md — OmniButton Customizer
 
 ## First: read the notes
 
 Go to [_claude_notes/](_claude_notes/) and read:
-1. [working_notes.md](_claude_notes/working_notes.md) — current goals, active problems, key facts
-2. [work_log.md](_claude_notes/work_log.md) — completed work by version (orient yourself here)
-3. [Claude_notes.md](_claude_notes/Claude_notes.md) — architecture, XAML tree, why certain approaches were chosen
-4. [root_causes.md](_claude_notes/root_causes.md) — confirmed bug root causes and how they were fixed
+1. [working_notes.md](_claude_notes/working_notes.md)
+2. [work_log.md](_claude_notes/work_log.md)
+3. [root_causes.md](_claude_notes/root_causes.md)
 
-Keep notes up to date: move completed items from working_notes to work_log. Keep working_notes short.
+The old Vertical OmniButton history is useful background, but the active file is now
+[omnibutton-customizer.wh.cpp](omnibutton-customizer.wh.cpp).
 
-## The project
+## Current shape
 
-Single file: [vertical-omnibutton.wh.cpp](vertical-omnibutton.wh.cpp)
+OmniButton Customizer is a generalized successor to Vertical OmniButton. It arranges
+the Windows 11 system tray OmniButton items into a configurable grid:
 
-A Windhawk mod for Windows 11 that rearranges the system tray OmniButton (wifi/volume/battery)
-from horizontal to vertical stacking using Taskbar.View.dll symbol hooks and GetTaskbarXamlRoot.
+- wifi
+- volume
+- battery
+- battery percentage, when Windows exposes it
 
-**Do not touch** `vertical-system-tray-icons.wh.cpp` — that is a different, separate mod.
+It uses `GetTaskbarXamlRoot` plus symbol hooks, not XAML Diagnostics.
 
-## Current version: 1.4
+## Key implementation points
 
-## Windhawk mod basics
+- `IconView::IconView` hook triggers layout once system tray icons load.
+- `GetSystemTrayModuleHandle()` supports `SystemTray.dll`, older `Taskbar.View.dll`,
+  and `ExplorerExtensions.dll`.
+- `ApplyLayout()` computes grid geometry and uses `RenderTransform` nudges.
+- `LayoutUpdated` handles delayed battery/percent elements.
+- `CleanupAndResetCurrentElements()` must restore transforms, sizing, padding, and
+  layout event handlers on unload or settings change.
 
-- `Wh_ModInit` — called when mod loads into explorer.exe
-- `Wh_ModAfterInit` — called after hooks are applied
-- `Wh_ModUninit` — called when mod unloads; must restore XAML to native state
-- `Wh_ModSettingsChanged` — called when user saves settings in Windhawk UI
-- `Wh_GetIntSetting` / `Wh_GetStringSetting` / `Wh_FreeStringSetting` — settings access
-- `Wh_Log(L"...")` — debug logging (shown in Windhawk log panel)
-- Settings declared in `// ==WindhawkModSettings==` YAML block at top of file
+## Test checklist
 
-## How the mod works
+After code changes, load in Windhawk and test:
 
-Hooks `winrt::SystemTray::implementation::IconView::IconView(void)` from `Taskbar.View.dll`.
-When any system tray icon (IconView) loads, the mod calls `ApplyAllSettings()` if the
-OmniButton layout hasn't been applied yet. `ApplyAllSettings` uses `GetTaskbarXamlRoot`
-(via taskbar.dll symbol hooks) to get the XAML root, then traverses down to find the
-OmniButton (by Name="ControlCenterButton").
+1. Default 2x2 layout.
+2. `gridColumns: 1`, `itemOrder: "wifi volume battery"`.
+3. `gridColumns: 1`, `itemOrder: "wifi volume battery percent"`.
+4. `fillOrder: columnFirst`.
+5. A swapped order, e.g. `itemOrder: "volume wifi battery percent"`.
+6. Per-item nudge settings.
+7. Toggle mod off and confirm native OmniButton returns.
+8. Restart Explorer and confirm layout reapplies.
 
-Key functions:
-- `ApplyAllSettings` — entry point; calls GetTaskbarXamlRoot, traverses to OmniButton
-- `ApplyLayout(sp)` — sets Vertical orientation on the IsItemsHost StackPanel
-- `OnLayoutUpdated` — handles deferred battery elements via LayoutUpdated event on SP
-- `CleanupXamlElements` — restores all modified XAML properties; called by uninit and settings-changed
+## Submission posture
 
-## Two-path problem (now handled via LayoutUpdated)
-
-The IsItemsHost StackPanel sometimes arrives before battery CP is populated.
-`OnLayoutUpdated` is registered on the StackPanel and retries finding the battery slot
-and inner panel each layout pass, unregistering itself once complete.
-
-## Testing
-
-Load the compiled mod in Windhawk. After any code change, Windhawk recompiles automatically.
-Test sequence for each battery mode:
-1. Set mode, save → verify live (no restart needed)
-2. Toggle mod off → OmniButton returns to horizontal, no residual transforms
-3. Change an offset setting → icon moves, no "draw over" artifact
+Do not treat this as a drop-in update to PR #3859 without discussion. PR #3859 is
+for Vertical OmniButton. This file is a broader Customizer and should either get
+its own PR or be intentionally scoped back down before updating the existing PR.

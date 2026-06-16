@@ -1,5 +1,23 @@
 # Work Log — completed changes
 
+## 2026-06-15 — OmniButton Customizer cleanup pass
+
+- Confirmed active source is now `omnibutton-customizer.wh.cpp`, not the older Vertical-only mod.
+- Fixed source polish: metadata/log now agree on v1.0; symbol hook arrays renamed/commented for Windhawk PR validation.
+- Replaced stale Vertical OmniButton README and folder CLAUDE.md with Customizer-specific docs.
+- Updated root README to point at `omnibutton-customizer/`.
+- Added Customizer test checklist to working notes.
+
+## 2026-06-16 — OmniButton cleanup hardening
+
+- User reported OmniButton could remain misplaced behind the customized clock until Explorer restart.
+- Expanded cleanup to clear width/min/max/height/min/max/alignment/margin/transform on touched elements.
+- Added live OmniButton rediscovery cleanup so stale cached references do not prevent reset.
+- Added fallback cleanup if `RunFromWindowThread` fails during unload/settings change.
+- Stopped forcing the outer `ControlCenterButton` size/alignment; the mod now
+  only adjusts chrome/padding and sets the internal items-host grid footprint.
+- Local Windhawk PR validator remains clean apart from expected lab-path warning.
+
 ## v1.2 (published to PR #3859 on ramensoftware/windhawk-mods)
 
 Full rewrite from XAML Diagnostics API to GetTaskbarXamlRoot + symbol hooks.
