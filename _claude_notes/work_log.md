@@ -70,3 +70,12 @@ Lab-level milestones only. Per-mod version history lives in each mod's own `_cla
   - Top: `🤖%cpu%🍵%ram%%s%%time%`
   - Bottom: `%weekday%%s%📅%s%%date%%n%🛫%upload_speed%%s%🛬%download_speed%%n%🧮%gpu%🧮%gpu%%s%💽%disk_read%%n%%weather%`
 - Known limitation: `%s%` spacer handling does not work inside the weather string.
+
+## 2026-06-15 — Clock Spacer PR readiness pass
+
+- User confirmed Clock Spacer has been working and toggled off/on several times without issues.
+- Hardened the initial scan thread: it now has a stop event and is waited during unload with a sent-message pump.
+- Documented the weather-string limitation and added a maintainer note that the `%s%` token could be absorbed into Taskbar Clock Customization if desired.
+- Bumped Clock Spacer to v1.0 for submission.
+- Copied `clock-spacer.wh.cpp` to `windhawk-mods/mods/taskbar-clock-spacer.wh.cpp`, committed as `89f1bc6f` on branch `add-taskbar-clock-spacer`, pushed to fork, and opened PR #4443: https://github.com/ramensoftware/windhawk-mods/pull/4443
+- Root README now marks Clock Spacer v1.0 as PR submitted.

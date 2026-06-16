@@ -2,7 +2,7 @@
 // @id              taskbar-clock-spacer
 // @name            Taskbar Clock Spacer
 // @description     Adds a %s% elastic spacer token to clock format strings, distributing leftover space evenly between items. Works with Taskbar Clock Customization.
-// @version         0.8
+// @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -47,6 +47,9 @@ items and the remaining width is distributed evenly as gaps.
   no-op for those lines.
 - Font and color of inner text segments follow the original TextBlock's current
   style, so clock mod style settings apply automatically.
+- `%s%` is handled after Taskbar Clock Customization expands its format tokens,
+  so it works in the top/bottom line formats but not inside generated composite
+  segments such as the weather string.
 */
 // ==/WindhawkModReadme==
 
@@ -131,7 +134,7 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     void* taskbarHostSharedPtr[2]{};
     CTaskBand_GetTaskbarHost_Original(taskBandForSite, taskbarHostSharedPtr);
     if (!taskbarHostSharedPtr[0] && !taskbarHostSharedPtr[1]) return nullptr;
-    size_t offset = 0x48;
+    size_t offset = 0x10;
 #if defined(_M_X64)
     {
         const BYTE* b = (const BYTE*)TaskbarHost_FrameHeight_Original;
@@ -153,7 +156,7 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
 static bool HookTaskbarDllSymbols() {
     HMODULE h = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!h) return false;
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         { {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
           &CTaskBand_ITaskListWndSite_vftable },
         { {LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
@@ -163,7 +166,7 @@ static bool HookTaskbarDllSymbols() {
         { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
           &std__Ref_count_base__Decref_Original },
     };
-    return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
 // ============================================================
@@ -173,6 +176,8 @@ static bool HookTaskbarDllSymbols() {
 static std::atomic<bool> g_unloading{false};
 static std::atomic<bool> g_scanDone{false};
 static std::atomic<bool> g_systemTrayModuleHooked{false};
+static HANDLE g_scanThread = nullptr;
+static HANDLE g_scanStopEvent = nullptr;
 
 // Forward declaration
 static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName);
@@ -579,6 +584,7 @@ void WINAPI DateTimeIconContent_OnApplyTemplate_Hook(void* pThis) {
 // ============================================================
 
 static bool HookSystemTraySymbols(HMODULE h) {
+    // SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll
     WindhawkUtils::SYMBOL_HOOK systemTrayHooks[] = {{
         {LR"(public: void __cdecl winrt::SystemTray::implementation::DateTimeIconContent::OnApplyTemplate(void))"},
         &DateTimeIconContent_OnApplyTemplate_Original,
@@ -667,12 +673,23 @@ static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileNam
     }
 }
 
+static void WaitForThreadWithSentMessagePump(HANDLE thread) {
+    DWORD result;
+    do {
+        result = MsgWaitForMultipleObjects(1, &thread, FALSE, INFINITE, QS_SENDMESSAGE);
+        if (result == WAIT_OBJECT_0 + 1) {
+            MSG msg;
+            PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE);
+        }
+    } while (result == WAIT_OBJECT_0 + 1);
+}
+
 // ============================================================
 // Windhawk lifecycle
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Clock Spacer v0.8");
+    Wh_Log(L"[Init] Clock Spacer v1.0");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols())
@@ -709,9 +726,17 @@ void Wh_ModAfterInit() {
     Wh_Log(L"[AfterInit] hooked=%d", (int)g_systemTrayModuleHooked.load());
 
     // Scan for DateTimeIconContent elements already rendered before mod load.
-    HANDLE thread = CreateThread(nullptr, 0, [](void*) -> DWORD {
+    g_scanStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!g_scanStopEvent) {
+        Wh_Log(L"[Spacer] Failed to create scan stop event");
+        return;
+    }
+
+    g_scanThread = CreateThread(nullptr, 0, [](void* param) -> DWORD {
+        HANDLE stopEvent = static_cast<HANDLE>(param);
         for (int i = 0; i < 5 && !g_unloading && !g_scanDone; i++) {
-            if (i > 0) Sleep(2000);
+            if (i > 0 && WaitForSingleObject(stopEvent, 2000) != WAIT_TIMEOUT)
+                break;
             HWND hWnd = FindCurrentProcessTaskbarWnd();
             if (!hWnd) continue;
             RunFromWindowThread(hWnd, [](void* param) {
@@ -727,13 +752,30 @@ void Wh_ModAfterInit() {
             if (g_scanDone) break;
         }
         return 0;
-    }, nullptr, 0, nullptr);
-    if (thread) CloseHandle(thread);
+    }, g_scanStopEvent, 0, nullptr);
+
+    if (!g_scanThread) {
+        CloseHandle(g_scanStopEvent);
+        g_scanStopEvent = nullptr;
+        Wh_Log(L"[Spacer] Failed to create scan thread");
+    }
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
+    if (g_scanStopEvent)
+        SetEvent(g_scanStopEvent);
+    if (g_scanThread) {
+        WaitForThreadWithSentMessagePump(g_scanThread);
+        CloseHandle(g_scanThread);
+        g_scanThread = nullptr;
+    }
+    if (g_scanStopEvent) {
+        CloseHandle(g_scanStopEvent);
+        g_scanStopEvent = nullptr;
+    }
+
     // ClearSpacerStates touches WinRT objects — must run on the UI thread.
     if (HWND hWnd = FindCurrentProcessTaskbarWnd()) {
         RunFromWindowThread(hWnd, [](void*) { ClearSpacerStates(); }, nullptr);
