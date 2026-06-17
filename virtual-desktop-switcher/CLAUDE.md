@@ -1,6 +1,6 @@
 # CLAUDE.md — Virtual Desktop Switcher
 
-## Status: v1.4 — Start-adjacent placement polish in progress
+## Status: v1.4 — submission prep pass
 
 Single file: [virtual-desktop-switcher.wh.cpp](virtual-desktop-switcher.wh.cpp)
 Design doc: [../_claude_notes/vd-switcher-design.md](../_claude_notes/vd-switcher-design.md)
@@ -22,10 +22,11 @@ Click switches directly to that desktop. Grid auto-sizes rows from taskbar heigh
 
 ## Grid layout
 
-Column-major fill: with 4 desktops in 2 rows → columns are [1,2] [3,4].
+Default row-first fill: with 4 desktops in 2 rows -> rows are [1,2] [3,4].
+Column-first fill is still available for vertical packing.
 Row count: `buttonRows=0` auto-detects from `GetWindowRect(Shell_TrayWnd)`.
 
-## Positions (all within SystemTrayFrameGrid)
+## Tray Positions
 
 - `afterClock` — before `ShowDesktopStack` (default)
 - `beforeClock` — before `NotificationCenterButton`
@@ -33,8 +34,15 @@ Row count: `buttonRows=0` auto-detects from `GetWindowRect(Shell_TrayWnd)`.
 - `beforeIcons` — column 0
 - `afterShowDesktop` — after `ShowDesktopStack`
 
+## Start Positions
+
+- `nextToStart` — left of Start; reserves space by pushing `TaskbarFrameRepeater` right
+- `overStart` — pure overlay anchored to Start; use `gridVerticalOffset`, padding, and grid settings to nudge
+- `rightOfStart` — reserves space to the right of Start by pushing `TaskbarFrameRepeater` right and visually counter-shifting Start back to its original anchor
+- Legacy `aboveStart` / `belowStart` values are treated as `overStart` aliases; they are hidden from the settings options.
+
 ## Known limitations
 
 - Multi-monitor: only primary taskbar gets buttons.
 - `taskbarLeft`/`taskbarRight` were removed: `RootGrid` uses star-sized columns; injecting there collapses them.
-- 2026-06-16 pass: `belowStart` is now clamped into the taskbar root, overlay modes honor left/right padding for visible nudging, and `rightOfStart` now tries to reserve taskbar item space via `TaskbarFrameRepeater.Margin.Left`. Needs live testing because Start-adjacent placement depends on Windows' current taskbar XAML tree.
+- 2026-06-17 pass: Start-overlay is one mode (`overStart`) with existing offset/padding controls; `rightOfStart` reserves space by pushing `TaskbarFrameRepeater.Margin.Left` and counter-shifting the Start button visually. User tested and added screenshots for left/over/right Start cases, including hidden-Start variants.

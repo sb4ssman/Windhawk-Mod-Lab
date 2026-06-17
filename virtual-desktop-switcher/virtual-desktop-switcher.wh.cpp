@@ -14,13 +14,13 @@
 /*
 # Taskbar Virtual Desktop Switcher
 
-Adds numbered buttons to the system tray — one per virtual desktop. Click to switch directly.
+Adds numbered buttons to the taskbar — one per virtual desktop. Click to switch directly.
 
-![Default taskbar — three numbered buttons, first active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot1.png)
+![Default tray placement — three numbered buttons, first active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/simple3.png)
 
 Buttons can be arranged into one or more rows with configurable fill order.
 
-![Taller taskbar — multi-row grid layout](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot2.png)
+![Four desktops with master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/simple4wmaster.png)
 
 Works alongside other mods.
 
@@ -28,11 +28,19 @@ Works alongside other mods.
 
 The compact grid adapts to how many desktops you have.
 
-![Five desktops in a 3×2 grid — column-first fill, short column centered](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/vds-screenshot4.png)
+![Taller taskbar with right-side grid and lower master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/gridonrightwlowermaster.png)
+
+The switcher can also sit near the Start button.
+
+![Left of Start button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/left-of-start.png)
+
+![Over Start, nudged above](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/over-above-start.png)
+
+![Right of Start with Start hidden](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/virtual-desktop-switcher/right-of-start-hidden-start.png)
 
 ## Settings
-- **Position** — system tray positions plus experimental Start-adjacent positions
-- **Start-adjacent positions** — experimental placement next to or above the Start button
+- **Position** — system tray positions plus experimental Start-adjacent and Start-overlay positions
+- **Start positions** — place buttons left of Start, over Start, or in a reserved space to the right of Start
 - **Size** — button width × height in pixels; spacing between buttons
 - **Grid mode** — smart automatic layout, single row/column, fixed rows, fixed columns, or fixed grid
 - **Smart layout** — balanced, vertical pack, or horizontal pack behavior
@@ -70,9 +78,7 @@ The compact grid adapts to how many desktops you have.
   - "beforeIcons": "Before notification icons"
   - "afterShowDesktop": "After Show Desktop strip"
   - "nextToStart": "Left of Start button (experimental)"
-  - "aboveStart": "Above Start button (experimental)"
   - "overStart": "Over Start button (experimental)"
-  - "belowStart": "Below Start button (experimental)"
   - "rightOfStart": "Right of Start button (experimental)"
 
 - buttonWidth: 20
@@ -380,7 +386,6 @@ static bool              g_startOverlayMode = false;
 static FrameworkElement  g_startOverlayRoot = nullptr;
 static FrameworkElement  g_startOverlayStart = nullptr;
 static winrt::event_token g_startOverlayLayoutToken{};
-static int               g_startColumnIndex = -1;
 static FrameworkElement  g_taskItemsPanel = nullptr;
 static Thickness         g_taskItemsPanelOriginalMargin{};
 static double            g_startButtonOriginalX = -1.0;
@@ -1066,7 +1071,7 @@ struct GridLayout {
     int shortOffset = 0;  // start row (column-first) or start column (row-first) for partial last group
 };
 
-static int GetAvailableRows(int count) {
+static int GetAvailableRows(int count, bool logDetails = true) {
     int rows = count;
     RECT r{};
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
@@ -1082,11 +1087,14 @@ static int GetAvailableRows(int count) {
             taskbarH -= sliverTotal;
         int denom = std::max(1, g_settings.buttonHeight + std::max(0, g_settings.buttonSpacing));
         rows = std::max(1, taskbarH / denom);
-        Wh_Log(L"[Layout] taskbarH=%d sliver=%d denom=%d -> %d rows available",
-               taskbarH + (sliverMode ? sliverTotal : 0),
-               sliverMode ? 1 : 0, denom, rows);
+        if (logDetails) {
+            Wh_Log(L"[Layout] taskbarH=%d sliver=%d denom=%d -> %d rows available",
+                   taskbarH + (sliverMode ? sliverTotal : 0),
+                   sliverMode ? 1 : 0, denom, rows);
+        }
     } else {
-        Wh_Log(L"[Layout] No taskbar window — using count=%d as row limit", count);
+        if (logDetails)
+            Wh_Log(L"[Layout] No taskbar window — using count=%d as row limit", count);
     }
     rows = std::min(rows, count);
     if (g_settings.buttonRows > 0)
@@ -1117,9 +1125,9 @@ static int LayoutScore(int rows, int cols, int count, int maxRows) {
     return score;
 }
 
-static GridLayout ComputeLayout(int count) {
+static GridLayout ComputeLayout(int count, bool logDetails = true) {
     GridLayout L;
-    int maxRows = GetAvailableRows(count);
+    int maxRows = GetAvailableRows(count, logDetails);
 
     if (g_settings.gridMode == L"singleRow") {
         L.rows = 1;
@@ -1173,8 +1181,10 @@ static GridLayout ComputeLayout(int count) {
             L.cols++;
     }
 
-    Wh_Log(L"[Layout] count=%d -> %dx%d (mode=%s)", count, L.rows, L.cols,
-           g_settings.gridMode.c_str());
+    if (logDetails) {
+        Wh_Log(L"[Layout] count=%d -> %dx%d (mode=%s)", count, L.rows, L.cols,
+               g_settings.gridMode.c_str());
+    }
 
     bool rowFirst = (g_settings.fillOrder == L"rowFirst");
     if (rowFirst) {
@@ -1225,7 +1235,7 @@ static void GetButtonGridPosition(int index, int count, const GridLayout& layout
 }
 
 static double EstimateButtonGridWidth(int count) {
-    auto layout = ComputeLayout(count);
+    auto layout = ComputeLayout(count, false);
     bool hasMaster    = g_settings.showMasterButton;
     bool masterIsRow  = g_settings.masterButtonPosition == L"bottom" ||
                          g_settings.masterButtonPosition == L"top";
@@ -1239,7 +1249,7 @@ static double EstimateButtonGridWidth(int count) {
 }
 
 static double EstimateButtonGridHeight(int count) {
-    auto layout = ComputeLayout(count);
+    auto layout = ComputeLayout(count, false);
     bool hasMaster    = g_settings.showMasterButton;
     bool masterIsRow  = g_settings.masterButtonPosition == L"bottom" ||
                          g_settings.masterButtonPosition == L"top";
@@ -1542,20 +1552,6 @@ static FrameworkElement FindStartButton(FrameworkElement root) {
     });
 }
 
-// Walk up from target to find its direct parent that is a child of rootGrid.
-static FrameworkElement GetRootGridDirectChildContaining(Grid rootGrid, FrameworkElement target) {
-    if (!rootGrid || !target) return nullptr;
-    DependencyObject current = target;
-    while (current) {
-        auto parent = VisualTreeHelper::GetParent(current);
-        if (!parent) return nullptr;
-        if (parent.try_as<Grid>() == rootGrid)
-            return current.try_as<FrameworkElement>();
-        current = parent;
-    }
-    return nullptr;
-}
-
 static FrameworkElement FindTaskbarRootGrid(FrameworkElement root) {
     auto taskbarFrame = FindChildRecursive(root, [](FrameworkElement fe) {
         return winrt::get_class_name(fe) == L"Taskbar.TaskbarFrame";
@@ -1591,6 +1587,27 @@ static void SetTaskItemsLeftMargin(double left) {
 
     margin.Left = left;
     g_taskItemsPanel.Margin(margin);
+}
+
+static void SetStartButtonVisualOffset(double x) {
+    if (!g_startOverlayStart)
+        return;
+
+    if (std::fabs(x) <= 0.5) {
+        if (!g_startOverlayStart.RenderTransform())
+            return;
+        g_startOverlayStart.ClearValue(UIElement::RenderTransformProperty());
+        return;
+    }
+
+    auto existing = g_startOverlayStart.RenderTransform().try_as<TranslateTransform>();
+    if (existing && std::fabs(existing.X() - x) <= 0.5 && existing.Y() == 0.0)
+        return;
+
+    TranslateTransform tt;
+    tt.X(x);
+    tt.Y(0.0);
+    g_startOverlayStart.RenderTransform(tt);
 }
 
 static double GetElementActualWidth(FrameworkElement const& element) {
@@ -1634,56 +1651,30 @@ static void PositionButtonGridNearStart() {
     double left = 0.0;
     double top  = 0.0;
 
-    if (pos == L"aboveStart") {
-        // Use the original (pre-push) start button x as a stable anchor so that
-        // LayoutUpdated calls triggered by our own margin push don't cause oscillation.
-        double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX + (double)g_settings.paddingLeft;
-        top  = y - gridH - (double)g_settings.buttonSpacing;
-        if (left < 0.0) left = 0.0;
-
-        // Widen the start button's visual area to match the grid by pushing
-        // TaskbarFrameRepeater right. Pushing by (gridW - startW) / 2 centers
-        // the start button under the grid without moving the grid itself.
-        if (g_taskItemsPanel && !startHidden) {
-            double push = std::max(0.0, (outerGridW - startW) / 2.0);
-            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
-        }
-    } else if (pos == L"overStart") {
-        // Grid overlays (centers on) the start button — VD buttons replace the start logo.
+    if (pos == L"overStart" || pos == L"aboveStart" || pos == L"belowStart") {
+        // Grid overlays the Start button. Legacy above/below values are treated
+        // as this mode; use gridVerticalOffset for vertical nudging.
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
         left = anchorX + (double)g_settings.paddingLeft;
         top  = y + (startH - gridH) / 2.0;
         if (left < 0.0) left = 0.0;
-
-        if (g_taskItemsPanel && !startHidden) {
-            double push = std::max(0.0, (outerGridW - startW) / 2.0);
-            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
-        }
-    } else if (pos == L"belowStart") {
-        // Grid floats below the start button (useful on tall/double-height taskbars).
-        double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX + (double)g_settings.paddingLeft;
-        top  = y + startH + (double)g_settings.buttonSpacing;
-        if (left < 0.0) left = 0.0;
-
-        if (g_taskItemsPanel && !startHidden) {
-            double push = std::max(0.0, (outerGridW - startW) / 2.0);
-            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
-        }
+        SetStartButtonVisualOffset(0.0);
     } else if (pos == L"rightOfStart") {
         // Grid sits immediately right of the start button and reserves room for
-        // itself before taskbar items. Use the original start X to avoid
-        // LayoutUpdated feedback after the task item margin changes.
+        // itself before taskbar items. TaskbarFrameRepeater.Margin.Left moves
+        // Start too, so counter-shift Start visually back to its stable anchor.
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
         left = anchorX + startW + (double)g_settings.paddingLeft;
         top  = y + (startH - gridH) / 2.0;
         if (left < 0.0) left = 0.0;
 
         if (g_taskItemsPanel) {
-            double neededLeft = g_taskItemsPanelOriginalMargin.Left +
-                                outerGridW + (double)g_settings.buttonSpacing;
-            SetTaskItemsLeftMargin(neededLeft);
+            double push = outerGridW + (double)g_settings.buttonSpacing;
+            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
+            if (!startHidden)
+                SetStartButtonVisualOffset(-push);
+        } else {
+            SetStartButtonVisualOffset(0.0);
         }
     } else {
         // nextToStart: anchor VD grid at the left edge; push TaskbarFrameRepeater
@@ -1692,6 +1683,7 @@ static void PositionButtonGridNearStart() {
         // stays valid for vertical centering even after we push the panel right.
         left = (double)g_settings.paddingLeft;
         top  = y + (startH - gridH) / 2.0;
+        SetStartButtonVisualOffset(0.0);
 
         if (g_taskItemsPanel) {
             double neededLeft = g_taskItemsPanelOriginalMargin.Left +
@@ -1770,13 +1762,13 @@ static bool InjectButtonGridNearStart(FrameworkElement root) {
     g_startOverlayRoot = rootGrid;
     g_startOverlayStart = startButton;
 
-    // Always capture TaskbarFrameRepeater — used for margin adjustment in nextToStart and aboveStart.
+    // Capture TaskbarFrameRepeater for modes that reserve space near Start.
     if (auto repeater = FindTaskbarFrameRepeater(rootGrid)) {
         g_taskItemsPanel = repeater;
         g_taskItemsPanelOriginalMargin = repeater.Margin();
     }
 
-    // Capture original start button x before any margin pushes — stable anchor for aboveStart.
+    // Capture original start button x before any margin pushes — stable anchor.
     try {
         auto t = startButton.TransformToVisual(rootGrid);
         winrt::Windows::Foundation::Point o{ 0.0f, 0.0f };
@@ -1907,15 +1899,6 @@ static bool InjectButtonGrid(FrameworkElement root) {
 
     Wh_Log(L"[Inject] VdSwitcherBar at column=%d in %ls (%d desktops, current=%d)",
            insertCol, parent.Name().c_str(), count, current);
-    // Diagnostic: log any sibling with non-zero ZIndex so we can spot conflicts.
-    for (auto child : gridParent.Children()) {
-        if (auto fe = child.try_as<FrameworkElement>()) {
-            int z = (int)Canvas::GetZIndex(fe);
-            if (z != 0)
-                Wh_Log(L"[Inject] ZIndex sibling: %ls col=%d z=%d",
-                       fe.Name().c_str(), Grid::GetColumn(fe), z);
-        }
-    }
     return true;
 }
 
@@ -1991,7 +1974,7 @@ static void RemoveButtonGrid() {
             g_taskItemsPanel.Margin(g_taskItemsPanelOriginalMargin);
             g_taskItemsPanel = nullptr;
         }
-        g_startColumnIndex = -1;
+        SetStartButtonVisualOffset(0.0);
         g_startButtonOriginalX = -1.0;
 
         g_buttonGrid = nullptr;

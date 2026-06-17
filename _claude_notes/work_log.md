@@ -60,6 +60,13 @@ Lab-level milestones only. Per-mod version history lives in each mod's own `_cla
 - `masterButtonSpacing`: sentinel model removed, pure additive margin offset
 - Row-first short-group centering: pixel-precise via column-span + `Margin.Left` (mirrors column-first approach)
 
+## 2026-06-17 — VD Switcher Start-placement rethink
+
+- Collapsed `aboveStart` / `belowStart` into legacy aliases of `overStart`; settings UI now exposes only left of Start, over Start, and right of Start.
+- Made overlay mode pure overlay; vertical placement is controlled by `gridVerticalOffset` instead of separate above/below placement modes.
+- Reworked `rightOfStart`: pushes `TaskbarFrameRepeater.Margin.Left` to reserve room and applies a visual X counter-offset to the Start button so Start stays anchored while taskbar items move right.
+- Submission-prep pass: incorporated renamed screenshots into README and Windhawk readme, documented tested left/over/right Start examples, removed stale Start-placement helper/global, and removed the Z-index diagnostic sibling dump.
+
 ### Infra checklist updated
 - Added two new required patterns: ARM64 disasm probe and auto-revoke `Loaded`
 

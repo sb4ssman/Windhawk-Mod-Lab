@@ -2,17 +2,32 @@
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
 
-![Default taskbar — three numbered buttons, first active](vds-screenshot1.png)
-*Default size: three desktops in a row, desktop 1 active.*
+![Default tray placement — three numbered buttons, first active](simple3.png)
+*Default tray placement: three desktops in a row, desktop 1 active.*
 
-![Taller taskbar — multi-row grid layout](vds-screenshot2.png)
-*Taller taskbar: configurable grid layout with multiple rows.*
+![Two desktop compact tray placement](simple2.png)
+*Compact tray placement with two desktops.*
 
-![Complex setup with other mods active](vds-screenshot3.png)
-*Works alongside other mods (Task Manager Tail, weather widgets, etc.).*
+![Four desktops with master button](simple4wmaster.png)
+*Four desktops with the optional Task View master button.*
 
-![Five desktops in a 3×2 grid — column-first fill, short column centered](vds-screenshot4.png)
-*Five desktops in a compact 3×2 grid; the shorter second column is centered vertically.*
+![Taller taskbar with right-side grid and lower master button](gridonrightwlowermaster.png)
+*Taller taskbar: a dense grid with the master button as a lower sliver.*
+
+![Left of Start button](left-of-start.png)
+*Start placement: switcher reserved to the left of Start.*
+
+![Left of Start with Start hidden](left-of-start-hidden-start.png)
+*Start placement with the Start button hidden.*
+
+![Over Start, nudged above](over-above-start.png)
+*Overlay mode can be nudged up with the vertical offset setting.*
+
+![Over Start, nudged below](over-below-start.png)
+*Overlay mode can also be nudged down.*
+
+![Right of Start with Start hidden](right-of-start-hidden-start.png)
+*Right-of-Start placement when the Start button is hidden.*
 
 ## Features
 
@@ -20,7 +35,8 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 - Smart grid layout with balanced, vertical-pack, horizontal-pack, and fixed override modes
 - Highlights the active desktop immediately on switch
 - Buttons appear/disappear as desktops are added or removed
-- Five placement positions within the system tray, plus experimental Start-adjacent positions
+- Five placement positions within the system tray, plus experimental Start-adjacent and Start-overlay positions
+- Start placement modes: left of Start, over Start, and right of Start
 - Configurable size, spacing, colors, opacity, and shine effect
 - Per-state text color, font size, corner radius, bold, and border
 - Tooltip on each button shows the desktop's display name
@@ -30,13 +46,13 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Position | After clock | Where to place the switcher: system tray positions, next to Start, or above Start |
+| Position | After clock | Where to place the switcher: system tray positions, left/right of Start, or over Start |
 | Button width | 20 px | Width of each button |
 | Button height | 22 px | Height of each button |
 | Button spacing | 2 px | Gap between buttons in the grid |
 | Grid mode | Smart automatic | Smart, single row/column, fixed rows, fixed columns, or fixed grid |
 | Smart layout | Balanced | Balanced, pack vertical, or pack horizontal |
-| Fill order | Column-first | Column-first or row-first |
+| Fill order | Row-first | Row-first or column-first |
 | Rows | 0 (auto) | Fixed rows, or max rows for smart mode when set |
 | Columns | 0 (auto) | Fixed columns, or max columns for smart mode when set |
 | Short group alignment | Center | Align a shorter last row/column to start, center, or end |

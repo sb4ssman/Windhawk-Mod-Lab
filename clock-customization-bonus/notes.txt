@@ -1,4 +1,0 @@
-clock customization text spacer "%s%"
-clock left-right spacing adjuster
-GPU distinguisher
-Additional stats hooks?
