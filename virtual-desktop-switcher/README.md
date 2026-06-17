@@ -2,6 +2,9 @@
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
 
+![Three desktops with lower master button](assets/simple3wlowmaster.png)
+*Three desktops with the optional Task View master button as a lower sliver.*
+
 ![Default tray placement — three numbered buttons, first active](assets/simple3.png)
 *Default tray placement: three desktops in a row, desktop 1 active.*
 
