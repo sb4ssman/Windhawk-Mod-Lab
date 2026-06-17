@@ -12,13 +12,6 @@
 // @compilerOptions -ldxgi -lole32 -loleaut32 -lpdh -lpowrprof -lruntimeobject -lshlwapi -lversion -lwininet
 // ==/WindhawkMod==
 
-// Experiment 4:
-// Return to generated XAML layout instead of relying on TextBlock spaces or
-// justification. `%s%` remains in the formatted text, then a generated Grid
-// splits the line into text columns separated by Star columns. The generated
-// panel is inserted at the original TextBlock position, and the original
-// TextBlock is hidden but kept as the system-owned text source.
-
 // Source code is published under The GNU General Public License v3.0.
 //
 // For bug reports and feature requests, please open an issue here:
@@ -3808,15 +3801,9 @@ void ApplyStackPanelStyles(Controls::StackPanel stackPanel,
                            int textSpacing) {
     if (maxWidth) {
         stackPanel.MaxWidth(maxWidth);
-        stackPanel.Width(maxWidth);
-        stackPanel.HorizontalAlignment(HorizontalAlignment::Stretch);
     } else {
         stackPanel.as<DependencyObject>().ClearValue(
             FrameworkElement::MaxWidthProperty());
-        stackPanel.as<DependencyObject>().ClearValue(
-            FrameworkElement::WidthProperty());
-        stackPanel.as<DependencyObject>().ClearValue(
-            FrameworkElement::HorizontalAlignmentProperty());
     }
 
     if (textSpacing) {
@@ -4172,7 +4159,7 @@ void UpdateSpacerLine(ClockElementStyleData::SpacerLineData& lineData,
 
     uint32_t originalIndex = 0;
     if (parentStackPanel.Children().IndexOf(textBlock, originalIndex)) {
-        parentStackPanel.Children().InsertAt(originalIndex, generatedPanel);
+        parentStackPanel.Children().InsertAt(originalIndex + 1, generatedPanel);
     } else {
         parentStackPanel.Children().Append(generatedPanel);
     }

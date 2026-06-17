@@ -2,7 +2,7 @@
 // @id              taskbar-vd-switcher
 // @name            Taskbar Virtual Desktop Switcher
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
-// @version         1.6
+// @version         1.5
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -1268,8 +1268,6 @@ static void StyleButton(Button& btn, bool isActive,
     Brush activeTextBrush, Brush inactiveTextBrush,
     Brush borderBrush)
 {
-    btn.MinWidth(0.0);
-    btn.MinHeight(0.0);
     btn.Padding({ 1.0, 0.0, 1.0, 0.0 });
     btn.FontSize((double)g_settings.fontSize);
     btn.HorizontalAlignment(HorizontalAlignment::Stretch);
@@ -1389,8 +1387,6 @@ static Grid BuildButtonGrid(int count, int current) {
         btn.Content(winrt::box_value(GetButtonLabel(i, current)));
         StyleButton(btn, i == current, activeBrush, inactiveBrush,
                     activeTextBrush, inactiveTextBrush, borderBrush);
-        btn.Width((double)g_settings.buttonWidth);
-        btn.Height((double)g_settings.buttonHeight);
         ToolTipService::SetToolTip(btn, winrt::box_value(winrt::hstring(desktopNames[i])));
 
         int capturedIdx = i;
@@ -1475,13 +1471,6 @@ static Grid BuildButtonGrid(int count, int current) {
         masterBtn.Content(winrt::box_value(winrt::hstring(g_settings.masterButtonLabel)));
         StyleButton(masterBtn, false, inactiveBrush, inactiveBrush,
                     inactiveTextBrush, inactiveTextBrush, borderBrush);
-        if (masterIsRow) {
-            masterBtn.Height((double)g_settings.masterButtonHeight);
-        } else {
-            masterBtn.Width((double)g_settings.masterButtonWidth);
-            if (rows == 1)
-                masterBtn.Height((double)g_settings.buttonHeight);
-        }
         ToolTipService::SetToolTip(masterBtn,
             winrt::box_value(winrt::hstring(L"Task View (Win+Tab)")));
         if (masterIsRow) {

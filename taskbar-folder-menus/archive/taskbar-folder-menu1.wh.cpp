@@ -1,48 +1,47 @@
 // ==WindhawkMod==
-// @id              taskbar-folder-menus
+// @id              taskbar-folder-menu
 // @name            Taskbar Folder Menus
-// @description     Adds compact taskbar buttons that open configured Shell targets as popup menus, similar to classic Windows taskbar toolbars.
+// @description     Adds compact taskbar buttons that open configured folders as popup menus, similar to classic Windows taskbar toolbars.
 // @version         0.5
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -lshell32 -luuid -lgdi32 -lcomctl32
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -lshell32 -luuid
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
 /*
 # Taskbar Folder Menus
 
-Adds compact taskbar buttons that open Shell targets as native popup menus.
+Adds compact taskbar buttons that open folders as native popup menus.
 
 This recreates the most useful part of the classic taskbar toolbar workflow:
-click a small taskbar button, then open a file, shortcut, folder, Desktop
-item, or Control Panel item without minimizing the windows that are covering
-the desktop.
+click a small taskbar button, then open a file, shortcut, folder, or Desktop
+item without minimizing the windows that are covering the desktop.
 
 ## Settings
 
 - **Position** - where to inject the button group in the system tray area.
-- **Folders** - target entries using `Label=Target`. Separate entries with
-  newlines, `|`, or commas. Targets can be normal paths or Shell namespace
-  roots such as `shell:Desktop` and `shell:ControlPanelFolder`.
+- **Folders** - folder entries using `Label=Path`. Separate entries with
+  newlines, `|`, or commas.
 - **Layout mode** - single row, single column, or grid.
 - **Grid columns** - number of columns used in grid mode.
 - **Button size, spacing, and font size** - compact by default, suitable for multi-row trays.
 
-Baseline test targets:
+Example folders:
 
 ```text
-T:=T:\
-DSK=shell:Desktop
-CTL=shell:ControlPanelFolder
+📄=%DOCUMENTS%
+📁=%DESKTOP%
+C:=C:\
+GH=C:\%DOCUMENTS%\Github
 ```
 
-Compact labels work best. One-, two-, and three-character labels such as drive
-letters or short mnemonics are shown directly on the button. Longer text labels
-fall back to the configured default icon text; the full label and target remain
-available in the tooltip.
+Compact labels work best. One- or two-character labels such as emoji, drive
+letters, or symbols are shown directly on the button. Longer text labels can be
+clipped by the configured button size; the full label and path remain available
+in the tooltip.
 
 Label ideas: 📁 folder, 🖥 desktop PC, 💻 laptop, 🪟 desktop/window, 📥 downloads,
 🌐 network, 🗄 drive, 📄 documents, 🔧 tools, ⚙ settings, ⭐ favorites.
@@ -50,12 +49,12 @@ Label ideas: 📁 folder, 🖥 desktop PC, 💻 laptop, 🪟 desktop/window, �
 Quick multi-folder string example:
 
 ```text
-T:=T:\,DSK=shell:Desktop,CTL=shell:ControlPanelFolder
+📄=%DOCUMENTS%,📁=%DESKTOP%,C:=C:\
 ```
 
-Note: `shell:Desktop` points at the actual Desktop Shell namespace, not only the
-user's physical Desktop folder. `shell:ControlPanelFolder` exercises a
-non-filesystem namespace and is useful for proving the PIDL path is working.
+Note: `%DESKTOP%` points to the user's Desktop folder. It may not match every
+icon visible on the actual desktop shell view, which can also include virtual
+items such as This PC, Network, Recycle Bin, and special shortcuts.
 
 The first version intentionally uses the system tray grid as its home. A future
 version can add an experimental mode that places the buttons directly beside the
@@ -75,13 +74,13 @@ version can add an experimental mode that places the buttons directly beside the
   - "afterClock": "After clock"
   - "afterShowDesktop": "After Show Desktop strip"
 
-- folders: "T:=T:\\,DSK=shell:Desktop,CTL=shell:ControlPanelFolder"
+- folders: "📄=%DOCUMENTS%,📁=%DESKTOP%,C:=C:\\"
   $name: Folders
   $description: >-
-    Folder buttons to show. Use entries in Label=Target form, separated by
-    newlines, |, or commas. Targets can be normal paths or Shell namespace
-    roots such as shell:Desktop and shell:ControlPanelFolder. Environment
-    variables such as %USERPROFILE% are expanded.
+    Folder buttons to show. Use entries in Label=Path form, separated by
+    newlines, |, or commas. Environment variables such as %USERPROFILE% are
+    expanded. Use compact labels such as emoji, symbols, or drive letters; text
+    labels can be clipped by the configured button size.
 
 - layoutMode: row
   $name: Layout mode
@@ -95,7 +94,7 @@ version can add an experimental mode that places the buttons directly beside the
   $name: Grid columns
   $description: Number of columns in grid mode.
 
-- buttonWidth: 32
+- buttonWidth: 20
   $name: Button width (px)
 
 - buttonHeight: 22
@@ -152,10 +151,6 @@ version can add an experimental mode that places the buttons directly beside the
 - cornerRadius: -1
   $name: Corner rounding (px)
   $description: "-1 = system default. 0 = square corners. Positive values round the button corners."
-
-- opacity: 100
-  $name: Opacity (%)
-  $description: "Button opacity. 100 = fully opaque, 0 = invisible."
 */
 // ==/WindhawkModSettings==
 
@@ -178,7 +173,6 @@ version can add an experimental mode that places the buttons directly beside the
 #include <string>
 #include <vector>
 
-#include <commctrl.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <windhawk_utils.h>
@@ -195,7 +189,7 @@ using namespace winrt::Windows::UI::Xaml::Media;
 
 struct FolderEntry {
     std::wstring label;
-    std::wstring target;
+    std::wstring path;
 };
 
 struct ModSettings {
@@ -204,7 +198,7 @@ struct ModSettings {
     std::wstring buttonText = L"📁";
     std::vector<FolderEntry> folders;
     int gridColumns = 2;
-    int buttonWidth = 32;
+    int buttonWidth = 20;
     int buttonHeight = 22;
     int buttonSpacing = 4;
     int maxMenuItems = 0;
@@ -218,7 +212,6 @@ struct ModSettings {
     std::wstring borderColor;
     int borderThickness = -1;
     int cornerRadius = -1;
-    int opacityPct = 100;
 };
 static ModSettings g_settings;
 
@@ -293,21 +286,27 @@ static std::vector<FolderEntry> ParseFolders(std::wstring text) {
         size_t eq = line.find(L'=');
         FolderEntry entry;
         if (eq == std::wstring::npos) {
-            entry.target = ExpandEnv(Trim(line));
-            entry.label = FileNameFromPath(entry.target);
+            entry.path = ExpandEnv(Trim(line));
+            entry.label = FileNameFromPath(entry.path);
         } else {
             entry.label = Trim(line.substr(0, eq));
-            entry.target = ExpandEnv(Trim(line.substr(eq + 1)));
+            entry.path = ExpandEnv(Trim(line.substr(eq + 1)));
             if (entry.label.empty())
-                entry.label = FileNameFromPath(entry.target);
+                entry.label = FileNameFromPath(entry.path);
         }
-        if (!entry.target.empty())
+        if (!entry.path.empty())
             folders.push_back(entry);
     }
     if (folders.empty()) {
-        folders.push_back({ L"T:", L"T:\\" });
-        folders.push_back({ L"DSK", L"shell:Desktop" });
-        folders.push_back({ L"CTL", L"shell:ControlPanelFolder" });
+        PWSTR knownPath = nullptr;
+        std::wstring desktopPath;
+        if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &knownPath))) {
+            desktopPath = knownPath;
+            CoTaskMemFree(knownPath);
+        } else {
+            desktopPath = ExpandEnv(L"%USERPROFILE%\\Desktop");
+        }
+        folders.push_back({ L"📁", desktopPath });
     }
     return folders;
 }
@@ -323,9 +322,9 @@ static void LoadSettings() {
     g_settings.position = GetStringSetting(L"position", L"beforeIcons");
     g_settings.layoutMode = GetStringSetting(L"layoutMode", L"row");
     g_settings.buttonText = GetStringSetting(L"buttonText", L"📁");
-    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"T:=T:\\,DSK=shell:Desktop,CTL=shell:ControlPanelFolder"));
+    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"📄=%DOCUMENTS%,📁=%DESKTOP%,C:=C:\\"));
     g_settings.gridColumns = std::max(1, Wh_GetIntSetting(L"gridColumns", 2));
-    g_settings.buttonWidth = std::max(10, Wh_GetIntSetting(L"buttonWidth", 32));
+    g_settings.buttonWidth = std::max(10, Wh_GetIntSetting(L"buttonWidth", 20));
     g_settings.buttonHeight = std::max(10, Wh_GetIntSetting(L"buttonHeight", 22));
     g_settings.buttonSpacing = std::max(0, Wh_GetIntSetting(L"buttonSpacing", 4));
     g_settings.maxMenuItems = std::max(0, Wh_GetIntSetting(L"maxMenuItems", 0));
@@ -339,7 +338,6 @@ static void LoadSettings() {
     g_settings.borderColor = GetStringSetting(L"borderColor", L"");
     g_settings.borderThickness = std::max(-1, Wh_GetIntSetting(L"borderThickness", -1));
     g_settings.cornerRadius = std::max(-1, Wh_GetIntSetting(L"cornerRadius", -1));
-    g_settings.opacityPct = std::clamp(Wh_GetIntSetting(L"opacity", 100), 0, 100);
 }
 
 // ============================================================
@@ -356,16 +354,10 @@ static HANDLE g_retryThread = nullptr;
 static HANDLE g_retryStopEvent = nullptr;
 static bool   g_taskbarViewDllLoaded = false;
 
-// Lazy Shell menu loading state (per-ShowFolderMenu call, single-threaded UI).
-static UINT g_menuNextId = 1000;
-static std::vector<PIDLIST_ABSOLUTE> g_menuIdToPidl;
-static std::vector<HBITMAP> g_menuBitmaps;
-
-struct PendingSubmenu {
-    HMENU hmenu;
-    PIDLIST_ABSOLUTE pidl;
-    int depth;
-};
+// Lazy menu loading state (per-ShowFolderMenu call, single-threaded UI).
+static UINT                     g_menuNextId = 1000;
+static std::vector<std::wstring> g_menuIdToPath;
+struct PendingSubmenu { HMENU hmenu; std::wstring path; int depth; };
 static std::vector<PendingSubmenu> g_pendingSubmenus;
 
 // Forward declarations
@@ -515,295 +507,96 @@ static FrameworkElement FindLiveSystemTrayFrameGrid() {
 // Folder menu
 // ============================================================
 
-struct ShellMenuItem {
-    std::wstring displayName;
-    PIDLIST_ABSOLUTE pidl = nullptr;
-    bool canExpand = false;
+struct MenuItemInfo {
+    std::wstring name;
+    std::wstring path;
+    bool isDir = false;
 };
 
-static void FreeMenuState() {
-    for (auto& ps : g_pendingSubmenus)
-        if (ps.pidl) CoTaskMemFree(ps.pidl);
-    g_pendingSubmenus.clear();
-
-    for (auto pidl : g_menuIdToPidl)
-        if (pidl) CoTaskMemFree(pidl);
-    g_menuIdToPidl.clear();
-
-    for (auto bmp : g_menuBitmaps)
-        if (bmp) DeleteObject(bmp);
-    g_menuBitmaps.clear();
+static bool ShouldSkip(WIN32_FIND_DATAW const& fd) {
+    if (wcscmp(fd.cFileName, L".") == 0 || wcscmp(fd.cFileName, L"..") == 0)
+        return true;
+    if (!g_settings.showHidden &&
+        (fd.dwFileAttributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
+        return true;
+    return false;
 }
 
-static bool IsTarget(std::wstring const& value, const wchar_t* token) {
-    return _wcsicmp(value.c_str(), token) == 0;
-}
+static std::vector<MenuItemInfo> EnumerateFolder(std::wstring const& folder) {
+    std::vector<MenuItemInfo> items;
+    std::wstring pattern = folder;
+    if (!pattern.empty() && pattern.back() != L'\\' && pattern.back() != L'/')
+        pattern += L"\\";
+    pattern += L"*";
 
-static PIDLIST_ABSOLUTE ParseDisplayNamePidl(const wchar_t* name) {
-    PIDLIST_ABSOLUTE pidl = nullptr;
-    SFGAOF attrs = 0;
-    if (SUCCEEDED(SHParseDisplayName(name, nullptr, &pidl, 0, &attrs)))
-        return pidl;
-    return nullptr;
-}
-
-static PIDLIST_ABSOLUTE ParseShellTarget(std::wstring const& target) {
-    PIDLIST_ABSOLUTE pidl = nullptr;
-
-    if (IsTarget(target, L"shell:Desktop") || IsTarget(target, L"desktop:")) {
-        if (SUCCEEDED(SHGetSpecialFolderLocation(nullptr, CSIDL_DESKTOP, &pidl)))
-            return pidl;
-        return nullptr;
-    }
-
-    if (IsTarget(target, L"shell:ControlPanelFolder") ||
-        IsTarget(target, L"control:") ||
-        IsTarget(target, L"control")) {
-        if ((pidl = ParseDisplayNamePidl(target.c_str())) != nullptr)
-            return pidl;
-        if ((pidl = ParseDisplayNamePidl(L"shell:::{26EE0668-A00A-44D7-9371-BEB064C98683}")) != nullptr)
-            return pidl;
-        if ((pidl = ParseDisplayNamePidl(L"shell:::{21EC2020-3AEA-1069-A2DD-08002B30309D}")) != nullptr)
-            return pidl;
-        return nullptr;
-    }
-
-    return ParseDisplayNamePidl(target.c_str());
-}
-
-static bool BindFolderFromPidl(PCIDLIST_ABSOLUTE pidl, IShellFolder** folder) {
-    *folder = nullptr;
-    if (!pidl)
-        return false;
-
-    if (ILIsEmpty(pidl))
-        return SUCCEEDED(SHGetDesktopFolder(folder));
-
-    IShellFolder* parent = nullptr;
-    PCUITEMID_CHILD child = nullptr;
-    HRESULT hr = SHBindToParent(pidl, IID_IShellFolder, (void**)&parent, &child);
-    if (FAILED(hr) || !parent)
-        return false;
-
-    hr = parent->BindToObject(child, nullptr, IID_IShellFolder, (void**)folder);
-    parent->Release();
-    return SUCCEEDED(hr) && *folder;
-}
-
-static std::wstring StrRetToString(STRRET const& str, PCUITEMID_CHILD pidl) {
-    if (str.uType == STRRET_WSTR) {
-        std::wstring result = str.pOleStr ? str.pOleStr : L"";
-        CoTaskMemFree(str.pOleStr);
-        return result;
-    }
-
-    if (str.uType == STRRET_OFFSET)
-        return (LPCWSTR)(((const BYTE*)pidl) + str.uOffset);
-
-    if (str.uType == STRRET_CSTR) {
-        int needed = MultiByteToWideChar(CP_ACP, 0, str.cStr, -1, nullptr, 0);
-        if (needed > 0) {
-            std::wstring result(needed, L'\0');
-            MultiByteToWideChar(CP_ACP, 0, str.cStr, -1, result.data(), needed);
-            if (!result.empty() && result.back() == L'\0')
-                result.pop_back();
-            return result;
-        }
-    }
-
-    return L"";
-}
-
-static HBITMAP BitmapFromIcon(HICON icon) {
-    if (!icon)
-        return nullptr;
-
-    int iconW = GetSystemMetrics(SM_CXSMICON);
-    int iconH = GetSystemMetrics(SM_CYSMICON);
-    int bmpW = std::max(16, iconW);
-    int bmpH = std::max(16, iconH);
-
-    BITMAPINFO bmi{};
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = bmpW;
-    bmi.bmiHeader.biHeight = -bmpH;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    void* bits = nullptr;
-    HDC screenDc = GetDC(nullptr);
-    HBITMAP bmp = CreateDIBSection(screenDc, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!bmp) {
-        if (screenDc)
-            ReleaseDC(nullptr, screenDc);
-        return nullptr;
-    }
-    HDC memDc = CreateCompatibleDC(screenDc);
-    if (!memDc) {
-        DeleteObject(bmp);
-        if (screenDc)
-            ReleaseDC(nullptr, screenDc);
-        return nullptr;
-    }
-    HGDIOBJ oldBmp = SelectObject(memDc, bmp);
-    if (bits)
-        ZeroMemory(bits, bmpW * bmpH * 4);
-    DrawIconEx(memDc, (bmpW - iconW) / 2, (bmpH - iconH) / 2,
-               icon, iconW, iconH, 0, nullptr, DI_NORMAL);
-    SelectObject(memDc, oldBmp);
-    DeleteDC(memDc);
-    if (screenDc)
-        ReleaseDC(nullptr, screenDc);
-    return bmp;
-}
-
-static HBITMAP CreateMenuBitmapForPidl(PCIDLIST_ABSOLUTE pidl) {
-    SHFILEINFOW sfi{};
-    if (!SHGetFileInfoW((LPCWSTR)pidl, 0, &sfi, sizeof(sfi),
-                        SHGFI_PIDL | SHGFI_ICON | SHGFI_SMALLICON))
-        return nullptr;
-
-    HBITMAP bmp = BitmapFromIcon(sfi.hIcon);
-    DestroyIcon(sfi.hIcon);
-    if (bmp)
-        g_menuBitmaps.push_back(bmp);
-    return bmp;
-}
-
-static std::vector<ShellMenuItem> EnumerateShellFolder(PCIDLIST_ABSOLUTE folderPidl) {
-    std::vector<ShellMenuItem> items;
-
-    IShellFolder* folder = nullptr;
-    if (!BindFolderFromPidl(folderPidl, &folder))
+    WIN32_FIND_DATAW fd{};
+    HANDLE find = FindFirstFileW(pattern.c_str(), &fd);
+    if (find == INVALID_HANDLE_VALUE)
         return items;
 
-    DWORD flags = SHCONTF_FOLDERS | SHCONTF_NONFOLDERS;
-    if (g_settings.showHidden)
-        flags |= SHCONTF_INCLUDEHIDDEN;
-
-    IEnumIDList* enumList = nullptr;
-    if (SUCCEEDED(folder->EnumObjects(g_taskbarWnd, flags, &enumList)) && enumList) {
-        PITEMID_CHILD child = nullptr;
-        ULONG fetched = 0;
-        while (enumList->Next(1, &child, &fetched) == S_OK && child) {
-            STRRET str{};
-            std::wstring displayName;
-            if (SUCCEEDED(folder->GetDisplayNameOf(child, SHGDN_NORMAL, &str)))
-                displayName = StrRetToString(str, child);
-
-            SFGAOF attrs = SFGAO_FOLDER | SFGAO_HASSUBFOLDER | SFGAO_FILESYSTEM;
-            PCUITEMID_CHILD childConst = child;
-            folder->GetAttributesOf(1, &childConst, &attrs);
-
-            PIDLIST_ABSOLUTE abs = ILCombine(folderPidl, child);
-            CoTaskMemFree(child);
-            child = nullptr;
-
-            if (!abs || displayName.empty()) {
-                if (abs) CoTaskMemFree(abs);
-                continue;
-            }
-
-            ShellMenuItem item;
-            item.displayName = std::move(displayName);
-            item.pidl = abs;
-            item.canExpand = (attrs & SFGAO_FOLDER) && (attrs & SFGAO_FILESYSTEM);
-            items.push_back(std::move(item));
-        }
-        enumList->Release();
-    }
-
-    folder->Release();
+    do {
+        if (ShouldSkip(fd))
+            continue;
+        MenuItemInfo item;
+        item.name = fd.cFileName;
+        item.path = folder;
+        if (!item.path.empty() && item.path.back() != L'\\' && item.path.back() != L'/')
+            item.path += L"\\";
+        item.path += fd.cFileName;
+        item.isDir = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        items.push_back(std::move(item));
+    } while (FindNextFileW(find, &fd));
+    FindClose(find);
 
     std::sort(items.begin(), items.end(), [](auto const& a, auto const& b) {
-        if (a.canExpand != b.canExpand) return a.canExpand > b.canExpand;
-        return _wcsicmp(a.displayName.c_str(), b.displayName.c_str()) < 0;
+        if (a.isDir != b.isDir) return a.isDir > b.isDir;
+        return _wcsicmp(a.name.c_str(), b.name.c_str()) < 0;
     });
-    if (g_settings.maxMenuItems > 0 && (int)items.size() > g_settings.maxMenuItems) {
-        for (size_t i = g_settings.maxMenuItems; i < items.size(); i++)
-            if (items[i].pidl) CoTaskMemFree(items[i].pidl);
+    if (g_settings.maxMenuItems > 0 && (int)items.size() > g_settings.maxMenuItems)
         items.resize(g_settings.maxMenuItems);
-    }
-
     return items;
 }
 
-static void AddShellFolderItemsToMenu(HMENU menu, PCIDLIST_ABSOLUTE folderPidl, int depth);
-
-static void InsertShellMenuItem(HMENU menu, UINT position, ShellMenuItem& item, int depth) {
-    bool canExpand = item.canExpand && (g_settings.maxDepth == 0 || depth < g_settings.maxDepth);
-
-    MENUITEMINFOW mii{};
-    mii.cbSize = sizeof(mii);
-    mii.fMask = MIIM_STRING | MIIM_BITMAP;
-    mii.dwTypeData = const_cast<LPWSTR>(item.displayName.c_str());
-    mii.cch = (UINT)item.displayName.size();
-    mii.hbmpItem = CreateMenuBitmapForPidl(item.pidl);
-
-    if (canExpand) {
-        HMENU sub = CreatePopupMenu();
-        AppendMenuW(sub, MF_STRING | MF_GRAYED, 0, L"(Loading…)");
-        g_pendingSubmenus.push_back({sub, item.pidl, depth + 1});
-        item.pidl = nullptr;
-        mii.fMask |= MIIM_SUBMENU;
-        mii.hSubMenu = sub;
-    } else {
-        UINT id = g_menuNextId++;
-        g_menuIdToPidl.push_back(item.pidl);
-        item.pidl = nullptr;
-        mii.fMask |= MIIM_ID;
-        mii.wID = id;
-    }
-
-    InsertMenuItemW(menu, position, TRUE, &mii);
-}
-
-static void AddShellFolderItemsToMenu(HMENU menu, PCIDLIST_ABSOLUTE folderPidl, int depth) {
-    auto items = EnumerateShellFolder(folderPidl);
+static void AddFolderItemsToMenu(HMENU menu, std::wstring const& folder, int depth) {
+    auto items = EnumerateFolder(folder);
     if (items.empty()) {
         AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"(empty)");
         return;
     }
-
-    UINT position = 0;
-    for (auto& item : items)
-        InsertShellMenuItem(menu, position++, item, depth);
-
-    for (auto& item : items)
-        if (item.pidl) CoTaskMemFree(item.pidl);
-}
-
-static void InvokePidl(HWND owner, PCIDLIST_ABSOLUTE pidl) {
-    SHELLEXECUTEINFOW sei{};
-    sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_IDLIST | SEE_MASK_INVOKEIDLIST | SEE_MASK_ASYNCOK;
-    sei.hwnd = owner;
-    sei.lpVerb = L"open";
-    sei.lpIDList = (void*)pidl;
-    sei.nShow = SW_SHOWNORMAL;
-    ShellExecuteExW(&sei);
-}
-
-static LRESULT CALLBACK MenuOwnerSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
-    UINT_PTR /*subclassId*/, DWORD_PTR /*data*/) {
-    if (msg == WM_INITMENUPOPUP) {
-        HMENU hMenu = (HMENU)wParam;
-        for (size_t i = 0; i < g_pendingSubmenus.size(); ++i) {
-            if (g_pendingSubmenus[i].hmenu == hMenu) {
-                int d = g_pendingSubmenus[i].depth;
-                PIDLIST_ABSOLUTE pidl = g_pendingSubmenus[i].pidl;
-                g_pendingSubmenus[i].pidl = nullptr;
-                g_pendingSubmenus.erase(g_pendingSubmenus.begin() + i);
-                while (GetMenuItemCount(hMenu) > 0)
-                    RemoveMenu(hMenu, 0, MF_BYPOSITION);
-                AddShellFolderItemsToMenu(hMenu, pidl, d);
-                CoTaskMemFree(pidl);
-                break;
-            }
+    for (auto const& item : items) {
+        bool canExpand = item.isDir && (g_settings.maxDepth == 0 || depth < g_settings.maxDepth);
+        if (canExpand) {
+            HMENU sub = CreatePopupMenu();
+            AppendMenuW(sub, MF_STRING | MF_GRAYED, 0, L"Loading...");
+            g_pendingSubmenus.push_back({ sub, item.path, depth + 1 });
+            AppendMenuW(menu, MF_POPUP | MF_STRING, (UINT_PTR)sub, item.name.c_str());
+        } else {
+            UINT id = g_menuNextId++;
+            g_menuIdToPath.push_back(item.path);
+            AppendMenuW(menu, MF_STRING, id, item.name.c_str());
         }
     }
-    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+static void PopulatePendingSubmenu(HMENU hmenu) {
+    for (size_t i = 0; i < g_pendingSubmenus.size(); i++) {
+        if (g_pendingSubmenus[i].hmenu != hmenu) continue;
+        PendingSubmenu ps = std::move(g_pendingSubmenus[i]);
+        g_pendingSubmenus.erase(g_pendingSubmenus.begin() + i);
+        while (GetMenuItemCount(hmenu) > 0)
+            RemoveMenu(hmenu, 0, MF_BYPOSITION);
+        AddFolderItemsToMenu(hmenu, ps.path, ps.depth);
+        return;
+    }
+}
+
+static LRESULT CALLBACK MenuMsgFilterProc(int nCode, WPARAM /*wParam*/, LPARAM lParam) {
+    if (nCode == MSGF_MENU && lParam) {
+        const MSG* msg = (const MSG*)lParam;
+        if (msg->message == WM_INITMENUPOPUP)
+            PopulatePendingSubmenu((HMENU)msg->wParam);
+    }
+    return CallNextHookEx(nullptr, nCode, 0, lParam);
 }
 
 static void ShowFolderMenu(FolderEntry folder) {
@@ -812,38 +605,38 @@ static void ShowFolderMenu(FolderEntry folder) {
         owner = GetForegroundWindow();
 
     g_menuNextId = 1000;
-    FreeMenuState();
+    g_menuIdToPath.clear();
+    g_pendingSubmenus.clear();
 
     HMENU menu = CreatePopupMenu();
-    PIDLIST_ABSOLUTE rootPidl = ParseShellTarget(folder.target);
-    if (!rootPidl) {
-        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"(target not found)");
-        Wh_Log(L"[Menu] Failed to parse target: %s", folder.target.c_str());
+    DWORD attrs = GetFileAttributesW(folder.path.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"(folder not found)");
     } else {
-        AddShellFolderItemsToMenu(menu, rootPidl, 0);
+        AddFolderItemsToMenu(menu, folder.path, 0);
     }
 
     POINT pt;
     GetCursorPos(&pt);
     SetForegroundWindow(owner);
 
-    SetWindowSubclass(owner, MenuOwnerSubclassProc, 1, 0);
+    HHOOK hook = SetWindowsHookEx(WH_MSGFILTER, MenuMsgFilterProc,
+                                  nullptr, GetCurrentThreadId());
     UINT cmd = TrackPopupMenu(menu,
-        TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_BOTTOMALIGN,
+        TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY | TPM_BOTTOMALIGN,
         pt.x, pt.y, 0, owner, nullptr);
-    RemoveWindowSubclass(owner, MenuOwnerSubclassProc, 1);
+    if (hook) UnhookWindowsHookEx(hook);
+
+    g_pendingSubmenus.clear();
 
     if (cmd >= 1000) {
         size_t idx = cmd - 1000;
-        if (idx < g_menuIdToPidl.size() && g_menuIdToPidl[idx])
-            InvokePidl(owner, g_menuIdToPidl[idx]);
+        if (idx < g_menuIdToPath.size())
+            ShellExecuteW(owner, L"open", g_menuIdToPath[idx].c_str(),
+                          nullptr, nullptr, SW_SHOWNORMAL);
     }
 
     DestroyMenu(menu);
-    if (rootPidl)
-        CoTaskMemFree(rootPidl);
-    FreeMenuState();
-
 }
 
 // ============================================================
@@ -883,60 +676,19 @@ static Brush ParseColorBrush(std::wstring const& hex) {
     return brush;
 }
 
-static SolidColorBrush MakeBrush(BYTE a, BYTE r, BYTE g, BYTE b) {
-    winrt::Windows::UI::Color c;
-    c.A = a; c.R = r; c.G = g; c.B = b;
-    SolidColorBrush brush;
-    brush.Color(c);
-    return brush;
-}
-
 static void ApplyButtonStyle(Button btn,
                              Brush const& textBrush,
                              Brush const& bgBrush,
                              Brush const& hoverBgBrush,
                              Brush const& pressedBgBrush,
                              Brush const& borderBrush) {
-    auto res = btn.Resources();
-
-    // Foreground: pin to custom color across all visual states so the
-    // VisualStateManager can't override it on hover/press.
-    if (textBrush) {
+    if (textBrush)
         btn.Foreground(textBrush);
-        res.Insert(winrt::box_value(L"ButtonForeground"), textBrush);
-        res.Insert(winrt::box_value(L"ButtonForegroundPointerOver"), textBrush);
-        res.Insert(winrt::box_value(L"ButtonForegroundPressed"), textBrush);
-    }
-
-    // Background: set both the live property and the theme resource.
-    if (bgBrush) {
+    if (bgBrush)
         btn.Background(bgBrush);
-        res.Insert(winrt::box_value(L"ButtonBackground"), bgBrush);
-    }
 
-    // Hover: explicit > same-as-bg > default subtle white brightening.
-    // Using Resources() here is essential — PointerEntered events fire
-    // before the VisualStateManager animation, which would override any
-    // Background() call we make there.
-    Brush hoverBrush = hoverBgBrush;
-    if (!hoverBrush)
-        hoverBrush = bgBrush ? bgBrush : MakeBrush(40, 255, 255, 255);
-    res.Insert(winrt::box_value(L"ButtonBackgroundPointerOver"), hoverBrush);
-
-    // Pressed: explicit > hover > slightly stronger brightening.
-    Brush pressBrush = pressedBgBrush;
-    if (!pressBrush)
-        pressBrush = (hoverBgBrush || bgBrush) ? hoverBrush : MakeBrush(70, 255, 255, 255);
-    res.Insert(winrt::box_value(L"ButtonBackgroundPressed"), pressBrush);
-
-    // Border.
-    if (borderBrush) {
+    if (borderBrush)
         btn.BorderBrush(borderBrush);
-        res.Insert(winrt::box_value(L"ButtonBorderBrush"), borderBrush);
-        res.Insert(winrt::box_value(L"ButtonBorderBrushPointerOver"), borderBrush);
-        res.Insert(winrt::box_value(L"ButtonBorderBrushPressed"), borderBrush);
-    }
-
     if (g_settings.borderThickness >= 0) {
         double t = (double)g_settings.borderThickness;
         btn.BorderThickness({ t, t, t, t });
@@ -945,6 +697,45 @@ static void ApplyButtonStyle(Button btn,
     if (g_settings.cornerRadius >= 0) {
         double r = (double)g_settings.cornerRadius;
         btn.CornerRadius({ r, r, r, r });
+    }
+
+    if (hoverBgBrush || pressedBgBrush || bgBrush) {
+        btn.PointerEntered([btn, hoverBgBrush, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (hoverBgBrush)
+                btn.Background(hoverBgBrush);
+            else if (bgBrush)
+                btn.Background(bgBrush);
+        });
+        btn.PointerExited([btn, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (bgBrush)
+                btn.Background(bgBrush);
+            else
+                btn.ClearValue(Control::BackgroundProperty());
+        });
+        btn.PointerPressed([btn, pressedBgBrush, hoverBgBrush, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (pressedBgBrush)
+                btn.Background(pressedBgBrush);
+            else if (hoverBgBrush)
+                btn.Background(hoverBgBrush);
+            else if (bgBrush)
+                btn.Background(bgBrush);
+        });
+        btn.PointerReleased([btn, hoverBgBrush, bgBrush](
+            winrt::Windows::Foundation::IInspectable const&,
+            PointerRoutedEventArgs const&) {
+            if (hoverBgBrush)
+                btn.Background(hoverBgBrush);
+            else if (bgBrush)
+                btn.Background(bgBrush);
+            else
+                btn.ClearValue(Control::BackgroundProperty());
+        });
     }
 }
 
@@ -988,7 +779,7 @@ static Grid BuildFolderButtonGrid() {
     for (int i = 0; i < count; i++) {
         auto entry = g_settings.folders[i];
         std::wstring caption = entry.label;
-        if (caption.empty() || caption.size() > 3)
+        if (caption.empty() || caption.size() > 2)
             caption = g_settings.buttonText.empty() ? L"📁" : g_settings.buttonText;
 
         Button btn;
@@ -1002,10 +793,8 @@ static Grid BuildFolderButtonGrid() {
         btn.HorizontalAlignment(HorizontalAlignment::Stretch);
         btn.VerticalAlignment(VerticalAlignment::Stretch);
         ApplyButtonStyle(btn, textBrush, bgBrush, hoverBgBrush, pressedBgBrush, borderBrush);
-        if (g_settings.opacityPct != 100)
-            btn.Opacity((double)g_settings.opacityPct / 100.0);
         ToolTipService::SetToolTip(btn,
-            winrt::box_value(winrt::hstring(entry.label + L"\n" + entry.target)));
+            winrt::box_value(winrt::hstring(entry.label + L"\n" + entry.path)));
 
         btn.Click([entry](auto const&, auto const&) {
             if (!g_unloading)

@@ -12,12 +12,11 @@
 // @compilerOptions -ldxgi -lole32 -loleaut32 -lpdh -lpowrprof -lruntimeobject -lshlwapi -lversion -lwininet
 // ==/WindhawkMod==
 
-// Experiment 4:
-// Return to generated XAML layout instead of relying on TextBlock spaces or
-// justification. `%s%` remains in the formatted text, then a generated Grid
-// splits the line into text columns separated by Star columns. The generated
-// panel is inserted at the original TextBlock position, and the original
-// TextBlock is hidden but kept as the system-owned text source.
+// Experiment 3:
+// Keep using the original Date/Time TextBlocks, but remove TextAlignment
+// Justify from the test. `%s%` is expanded into a fixed run of spaces and the
+// TextBlock is constrained to a single line with fixed Width/MaxWidth. This
+// checks whether the taskbar TextBlock preserves visible spacer width at all.
 
 // Source code is published under The GNU General Public License v3.0.
 //
@@ -1012,6 +1011,7 @@ bool IsStrInDateTimePatternSettings(PCWSTR str) {
 
 constexpr PCWSTR kSpacerToken = L"%s%";
 constexpr size_t kSpacerTokenLen = 3;
+constexpr size_t kSpacerExpandedSpaceCount = 32;
 constexpr PCWSTR kWeatherSpacerToken = L"{spacer}";
 constexpr PCWSTR kWeatherSpacerMarker = L"\uE001";
 
@@ -3513,7 +3513,8 @@ std::wstring FormatLineToString(std::wstring_view format) {
         formatSuffix = formatSuffix.substr(1);
     }
 
-    return formatted;
+    return ReplaceAll(formatted, kSpacerToken,
+                      std::wstring(kSpacerExpandedSpaceCount, L' '));
 }
 
 int FormatLine(PWSTR buffer,
@@ -3825,6 +3826,26 @@ void ApplyStackPanelStyles(Controls::StackPanel stackPanel,
         stackPanel.as<DependencyObject>().ClearValue(
             Controls::StackPanel::SpacingProperty());
     }
+}
+
+void ApplySpacerOriginalTextBlock(Controls::TextBlock textBlock,
+                                  bool usesSpacer,
+                                  int maxWidth) {
+    if (usesSpacer && maxWidth > 0) {
+        textBlock.Width(maxWidth);
+        textBlock.MaxWidth(maxWidth);
+        textBlock.HorizontalAlignment(HorizontalAlignment::Stretch);
+        textBlock.TextAlignment(TextAlignment::Center);
+        textBlock.TextWrapping(TextWrapping::NoWrap);
+        return;
+    }
+
+    textBlock.as<DependencyObject>().ClearValue(
+        FrameworkElement::WidthProperty());
+    textBlock.as<DependencyObject>().ClearValue(
+        FrameworkElement::MaxWidthProperty());
+    textBlock.as<DependencyObject>().ClearValue(
+        FrameworkElement::HorizontalAlignmentProperty());
 }
 
 void ApplyTextBlockStyles(
@@ -4172,7 +4193,7 @@ void UpdateSpacerLine(ClockElementStyleData::SpacerLineData& lineData,
 
     uint32_t originalIndex = 0;
     if (parentStackPanel.Children().IndexOf(textBlock, originalIndex)) {
-        parentStackPanel.Children().InsertAt(originalIndex, generatedPanel);
+        parentStackPanel.Children().InsertAt(originalIndex + 1, generatedPanel);
     } else {
         parentStackPanel.Children().Append(generatedPanel);
     }
@@ -4333,27 +4354,32 @@ void ApplyDateTimeIconContentStyles(
 
     int maxWidth = clockElementStyleEnabled ? g_settings.maxWidth : 0;
     int textSpacing = clockElementStyleEnabled ? g_settings.textSpacing : 0;
-    bool noWrap = maxWidth;
+    bool dateUsesSpacer = ClockLineUsesSpacer(g_settings.bottomLine);
+    bool timeUsesSpacer = ClockLineUsesSpacer(g_settings.topLine);
 
     ApplyStackPanelStyles(stackPanel, maxWidth, textSpacing);
     ApplyTextBlockStyles(
         dateInnerTextBlock,
-        clockElementStyleEnabled ? &g_settings.dateStyle : nullptr, noWrap,
+        clockElementStyleEnabled ? &g_settings.dateStyle : nullptr,
+        maxWidth && !dateUsesSpacer,
         &clockElementStyleData->dateVisibilityPropertyChangedToken);
     ApplyTextBlockStyles(
         timeInnerTextBlock,
-        clockElementStyleEnabled ? &g_settings.timeStyle : nullptr, noWrap,
+        clockElementStyleEnabled ? &g_settings.timeStyle : nullptr,
+        maxWidth && !timeUsesSpacer,
         &clockElementStyleData->timeVisibilityPropertyChangedToken);
     if (clockElementStyleEnabled) {
-        ApplySpacerLine(clockElementStyleData->dateSpacerLine, stackPanel,
-                        dateInnerTextBlock, g_settings.dateStyle.hidden,
-                        maxWidth);
-        ApplySpacerLine(clockElementStyleData->timeSpacerLine, stackPanel,
-                        timeInnerTextBlock, g_settings.timeStyle.hidden,
-                        maxWidth);
+        ClearSpacerLine(clockElementStyleData->dateSpacerLine);
+        ClearSpacerLine(clockElementStyleData->timeSpacerLine);
+        ApplySpacerOriginalTextBlock(dateInnerTextBlock, dateUsesSpacer,
+                                     maxWidth);
+        ApplySpacerOriginalTextBlock(timeInnerTextBlock, timeUsesSpacer,
+                                     maxWidth);
     } else {
         ClearSpacerLine(clockElementStyleData->dateSpacerLine);
         ClearSpacerLine(clockElementStyleData->timeSpacerLine);
+        ApplySpacerOriginalTextBlock(dateInnerTextBlock, false, 0);
+        ApplySpacerOriginalTextBlock(timeInnerTextBlock, false, 0);
     }
 
     clockElementStyleData->styleIndex = clockElementStyleIndex;
