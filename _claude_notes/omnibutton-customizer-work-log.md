@@ -2,7 +2,7 @@
 
 ## 2026-06-16 — Taskbar Clock Customization elastic spacer
 
-- Created scratch integration folder `Taskbar-Clock-Customization-Spacer/`.
+- Created scratch integration folder `taskbar-clock-customization-spacer/`.
 - Copied upstream `taskbar-clock-customization.wh.cpp` into the scratch file and
   integrated elastic spacer support.
 - Added `%s%` as a Windows 11 22H2+ elastic spacer token for top/bottom clock
@@ -22,7 +22,7 @@
   `99c690f Add elastic spacer support to taskbar clock`.
 - `git diff --check -- mods/taskbar-clock-customization.wh.cpp` passed; there
   is no validation script in the fork repo.
-- Added `Taskbar-Clock-Customization-Spacer/README.md` to document scratch state,
+- Added `taskbar-clock-customization-spacer/README.md` to document scratch state,
   test status, and PR direction.
 
 ## 2026-06-15 — OmniButton Customizer cleanup pass

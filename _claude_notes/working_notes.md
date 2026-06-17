@@ -53,10 +53,10 @@ Status: omnibutton ✓, vd-switcher ✓, clock-spacer TBD, taskmanager-tail N/A 
 ## Repo consolidation — DONE (2026-04-27)
 
 Both existing mod repos subtree-merged with full history:
-- `vertical-omnibutton/` ← Windhawk-Vertical-OmniButton
+- `omnibutton-customizer/archive/` ← Windhawk-Vertical-OmniButton history
 - `taskmanager-tail/` ← Windhawk-Taskmanager-Tail
 
-Notes: `CLAUDE.md` and `_claude_notes/` were gitignored in the OmniButton source repo — copied in manually.
+Notes: old OmniButton agent notes were later consolidated into root `_claude_notes/`.
 Original repos left as-is on GitHub.
 
 ---
@@ -186,7 +186,7 @@ Key ideas captured in `_research/densification-analysis.md`:
 ## Current experiments
 
 - Privacy Indicator Anchor tray-grid direction is documented in `_research/privacy-indicator-anchor-design.md`. Preferred implementation is a persistent mirrored icon near `NotifyIconStack`, not moving Windows' real privacy `IconView`.
-- Taskbar Folder Menu prototype in `taskbar-folder-menu/`. Injects compact folder buttons into `SystemTrayFrameGrid`, opens native popup menus with `TrackPopupMenu`.
+- Taskbar Folder Menu prototype in `taskbar-folder-menus/`. Injects compact folder buttons into `SystemTrayFrameGrid`, opens native popup menus with `TrackPopupMenu`.
 - VD Switcher: experimental Start-area positions are now `nextToStart`, `overStart`, and `rightOfStart`; legacy `aboveStart`/`belowStart` are hidden settings aliases of overlay mode.
 
 ## Completed

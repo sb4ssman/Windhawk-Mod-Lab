@@ -3,7 +3,7 @@
 ## Taskbar Clock Customization Spacer
 
 Scratch source:
-`Taskbar-Clock-Customization-Spacer/taskbar-clock-customization-spacer.wh.cpp`
+`taskbar-clock-customization-spacer/taskbar-clock-customization-spacer.wh.cpp`
 
 Fork source:
 `T:\Github\sb4ssman\m417z-windhawk-mods\mods\taskbar-clock-customization.wh.cpp`
@@ -55,7 +55,7 @@ per-item nudges.
 - README now documents OmniButton Customizer instead of old Vertical OmniButton.
 - Folder `CLAUDE.md` now points to `omnibutton-customizer.wh.cpp`.
 - Root README now points to `omnibutton-customizer/` instead of the removed
-  `vertical-omnibutton/` path.
+  `omnibutton-customizer/archive/` path.
 - Cleanup hardening after user saw OmniButton stuck behind the customized clock:
   clears a broader set of layout properties, invalidates parent layout, and
   rediscover-cleans the live OmniButton even if cached references are stale.

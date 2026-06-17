@@ -2,31 +2,31 @@
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
 
-![Default tray placement — three numbered buttons, first active](simple3.png)
+![Default tray placement — three numbered buttons, first active](assets/simple3.png)
 *Default tray placement: three desktops in a row, desktop 1 active.*
 
-![Two desktop compact tray placement](simple2.png)
+![Two desktop compact tray placement](assets/simple2.png)
 *Compact tray placement with two desktops.*
 
-![Four desktops with master button](simple4wmaster.png)
+![Four desktops with master button](assets/simple4wmaster.png)
 *Four desktops with the optional Task View master button.*
 
-![Taller taskbar with right-side grid and lower master button](gridonrightwlowermaster.png)
+![Taller taskbar with right-side grid and lower master button](assets/gridonrightwlowermaster.png)
 *Taller taskbar: a dense grid with the master button as a lower sliver.*
 
-![Left of Start button](left-of-start.png)
+![Left of Start button](assets/left-of-start.png)
 *Start placement: switcher reserved to the left of Start.*
 
-![Left of Start with Start hidden](left-of-start-hidden-start.png)
+![Left of Start with Start hidden](assets/left-of-start-hidden-start.png)
 *Start placement with the Start button hidden.*
 
-![Over Start, nudged above](over-above-start.png)
+![Over Start, nudged above](assets/over-above-start.png)
 *Overlay mode can be nudged up with the vertical offset setting.*
 
-![Over Start, nudged below](over-below-start.png)
+![Over Start, nudged below](assets/over-below-start.png)
 *Overlay mode can also be nudged down.*
 
-![Right of Start with Start hidden](right-of-start-hidden-start.png)
+![Right of Start with Start hidden](assets/right-of-start-hidden-start.png)
 *Right-of-Start placement when the Start button is hidden.*
 
 ## Features
@@ -90,7 +90,7 @@ This mod builds directly on patterns established by several community mods:
 
 **[taskbar-desktop-indicator](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-desktop-indicator.wh.cpp)** — reference for reading the current virtual desktop from the registry (session-scoped `VirtualDesktopIDs` + `CurrentVirtualDesktop` keys) and the notification cookie / `IVirtualDesktopNotificationService` registration pattern.
 
-**[vertical-omnibutton](../vertical-omnibutton/vertical-omnibutton.wh.cpp)** (this lab, by sb4ssman) — source of the `GetTaskbarXamlRoot` boilerplate, `RunFromWindowThread` dispatcher, `FindCurrentProcessTaskbarWnd`, and the `IconView::IconView` hook-and-retry injection pattern.
+**[Vertical OmniButton archive](../omnibutton-customizer/archive/vertical-omnibutton-v1.4.wh.cpp)** (this lab, by sb4ssman) — source of the `GetTaskbarXamlRoot` boilerplate, `RunFromWindowThread` dispatcher, `FindCurrentProcessTaskbarWnd`, and the `IconView::IconView` hook-and-retry injection pattern.
 
 **[windows-11-taskbar-styler](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/windows-11-taskbar-styler.wh.cpp)** — reference for the `SystemTrayFrameGrid` XAML tree structure and element names (`ShowDesktopStack`, `NotificationCenterButton`, `ControlCenterButton`, `NotifyIconStack`).
 

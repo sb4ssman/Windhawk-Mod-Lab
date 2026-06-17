@@ -3,9 +3,9 @@
 ## Claude's Workflow
 
 **Before every interaction:**
-1. Read `_claude_notes/Claude_Notes.md` for current state and priorities
+1. Read `_claude_notes/taskmanager-tail-claude-notes.md` for current state and priorities
 2. Check `RESEARCH.md` for technical context and findings
-3. Reference `_claude_notes/work_log.md` for session history if needed
+3. Reference `_claude_notes/taskmanager-tail-work-log.md` for session history if needed
 
 **During work:**
 - This is a Windhawk mod written in C++
@@ -13,8 +13,8 @@
 - Don't interrupt workflow - capture items for later
 
 **After completing work:**
-1. Update `_claude_notes/Claude_Notes.md` with accomplishments
-2. Add entry to `_claude_notes/work_log.md` with session summary
+1. Update `_claude_notes/taskmanager-tail-claude-notes.md` with accomplishments
+2. Add entry to `_claude_notes/taskmanager-tail-work-log.md` with session summary
 3. Update `RESEARCH.md` if technical findings were made
 
 ---
@@ -58,9 +58,9 @@ A Windhawk mod that automatically keeps Task Manager (or other configured apps) 
 - **[Archive/](../Archive/)** - Previous versions and experimental code
 
 ### Claude's Files
-- **[_claude_notes/Claude_Notes.md](../_claude_notes/Claude_Notes.md)** - Current session notes and TODOs
-- **[_claude_notes/work_log.md](../_claude_notes/work_log.md)** - Session history
-- **[_claude_notes/Offline_Notes.md](../_claude_notes/Offline_Notes.md)** - User's notes to Claude between sessions
+- **[_claude_notes/taskmanager-tail-claude-notes.md](taskmanager-tail-claude-notes.md)** - Current session notes and TODOs
+- **[_claude_notes/taskmanager-tail-work-log.md](taskmanager-tail-work-log.md)** - Session history
+- **[_claude_notes/taskmanager-tail-offline-notes.md](taskmanager-tail-offline-notes.md)** - User's notes to Claude between sessions
 
 ---
 
@@ -135,4 +135,4 @@ Use DbgViewMini or similar to capture `OutputDebugString` messages:
 
 **Your notes are your memory between sessions.**
 
-Keep `_claude_notes/Claude_Notes.md` and `_claude_notes/work_log.md` current. When in doubt about context - **READ YOUR NOTES FIRST**.
+Keep `taskmanager-tail-claude-notes.md` and `taskmanager-tail-work-log.md` current. When in doubt about context - **READ YOUR NOTES FIRST**.

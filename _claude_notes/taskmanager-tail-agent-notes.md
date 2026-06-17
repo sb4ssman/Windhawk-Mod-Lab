@@ -2,8 +2,8 @@
 
 ## Notes
 
-See [_claude_notes/Claude_Notes.md](_claude_notes/Claude_Notes.md) for architecture and current status.
-See [_claude_notes/work_log.md](_claude_notes/work_log.md) for version history.
+See [taskmanager-tail-claude-notes.md](taskmanager-tail-claude-notes.md) for architecture and current status.
+See [taskmanager-tail-work-log.md](taskmanager-tail-work-log.md) for version history.
 See [RESEARCH.md](RESEARCH.md) for Windows 10 event detection research.
 
 ## The mod
@@ -18,4 +18,4 @@ v1.1-test adds Windows 10 support but is unfinished — event detection for app 
 ## Key open problem (v1.1)
 
 UIA `StructureChangedEventHandler` only fires for `ChildAdded` — not `ChildRemoved` or reorder.
-Options: hybrid UIA + `WinEventHook`, or `RegisterShellHookWindow`. See `_claude_notes/Claude_Notes.md`.
+Options: hybrid UIA + `WinEventHook`, or `RegisterShellHookWindow`. See `taskmanager-tail-claude-notes.md`.

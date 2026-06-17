@@ -2,10 +2,10 @@
 
 ## First: read the notes
 
-Go to [_claude_notes/](_claude_notes/) and read:
-1. [working_notes.md](_claude_notes/working_notes.md)
-2. [work_log.md](_claude_notes/work_log.md)
-3. [root_causes.md](_claude_notes/root_causes.md)
+Go to repo-root [_claude_notes/](../_claude_notes/) and read:
+1. [omnibutton-customizer-working-notes.md](omnibutton-customizer-working-notes.md)
+2. [omnibutton-customizer-work-log.md](omnibutton-customizer-work-log.md)
+3. [omnibutton-customizer-root-causes.md](omnibutton-customizer-root-causes.md)
 
 The old Vertical OmniButton history is useful background, but the active file is now
 [omnibutton-customizer.wh.cpp](omnibutton-customizer.wh.cpp).

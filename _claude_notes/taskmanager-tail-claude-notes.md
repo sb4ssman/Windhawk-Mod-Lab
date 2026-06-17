@@ -84,16 +84,10 @@ Windhawk-Task-Manager-Tail/
 ├── Archive/                      # Old versions
 │   ├── win-10-test-1.cpp        # First Win10 attempt (WinEventHook)
 │   └── ...
-├── .claude/
-│   └── CLAUDE.md                # Project memory for Claude
-└── _claude_notes/
-    ├── Claude_Notes.md          # THIS FILE
-    ├── work_log.md              # Session history
-    ├── Offline_Notes.md         # User notes to Claude
-    ├── _claude_outputs/
-    │   └── folder_structure.md  # Auto-generated map
-    └── claude_tools/
-        └── generate_folder_map.py
+└── ../_claude_notes/
+    ├── taskmanager-tail-claude-notes.md  # THIS FILE
+    ├── taskmanager-tail-work-log.md      # Session history
+    └── taskmanager-tail-offline-notes.md # User notes to Claude
 ```
 
 ---
@@ -115,5 +109,5 @@ Windhawk-Task-Manager-Tail/
 - `test-task-manager-tail-with-win-10.cpp` - Added Win10 support
 - `RESEARCH.md` - Added Win10 findings
 - `.claude/CLAUDE.md` - Rewritten for this project
-- `_claude_notes/Claude_Notes.md` - Rewritten for this project
-- `_claude_notes/work_log.md` - Added session history
+- `_claude_notes/taskmanager-tail-claude-notes.md` - Rewritten for this project
+- `_claude_notes/taskmanager-tail-work-log.md` - Added session history

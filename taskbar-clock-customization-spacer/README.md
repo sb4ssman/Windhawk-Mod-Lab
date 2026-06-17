@@ -16,6 +16,8 @@ Commit:
 
 `99c690f Add elastic spacer support to taskbar clock`
 
+![Elastic spacers in action](spacers-in-action.png)
+
 ## What changed
 
 - Adds `%s%` as an elastic spacer token for Windows 11 version 22H2 and newer.
@@ -47,4 +49,3 @@ Open the pull request from the fork branch to upstream:
 Suggested title:
 
 `Add elastic spacer support to Taskbar Clock Customization`
-
