@@ -1,5 +1,30 @@
 # Work Log — completed changes
 
+## 2026-06-16 — Taskbar Clock Customization elastic spacer
+
+- Created scratch integration folder `Taskbar-Clock-Customization-Spacer/`.
+- Copied upstream `taskbar-clock-customization.wh.cpp` into the scratch file and
+  integrated elastic spacer support.
+- Added `%s%` as a Windows 11 22H2+ elastic spacer token for top/bottom clock
+  lines.
+- Reused the existing Win11 XAML text-style path to generate spacer-aware line
+  elements with star-sized spacer columns.
+- Added `{spacer}` support for `WebContentWeatherFormat`, converted after
+  weather fetch to the `%s%` spacer token so it does not collide with wttr.in
+  `%` format tokens.
+- Updated embedded readme/settings text for `%s%`, `{spacer}`, and `MaxWidth`.
+- Fixed compile issue by using root `GridUnitType::Auto` and
+  `GridUnitType::Star`.
+- User tested successfully in Windhawk with dense weather/metrics layout.
+- Moved the tested patch into
+  `T:\Github\sb4ssman\m417z-windhawk-mods\mods\taskbar-clock-customization.wh.cpp`.
+- Created branch `taskbar-clock-elastic-spacer` and local commit
+  `99c690f Add elastic spacer support to taskbar clock`.
+- `git diff --check -- mods/taskbar-clock-customization.wh.cpp` passed; there
+  is no validation script in the fork repo.
+- Added `Taskbar-Clock-Customization-Spacer/README.md` to document scratch state,
+  test status, and PR direction.
+
 ## 2026-06-15 — OmniButton Customizer cleanup pass
 
 - Confirmed active source is now `omnibutton-customizer.wh.cpp`, not the older Vertical-only mod.

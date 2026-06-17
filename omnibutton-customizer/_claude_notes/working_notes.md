@@ -1,5 +1,45 @@
 # Working Notes — OmniButton Customizer
 
+## Taskbar Clock Customization Spacer
+
+Scratch source:
+`Taskbar-Clock-Customization-Spacer/taskbar-clock-customization-spacer.wh.cpp`
+
+Fork source:
+`T:\Github\sb4ssman\m417z-windhawk-mods\mods\taskbar-clock-customization.wh.cpp`
+
+Current PR branch:
+`taskbar-clock-elastic-spacer`
+
+Current local commit:
+`99c690f Add elastic spacer support to taskbar clock`
+
+Feature summary:
+
+- `%s%` is an elastic spacer token for Windows 11 22H2+ top/bottom clock lines.
+- `{spacer}` is supported inside `WebContentWeatherFormat` and is converted
+  after weather fetch into the same `%s%` spacer path.
+- Spacer rendering is handled in the existing Win11 XAML text-style path by
+  generating replacement line elements with star-sized spacer columns.
+- `FormatLine` is intentionally left unaware of `%s%`; the token survives
+  formatting and is consumed by the XAML rendering layer.
+
+Validation status:
+
+- User confirmed the layout works visually in Windhawk.
+- `git diff --check -- mods/taskbar-clock-customization.wh.cpp` passed in the
+  fork.
+- No repo validation script exists in `m417z-windhawk-mods`.
+- Git may still warn about `C:\Users\tmill/.config/git/ignore` permission; this
+  is unrelated to the mod patch.
+
+PR direction:
+
+- Initiate from the fork branch.
+- Base repository: `m417z/my-windhawk-mods`, branch `main`.
+- Compare/head: `sb4ssman/m417z-windhawk-mods`,
+  branch `taskbar-clock-elastic-spacer`.
+
 ## Current version
 
 v1.0 in development.

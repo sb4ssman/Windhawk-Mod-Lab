@@ -1003,15 +1003,16 @@ bool IsStrInDateTimePatternSettings(PCWSTR str) {
            wcsstr(g_settings.tooltipLine, str);
 }
 
-bool IsStrInClockLineSettings(PCWSTR str) {
-    return wcsstr(g_settings.topLine, str) ||
-           wcsstr(g_settings.bottomLine, str);
-}
-
 constexpr PCWSTR kSpacerToken = L"%s%";
 constexpr size_t kSpacerTokenLen = 3;
 constexpr PCWSTR kWeatherSpacerToken = L"{spacer}";
 constexpr PCWSTR kWeatherSpacerMarker = L"\uE001";
+
+bool ClockLineUsesSpacer(PCWSTR line) {
+    return wcsstr(line, kSpacerToken) ||
+           (wcsstr(line, L"%weather%") &&
+            wcsstr(g_settings.webContentWeatherFormat, kWeatherSpacerToken));
+}
 
 std::wstring EscapeUrlComponent(PCWSTR input,
                                 DWORD flags = URL_ESCAPE_ASCII_URI_COMPONENT |
@@ -3485,7 +3486,32 @@ void EnsureFormattingInitialized() {
     MediaSessionInit();
 }
 
-int FormatLine(PWSTR buffer, size_t bufferSize, std::wstring_view format) {
+std::wstring FormatLineToString(std::wstring_view format) {
+    std::wstring formatted;
+    std::wstring_view formatSuffix = format;
+
+    while (!formatSuffix.empty()) {
+        if (formatSuffix[0] == L'%') {
+            size_t formatTokenLen = ResolveFormatToken(
+                formatSuffix, [&formatted](PCWSTR resolvedStr) {
+                    formatted += resolvedStr;
+                });
+            if (formatTokenLen > 0) {
+                formatSuffix = formatSuffix.substr(formatTokenLen);
+                continue;
+            }
+        }
+
+        formatted += formatSuffix[0];
+        formatSuffix = formatSuffix.substr(1);
+    }
+
+    return formatted;
+}
+
+int FormatLine(PWSTR buffer,
+               size_t bufferSize,
+               std::wstring_view format) {
     if (bufferSize == 0) {
         return 0;
     }
@@ -3494,42 +3520,19 @@ int FormatLine(PWSTR buffer, size_t bufferSize, std::wstring_view format) {
 
     EnsureFormattingInitialized();
 
-    std::wstring_view formatSuffix = format;
+    std::wstring formatted = FormatLineToString(format);
 
-    PWSTR bufferStart = buffer;
-    PWSTR bufferEnd = bufferStart + bufferSize;
-    while (!formatSuffix.empty() && bufferEnd - buffer > 1) {
-        if (formatSuffix[0] == L'%') {
-            bool truncated = false;
-            size_t formatTokenLen = ResolveFormatToken(
-                formatSuffix,
-                [&buffer, bufferEnd, &truncated](PCWSTR resolvedStr) {
-                    buffer += StringCopyTruncated(buffer, bufferEnd - buffer,
-                                                  resolvedStr, &truncated);
-                });
-            if (formatTokenLen > 0) {
-                if (truncated) {
-                    break;
-                }
-
-                formatSuffix = formatSuffix.substr(formatTokenLen);
-                continue;
-            }
-        }
-
-        *buffer++ = formatSuffix[0];
-        formatSuffix = formatSuffix.substr(1);
+    bool truncated = false;
+    int copied = StringCopyTruncated(buffer, bufferSize, formatted.c_str(),
+                                     &truncated);
+    if (truncated && bufferSize >= 4) {
+        buffer[bufferSize - 4] = L'.';
+        buffer[bufferSize - 3] = L'.';
+        buffer[bufferSize - 2] = L'.';
+        buffer[bufferSize - 1] = L'\0';
     }
 
-    if (!formatSuffix.empty() && bufferSize >= 4) {
-        buffer[-1] = L'.';
-        buffer[-2] = L'.';
-        buffer[-3] = L'.';
-    }
-
-    *buffer = L'\0';
-
-    return buffer - bufferStart;
+    return copied;
 }
 
 #pragma region Win11Hooks
@@ -5455,7 +5458,8 @@ void LoadSettings() {
          *g_settings.dateStyle.fontFamily || *g_settings.dateStyle.fontWeight ||
          *g_settings.dateStyle.fontStyle || *g_settings.dateStyle.fontStretch ||
          g_settings.dateStyle.characterSpacing ||
-         IsStrInClockLineSettings(kSpacerToken));
+         ClockLineUsesSpacer(g_settings.topLine) ||
+         ClockLineUsesSpacer(g_settings.bottomLine));
     g_clockElementStyleIndex++;
 
     g_settings.oldTaskbarOnWin11 = Wh_GetIntSetting(L"oldTaskbarOnWin11");

@@ -1,9 +1,9 @@
 # CLAUDE.md — Virtual Desktop Switcher
 
-## Status: v1.4 — all bug fixes applied, ready for PR push
+## Status: v1.4 — Start-adjacent placement polish in progress
 
 Single file: [virtual-desktop-switcher.wh.cpp](virtual-desktop-switcher.wh.cpp)
-Design doc: [../_claude_notes/virtual-desktop-switcher-design.md](../_claude_notes/virtual-desktop-switcher-design.md)
+Design doc: [../_claude_notes/vd-switcher-design.md](../_claude_notes/vd-switcher-design.md)
 
 ## What it does
 
@@ -37,3 +37,4 @@ Row count: `buttonRows=0` auto-detects from `GetWindowRect(Shell_TrayWnd)`.
 
 - Multi-monitor: only primary taskbar gets buttons.
 - `taskbarLeft`/`taskbarRight` were removed: `RootGrid` uses star-sized columns; injecting there collapses them.
+- 2026-06-16 pass: `belowStart` is now clamped into the taskbar root, overlay modes honor left/right padding for visible nudging, and `rightOfStart` now tries to reserve taskbar item space via `TaskbarFrameRepeater.Margin.Left`. Needs live testing because Start-adjacent placement depends on Windows' current taskbar XAML tree.

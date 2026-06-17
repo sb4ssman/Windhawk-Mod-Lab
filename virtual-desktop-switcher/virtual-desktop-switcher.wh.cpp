@@ -1581,6 +1581,26 @@ static FrameworkElement FindTaskbarFrameRepeater(FrameworkElement rootGrid) {
     return nullptr;
 }
 
+static void SetTaskItemsLeftMargin(double left) {
+    if (!g_taskItemsPanel)
+        return;
+
+    auto margin = g_taskItemsPanel.Margin();
+    if (std::fabs(margin.Left - left) <= 0.5)
+        return;
+
+    margin.Left = left;
+    g_taskItemsPanel.Margin(margin);
+}
+
+static double GetElementActualWidth(FrameworkElement const& element) {
+    return element ? element.ActualWidth() : 0.0;
+}
+
+static double GetElementActualHeight(FrameworkElement const& element) {
+    return element ? element.ActualHeight() : 0.0;
+}
+
 static void PositionButtonGridNearStart() {
     if (!g_buttonGrid || !g_startOverlayRoot || !g_startOverlayStart)
         return;
@@ -1588,6 +1608,8 @@ static void PositionButtonGridNearStart() {
     int count = g_desktopCount.load();
     double gridW = EstimateButtonGridWidth(count);
     double gridH = EstimateButtonGridHeight(count);
+    double outerGridW = gridW + (double)g_settings.paddingLeft +
+                        (double)g_settings.paddingRight;
     const auto& pos = g_settings.position;
 
     bool startHidden = (g_startOverlayStart.Visibility() == Visibility::Collapsed);
@@ -1616,7 +1638,7 @@ static void PositionButtonGridNearStart() {
         // Use the original (pre-push) start button x as a stable anchor so that
         // LayoutUpdated calls triggered by our own margin push don't cause oscillation.
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX;
+        left = anchorX + (double)g_settings.paddingLeft;
         top  = y - gridH - (double)g_settings.buttonSpacing;
         if (left < 0.0) left = 0.0;
 
@@ -1624,51 +1646,45 @@ static void PositionButtonGridNearStart() {
         // TaskbarFrameRepeater right. Pushing by (gridW - startW) / 2 centers
         // the start button under the grid without moving the grid itself.
         if (g_taskItemsPanel && !startHidden) {
-            double push = std::max(0.0, (gridW - startW) / 2.0);
-            double neededLeft = g_taskItemsPanelOriginalMargin.Left + push;
-            auto m = g_taskItemsPanel.Margin();
-            if (std::fabs(m.Left - neededLeft) > 0.5) {
-                m.Left = neededLeft;
-                g_taskItemsPanel.Margin(m);
-            }
+            double push = std::max(0.0, (outerGridW - startW) / 2.0);
+            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
         }
     } else if (pos == L"overStart") {
         // Grid overlays (centers on) the start button — VD buttons replace the start logo.
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX;
+        left = anchorX + (double)g_settings.paddingLeft;
         top  = y + (startH - gridH) / 2.0;
         if (left < 0.0) left = 0.0;
 
         if (g_taskItemsPanel && !startHidden) {
-            double push = std::max(0.0, (gridW - startW) / 2.0);
-            double neededLeft = g_taskItemsPanelOriginalMargin.Left + push;
-            auto m = g_taskItemsPanel.Margin();
-            if (std::fabs(m.Left - neededLeft) > 0.5) {
-                m.Left = neededLeft;
-                g_taskItemsPanel.Margin(m);
-            }
+            double push = std::max(0.0, (outerGridW - startW) / 2.0);
+            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
         }
     } else if (pos == L"belowStart") {
         // Grid floats below the start button (useful on tall/double-height taskbars).
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX;
+        left = anchorX + (double)g_settings.paddingLeft;
         top  = y + startH + (double)g_settings.buttonSpacing;
         if (left < 0.0) left = 0.0;
 
         if (g_taskItemsPanel && !startHidden) {
-            double push = std::max(0.0, (gridW - startW) / 2.0);
-            double neededLeft = g_taskItemsPanelOriginalMargin.Left + push;
-            auto m = g_taskItemsPanel.Margin();
-            if (std::fabs(m.Left - neededLeft) > 0.5) {
-                m.Left = neededLeft;
-                g_taskItemsPanel.Margin(m);
-            }
+            double push = std::max(0.0, (outerGridW - startW) / 2.0);
+            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
         }
     } else if (pos == L"rightOfStart") {
-        // Grid floats immediately right of the start button, vertically centered on it.
-        left = x + startW + (double)g_settings.paddingLeft;
+        // Grid sits immediately right of the start button and reserves room for
+        // itself before taskbar items. Use the original start X to avoid
+        // LayoutUpdated feedback after the task item margin changes.
+        double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
+        left = anchorX + startW + (double)g_settings.paddingLeft;
         top  = y + (startH - gridH) / 2.0;
         if (left < 0.0) left = 0.0;
+
+        if (g_taskItemsPanel) {
+            double neededLeft = g_taskItemsPanelOriginalMargin.Left +
+                                outerGridW + (double)g_settings.buttonSpacing;
+            SetTaskItemsLeftMargin(neededLeft);
+        }
     } else {
         // nextToStart: anchor VD grid at the left edge; push TaskbarFrameRepeater
         // rightward so Start button and task items don't overlap the VD grid.
@@ -1679,20 +1695,21 @@ static void PositionButtonGridNearStart() {
 
         if (g_taskItemsPanel) {
             double neededLeft = g_taskItemsPanelOriginalMargin.Left +
-                                gridW + (double)g_settings.buttonSpacing +
-                                (double)g_settings.paddingLeft;
-            auto m = g_taskItemsPanel.Margin();
-            if (std::fabs(m.Left - neededLeft) > 0.5) {
-                m.Left = neededLeft;
-                g_taskItemsPanel.Margin(m);
-            }
+                                outerGridW + (double)g_settings.buttonSpacing;
+            SetTaskItemsLeftMargin(neededLeft);
         }
     }
 
-    if (top < 0.0) top = 0.0;
-
     // gridVerticalOffset nudges the grid in all overlay modes
     top += (double)g_settings.gridVerticalOffset;
+
+    double rootW = GetElementActualWidth(g_startOverlayRoot);
+    double rootH = GetElementActualHeight(g_startOverlayRoot);
+    if (rootW > 0.0 && left + gridW > rootW)
+        left = std::max(0.0, rootW - gridW);
+    if (rootH > 0.0 && top + gridH > rootH)
+        top = std::max(0.0, rootH - gridH);
+    if (top < 0.0) top = 0.0;
 
     g_buttonGrid.HorizontalAlignment(HorizontalAlignment::Left);
     g_buttonGrid.VerticalAlignment(VerticalAlignment::Top);
