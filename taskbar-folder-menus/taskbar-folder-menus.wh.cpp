@@ -29,37 +29,28 @@ the desktop.
   roots such as `shell:Desktop` and `shell:ControlPanelFolder`.
 - **Layout mode** - single row, single column, or grid.
 - **Grid columns** - number of columns used in grid mode.
-- **Button size, spacing, and font size** - compact by default, suitable for multi-row trays.
+- **Button size, spacing, and font size** - compact by default; increase button
+  width to fit longer labels or larger emoji.
 
-Baseline test targets:
+## Example folder entries
 
 ```text
-T:=T:\
-DSK=shell:Desktop
-CTL=shell:ControlPanelFolder
+🖥=shell:Desktop
+⚙=shell:ControlPanelFolder
+📥=%USERPROFILE%\Downloads
+C:=C:\
 ```
 
-Compact labels work best. One-, two-, and three-character labels such as drive
-letters or short mnemonics are shown directly on the button. Longer text labels
-fall back to the configured default icon text; the full label and target remain
-available in the tooltip.
+Emoji labels are a natural fit for narrow buttons. Drive letters and short
+mnemonics work too. The full label and target path appear in the tooltip.
 
-Label ideas: 📁 folder, 🖥 desktop PC, 💻 laptop, 🪟 desktop/window, 📥 downloads,
+Label ideas: 📁 folder, 🖥 desktop, 💻 laptop, 🪟 windows, 📥 downloads,
 🌐 network, 🗄 drive, 📄 documents, 🔧 tools, ⚙ settings, ⭐ favorites.
 
-Quick multi-folder string example:
-
-```text
-T:=T:\,DSK=shell:Desktop,CTL=shell:ControlPanelFolder
-```
-
-Note: `shell:Desktop` points at the actual Desktop Shell namespace, not only the
-user's physical Desktop folder. `shell:ControlPanelFolder` exercises a
-non-filesystem namespace and is useful for proving the PIDL path is working.
-
-The first version intentionally uses the system tray grid as its home. A future
-version can add an experimental mode that places the buttons directly beside the
-"show hidden icons" tray overflow button.
+Note: `shell:Desktop` shows the full Desktop Shell namespace (user shortcuts,
+public shortcuts, and virtual items like Recycle Bin), not just the physical
+Desktop folder. Duplicates from the user+public Desktop merge are suppressed
+automatically.
 */
 // ==/WindhawkModReadme==
 
@@ -75,13 +66,14 @@ version can add an experimental mode that places the buttons directly beside the
   - "afterClock": "After clock"
   - "afterShowDesktop": "After Show Desktop strip"
 
-- folders: "T:=T:\\,DSK=shell:Desktop,CTL=shell:ControlPanelFolder"
+- folders: "🖥=shell:Desktop,⚙=shell:ControlPanelFolder"
   $name: Folders
   $description: >-
     Folder buttons to show. Use entries in Label=Target form, separated by
     newlines, |, or commas. Targets can be normal paths or Shell namespace
     roots such as shell:Desktop and shell:ControlPanelFolder. Environment
-    variables such as %USERPROFILE% are expanded.
+    variables such as %USERPROFILE% are expanded. Emoji labels work well on
+    narrow buttons.
 
 - layoutMode: row
   $name: Layout mode
@@ -305,9 +297,8 @@ static std::vector<FolderEntry> ParseFolders(std::wstring text) {
             folders.push_back(entry);
     }
     if (folders.empty()) {
-        folders.push_back({ L"T:", L"T:\\" });
-        folders.push_back({ L"DSK", L"shell:Desktop" });
-        folders.push_back({ L"CTL", L"shell:ControlPanelFolder" });
+        folders.push_back({ L"🖥", L"shell:Desktop" });
+        folders.push_back({ L"⚙", L"shell:ControlPanelFolder" });
     }
     return folders;
 }
@@ -323,7 +314,7 @@ static void LoadSettings() {
     g_settings.position = GetStringSetting(L"position", L"beforeIcons");
     g_settings.layoutMode = GetStringSetting(L"layoutMode", L"row");
     g_settings.buttonText = GetStringSetting(L"buttonText", L"📁");
-    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"T:=T:\\,DSK=shell:Desktop,CTL=shell:ControlPanelFolder"));
+    g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"🖥=shell:Desktop,⚙=shell:ControlPanelFolder"));
     g_settings.gridColumns = std::max(1, Wh_GetIntSetting(L"gridColumns", 2));
     g_settings.buttonWidth = std::max(10, Wh_GetIntSetting(L"buttonWidth", 32));
     g_settings.buttonHeight = std::max(10, Wh_GetIntSetting(L"buttonHeight", 22));
@@ -720,6 +711,21 @@ static std::vector<ShellMenuItem> EnumerateShellFolder(PCIDLIST_ABSOLUTE folderP
         if (a.canExpand != b.canExpand) return a.canExpand > b.canExpand;
         return _wcsicmp(a.displayName.c_str(), b.displayName.c_str()) < 0;
     });
+
+    // The Desktop namespace merges user+public Desktop folders and virtual items,
+    // causing the same shortcut to appear multiple times. Remove consecutive
+    // duplicates by display name after sorting.
+    for (auto it = items.begin(); it != items.end(); ) {
+        auto next = it + 1;
+        if (next != items.end() &&
+                _wcsicmp(it->displayName.c_str(), next->displayName.c_str()) == 0) {
+            if (next->pidl) CoTaskMemFree(next->pidl);
+            items.erase(next);
+        } else {
+            ++it;
+        }
+    }
+
     if (g_settings.maxMenuItems > 0 && (int)items.size() > g_settings.maxMenuItems) {
         for (size_t i = g_settings.maxMenuItems; i < items.size(); i++)
             if (items[i].pidl) CoTaskMemFree(items[i].pidl);
@@ -827,10 +833,23 @@ static void ShowFolderMenu(FolderEntry folder) {
     GetCursorPos(&pt);
     SetForegroundWindow(owner);
 
+    // Align the menu so it opens away from the taskbar edge.
+    UINT tpmAlign = TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_LEFTALIGN | TPM_BOTTOMALIGN;
+    if (owner) {
+        APPBARDATA abd{};
+        abd.cbSize = sizeof(abd);
+        abd.hWnd = owner;
+        SHAppBarMessage(ABM_GETTASKBARPOS, &abd);
+        switch (abd.uEdge) {
+            case ABE_TOP:   tpmAlign = TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN;   break;
+            case ABE_LEFT:  tpmAlign = TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN;   break;
+            case ABE_RIGHT: tpmAlign = TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_RIGHTALIGN | TPM_TOPALIGN;  break;
+            default:        break; // ABE_BOTTOM: default flags are correct
+        }
+    }
+
     SetWindowSubclass(owner, MenuOwnerSubclassProc, 1, 0);
-    UINT cmd = TrackPopupMenu(menu,
-        TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_BOTTOMALIGN,
-        pt.x, pt.y, 0, owner, nullptr);
+    UINT cmd = TrackPopupMenu(menu, tpmAlign, pt.x, pt.y, 0, owner, nullptr);
     RemoveWindowSubclass(owner, MenuOwnerSubclassProc, 1);
 
     if (cmd >= 1000) {
@@ -988,7 +1007,7 @@ static Grid BuildFolderButtonGrid() {
     for (int i = 0; i < count; i++) {
         auto entry = g_settings.folders[i];
         std::wstring caption = entry.label;
-        if (caption.empty() || caption.size() > 3)
+        if (caption.empty())
             caption = g_settings.buttonText.empty() ? L"📁" : g_settings.buttonText;
 
         Button btn;

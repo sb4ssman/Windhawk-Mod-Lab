@@ -3,7 +3,7 @@
 Scratch integration copy for adding elastic spacer support to
 `Taskbar Clock Customization`.
 
-This folder is a lab staging area. The PR-ready change was moved into the fork
+This folder is a lab staging area. The submitted change was moved into the fork
 at:
 
 `T:\Github\sb4ssman\m417z-windhawk-mods\mods\taskbar-clock-customization.wh.cpp`
@@ -14,7 +14,7 @@ Branch:
 
 Commit:
 
-`99c690f Add elastic spacer support to taskbar clock`
+`d050692 Improve taskbar clock elastic spacer layout`
 
 ![Elastic spacers in action](spacers-in-action.png)
 
@@ -37,15 +37,14 @@ Commit:
 - Dense clock/weather/system-metric layout verified visually.
 - `git diff --check` passed in the fork.
 
-## PR direction
+## Pull request
 
-Open the pull request from the fork branch to upstream:
+Submitted upstream:
 
-- Base repository: `m417z/my-windhawk-mods`
-- Base branch: `main`
-- Compare/head repository: `sb4ssman/m417z-windhawk-mods`
-- Compare branch: `taskbar-clock-elastic-spacer`
+- PR: [m417z/my-windhawk-mods#68](https://github.com/m417z/my-windhawk-mods/pull/68)
+- Base: `m417z/my-windhawk-mods:main`
+- Head: `sb4ssman/m417z-windhawk-mods:taskbar-clock-elastic-spacer`
 
-Suggested title:
+Title:
 
 `Add elastic spacer support to Taskbar Clock Customization`
