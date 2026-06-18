@@ -19,6 +19,14 @@ or Widgets frequently access location.
 - Per-icon X/Y nudges plus whole-bar X/Y offset
 - Optional active glow and custom active color
 
+## Settings Compatibility
+
+The mod keeps its existing user-facing icon names, such as `iconSpacing` and
+`barOffsetX/Y`, because they describe the privacy indicator UI clearly. The code
+also accepts the shared taskbar-control aliases `buttonSpacing`,
+`groupPaddingLeft/Right`, `groupOffsetX/Y`, and `fillOrder` for consistency with
+the other lab mods.
+
 ## Files
 
 - [privacy-indicator-anchor.wh.cpp](privacy-indicator-anchor.wh.cpp) - Windhawk mod source

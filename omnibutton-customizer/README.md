@@ -85,3 +85,6 @@ itemOrder: "wifi volume battery"
 - The outer `ControlCenterButton` is not forced to a custom width or position.
   The inner items host reports the grid footprint so Windows can reserve space
   naturally in the tray.
+- Per-item nudge settings keep their original names, and the code also accepts
+  canonical aliases such as `wifiOffsetX`, `volumeOffsetY`, `batteryOffsetX`,
+  and `percentOffsetY` for consistency with the shared taskbar settings rubric.

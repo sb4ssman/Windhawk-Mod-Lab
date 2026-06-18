@@ -1,4 +1,4 @@
-# Taskbar Virtual Desktop Switcher
+# Virtual Desktop Switcher
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
 
@@ -75,10 +75,11 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 | Border thickness | 0 px | Button border width |
 | Border color | *(system)* | Button border color |
 | Hide when single | Off | Don't show the bar when only one desktop exists |
-| Master button | Off | Optional Task View button for previewing, creating, or closing desktops |
-| Master button position | After | Column before/after desktop buttons, or sliver row above/below |
-| Master button sliver height | 6 px | Height of the master button when used as a sliver row |
-| Master button column width | 14 px | Width of the master button when used as a side column |
+| Task View button | Off | Optional button that opens Task View for previewing, creating, or closing desktops |
+| Task View button label | ⊞ | Text shown on the Task View button |
+| Task View button position | After | Column before/after desktop buttons, or sliver row above/below |
+| Task View button sliver height | 6 px | Height of the Task View button when used as a sliver row |
+| Task View button column width | 14 px | Width of the Task View button when used as a side column |
 
 ## Known limitations
 

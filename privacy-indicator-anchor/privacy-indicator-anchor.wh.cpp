@@ -255,6 +255,7 @@ struct ModSettings {
     std::wstring itemOrder          = L"location,mic,camera";
     int  gridColumns                = 2;
     std::wstring gridFillOrder      = L"rowFirst";
+    std::wstring fillOrder          = L"rowFirst";
     std::wstring shortGroupPosition = L"last";
     std::wstring shortGroupAlign    = L"center";
     int  iconSize     = 16;
@@ -262,8 +263,11 @@ struct ModSettings {
     int  paddingLeft  = 0;
     int  paddingRight = 0;
     int  iconSpacing  = 4;
+    int  buttonSpacing = 4;
     int  barOffsetX   = 0;
     int  barOffsetY   = 0;
+    int  groupOffsetX = 0;
+    int  groupOffsetY = 0;
     int  locationOffsetX = 0;
     int  locationOffsetY = 0;
     int  micOffsetX   = 0;
@@ -293,19 +297,33 @@ static std::wstring GetStringSetting(PCWSTR name, PCWSTR fallback) {
 
 static void LoadSettings() {
     auto clamp = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
+    auto getCanonicalInt = [](PCWSTR canonicalName, PCWSTR legacyName,
+                              int defaultValue, int lo, int hi) {
+        constexpr int kUnset = -2147483647;
+        int value = Wh_GetIntSetting(canonicalName, kUnset);
+        if (value == kUnset) {
+            value = Wh_GetIntSetting(legacyName, defaultValue);
+        }
+        return std::max(lo, std::min(hi, value));
+    };
+
     g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity", 50), 0, 100);
     g_settings.itemOrder            = GetStringSetting(L"itemOrder", L"location,mic,camera");
     g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns", 2), 1, 10);
     g_settings.gridFillOrder        = GetStringSetting(L"gridFillOrder", L"rowFirst");
+    g_settings.fillOrder            = GetStringSetting(L"fillOrder", g_settings.gridFillOrder.c_str());
     g_settings.shortGroupPosition   = GetStringSetting(L"shortGroupPosition", L"last");
     g_settings.shortGroupAlign      = GetStringSetting(L"shortGroupAlign", L"center");
     g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize", 16), 8, 48);
     g_settings.position             = GetStringSetting(L"position", L"beforeOmni");
-    g_settings.paddingLeft          = clamp(Wh_GetIntSetting(L"paddingLeft",  0), -40, 40);
-    g_settings.paddingRight         = clamp(Wh_GetIntSetting(L"paddingRight", 0), -40, 40);
+    g_settings.paddingLeft          = getCanonicalInt(L"groupPaddingLeft", L"paddingLeft", 0, -40, 40);
+    g_settings.paddingRight         = getCanonicalInt(L"groupPaddingRight", L"paddingRight", 0, -40, 40);
     g_settings.iconSpacing          = clamp(Wh_GetIntSetting(L"iconSpacing", 4), 0, 40);
+    g_settings.buttonSpacing        = getCanonicalInt(L"buttonSpacing", L"iconSpacing", 4, 0, 40);
     g_settings.barOffsetX           = clamp(Wh_GetIntSetting(L"barOffsetX", 0), -40, 40);
     g_settings.barOffsetY           = clamp(Wh_GetIntSetting(L"barOffsetY", 0), -40, 40);
+    g_settings.groupOffsetX         = getCanonicalInt(L"groupOffsetX", L"barOffsetX", 0, -40, 40);
+    g_settings.groupOffsetY         = getCanonicalInt(L"groupOffsetY", L"barOffsetY", 0, -40, 40);
     g_settings.locationOffsetX      = clamp(Wh_GetIntSetting(L"locationOffsetX", 0), -40, 40);
     g_settings.locationOffsetY      = clamp(Wh_GetIntSetting(L"locationOffsetY", 0), -40, 40);
     g_settings.micOffsetX           = clamp(Wh_GetIntSetting(L"micOffsetX", 0), -40, 40);
@@ -1212,12 +1230,13 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     bar.VerticalAlignment(VerticalAlignment::Center);
     bar.HorizontalAlignment(HorizontalAlignment::Center);
     bar.Margin({ (double)g_settings.paddingLeft, 0.0, (double)g_settings.paddingRight, 0.0 });
-    ApplyOffset(bar, g_settings.barOffsetX, g_settings.barOffsetY);
+    ApplyOffset(bar, g_settings.groupOffsetX, g_settings.groupOffsetY);
 
     int N    = (int)activeItems.size();
     int cols = std::max(1, std::min(N, g_settings.gridColumns));
     int rows = (N + cols - 1) / cols;
-    bool colFirst   = (g_settings.gridFillOrder      == L"colFirst");
+    bool colFirst   = (g_settings.fillOrder == L"colFirst" ||
+                       g_settings.fillOrder == L"columnFirst");
     bool shortFirst = (g_settings.shortGroupPosition == L"first");
     const auto& align = g_settings.shortGroupAlign;
 
@@ -1231,9 +1250,9 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         bcd.Width({ 1.0, GridUnitType::Auto });
         bar.ColumnDefinitions().Append(bcd);
     }
-    if (g_settings.iconSpacing > 0) {
-        bar.ColumnSpacing((double)g_settings.iconSpacing);
-        bar.RowSpacing((double)g_settings.iconSpacing);
+    if (g_settings.buttonSpacing > 0) {
+        bar.ColumnSpacing((double)g_settings.buttonSpacing);
+        bar.RowSpacing((double)g_settings.buttonSpacing);
     }
 
     g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
@@ -1861,7 +1880,7 @@ void Wh_ModSettingsChanged() {
     LoadSettings();
     Wh_Log(L"[Settings] order=%s cols=%d fill=%s shortPos=%s shortAlign=%s",
            g_settings.itemOrder.c_str(), g_settings.gridColumns,
-           g_settings.gridFillOrder.c_str(), g_settings.shortGroupPosition.c_str(),
+           g_settings.fillOrder.c_str(), g_settings.shortGroupPosition.c_str(),
            g_settings.shortGroupAlign.c_str());
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();

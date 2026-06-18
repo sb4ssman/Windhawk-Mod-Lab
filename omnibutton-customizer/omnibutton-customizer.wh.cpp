@@ -217,6 +217,14 @@ static void LoadSettings() {
     auto clampGrid    = [](int v) { return v < 0 ? 0 : v > 8  ? 8  : v; };
     auto clampPad     = [](int v) { return v < 0 ? 0 : v > 24 ? 24 : v; };
     auto clampNudge   = [](int v) { return v < -40 ? -40 : v > 40 ? 40 : v; };
+    auto getOffsetSetting = [&](PCWSTR canonicalName, PCWSTR legacyName) {
+        constexpr int kUnset = -2147483647;
+        int value = Wh_GetIntSetting(canonicalName, kUnset);
+        if (value == kUnset) {
+            value = Wh_GetIntSetting(legacyName);
+        }
+        return clampNudge(value);
+    };
 
     int sw = clampSlot(Wh_GetIntSetting(L"slotWidth"));
     g_settings.slotWidth  = sw < 16 ? 32 : sw;
@@ -250,14 +258,14 @@ static void LoadSettings() {
         }
     }
 
-    g_settings.wifiX    = clampNudge(Wh_GetIntSetting(L"wifiX"));
-    g_settings.wifiY    = clampNudge(Wh_GetIntSetting(L"wifiY"));
-    g_settings.volumeX  = clampNudge(Wh_GetIntSetting(L"volumeX"));
-    g_settings.volumeY  = clampNudge(Wh_GetIntSetting(L"volumeY"));
-    g_settings.batteryX = clampNudge(Wh_GetIntSetting(L"batteryX"));
-    g_settings.batteryY = clampNudge(Wh_GetIntSetting(L"batteryY"));
-    g_settings.percentX = clampNudge(Wh_GetIntSetting(L"percentX"));
-    g_settings.percentY = clampNudge(Wh_GetIntSetting(L"percentY"));
+    g_settings.wifiX    = getOffsetSetting(L"wifiOffsetX", L"wifiX");
+    g_settings.wifiY    = getOffsetSetting(L"wifiOffsetY", L"wifiY");
+    g_settings.volumeX  = getOffsetSetting(L"volumeOffsetX", L"volumeX");
+    g_settings.volumeY  = getOffsetSetting(L"volumeOffsetY", L"volumeY");
+    g_settings.batteryX = getOffsetSetting(L"batteryOffsetX", L"batteryX");
+    g_settings.batteryY = getOffsetSetting(L"batteryOffsetY", L"batteryY");
+    g_settings.percentX = getOffsetSetting(L"percentOffsetX", L"percentX");
+    g_settings.percentY = getOffsetSetting(L"percentOffsetY", L"percentY");
 }
 
 // ── Cached element references ─────────────────────────────────────────────

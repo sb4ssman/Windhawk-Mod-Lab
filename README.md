@@ -13,9 +13,9 @@ double-height taskbars with room for two-row tray controls.
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.9, in development | Keeps location, microphone, camera, and Copilot status placeholders visible in the tray to prevent layout shifts |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
 | [taskbar-clock-customization-spacer/](taskbar-clock-customization-spacer/) | submitted integration scratch | Elastic spacer support for Taskbar Clock Customization format strings |
-| [taskbar-folder-menus/](taskbar-folder-menus/) | v0.5, prototype | Compact taskbar buttons that open configured folders as native popup menus |
+| [taskbar-folder-menus/](taskbar-folder-menus/) | v0.5, submission prep | Compact taskbar buttons that open configured Shell targets as popup menus with right-click context menus and subfolder navigation |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.4, submission prep | Clickable virtual desktop buttons with grid layouts, master button, tray placement, and Start-adjacent placement |
+| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.4, submission prep | Clickable virtual desktop buttons with grid layouts, Task View button, tray placement, and Start-adjacent placement |
 
 ## Repository Layout
 

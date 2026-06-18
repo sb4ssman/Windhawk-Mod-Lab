@@ -1,6 +1,6 @@
 // ==WindhawkMod==
-// @id              taskbar-vd-switcher
-// @name            Taskbar Virtual Desktop Switcher
+// @id              virtual-desktop-switcher
+// @name            Virtual Desktop Switcher
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
 // @version         1.6
 // @author          sb4ssman
@@ -12,7 +12,7 @@
 
 // ==WindhawkModReadme==
 /*
-# Taskbar Virtual Desktop Switcher
+# Virtual Desktop Switcher
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
 
@@ -89,10 +89,10 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 | Border thickness | 0 px | Button border width |
 | Border color | *(system)* | Button border color |
 | Hide when single | Off | Don't show the bar when only one desktop exists |
-| Master button | Off | Optional Task View button for previewing, creating, or closing desktops |
-| Master button position | After | Column before/after desktop buttons, or sliver row above/below |
-| Master button sliver height | 6 px | Height of the master button when used as a sliver row |
-| Master button column width | 14 px | Width of the master button when used as a side column |
+| Task View button | Off | Optional button that opens Task View for previewing, creating, or closing desktops |
+| Task View button position | After | Column before/after desktop buttons, or sliver row above/below |
+| Task View button sliver height | 6 px | Height of the Task View button when used as a sliver row |
+| Task View button column width | 14 px | Width of the Task View button when used as a side column |
 
 ## Known limitations
 
@@ -172,14 +172,14 @@ This mod builds directly on patterns established by several community mods:
   - rowFirst: Row-first (left to right, then down)
   - columnFirst: Column-first (top to bottom, then right)
 
-- buttonRows: 0
+- gridRows: 0
   $name: Rows (0 = auto)
   $description: >-
     In Fixed rows and Fixed grid modes: sets the exact row count. In Smart
     automatic mode: acts as a maximum cap (0 = uncapped). Ignored in Single
     row and Single column modes.
 
-- buttonColumns: 0
+- gridColumns: 0
   $name: Columns (0 = auto)
   $description: >-
     In Fixed columns and Fixed grid modes: sets the exact column count. In Smart
@@ -187,13 +187,13 @@ This mod builds directly on patterns established by several community mods:
     no limit). Ignored in Single row and Single column modes. In row-first fill,
     3 columns with 4 desktops gives a 3+1 layout.
 
-- activeColor: "#4488FF"
+- activeBackgroundColor: "#4488FF"
   $name: Active desktop color (hex, empty = system default)
 
-- inactiveColor: ""
+- inactiveBackgroundColor: ""
   $name: Inactive button color (hex, empty = system default)
 
-- buttonOpacity: 100
+- opacity: 100
   $name: Button opacity (0–100)
   $description: 100 = fully opaque; lower values let the taskbar show through
 
@@ -239,15 +239,15 @@ This mod builds directly on patterns established by several community mods:
   $name: Hide when only one desktop
   $description: Don't show the button bar when there is only one virtual desktop
 
-- paddingLeft: 0
+- groupPaddingLeft: 0
   $name: Padding left (px)
   $description: Extra space to the left of the button grid
 
-- paddingRight: 2
+- groupPaddingRight: 2
   $name: Padding right (px)
   $description: Extra space to the right of the button grid
 
-- gridVerticalOffset: 0
+- groupOffsetY: 0
   $name: Vertical offset (px)
   $description: >-
     Nudge the entire button grid up (negative) or down (positive) from its
@@ -265,17 +265,17 @@ This mod builds directly on patterns established by several community mods:
   - "end": "End (bottom for columns, right for rows)"
 
 - showMasterButton: false
-  $name: Show master button
+  $name: Show Task View button
   $description: >-
     Adds a button that opens Task View (Win+Tab), where you can preview all
     desktops and create or close them.
 
 - masterButtonLabel: "⊞"
-  $name: Master button label
-  $description: Text shown on the master button.
+  $name: Task View button label
+  $description: Text shown on the Task View button.
 
 - masterButtonPosition: "after"
-  $name: Master button position
+  $name: Task View button position
   $options:
   - "before": "Column before desktop buttons"
   - "after": "Column after desktop buttons"
@@ -285,14 +285,14 @@ This mod builds directly on patterns established by several community mods:
 - masterButtonHeight: 6
   $name: Sliver height (px)
   $description: >-
-    Row height of the master button when placed above or below the desktop buttons
+    Row height of the Task View button when placed above or below the desktop buttons
     (Top or Bottom positions). Larger values cause the sliver to peek further past
     the taskbar edge. Not used in Before or After (column) positions.
 
 - masterButtonWidth: 14
-  $name: Master column width (px)
+  $name: Task View column width (px)
   $description: >-
-    Column width of the master button when placed before or after the desktop
+    Column width of the Task View button when placed before or after the desktop
     buttons (Before or After positions). Not used in Top or Bottom (sliver) positions.
 
 - masterButtonSpacing: 0
@@ -387,15 +387,40 @@ static void LoadSettings() {
         Wh_FreeStringSetting(p);
         return r;
     };
+    auto AliasedStr = [](const wchar_t* canonical, const wchar_t* legacy,
+                         const wchar_t* fallback) {
+        PCWSTR p = Wh_GetStringSetting(canonical);
+        if (p && *p) {
+            std::wstring r = p;
+            Wh_FreeStringSetting(p);
+            return r;
+        }
+        Wh_FreeStringSetting(p);
+
+        p = Wh_GetStringSetting(legacy);
+        std::wstring r = p ? p : fallback;
+        Wh_FreeStringSetting(p);
+        return r;
+    };
+    auto AliasedInt = [](const wchar_t* canonical, const wchar_t* legacy,
+                         int fallback) {
+        constexpr int kUnset = -2147483647;
+        int value = Wh_GetIntSetting(canonical, kUnset);
+        if (value == kUnset) {
+            value = Wh_GetIntSetting(legacy, fallback);
+        }
+        return value;
+    };
+
     g_settings.position       = Str(L"position",      L"afterClock");
     g_settings.buttonWidth    = Wh_GetIntSetting(L"buttonWidth",   20);
     g_settings.buttonHeight   = Wh_GetIntSetting(L"buttonHeight",  22);
     g_settings.buttonSpacing  = Wh_GetIntSetting(L"buttonSpacing", 2);
-    g_settings.buttonRows     = std::max(Wh_GetIntSetting(L"buttonRows",    0), 0);
-    g_settings.buttonColumns  = std::max(Wh_GetIntSetting(L"buttonColumns", 0), 0);
-    g_settings.activeColor    = Str(L"activeColor",   L"#4488FF");
-    g_settings.inactiveColor  = Str(L"inactiveColor", L"");
-    g_settings.buttonOpacity  = Wh_GetIntSetting(L"buttonOpacity", 100);
+    g_settings.buttonRows     = std::max(AliasedInt(L"gridRows", L"buttonRows", 0), 0);
+    g_settings.buttonColumns  = std::max(AliasedInt(L"gridColumns", L"buttonColumns", 0), 0);
+    g_settings.activeColor    = AliasedStr(L"activeBackgroundColor", L"activeColor", L"#4488FF");
+    g_settings.inactiveColor  = AliasedStr(L"inactiveBackgroundColor", L"inactiveColor", L"");
+    g_settings.buttonOpacity  = AliasedInt(L"opacity", L"buttonOpacity", 100);
     g_settings.shineEffect    = Wh_GetIntSetting(L"shineEffect",   0) != 0;
     g_settings.labelFormat       = Str(L"labelFormat",       L"number");
     g_settings.customLabels      = Str(L"customLabels",      L"");
@@ -407,8 +432,8 @@ static void LoadSettings() {
     g_settings.borderThickness   = Wh_GetIntSetting(L"borderThickness",   0);
     g_settings.borderColor       = Str(L"borderColor",       L"");
     g_settings.hideWhenSingle    = Wh_GetIntSetting(L"hideWhenSingle",    0) != 0;
-    g_settings.paddingLeft       = Wh_GetIntSetting(L"paddingLeft",       0);
-    g_settings.paddingRight      = Wh_GetIntSetting(L"paddingRight",      2);
+    g_settings.paddingLeft       = AliasedInt(L"groupPaddingLeft", L"paddingLeft", 0);
+    g_settings.paddingRight      = AliasedInt(L"groupPaddingRight", L"paddingRight", 2);
     g_settings.gridMode             = Str(L"gridMode",        L"autoSmart");
     g_settings.smartLayout          = Str(L"smartLayout",     L"balanced");
     g_settings.fillOrder            = Str(L"fillOrder",       L"rowFirst");
@@ -419,7 +444,7 @@ static void LoadSettings() {
     g_settings.masterButtonHeight   = std::max(1, Wh_GetIntSetting(L"masterButtonHeight", 6));
     g_settings.masterButtonWidth    = std::max(1, Wh_GetIntSetting(L"masterButtonWidth",  14));
     g_settings.masterButtonSpacing  = Wh_GetIntSetting(L"masterButtonSpacing", 0);
-    g_settings.gridVerticalOffset   = Wh_GetIntSetting(L"gridVerticalOffset",  0);
+    g_settings.gridVerticalOffset   = AliasedInt(L"groupOffsetY", L"gridVerticalOffset", 0);
 }
 
 // ============================================================

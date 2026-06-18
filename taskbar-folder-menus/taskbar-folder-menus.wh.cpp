@@ -14,23 +14,22 @@
 /*
 # Taskbar Folder Menus
 
-Adds compact taskbar buttons that open Shell targets as native popup menus.
+Adds compact taskbar buttons that open Shell targets as native popup menus,
+recreating the most useful part of the classic Windows taskbar toolbar workflow.
 
-This recreates the most useful part of the classic taskbar toolbar workflow:
-click a small taskbar button, then open a file, shortcut, folder, Desktop
-item, or Control Panel item without minimizing the windows that are covering
-the desktop.
+![Two folder buttons in the system tray](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-folder-menus/desktop-controlpanel.png)
+*Two folder buttons — Desktop and Control Panel — injected into the system tray.*
 
-## Settings
+![Control Panel open as a native Shell popup menu](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-folder-menus/controlpanel-menu-open.png)
+*Control Panel open as a native Shell popup menu with full icons.*
 
-- **Position** - where to inject the button group in the system tray area.
-- **Folders** - target entries using `Label=Target`. Separate entries with
-  newlines, `|`, or commas. Targets can be normal paths or Shell namespace
-  roots such as `shell:Desktop` and `shell:ControlPanelFolder`.
-- **Layout mode** - single row, single column, or grid.
-- **Grid columns** - number of columns used in grid mode.
-- **Button size, spacing, and font size** - compact by default; increase button
-  width to fit longer labels or larger emoji.
+![Four buttons on a denser taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-folder-menus/c-github-desktop-controlpanel-v.png)
+*Four-button layout on a taller taskbar alongside a stats panel.*
+
+Click a small button to browse a folder, drive, Desktop, or Control Panel
+directly from the taskbar — no minimizing required. Subfolders expand on
+hover. Right-click any item for the full Windows Shell context menu. Folders
+include an "Open in Explorer" shortcut at the top of their submenu.
 
 ## Example folder entries
 
@@ -41,16 +40,53 @@ the desktop.
 C:=C:\
 ```
 
-Emoji labels are a natural fit for narrow buttons. Drive letters and short
-mnemonics work too. The full label and target path appear in the tooltip.
+Use `Label=Target` form for each entry, separated by newlines, `|`, or commas.
+Targets can be normal paths or Shell namespace roots like `shell:Desktop` and
+`shell:ControlPanelFolder`. Environment variables such as `%USERPROFILE%` are
+expanded automatically. The full label and target appear in the tooltip.
 
-Label ideas: 📁 folder, 🖥 desktop, 💻 laptop, 🪟 windows, 📥 downloads,
-🌐 network, 🗄 drive, 📄 documents, 🔧 tools, ⚙ settings, ⭐ favorites.
+Emoji labels are a natural fit for narrow buttons. Label ideas: 📁 folder,
+🖥 desktop, 💻 laptop, 🪟 windows, 📥 downloads, 🌐 network, 🗄 drive,
+📄 documents, 🔧 tools, ⚙ settings, ⭐ favorites.
 
-Note: `shell:Desktop` shows the full Desktop Shell namespace (user shortcuts,
-public shortcuts, and virtual items like Recycle Bin), not just the physical
-Desktop folder. Duplicates from the user+public Desktop merge are suppressed
-automatically.
+## Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Position | Before notification icons | Where to inject the button group in the tray |
+| Folders | 🖥=shell:Desktop, ⚙=shell:ControlPanelFolder | Folder buttons: `Label=Target` per entry |
+| Layout mode | Single row | Single row, single column, or grid |
+| Grid columns | 2 | Columns used in grid mode |
+| Grid rows | 0 (auto) | Rows in grid mode; 0 = derived from column count |
+| Fill order | Row-first | Row-first or column-first |
+| Short row/column alignment | Start | Align an incomplete final row or column |
+| Button width | 32 px | Width of each folder button |
+| Button height | 22 px | Height of each folder button |
+| Button spacing | 4 px | Gap between buttons |
+| Max menu items | 0 (unlimited) | Limit items shown per folder |
+| Subfolder depth | 0 (unlimited) | How many subfolder levels to include |
+| Show hidden/system items | Off | Include hidden and system Shell items |
+| Default button text | 📁 | Fallback icon for entries with long labels |
+| Text/icon size | 10 pt | Button label font size |
+| Text color | *(system)* | Optional hex color for button labels |
+| Background color | *(system)* | Optional hex color for button backgrounds |
+| Hover background color | `#4488FF` | Highlight color when hovering a button |
+| Click background color | *(system)* | Color while a button is pressed |
+| Border color | *(system)* | Optional hex border color |
+| Border thickness | -1 (system) | -1 = system default, 0 = no border |
+| Corner rounding | -1 (system) | -1 = system default, 0 = square |
+| Opacity | 100% | Button transparency |
+| Shine effect | Off | Gradient highlight; activates when a custom background color is set |
+| Group padding left | 0 px | Extra space to the left of the button group |
+| Group padding right | 0 px | Extra space to the right of the button group |
+| Group X offset | 0 px | Shift the entire group left or right |
+| Group Y offset | 0 px | Shift the entire group up or down |
+
+## Note on shell:Desktop
+
+`shell:Desktop` shows the full Desktop Shell namespace — user shortcuts, public
+shortcuts, and virtual items like Recycle Bin — not just the physical Desktop
+folder. Duplicates from the user+public Desktop merge are suppressed automatically.
 */
 // ==/WindhawkModReadme==
 
@@ -86,6 +122,25 @@ automatically.
 - gridColumns: 2
   $name: Grid columns
   $description: Number of columns in grid mode.
+
+- gridRows: 0
+  $name: Grid rows (0 = auto)
+  $description: Number of rows in grid mode. 0 = calculate from the column count.
+
+- fillOrder: rowFirst
+  $name: Fill order
+  $description: Whether folder buttons fill across rows first or down columns first.
+  $options:
+  - rowFirst: Row first
+  - columnFirst: Column first
+
+- shortGroupAlign: start
+  $name: Short row/column alignment
+  $description: How to align an incomplete final row or column.
+  $options:
+  - start: Start
+  - center: Center
+  - end: End
 
 - buttonWidth: 32
   $name: Button width (px)
@@ -148,6 +203,27 @@ automatically.
 - opacity: 100
   $name: Opacity (%)
   $description: "Button opacity. 100 = fully opaque, 0 = invisible."
+
+- shineEffect: false
+  $name: Shine effect
+  $description: Adds a subtle gradient highlight when a custom background color is set.
+
+- groupPaddingLeft: 0
+  $name: Group padding left (px)
+  $description: Extra space to the left of the button group.
+
+- groupPaddingRight: 0
+  $name: Group padding right (px)
+  $description: Extra space to the right of the button group.
+
+- groupOffsetX: 0
+  $name: Group X offset (px)
+  $description: Move the entire button group left (negative) or right (positive).
+
+- groupOffsetY: 0
+  $name: Group Y offset (px)
+  $description: Move the entire button group up (negative) or down (positive).
+
 */
 // ==/WindhawkModSettings==
 
@@ -176,6 +252,10 @@ automatically.
 #include <windhawk_utils.h>
 #include <winver.h>
 
+#ifndef WM_MENURBUTTONDOWN
+#define WM_MENURBUTTONDOWN 0x012E
+#endif
+
 using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Input;
@@ -196,6 +276,9 @@ struct ModSettings {
     std::wstring buttonText = L"📁";
     std::vector<FolderEntry> folders;
     int gridColumns = 2;
+    int gridRows = 0;
+    std::wstring fillOrder = L"rowFirst";
+    std::wstring shortGroupAlign = L"start";
     int buttonWidth = 32;
     int buttonHeight = 22;
     int buttonSpacing = 4;
@@ -211,6 +294,11 @@ struct ModSettings {
     int borderThickness = -1;
     int cornerRadius = -1;
     int opacityPct = 100;
+    bool shineEffect = false;
+    int groupPaddingLeft = 0;
+    int groupPaddingRight = 0;
+    int groupOffsetX = 0;
+    int groupOffsetY = 0;
 };
 static ModSettings g_settings;
 
@@ -311,11 +399,18 @@ static std::wstring GetStringSetting(PCWSTR name, PCWSTR fallback) {
 }
 
 static void LoadSettings() {
+    auto clamp = [](int value, int lo, int hi) {
+        return std::max(lo, std::min(hi, value));
+    };
+
     g_settings.position = GetStringSetting(L"position", L"beforeIcons");
     g_settings.layoutMode = GetStringSetting(L"layoutMode", L"row");
     g_settings.buttonText = GetStringSetting(L"buttonText", L"📁");
     g_settings.folders = ParseFolders(GetStringSetting(L"folders", L"🖥=shell:Desktop,⚙=shell:ControlPanelFolder"));
     g_settings.gridColumns = std::max(1, Wh_GetIntSetting(L"gridColumns", 2));
+    g_settings.gridRows = std::max(0, Wh_GetIntSetting(L"gridRows", 0));
+    g_settings.fillOrder = GetStringSetting(L"fillOrder", L"rowFirst");
+    g_settings.shortGroupAlign = GetStringSetting(L"shortGroupAlign", L"start");
     g_settings.buttonWidth = std::max(10, Wh_GetIntSetting(L"buttonWidth", 32));
     g_settings.buttonHeight = std::max(10, Wh_GetIntSetting(L"buttonHeight", 22));
     g_settings.buttonSpacing = std::max(0, Wh_GetIntSetting(L"buttonSpacing", 4));
@@ -331,6 +426,11 @@ static void LoadSettings() {
     g_settings.borderThickness = std::max(-1, Wh_GetIntSetting(L"borderThickness", -1));
     g_settings.cornerRadius = std::max(-1, Wh_GetIntSetting(L"cornerRadius", -1));
     g_settings.opacityPct = std::clamp(Wh_GetIntSetting(L"opacity", 100), 0, 100);
+    g_settings.shineEffect = Wh_GetIntSetting(L"shineEffect", 0) != 0;
+    g_settings.groupPaddingLeft = clamp(Wh_GetIntSetting(L"groupPaddingLeft", 0), -80, 80);
+    g_settings.groupPaddingRight = clamp(Wh_GetIntSetting(L"groupPaddingRight", 0), -80, 80);
+    g_settings.groupOffsetX = clamp(Wh_GetIntSetting(L"groupOffsetX", 0), -80, 80);
+    g_settings.groupOffsetY = clamp(Wh_GetIntSetting(L"groupOffsetY", 0), -80, 80);
 }
 
 // ============================================================
@@ -735,7 +835,7 @@ static std::vector<ShellMenuItem> EnumerateShellFolder(PCIDLIST_ABSOLUTE folderP
     return items;
 }
 
-static void AddShellFolderItemsToMenu(HMENU menu, PCIDLIST_ABSOLUTE folderPidl, int depth);
+static void AddShellFolderItemsToMenu(HMENU menu, PCIDLIST_ABSOLUTE folderPidl, int depth, UINT startPosition = 0);
 
 static void InsertShellMenuItem(HMENU menu, UINT position, ShellMenuItem& item, int depth) {
     bool canExpand = item.canExpand && (g_settings.maxDepth == 0 || depth < g_settings.maxDepth);
@@ -750,10 +850,13 @@ static void InsertShellMenuItem(HMENU menu, UINT position, ShellMenuItem& item, 
     if (canExpand) {
         HMENU sub = CreatePopupMenu();
         AppendMenuW(sub, MF_STRING | MF_GRAYED, 0, L"(Loading…)");
+        UINT id = g_menuNextId++;
+        g_menuIdToPidl.push_back(ILCloneFull(item.pidl)); // clone for right-click context menu
         g_pendingSubmenus.push_back({sub, item.pidl, depth + 1});
         item.pidl = nullptr;
-        mii.fMask |= MIIM_SUBMENU;
+        mii.fMask |= MIIM_SUBMENU | MIIM_ID;
         mii.hSubMenu = sub;
+        mii.wID = id;
     } else {
         UINT id = g_menuNextId++;
         g_menuIdToPidl.push_back(item.pidl);
@@ -765,14 +868,14 @@ static void InsertShellMenuItem(HMENU menu, UINT position, ShellMenuItem& item, 
     InsertMenuItemW(menu, position, TRUE, &mii);
 }
 
-static void AddShellFolderItemsToMenu(HMENU menu, PCIDLIST_ABSOLUTE folderPidl, int depth) {
+static void AddShellFolderItemsToMenu(HMENU menu, PCIDLIST_ABSOLUTE folderPidl, int depth, UINT startPosition) {
     auto items = EnumerateShellFolder(folderPidl);
     if (items.empty()) {
         AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, L"(empty)");
         return;
     }
 
-    UINT position = 0;
+    UINT position = startPosition;
     for (auto& item : items)
         InsertShellMenuItem(menu, position++, item, depth);
 
@@ -791,6 +894,38 @@ static void InvokePidl(HWND owner, PCIDLIST_ABSOLUTE pidl) {
     ShellExecuteExW(&sei);
 }
 
+static void ShowShellContextMenu(HWND owner, PCIDLIST_ABSOLUTE pidl) {
+    IShellFolder* parent = nullptr;
+    PCUITEMID_CHILD child = nullptr;
+    if (FAILED(SHBindToParent(pidl, IID_IShellFolder, (void**)&parent, &child)) || !parent)
+        return;
+
+    IContextMenu* ctxMenu = nullptr;
+    HRESULT hr = parent->GetUIObjectOf(owner, 1, &child, IID_IContextMenu, nullptr, (void**)&ctxMenu);
+    parent->Release();
+    if (FAILED(hr) || !ctxMenu)
+        return;
+
+    HMENU hPopup = CreatePopupMenu();
+    ctxMenu->QueryContextMenu(hPopup, 0, 1, 0x7FFF, CMF_NORMAL);
+
+    POINT pt;
+    GetCursorPos(&pt);
+    int cmd = (int)TrackPopupMenu(hPopup, TPM_RETURNCMD | TPM_RIGHTBUTTON,
+                                   pt.x, pt.y, 0, owner, nullptr);
+    if (cmd > 0) {
+        CMINVOKECOMMANDINFO ici{};
+        ici.cbSize = sizeof(ici);
+        ici.hwnd = owner;
+        ici.lpVerb = MAKEINTRESOURCEA(cmd - 1);
+        ici.nShow = SW_SHOWNORMAL;
+        ctxMenu->InvokeCommand(&ici);
+    }
+
+    DestroyMenu(hPopup);
+    ctxMenu->Release();
+}
+
 static LRESULT CALLBACK MenuOwnerSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
     UINT_PTR /*subclassId*/, DWORD_PTR /*data*/) {
     if (msg == WM_INITMENUPOPUP) {
@@ -803,12 +938,41 @@ static LRESULT CALLBACK MenuOwnerSubclassProc(HWND hwnd, UINT msg, WPARAM wParam
                 g_pendingSubmenus.erase(g_pendingSubmenus.begin() + i);
                 while (GetMenuItemCount(hMenu) > 0)
                     RemoveMenu(hMenu, 0, MF_BYPOSITION);
-                AddShellFolderItemsToMenu(hMenu, pidl, d);
+
+                // "Open in Explorer" header with its own ID for direct open and right-click.
+                UINT openId = g_menuNextId++;
+                g_menuIdToPidl.push_back(ILCloneFull(pidl));
+                MENUITEMINFOW openMii{};
+                openMii.cbSize = sizeof(openMii);
+                openMii.fMask = MIIM_STRING | MIIM_ID;
+                openMii.wID = openId;
+                wchar_t openLabel[] = L"Open in Explorer";
+                openMii.dwTypeData = openLabel;
+                openMii.cch = (UINT)wcslen(openLabel);
+                InsertMenuItemW(hMenu, 0, TRUE, &openMii);
+                AppendMenuW(hMenu, MF_SEPARATOR, 0, nullptr);
+
+                AddShellFolderItemsToMenu(hMenu, pidl, d, 2);
                 CoTaskMemFree(pidl);
                 break;
             }
         }
     }
+
+    if (msg == WM_MENURBUTTONDOWN) {
+        UINT index = (UINT)wParam;
+        HMENU hMenu = (HMENU)lParam;
+        MENUITEMINFOW mii{};
+        mii.cbSize = sizeof(mii);
+        mii.fMask = MIIM_ID;
+        if (GetMenuItemInfo(hMenu, index, TRUE, &mii) && mii.wID >= 1000) {
+            size_t idx = mii.wID - 1000;
+            if (idx < g_menuIdToPidl.size() && g_menuIdToPidl[idx])
+                ShowShellContextMenu(hwnd, g_menuIdToPidl[idx]);
+        }
+        return 0;
+    }
+
     return DefSubclassProc(hwnd, msg, wParam, lParam);
 }
 
@@ -910,6 +1074,51 @@ static SolidColorBrush MakeBrush(BYTE a, BYTE r, BYTE g, BYTE b) {
     return brush;
 }
 
+static Brush MakeShineBrush(Brush const& base) {
+    if (!g_settings.shineEffect)
+        return base;
+
+    auto solid = base ? base.try_as<SolidColorBrush>() : nullptr;
+    if (!solid)
+        return base;
+
+    auto c = solid.Color();
+    auto adjust = [](BYTE value, int delta) {
+        return (BYTE)std::clamp((int)value + delta, 0, 255);
+    };
+
+    LinearGradientBrush brush;
+    brush.StartPoint({0.0, 0.0});
+    brush.EndPoint({0.0, 1.0});
+
+    GradientStop shine;
+    winrt::Windows::UI::Color shineColor{180, 255, 255, 255};
+    shine.Color(shineColor);
+    shine.Offset(0.0);
+    brush.GradientStops().Append(shine);
+
+    GradientStop light;
+    winrt::Windows::UI::Color lightColor{
+        c.A, adjust(c.R, 34), adjust(c.G, 34), adjust(c.B, 34)};
+    light.Color(lightColor);
+    light.Offset(0.42);
+    brush.GradientStops().Append(light);
+
+    GradientStop baseStop;
+    baseStop.Color(c);
+    baseStop.Offset(0.52);
+    brush.GradientStops().Append(baseStop);
+
+    GradientStop dark;
+    winrt::Windows::UI::Color darkColor{
+        c.A, adjust(c.R, -28), adjust(c.G, -28), adjust(c.B, -28)};
+    dark.Color(darkColor);
+    dark.Offset(1.0);
+    brush.GradientStops().Append(dark);
+
+    return brush;
+}
+
 static void ApplyButtonStyle(Button btn,
                              Brush const& textBrush,
                              Brush const& bgBrush,
@@ -929,8 +1138,9 @@ static void ApplyButtonStyle(Button btn,
 
     // Background: set both the live property and the theme resource.
     if (bgBrush) {
-        btn.Background(bgBrush);
-        res.Insert(winrt::box_value(L"ButtonBackground"), bgBrush);
+        auto buttonBgBrush = MakeShineBrush(bgBrush);
+        btn.Background(buttonBgBrush);
+        res.Insert(winrt::box_value(L"ButtonBackground"), buttonBgBrush);
     }
 
     // Hover: explicit > same-as-bg > default subtle white brightening.
@@ -938,14 +1148,32 @@ static void ApplyButtonStyle(Button btn,
     // before the VisualStateManager animation, which would override any
     // Background() call we make there.
     Brush hoverBrush = hoverBgBrush;
-    if (!hoverBrush)
-        hoverBrush = bgBrush ? bgBrush : MakeBrush(40, 255, 255, 255);
+    bool hoverUsesCustomSurface = true;
+    if (!hoverBrush) {
+        if (bgBrush) {
+            hoverBrush = bgBrush;
+        } else {
+            hoverBrush = MakeBrush(0xFF, 0x44, 0x88, 0xFF);
+            hoverUsesCustomSurface = false;
+        }
+    }
+    if (hoverUsesCustomSurface)
+        hoverBrush = MakeShineBrush(hoverBrush);
     res.Insert(winrt::box_value(L"ButtonBackgroundPointerOver"), hoverBrush);
 
     // Pressed: explicit > hover > slightly stronger brightening.
     Brush pressBrush = pressedBgBrush;
-    if (!pressBrush)
-        pressBrush = (hoverBgBrush || bgBrush) ? hoverBrush : MakeBrush(70, 255, 255, 255);
+    bool pressUsesCustomSurface = true;
+    if (!pressBrush) {
+        if (hoverBgBrush || bgBrush) {
+            pressBrush = hoverBrush;
+        } else {
+            pressBrush = MakeBrush(70, 255, 255, 255);
+            pressUsesCustomSurface = false;
+        }
+    }
+    if (pressUsesCustomSurface)
+        pressBrush = MakeShineBrush(pressBrush);
     res.Insert(winrt::box_value(L"ButtonBackgroundPressed"), pressBrush);
 
     // Border.
@@ -967,32 +1195,83 @@ static void ApplyButtonStyle(Button btn,
     }
 }
 
+struct FolderGridLayout {
+    int rows = 1;
+    int cols = 1;
+    bool columnFirst = false;
+};
+
+static FolderGridLayout ComputeFolderGridLayout(int count) {
+    FolderGridLayout layout;
+    layout.columnFirst = g_settings.fillOrder == L"columnFirst";
+
+    if (g_settings.layoutMode == L"column") {
+        layout.rows = count;
+        layout.cols = 1;
+        return layout;
+    }
+
+    if (g_settings.layoutMode != L"grid") {
+        layout.rows = 1;
+        layout.cols = count;
+        return layout;
+    }
+
+    layout.cols = std::max(1, g_settings.gridColumns);
+    layout.rows = g_settings.gridRows > 0 ? g_settings.gridRows
+                                          : (count + layout.cols - 1) / layout.cols;
+
+    if (layout.rows * layout.cols < count) {
+        if (layout.columnFirst) {
+            layout.cols = (count + layout.rows - 1) / layout.rows;
+        } else {
+            layout.rows = (count + layout.cols - 1) / layout.cols;
+        }
+    }
+
+    return layout;
+}
+
+static int GetShortGroupOffset(int capacity, int countInGroup) {
+    int leftover = capacity - countInGroup;
+    if (leftover <= 0)
+        return 0;
+
+    if (g_settings.shortGroupAlign == L"center")
+        return leftover / 2;
+
+    if (g_settings.shortGroupAlign == L"end")
+        return leftover;
+
+    return 0;
+}
+
 static Grid BuildFolderButtonGrid() {
     int count = (int)g_settings.folders.size();
-    int cols = count;
-    int rows = 1;
-    if (g_settings.layoutMode == L"column") {
-        cols = 1;
-        rows = count;
-    } else if (g_settings.layoutMode == L"grid") {
-        cols = std::max(1, g_settings.gridColumns);
-        rows = (count + cols - 1) / cols;
-    }
+    auto layout = ComputeFolderGridLayout(count);
 
     Grid grid;
     grid.Name(L"TaskbarFolderMenuBar");
     grid.VerticalAlignment(VerticalAlignment::Center);
+    grid.Margin({(double)g_settings.groupPaddingLeft, 0.0,
+                 (double)g_settings.groupPaddingRight, 0.0});
+    if (g_settings.groupOffsetX || g_settings.groupOffsetY) {
+        TranslateTransform transform;
+        transform.X((double)g_settings.groupOffsetX);
+        transform.Y((double)g_settings.groupOffsetY);
+        grid.RenderTransform(transform);
+    }
     if (g_settings.buttonSpacing > 0) {
         grid.ColumnSpacing((double)g_settings.buttonSpacing);
         grid.RowSpacing((double)g_settings.buttonSpacing);
     }
 
-    for (int r = 0; r < rows; r++) {
+    for (int r = 0; r < layout.rows; r++) {
         RowDefinition rd;
         rd.Height({ (double)g_settings.buttonHeight, GridUnitType::Pixel });
         grid.RowDefinitions().Append(rd);
     }
-    for (int c = 0; c < cols; c++) {
+    for (int c = 0; c < layout.cols; c++) {
         ColumnDefinition cd;
         cd.Width({ (double)g_settings.buttonWidth, GridUnitType::Pixel });
         grid.ColumnDefinitions().Append(cd);
@@ -1031,8 +1310,27 @@ static Grid BuildFolderButtonGrid() {
                 ShowFolderMenu(entry);
         });
 
-        int row = i / cols;
-        int col = i % cols;
+        int row;
+        int col;
+        if (layout.columnFirst) {
+            col = i / layout.rows;
+            row = i % layout.rows;
+
+            int lastCol = (count - 1) / layout.rows;
+            if (col == lastCol) {
+                int countInCol = count - lastCol * layout.rows;
+                row += GetShortGroupOffset(layout.rows, countInCol);
+            }
+        } else {
+            row = i / layout.cols;
+            col = i % layout.cols;
+
+            int lastRow = (count - 1) / layout.cols;
+            if (row == lastRow) {
+                int countInRow = count - lastRow * layout.cols;
+                col += GetShortGroupOffset(layout.cols, countInRow);
+            }
+        }
         Grid::SetRow(btn, row);
         Grid::SetColumn(btn, col);
         grid.Children().Append(btn);
