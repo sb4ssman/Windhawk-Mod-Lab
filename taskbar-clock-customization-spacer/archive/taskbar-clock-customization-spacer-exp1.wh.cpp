@@ -12,12 +12,14 @@
 // @compilerOptions -ldxgi -lole32 -loleaut32 -lpdh -lpowrprof -lruntimeobject -lshlwapi -lversion -lwininet
 // ==/WindhawkMod==
 
-// Elastic spacer implementation:
-// `%s%` remains in the formatted text, then a generated Grid splits the line
-// into Auto text columns separated by Star spacer columns. Generated segments
-// are anchored left/right/center so the first and last text items hug the fixed
-// clock width edges. When only segment text changes, generated TextBlocks are
-// updated in place so the inspected visual subtree stays stable.
+// Experiment 1:
+// Replaced the generated spacer-grid approach with the original Date/Time
+// TextBlocks set to fixed Width/MaxWidth, Stretch alignment, TextAlignment
+// Justify, HorizontalTextAlignment Justify, and wrapping. Normal spaces are
+// converted to non-justifying spaces and `%s%` is resolved to a normal space.
+// Live result: with HorizontalTextAlignment, TextAlignment reads back as
+// Justify (3), but the text is left-aligned and `%s%` still doesn't expand.
+// Native TextBlock justification doesn't appear usable for the spacer.
 
 // Source code is published under The GNU General Public License v3.0.
 //
@@ -729,7 +731,6 @@ struct ClockElementStyleData {
         winrt::weak_ref<Controls::StackPanel> parentStackPanel;
         winrt::weak_ref<Controls::StackPanel> generatedPanel;
         std::optional<int64_t> textPropertyChangedToken;
-        int generatedMaxWidth = 0;
         bool hidden = false;
     };
     SpacerLineData dateSpacerLine;
@@ -1013,6 +1014,7 @@ bool IsStrInDateTimePatternSettings(PCWSTR str) {
 
 constexpr PCWSTR kSpacerToken = L"%s%";
 constexpr size_t kSpacerTokenLen = 3;
+constexpr PCWSTR kNonJustifyingSpace = L"\u2005";
 constexpr PCWSTR kWeatherSpacerToken = L"{spacer}";
 constexpr PCWSTR kWeatherSpacerMarker = L"\uE001";
 
@@ -3514,6 +3516,11 @@ std::wstring FormatLineToString(std::wstring_view format) {
         formatSuffix = formatSuffix.substr(1);
     }
 
+    if (formatted.find(kSpacerToken) != std::wstring::npos) {
+        formatted = ReplaceAll(formatted, L" ", kNonJustifyingSpace);
+        formatted = ReplaceAll(formatted, kSpacerToken, L" ");
+    }
+
     return formatted;
 }
 
@@ -3828,6 +3835,38 @@ void ApplyStackPanelStyles(Controls::StackPanel stackPanel,
     }
 }
 
+void ApplySpacerJustifiedTextBlock(Controls::TextBlock textBlock,
+                                   bool usesSpacer,
+                                   int maxWidth) {
+    if (usesSpacer && maxWidth > 0) {
+        textBlock.Width(maxWidth);
+        textBlock.MaxWidth(maxWidth);
+        textBlock.HorizontalAlignment(HorizontalAlignment::Stretch);
+        textBlock.TextAlignment(TextAlignment::Justify);
+        textBlock.HorizontalTextAlignment(TextAlignment::Justify);
+        textBlock.TextWrapping(TextWrapping::Wrap);
+        Wh_Log(L"Spacer justify %s: TextAlignment=%d "
+               L"HorizontalTextAlignment=%d Width=%.1f MaxWidth=%.1f "
+               L"TextWrapping=%d HorizontalAlignment=%d",
+               textBlock.Name().c_str(),
+               static_cast<int>(textBlock.TextAlignment()),
+               static_cast<int>(textBlock.HorizontalTextAlignment()),
+               textBlock.Width(), textBlock.MaxWidth(),
+               static_cast<int>(textBlock.TextWrapping()),
+               static_cast<int>(textBlock.HorizontalAlignment()));
+        return;
+    }
+
+    textBlock.as<DependencyObject>().ClearValue(
+        FrameworkElement::WidthProperty());
+    textBlock.as<DependencyObject>().ClearValue(
+        FrameworkElement::MaxWidthProperty());
+    textBlock.as<DependencyObject>().ClearValue(
+        FrameworkElement::HorizontalAlignmentProperty());
+    textBlock.as<DependencyObject>().ClearValue(
+        Controls::TextBlock::HorizontalTextAlignmentProperty());
+}
+
 void ApplyTextBlockStyles(
     Controls::TextBlock textBlock,
     const TextStyleSettings* textStyleSettings,
@@ -4001,26 +4040,6 @@ void CopyTextBlockStyle(Controls::TextBlock source,
     target.TextWrapping(TextWrapping::NoWrap);
 }
 
-void ApplySpacerSegmentAlignment(Controls::TextBlock textBlock,
-                                 int segmentIndex,
-                                 int segmentCount) {
-    if (segmentCount <= 1) {
-        textBlock.HorizontalAlignment(HorizontalAlignment::Stretch);
-        return;
-    }
-
-    if (segmentIndex == 0) {
-        textBlock.HorizontalAlignment(HorizontalAlignment::Left);
-        textBlock.TextAlignment(TextAlignment::Left);
-    } else if (segmentIndex == segmentCount - 1) {
-        textBlock.HorizontalAlignment(HorizontalAlignment::Right);
-        textBlock.TextAlignment(TextAlignment::Right);
-    } else {
-        textBlock.HorizontalAlignment(HorizontalAlignment::Center);
-        textBlock.TextAlignment(TextAlignment::Center);
-    }
-}
-
 double GetSpacerLineWidth(Controls::TextBlock textBlock,
                           Controls::StackPanel parentStackPanel,
                           int maxWidth) {
@@ -4087,7 +4106,6 @@ Controls::Grid BuildSpacerGrid(winrt::hstring const& name,
         textBlock.Text(segments[i]);
         textBlock.VerticalAlignment(VerticalAlignment::Center);
         CopyTextBlockStyle(styleSource, textBlock);
-        ApplySpacerSegmentAlignment(textBlock, i, segmentCount);
         Controls::Grid::SetColumn(textBlock, gridColumn);
         grid.Children().Append(textBlock);
         gridColumn += 2;
@@ -4120,68 +4138,6 @@ FrameworkElement BuildSpacerLineElement(winrt::hstring const& baseName,
     return textBlock;
 }
 
-bool UpdateSpacerLineElementText(FrameworkElement lineElement,
-                                 std::wstring const& line,
-                                 int maxWidth,
-                                 double width) {
-    auto segments = SplitOnSpacer(line);
-
-    ApplySpacerWidthConstraint(lineElement, maxWidth, width);
-
-    if (segments.size() > 1) {
-        auto grid = lineElement.try_as<Controls::Grid>();
-        if (!grid ||
-            grid.Children().Size() != static_cast<uint32_t>(segments.size())) {
-            return false;
-        }
-
-        for (uint32_t i = 0; i < static_cast<uint32_t>(segments.size()); i++) {
-            auto textBlock =
-                grid.Children().GetAt(i).try_as<Controls::TextBlock>();
-            if (!textBlock) {
-                return false;
-            }
-
-            textBlock.Text(segments[i]);
-        }
-
-        return true;
-    }
-
-    auto textBlock = lineElement.try_as<Controls::TextBlock>();
-    if (!textBlock) {
-        return false;
-    }
-
-    textBlock.Text(line);
-    return true;
-}
-
-bool UpdateGeneratedSpacerPanelText(Controls::StackPanel generatedPanel,
-                                    std::vector<std::wstring> const& lines,
-                                    int maxWidth,
-                                    double width) {
-    if (!generatedPanel ||
-        generatedPanel.Children().Size() !=
-            static_cast<uint32_t>(lines.size())) {
-        return false;
-    }
-
-    ApplySpacerWidthConstraint(generatedPanel, maxWidth, width);
-
-    for (uint32_t i = 0; i < static_cast<uint32_t>(lines.size()); i++) {
-        auto lineElement =
-            generatedPanel.Children().GetAt(i).try_as<FrameworkElement>();
-        if (!lineElement ||
-            !UpdateSpacerLineElementText(lineElement, lines[i], maxWidth,
-                                         width)) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 void CollapseSpacerSourceTextBlock(Controls::TextBlock textBlock) {
     textBlock.Height(0.0);
     textBlock.MinHeight(0.0);
@@ -4210,7 +4166,6 @@ void RemoveGeneratedSpacerPanel(ClockElementStyleData::SpacerLineData& lineData)
     }
 
     lineData.generatedPanel = {};
-    lineData.generatedMaxWidth = 0;
 }
 
 void UpdateSpacerLine(ClockElementStyleData::SpacerLineData& lineData,
@@ -4228,21 +4183,11 @@ void UpdateSpacerLine(ClockElementStyleData::SpacerLineData& lineData,
     }
 
     winrt::hstring fullTextHString = textBlock.Text();
-    std::wstring fullText{fullTextHString.c_str(), fullTextHString.size()};
+    std::wstring_view fullText{fullTextHString.c_str(),
+                               fullTextHString.size()};
     if (fullText.find(kSpacerToken) == std::wstring_view::npos) {
         RemoveGeneratedSpacerPanel(lineData);
         RestoreSpacerSourceTextBlock(textBlock, false);
-        return;
-    }
-
-    double width = GetSpacerLineWidth(textBlock, parentStackPanel, maxWidth);
-    auto lines = SplitLines(fullText);
-
-    if (auto generatedPanel = lineData.generatedPanel.get();
-        generatedPanel && lineData.generatedMaxWidth == maxWidth &&
-        UpdateGeneratedSpacerPanelText(generatedPanel, lines, maxWidth,
-                                       width)) {
-        CollapseSpacerSourceTextBlock(textBlock);
         return;
     }
 
@@ -4254,8 +4199,10 @@ void UpdateSpacerLine(ClockElementStyleData::SpacerLineData& lineData,
     generatedPanel.HorizontalAlignment(HorizontalAlignment::Stretch);
     generatedPanel.VerticalAlignment(VerticalAlignment::Center);
 
+    double width = GetSpacerLineWidth(textBlock, parentStackPanel, maxWidth);
     ApplySpacerWidthConstraint(generatedPanel, maxWidth, width);
 
+    auto lines = SplitLines(fullText);
     for (int i = 0; i < static_cast<int>(lines.size()); i++) {
         auto lineElement =
             BuildSpacerLineElement(textBlock.Name(), lines[i], textBlock,
@@ -4265,13 +4212,12 @@ void UpdateSpacerLine(ClockElementStyleData::SpacerLineData& lineData,
 
     uint32_t originalIndex = 0;
     if (parentStackPanel.Children().IndexOf(textBlock, originalIndex)) {
-        parentStackPanel.Children().InsertAt(originalIndex, generatedPanel);
+        parentStackPanel.Children().InsertAt(originalIndex + 1, generatedPanel);
     } else {
         parentStackPanel.Children().Append(generatedPanel);
     }
 
     lineData.generatedPanel = winrt::make_weak(generatedPanel);
-    lineData.generatedMaxWidth = maxWidth;
     CollapseSpacerSourceTextBlock(textBlock);
     generatedPanel.Visibility(Visibility::Visible);
 }
@@ -4298,7 +4244,6 @@ void ClearSpacerLine(ClockElementStyleData::SpacerLineData& lineData) {
     UnregisterSpacerLine(lineData);
     lineData.textBlock = {};
     lineData.parentStackPanel = {};
-    lineData.generatedMaxWidth = 0;
     lineData.hidden = false;
 }
 
@@ -4428,27 +4373,32 @@ void ApplyDateTimeIconContentStyles(
 
     int maxWidth = clockElementStyleEnabled ? g_settings.maxWidth : 0;
     int textSpacing = clockElementStyleEnabled ? g_settings.textSpacing : 0;
-    bool noWrap = maxWidth;
+    bool dateUsesSpacer = ClockLineUsesSpacer(g_settings.bottomLine);
+    bool timeUsesSpacer = ClockLineUsesSpacer(g_settings.topLine);
 
     ApplyStackPanelStyles(stackPanel, maxWidth, textSpacing);
     ApplyTextBlockStyles(
         dateInnerTextBlock,
-        clockElementStyleEnabled ? &g_settings.dateStyle : nullptr, noWrap,
+        clockElementStyleEnabled ? &g_settings.dateStyle : nullptr,
+        maxWidth && !dateUsesSpacer,
         &clockElementStyleData->dateVisibilityPropertyChangedToken);
     ApplyTextBlockStyles(
         timeInnerTextBlock,
-        clockElementStyleEnabled ? &g_settings.timeStyle : nullptr, noWrap,
+        clockElementStyleEnabled ? &g_settings.timeStyle : nullptr,
+        maxWidth && !timeUsesSpacer,
         &clockElementStyleData->timeVisibilityPropertyChangedToken);
     if (clockElementStyleEnabled) {
-        ApplySpacerLine(clockElementStyleData->dateSpacerLine, stackPanel,
-                        dateInnerTextBlock, g_settings.dateStyle.hidden,
-                        maxWidth);
-        ApplySpacerLine(clockElementStyleData->timeSpacerLine, stackPanel,
-                        timeInnerTextBlock, g_settings.timeStyle.hidden,
-                        maxWidth);
+        ClearSpacerLine(clockElementStyleData->dateSpacerLine);
+        ClearSpacerLine(clockElementStyleData->timeSpacerLine);
+        ApplySpacerJustifiedTextBlock(dateInnerTextBlock, dateUsesSpacer,
+                                      maxWidth);
+        ApplySpacerJustifiedTextBlock(timeInnerTextBlock, timeUsesSpacer,
+                                      maxWidth);
     } else {
         ClearSpacerLine(clockElementStyleData->dateSpacerLine);
         ClearSpacerLine(clockElementStyleData->timeSpacerLine);
+        ApplySpacerJustifiedTextBlock(dateInnerTextBlock, false, 0);
+        ApplySpacerJustifiedTextBlock(timeInnerTextBlock, false, 0);
     }
 
     clockElementStyleData->styleIndex = clockElementStyleIndex;
