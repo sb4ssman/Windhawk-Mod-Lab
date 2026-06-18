@@ -2,6 +2,8 @@
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that adds compact taskbar buttons for opening configured Shell targets as native popup menus.
 
+This mod restores an old Window's detail allowing you to set 'toolbars' on the taskbar and point them at folders, letting you navigate a menu tree directly from that folder, directly from the taskbar. 
+
 ![Two folder buttons in the system tray](desktop-controlpanel.png)
 *Two folder buttons — Desktop and Control Panel — injected into the system tray.*
 
