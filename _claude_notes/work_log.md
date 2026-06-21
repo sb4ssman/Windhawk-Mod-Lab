@@ -79,6 +79,35 @@ with mod-prefixed filenames.
   - Bottom: `%weekday%%s%📅%s%%date%%n%🛫%upload_speed%%s%🛬%download_speed%%n%🧮%gpu%🧮%gpu%%s%💽%disk_read%%n%%weather%`
 - Known limitation: `%s%` spacer handling does not work inside the weather string.
 
+## 2026-06-18 — VDS and Taskbar Folder Menus submission
+
+### Virtual Desktop Switcher → v1.6 (new mod ID `taskbar-vd-switcher`, PR #4484)
+
+- Discovered PR #3932 (`taskbar-vd-switcher`) was merged 2026-06-17 at v1.5.
+- Decided to resubmit under cleaner ID `taskbar-vd-switcher` / "Virtual Desktop Switcher".
+- Left a deprecation request comment on #3932 asking m417z to disable `taskbar-vd-switcher` once #4484 is reviewed.
+- v1.6 changes vs merged v1.5:
+  - YAML setting names updated to shared rubric canonical names (`gridRows`/`gridColumns`, `activeBackgroundColor`/`inactiveBackgroundColor`, `opacity`, `groupPaddingLeft`/`groupPaddingRight`, `groupOffsetY`) with `AliasedStr`/`AliasedInt` backward-compat lambdas; old names still work
+  - "Master button" renamed to "Task View button" throughout YAML `$name` fields and README
+  - `contentOffsetX/Y` removed (was a rubric misapplication; not applicable to text buttons)
+  - Full settings table added to both in-mod readme and folder README
+  - README screenshots expanded with full gallery
+
+### Taskbar Folder Menus → v0.5 (new mod, PR #4485)
+
+- New features added this session: right-click Shell context menu via `IContextMenu`, "Open in Explorer" header at top of each subfolder popup, default hover color `#4488FF`
+- `WM_MENURBUTTONDOWN` define added (`#ifndef` guard for Windhawk's Clang environment)
+- `contentOffsetX/Y` removed (rubric misapplication)
+- `TextBlock.Foreground` bug removed (was preventing hover color inheritance from VSM resource dict)
+- Renamed `SYMBOL_HOOK hooks[]` → `taskbarDllHooks[]` (CI validation requirement)
+- Screenshots incorporated into both in-mod readme and folder README
+- Full settings table in both readmes
+
+### Fork / CI
+- Synced fork main with upstream (208 commits)
+- Both PR branches had stray `vertical-omnibutton.wh.cpp` (pulled from fork's diverged main); removed in follow-up commits
+- Both PRs passed CI after fixes
+
 ## 2026-06-15 — Clock Spacer PR readiness pass
 
 - User confirmed Clock Spacer has been working and toggled off/on several times without issues.

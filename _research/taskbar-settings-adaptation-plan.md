@@ -57,7 +57,7 @@ Use these names when a mod has the relevant capability:
 
 ```text
 Mod                         Profiles
-virtual-desktop-switcher    HostInjection, GroupLayout, ButtonSurface,
+taskbar-vd-switcher    HostInjection, GroupLayout, ButtonSurface,
                             ContentFormat, ActiveState, StartPlacement
 taskbar-folder-menus        HostInjection, GroupLayout, ButtonSurface,
                             ContentFormat, hover/pressed ActiveState,

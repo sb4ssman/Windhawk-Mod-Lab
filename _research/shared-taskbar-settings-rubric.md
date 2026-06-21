@@ -48,7 +48,7 @@ For mods that insert a new group into the Windows taskbar XAML tree.
 
 Examples:
 
-- `virtual-desktop-switcher`
+- `taskbar-vd-switcher`
 - `taskbar-folder-menus`
 - `privacy-indicator-anchor`
 - future tray stats/grid/separator mods
@@ -102,7 +102,7 @@ For mods that arrange multiple units in rows, columns, or grids.
 
 Examples:
 
-- `virtual-desktop-switcher`
+- `taskbar-vd-switcher`
 - `omnibutton-customizer`
 - `privacy-indicator-anchor`
 - `taskbar-folder-menus`
@@ -140,7 +140,7 @@ For clickable button-like surfaces.
 
 Examples:
 
-- `virtual-desktop-switcher`
+- `taskbar-vd-switcher`
 - `taskbar-folder-menus`
 - future stats or launcher buttons
 

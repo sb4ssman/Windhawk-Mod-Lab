@@ -30,10 +30,10 @@ at the repo root in `_claude_notes/`.
 | [omnibutton-customizer/](omnibutton-customizer/) | v1.0, in development |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.9, in development |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept |
-| [taskbar-clock-customization-spacer/](taskbar-clock-customization-spacer/) | PR-ready integration scratch |
+| [taskbar-clock-customization-spacer/](taskbar-clock-customization-spacer/) | integration scratch (stalemate) |
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.5, submission prep |
+| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.6, published |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published |
-| [virtual-desktop-switcher/](virtual-desktop-switcher/) | v1.4, submission prep |
 
 ## Versioning policy
 

@@ -16,13 +16,11 @@
    - Important discovery: `%s%` at line edges is useful. `%s%content` right-aligns, `content%s%` left-aligns, `%s%content%s%` centers. This makes Clock Spacer a per-row alignment tool, not only a between-token gap tool.
    - Upstream posture: include note that the standalone companion is ready as-is, and that we would be happy to see the elastic `%s%` token absorbed into Taskbar Clock Customization if m417z wants it there. Best native implementation would use the clock mod's raw format strings plus real XAML text measurement to choose/cap width.
 
-2. **Virtual Desktop Switcher** — v1.4 (in-tree, NOT committed). Submission prep pass underway. Crash fixes applied; Start-area model is `nextToStart` left-of-Start reserved mode, `overStart` overlay with padding/vertical offset controls, and `rightOfStart` reserved-space mode using `TaskbarFrameRepeater` margin plus Start counter-shift. User tested and added screenshot set for tray layouts, master button, left/over/right Start placement, and hidden-Start variants.
-   - **Before PR**: final diff/readme/code scan, then copy updated `.wh.cpp` to windhawk-mods fork for PR update.
-   - Nothing committed yet — commit only after final submission pass.
+2. **Taskbar Virtual Desktop Switcher** — v1.5 published as `taskbar-vd-switcher` (PR #3932, merged 2026-06-17). v1.6 improvements are in-tree locally. PR #4484 (mis-submitted under `virtual-desktop-switcher` id) needs to be closed; v1.6 should be resubmitted as an update PR against the existing mod file. **Next: close #4484, open update PR.**
 
-3. **Vertical OmniButton** — v1.4, PR #3859 updated. All review fixes applied. Retry thread removed. Test before declaring ready.
+3. **Taskbar Folder Menus** — v0.5, PR #4485 open: https://github.com/ramensoftware/windhawk-mods/pull/4485. Features: right-click Shell context menu, "Open in Explorer" in subfolder headers, lazy subfolder loading, `#4488FF` default hover. **Next: monitor review.**
 
-4. **Taskbar Folder Menu** — v0.5 (in-tree, NOT committed). Lazy loading implemented via WH_MSGFILTER/MSGF_MENU. C:\ should open instantly now — only top-level enumerated on click, subfolders lazily populated on hover. ARM64 added.
+4. **Vertical OmniButton** — v1.4, PR #3859 updated. All review fixes applied. Retry thread removed. Test before declaring ready.
 
 5. **Privacy Indicator Anchor** — v0.7 (in-tree, NOT committed). Full Option C grid: `itemOrder` (comma-separated token list replaces show* booleans and layoutMode), `gridColumns`, `gridFillOrder` (rowFirst/colFirst), `shortGroupPosition` (first/last), `shortGroupAlign` (center/start/end). `ComputeIconPlacement()` helper handles all arrangements. Camera experimental (0xE722, requires NoPhysicalCameraLED). Test page updated with camera + mic+cam combined section. Archive: tpia-test3.cpp.
 
@@ -83,9 +81,19 @@ Potential issues to test:
 - Does the element exist in the XAML tree even when never used (privacy indicator never shown)?
 - Does `MainStack > Content > IconStack > ItemsPresenter > StackPanel` path match current Windows builds?
 
-## PR Review status (fetched 2026-05-09)
+## PR Review status
 
-### PR #3932 — Virtual Desktop Switcher (4 m417z inline comments, all unresolved)
+### PR #4484 — TO BE CLOSED
+
+Submitted under wrong id (`virtual-desktop-switcher`). m417z confirmed ids are permanent. Close this PR and resubmit v1.6 improvements as an update to the existing `taskbar-vd-switcher` mod file.
+
+### PR #4485 — Taskbar Folder Menus v0.5 (open, awaiting first review)
+
+New mod. Both PRs passed CI after removing stray `vertical-omnibutton.wh.cpp` and renaming `hooks[]` → `taskbarDllHooks[]`.
+
+---
+
+### PR #3932 — Taskbar Virtual Desktop Switcher MERGED 2026-06-17 (v1.5, published)
 
 **Comment 3175358025** — on `LoadLibraryExW_Hook`, hooks for `Taskbar.View.dll` / `IconView::IconView`:
 > In newer builds, this function was moved to `SystemTray.dll`, see: https://github.com/ramensoftware/windhawk-mods/issues/3926
@@ -192,6 +200,6 @@ Key ideas captured in `_research/densification-analysis.md`:
 ## Completed
 
 - taskmanager-tail v1.0 published (PR #3045), updated to v1.1 with Windows 10 support (PR #3143)
-- virtual-desktop-switcher v1.0 PR submitted (#3932)
+- taskbar-vd-switcher v1.0 PR submitted (#3932)
 - vertical-omnibutton v1.2 PR submitted; v1.4 PR updated (#3859)
 - repo consolidation done (2026-04-27)
