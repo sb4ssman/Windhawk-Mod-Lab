@@ -1523,7 +1523,7 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR path, HANDLE file, DWORD flags) {
 static bool HookTaskbarDllSymbols() {
     HMODULE h = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!h) return false;
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         { {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
           &CTaskBand_ITaskListWndSite_vftable },
         { {LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
@@ -1533,7 +1533,7 @@ static bool HookTaskbarDllSymbols() {
         { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
           &std__Ref_count_base__Decref_Original },
     };
-    return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
 static HMODULE GetTaskbarViewModule() {

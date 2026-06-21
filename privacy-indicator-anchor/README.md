@@ -18,6 +18,7 @@ or Widgets frequently access location.
 - Placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
 - Per-icon X/Y nudges plus whole-bar X/Y offset
 - Optional active glow and custom active color
+- Optional testing toggle to let Windows' native privacy indicators appear
 
 ## Settings Compatibility
 
@@ -47,3 +48,7 @@ builds.
 Camera activation depends on Windows' software camera indicator behavior. Some
 devices with hardware camera LEDs may not show a software camera indicator unless
 the `NoPhysicalCameraLED` registry behavior applies.
+
+`suppressNativeIndicators` defaults to `1` so the mod hides Windows' own pop-in
+privacy indicators and mirrors state into the stable placeholders. Set it to `0`
+temporarily when comparing against Windows' native tray glyphs during testing.

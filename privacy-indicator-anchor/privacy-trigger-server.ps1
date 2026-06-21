@@ -32,6 +32,7 @@ function Send-Response {
         "Content-Length: $($Body.Length)`r`n" +
         "Connection: close`r`n" +
         "Cache-Control: no-store`r`n" +
+        "Permissions-Policy: camera=(self), microphone=(self), geolocation=(self), display-capture=(self), clipboard-read=(self), clipboard-write=(self), midi=(self), serial=(self), hid=(self), usb=(self), bluetooth=(self)`r`n" +
         "`r`n"
 
     $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($header)

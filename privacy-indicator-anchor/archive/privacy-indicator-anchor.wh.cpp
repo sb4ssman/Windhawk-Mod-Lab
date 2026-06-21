@@ -1,6 +1,6 @@
 // ==WindhawkMod==
-// @id              tray-privacy-indicator-anchor
-// @name            Tray Privacy Indicator Anchor
+// @id              tray-privacy-indicator-anchor2
+// @name            Tray Privacy Indicator Anchor2
 // @description     Permanently shows location/microphone/camera/Copilot icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
 // @version         0.9
 // @author          sb4ssman
@@ -11,210 +11,11 @@
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Tray Privacy Indicator Anchor
-
-Windows 11 shows location and microphone icons in the system tray when an app
-accesses those features, then removes them — causing nearby icons to shift.
-
-This mod injects permanent placeholder icons:
-
-- **Always visible** — dim when nothing is using the feature
-- **Full brightness** when the feature is actively in use
-- **Camera** — experimental placeholder; activates only on devices where
-  Windows shows a software camera indicator (requires `NoPhysicalCameraLED`
-  registry value, or a device with no hardware camera LED)
-- **Copilot** — experimental; shows whether the Windows Web Experience Pack
-  (Copilot) is installed and/or actively running. Slash overlay = not installed.
-
-## Icon order and grid layout
-
-`itemOrder` is a comma-separated list of icon tokens that controls which icons
-appear and in what sequence: `location`, `mic`, `camera`. Remove a token to
-hide that icon; reorder tokens to change the display order.
-
-`gridColumns` sets how many columns the icon bar uses:
-
-- `1` — single column (vertical stack)
-- `2` — two-column grid (default); with 3 icons this gives one short row
-- `3` or more — single row when icon count ≤ columns
-
-When one row or column has fewer icons than the rest, use `shortGroupPosition`
-and `shortGroupAlign` to control where it sits and how it's aligned:
-
-| shortGroupPosition | shortGroupAlign | Result with location,mic,camera in 2 cols |
-| --- | --- | --- |
-| last (default) | center | `[loc  mic]` / `[  cam  ]` |
-| first          | center | `[  loc  ]` / `[mic  cam]` |
-| last           | start  | `[loc  mic]` / `[cam     ]` |
-| last           | end    | `[loc  mic]` / `[     cam]` |
-
-`gridFillOrder: colFirst` fills columns instead of rows, giving vertical
-arrangements like:
-
-```
-[loc] [cam]      [loc] [mic]
-[mic] [   ]  or  [   ] [cam]   (short column centered)
-```
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- idleOpacity: 50
-  $name: Idle opacity (0-100)
-  $description: >-
-    Opacity when no app is using the feature. 0 = invisible but space reserved;
-    100 = always full brightness.
-
-- itemOrder: "location,mic,camera"
-  $name: Icon order
-  $description: >-
-    Comma-separated list of icons to show, in order. Valid tokens: location,
-    mic, camera, copilot. Remove a token to hide that icon. Reorder to change
-    layout. Camera and copilot are experimental — see mod description.
-
-- gridColumns: 2
-  $name: Grid columns
-  $description: >-
-    Number of columns. 1 = vertical stack. 2 = two-column grid (default). Set
-    to 3 or more for a single row when showing 3 icons.
-
-- gridFillOrder: "rowFirst"
-  $name: Fill order
-  $description: Whether items fill left-to-right then down, or top-to-bottom then right.
-  $options:
-  - "rowFirst": "Row-first (left to right, then down)"
-  - "colFirst": "Column-first (top to bottom, then right)"
-
-- shortGroupPosition: "last"
-  $name: Short group position
-  $description: >-
-    When icons don't fill evenly, the short row/column can be at the start or end.
-  $options:
-  - "last": "Short group at end (bottom or right)"
-  - "first": "Short group at start (top or left)"
-
-- shortGroupAlign: "center"
-  $name: Short group alignment
-  $description: >-
-    How to align icons in the short row/column. Center spans the available
-    space and centers the icon(s); start and end pin them to one side.
-  $options:
-  - "center": "Center"
-  - "start": "Start (left/top)"
-  - "end": "End (right/bottom)"
-
-- iconSize: 16
-  $name: Icon size (pt)
-
-- position: "beforeOmni"
-  $name: Position
-  $description: Where to place the privacy placeholders in the tray.
-  $options:
-  - "beforeIcons": "Before notification icons"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeClock": "Before clock"
-  - "afterClock": "After clock"
-  - "afterShowDesktop": "After Show Desktop strip"
-
-- paddingLeft: 0
-  $name: Padding left (px)
-
-- paddingRight: 0
-  $name: Padding right (px)
-
-- iconSpacing: 4
-  $name: Icon spacing (px)
-  $description: Gap between icons in both directions.
-
-- barOffsetX: 0
-  $name: Bar X offset (px)
-  $description: Move the entire bar left (negative) or right (positive).
-
-- barOffsetY: 0
-  $name: Bar Y offset (px)
-  $description: Move the entire bar up (negative) or down (positive).
-
-- locationOffsetX: 0
-  $name: Location X offset (px)
-
-- locationOffsetY: 0
-  $name: Location Y offset (px)
-
-- micOffsetX: 0
-  $name: Microphone X offset (px)
-
-- micOffsetY: 0
-  $name: Microphone Y offset (px)
-
-- cameraOffsetX: 0
-  $name: Camera X offset (px)
-
-- cameraOffsetY: 0
-  $name: Camera Y offset (px)
-
-- copilotOffsetX: 0
-  $name: Copilot X offset (px)
-
-- copilotOffsetY: 0
-  $name: Copilot Y offset (px)
-
-- glowEnabled: 0
-  $name: Glow when active (1=on, 0=off)
-  $description: >-
-    Adds a larger bloom glyph behind the icon when active. Uses the Windows
-    accent color unless custom active color is enabled.
-
-- glowOpacity: 40
-  $name: Glow opacity (0-100)
-  $description: Brightness of the bloom layer. 0 = invisible; 100 = same as icon.
-
-- activeColorEnabled: 0
-  $name: Custom active color (1=on, 0=off)
-  $description: >-
-    When off (default), active icons show at full brightness in the system
-    foreground color. When on, applies the R/G/B color below instead.
-
-- activeColorR: 255
-  $name: Active color — R (0-255)
-
-- activeColorG: 180
-  $name: Active color — G (0-255)
-
-- activeColorB: 60
-  $name: Active color — B (0-255)
-  $description: >-
-    RGB tint applied to icons in use when custom active color is enabled.
-    Default warm orange (255,180,60).
-
-- slashColor: ""
-  $name: Slash color (hex, empty = system)
-  $description: >-
-    Color of the slash overlay shown when a feature is disabled. Leave empty
-    (default) to use the system foreground color, matching the dimmed icon.
-    Enter a hex color without the # sign, e.g. DC1E1E for red.
-
-- slashDirection: "rising"
-  $name: Slash direction
-  $description: Direction of the diagonal line drawn through the icon when disabled.
-  $options:
-  - "rising": "Rising (/ lower-left to upper-right)"
-  - "falling": "Falling (\ upper-left to lower-right)"
-
-- slashOpacity: 100
-  $name: Slash opacity (0-100)
-  $description: >-
-    Opacity of the disabled slash overlay. 100 = fully visible (default).
-    Lower values make the slash more subtle.
-
-- suppressNativeIndicators: 1
-  $name: Suppress Windows privacy indicators (1=on, 0=off)
-  $description: >-
-    When on, hides Windows' own pop-in privacy indicators and mirrors their
-    state into this mod's stable placeholder icons. Turn off temporarily when
-    testing Windows' native glyphs and tray behavior.
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
@@ -262,7 +63,6 @@ struct ModSettings {
     std::wstring itemOrder          = L"location,mic,camera";
     int  gridColumns                = 2;
     std::wstring gridFillOrder      = L"rowFirst";
-    std::wstring fillOrder          = L"rowFirst";
     std::wstring shortGroupPosition = L"last";
     std::wstring shortGroupAlign    = L"center";
     int  iconSize     = 16;
@@ -270,11 +70,8 @@ struct ModSettings {
     int  paddingLeft  = 0;
     int  paddingRight = 0;
     int  iconSpacing  = 4;
-    int  buttonSpacing = 4;
     int  barOffsetX   = 0;
     int  barOffsetY   = 0;
-    int  groupOffsetX = 0;
-    int  groupOffsetY = 0;
     int  locationOffsetX = 0;
     int  locationOffsetY = 0;
     int  micOffsetX   = 0;
@@ -292,7 +89,6 @@ struct ModSettings {
     int  slashColor     = -1;  // -1 = system theme; otherwise 0x00RRGGBB
     std::wstring slashDirection = L"rising";
     int  slashOpacity   = 100;
-    bool suppressNativeIndicators = true;
 };
 static ModSettings g_settings;
 
@@ -305,33 +101,19 @@ static std::wstring GetStringSetting(PCWSTR name, PCWSTR fallback) {
 
 static void LoadSettings() {
     auto clamp = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
-    auto getCanonicalInt = [](PCWSTR canonicalName, PCWSTR legacyName,
-                              int defaultValue, int lo, int hi) {
-        constexpr int kUnset = -2147483647;
-        int value = Wh_GetIntSetting(canonicalName, kUnset);
-        if (value == kUnset) {
-            value = Wh_GetIntSetting(legacyName, defaultValue);
-        }
-        return std::max(lo, std::min(hi, value));
-    };
-
     g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity", 50), 0, 100);
     g_settings.itemOrder            = GetStringSetting(L"itemOrder", L"location,mic,camera");
     g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns", 2), 1, 10);
     g_settings.gridFillOrder        = GetStringSetting(L"gridFillOrder", L"rowFirst");
-    g_settings.fillOrder            = GetStringSetting(L"fillOrder", g_settings.gridFillOrder.c_str());
     g_settings.shortGroupPosition   = GetStringSetting(L"shortGroupPosition", L"last");
     g_settings.shortGroupAlign      = GetStringSetting(L"shortGroupAlign", L"center");
     g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize", 16), 8, 48);
     g_settings.position             = GetStringSetting(L"position", L"beforeOmni");
-    g_settings.paddingLeft          = getCanonicalInt(L"groupPaddingLeft", L"paddingLeft", 0, -40, 40);
-    g_settings.paddingRight         = getCanonicalInt(L"groupPaddingRight", L"paddingRight", 0, -40, 40);
+    g_settings.paddingLeft          = clamp(Wh_GetIntSetting(L"paddingLeft",  0), -40, 40);
+    g_settings.paddingRight         = clamp(Wh_GetIntSetting(L"paddingRight", 0), -40, 40);
     g_settings.iconSpacing          = clamp(Wh_GetIntSetting(L"iconSpacing", 4), 0, 40);
-    g_settings.buttonSpacing        = getCanonicalInt(L"buttonSpacing", L"iconSpacing", 4, 0, 40);
     g_settings.barOffsetX           = clamp(Wh_GetIntSetting(L"barOffsetX", 0), -40, 40);
     g_settings.barOffsetY           = clamp(Wh_GetIntSetting(L"barOffsetY", 0), -40, 40);
-    g_settings.groupOffsetX         = getCanonicalInt(L"groupOffsetX", L"barOffsetX", 0, -40, 40);
-    g_settings.groupOffsetY         = getCanonicalInt(L"groupOffsetY", L"barOffsetY", 0, -40, 40);
     g_settings.locationOffsetX      = clamp(Wh_GetIntSetting(L"locationOffsetX", 0), -40, 40);
     g_settings.locationOffsetY      = clamp(Wh_GetIntSetting(L"locationOffsetY", 0), -40, 40);
     g_settings.micOffsetX           = clamp(Wh_GetIntSetting(L"micOffsetX", 0), -40, 40);
@@ -356,7 +138,6 @@ static void LoadSettings() {
     }
     g_settings.slashDirection = GetStringSetting(L"slashDirection", L"rising");
     g_settings.slashOpacity   = clamp(Wh_GetIntSetting(L"slashOpacity", 100), 0, 100);
-    g_settings.suppressNativeIndicators = Wh_GetIntSetting(L"suppressNativeIndicators", 1) != 0;
 }
 
 // ============================================================
@@ -398,8 +179,7 @@ struct PrivacyState {
     enum class Type { Location, Mic, Camera, Both };
     winrt::weak_ref<FrameworkElement> iconViewRef;
     winrt::weak_ref<TextBlock>        textBlockRef;
-    int64_t textToken       = 0;
-    int64_t visibilityToken = 0;
+    int64_t textToken = 0;
     Type    type      = Type::Location;
 };
 static std::vector<PrivacyState> g_privacyStates;
@@ -735,12 +515,11 @@ static void UpdateSyntheticOpacity() {
     auto applySlot = [&](FrameworkElement icon, FrameworkElement glow, FrameworkElement slash,
                          bool active, bool disabled) {
         if (!icon) return;
-        bool effectiveActive = active && !disabled;
-        icon.Opacity(effectiveActive ? 1.0 : idleOp);
+        icon.Opacity(active ? 1.0 : idleOp);
 
         // Custom active tint — only when the user explicitly enables it.
         // Default: clear any explicit brush so system theme foreground applies.
-        if (g_settings.activeColorEnabled && effectiveActive) {
+        if (g_settings.activeColorEnabled && active) {
             if (auto tb = icon.try_as<TextBlock>()) {
                 SolidColorBrush activeBrush; activeBrush.Color(activeColor);
                 tb.Foreground(activeBrush);
@@ -760,7 +539,7 @@ static void UpdateSyntheticOpacity() {
         }
 
         if (glow) {
-            glow.Visibility((effectiveActive && g_settings.glowEnabled) ? Visibility::Visible : Visibility::Collapsed);
+            glow.Visibility((active && g_settings.glowEnabled) ? Visibility::Visible : Visibility::Collapsed);
         }
 
         if (slash) {
@@ -906,13 +685,13 @@ static bool CheckCameraDisabled() {
                 // Hardware kill switches sometimes disable the device rather than
                 // removing it from DIGCF_PRESENT entirely.
                 ULONG devStatus = 0, devProblem = 0;
-                bool hasProblem = false;
+                bool dmDisabled = false;
                 if (CM_Get_DevNode_Status(&devStatus, &devProblem, pd.DevInst, 0) == CR_SUCCESS) {
-                    hasProblem = (devStatus & DN_HAS_PROBLEM) != 0;
+                    dmDisabled = (devStatus & DN_HAS_PROBLEM) && devProblem == CM_PROB_DISABLED;
                 }
-                Wh_Log(L"[Cam] present device: '%s' isIR=%d hasProblem=%d (status=0x%X prob=%u)",
-                    name, isIR ? 1 : 0, hasProblem ? 1 : 0, devStatus, devProblem);
-                if (!hasProblem) hasPresent = true;
+                Wh_Log(L"[Cam] present device: '%s' isIR=%d dmDisabled=%d (status=0x%X prob=%u)",
+                    name, isIR ? 1 : 0, dmDisabled ? 1 : 0, devStatus, devProblem);
+                if (!dmDisabled) hasPresent = true;
             } else {
                 Wh_Log(L"[Cam] present device: '%s' isIR=1 (filtered)", name);
             }
@@ -970,13 +749,9 @@ static bool CheckCameraDisabled() {
 static bool CheckCopilotInstalled() {
     // Sub-keys under Repository\Packages are named <PackageFullName> e.g.
     //   MicrosoftWindows.Client.WebExperience_<ver>_x64__<pub>
-    // Stale keys can survive uninstall, so a key only counts if its package path
-    // still exists on disk.
-    static const wchar_t* const kPrefixes[] = {
-        L"MicrosoftWindows.Client.WebExperience_",
-        L"Microsoft.Copilot_",
-        L"Microsoft.Windows.Ai.Copilot_",
-    };
+    // We enumerate and look for any key whose name starts with the package family prefix.
+    static const wchar_t kPrefix[]    = L"MicrosoftWindows.Client.WebExperience_";
+    static const DWORD   kPrefixLen   = (DWORD)(ARRAYSIZE(kPrefix) - 1);
     static const wchar_t* const kRoots[] = {
         L"Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion"
             L"\\AppModel\\Repository\\Packages",                     // per-user (HKCU)
@@ -998,33 +773,9 @@ static bool CheckCopilotInstalled() {
                                    nullptr, nullptr, nullptr, nullptr);
             if (e == ERROR_NO_MORE_ITEMS) break;
             if (e != ERROR_SUCCESS)       continue;
-            bool prefixMatch = false;
-            for (const auto* prefix : kPrefixes) {
-                if (wcsncmp(name, prefix, wcslen(prefix)) == 0) {
-                    prefixMatch = true;
-                    break;
-                }
-            }
-            if (prefixMatch) {
-                HKEY hItem = nullptr;
-                if (RegOpenKeyExW(hPkg, name, 0, KEY_READ, &hItem) == ERROR_SUCCESS) {
-                    wchar_t path[MAX_PATH] = {};
-                    DWORD pathLen = sizeof(path), type = 0;
-                    LONG pathR = RegQueryValueExW(hItem, L"PackageRootFolder", nullptr,
-                                                  &type, (LPBYTE)path, &pathLen);
-                    if (pathR != ERROR_SUCCESS) {
-                        pathLen = sizeof(path); type = 0;
-                        pathR = RegQueryValueExW(hItem, L"Path", nullptr,
-                                                 &type, (LPBYTE)path, &pathLen);
-                    }
-                    RegCloseKey(hItem);
-                    bool pathExists = pathR == ERROR_SUCCESS &&
-                                      (type == REG_SZ || type == REG_EXPAND_SZ) &&
-                                      GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES;
-                    Wh_Log(L"[Copilot] package key: %s path='%s' exists=%d",
-                           name, path, pathExists ? 1 : 0);
-                    if (pathExists) found = true;
-                }
+            if (wcsncmp(name, kPrefix, kPrefixLen) == 0) {
+                Wh_Log(L"[Copilot] found package: %s", name);
+                found = true;
             }
         }
         RegCloseKey(hPkg);
@@ -1159,21 +910,20 @@ static void UpdateDisabledStates() {
     bool copInst = CheckCopilotInstalled();
     bool copAct  = CheckCopilotActive();
     // Update installed first so CheckCopilotDisabled can read it.
-    bool prevCopI = g_copilotInstalled.exchange(copInst);
+    g_copilotInstalled.store(copInst);
     bool copDis  = CheckCopilotDisabled();
     bool prevLoc  = g_locDisabled.load();
     bool prevMic  = g_micDisabled.load(),  prevCam  = g_camDisabled.load();
-    bool prevCopA = g_copilotActive.load();
+    bool prevCopI = g_copilotInstalled.load(), prevCopA = g_copilotActive.load();
     bool prevCopD = g_copilotDisabled.load();
     bool changed = (g_locDisabled.exchange(locDis)           != locDis)  ||
                    (g_micDisabled.exchange(micDis)           != micDis)  ||
                    (g_camDisabled.exchange(camDis)           != camDis)  ||
-                   (prevCopI                                != copInst) ||
                    (g_copilotActive.exchange(copAct)         != copAct)  ||
                    (g_copilotDisabled.exchange(copDis)       != copDis);
-    Wh_Log(L"[Poll] loc %d->%d  mic %d->%d  cam %d->%d  copInst %d->%d  copAct %d->%d  copDis %d->%d  changed=%d",
+    Wh_Log(L"[Poll] loc %d->%d  mic %d->%d  cam %d->%d  copInst=%d copAct %d->%d  copDis %d->%d  changed=%d",
            prevLoc, locDis, prevMic, micDis, prevCam, camDis,
-           prevCopI, copInst, prevCopA, copAct, prevCopD, copDis, changed ? 1 : 0);
+           copInst, prevCopA, copAct, prevCopD, copDis, changed ? 1 : 0);
     if (changed && !g_unloading && g_taskbarWnd) {
         RunFromWindowThread(g_taskbarWnd, [](void*) {
             if (!g_unloading) UpdateSyntheticState();
@@ -1270,13 +1020,12 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     bar.VerticalAlignment(VerticalAlignment::Center);
     bar.HorizontalAlignment(HorizontalAlignment::Center);
     bar.Margin({ (double)g_settings.paddingLeft, 0.0, (double)g_settings.paddingRight, 0.0 });
-    ApplyOffset(bar, g_settings.groupOffsetX, g_settings.groupOffsetY);
+    ApplyOffset(bar, g_settings.barOffsetX, g_settings.barOffsetY);
 
     int N    = (int)activeItems.size();
     int cols = std::max(1, std::min(N, g_settings.gridColumns));
     int rows = (N + cols - 1) / cols;
-    bool colFirst   = (g_settings.fillOrder == L"colFirst" ||
-                       g_settings.fillOrder == L"columnFirst");
+    bool colFirst   = (g_settings.gridFillOrder      == L"colFirst");
     bool shortFirst = (g_settings.shortGroupPosition == L"first");
     const auto& align = g_settings.shortGroupAlign;
 
@@ -1290,9 +1039,9 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         bcd.Width({ 1.0, GridUnitType::Auto });
         bar.ColumnDefinitions().Append(bcd);
     }
-    if (g_settings.buttonSpacing > 0) {
-        bar.ColumnSpacing((double)g_settings.buttonSpacing);
-        bar.RowSpacing((double)g_settings.buttonSpacing);
+    if (g_settings.iconSpacing > 0) {
+        bar.ColumnSpacing((double)g_settings.iconSpacing);
+        bar.RowSpacing((double)g_settings.iconSpacing);
     }
 
     g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
@@ -1657,8 +1406,6 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
                 auto detectedType = DetectPrivacyType(newText);
                 for (auto& s : g_privacyStates) {
                     if (s.textBlockRef.get() == tbRef) {
-                        if (s.type != detectedType)
-                            SetPrivacyActive(s.type, false);
                         s.type = detectedType;
                         break;
                     }
@@ -1667,24 +1414,9 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
             }
         });
 
-    state.visibilityToken = iconView.RegisterPropertyChangedCallback(
-        UIElement::VisibilityProperty(),
-        [](DependencyObject sender, DependencyProperty) {
-            if (g_unloading) return;
-            if (!g_settings.suppressNativeIndicators) return;
-            auto iconView = sender.try_as<FrameworkElement>();
-            if (!iconView || iconView.Visibility() == Visibility::Collapsed) return;
-            iconView.Visibility(Visibility::Collapsed);
-            iconView.IsHitTestVisible(false);
-        });
-
     g_privacyStates.push_back(std::move(state));
-    if (g_settings.suppressNativeIndicators) {
-        iconView.Visibility(Visibility::Collapsed);
-        iconView.IsHitTestVisible(false);
-    } else {
-        iconView.IsHitTestVisible(true);
-    }
+    iconView.Visibility(Visibility::Collapsed);
+    iconView.IsHitTestVisible(false);
     Wh_Log(L"[Privacy] Tracking indicator type=%d", (int)type);
 }
 
@@ -1709,16 +1441,8 @@ static void ClearPrivacyStates() {
     for (auto& state : g_privacyStates) {
         if (auto tb = state.textBlockRef.get())
             tb.UnregisterPropertyChangedCallback(TextBlock::TextProperty(), state.textToken);
-        if (auto iv = state.iconViewRef.get()) {
-            if (state.visibilityToken)
-                iv.UnregisterPropertyChangedCallback(UIElement::VisibilityProperty(), state.visibilityToken);
-            try {
-                auto tb = state.textBlockRef.get();
-                bool active = tb && !std::wstring_view(tb.Text()).empty();
-                iv.IsHitTestVisible(true);
-                iv.Visibility(active ? Visibility::Visible : Visibility::Collapsed);
-            } catch (...) {}
-        }
+        if (auto iv = state.iconViewRef.get())
+            try { iv.Visibility(Visibility::Visible); } catch (...) {}
     }
     g_privacyStates.clear();
     g_locActive.store(false);
@@ -1943,10 +1667,10 @@ void Wh_ModUninit() {
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
-    Wh_Log(L"[Settings] order=%s cols=%d fill=%s shortPos=%s shortAlign=%s suppressNative=%d",
+    Wh_Log(L"[Settings] order=%s cols=%d fill=%s shortPos=%s shortAlign=%s",
            g_settings.itemOrder.c_str(), g_settings.gridColumns,
-           g_settings.fillOrder.c_str(), g_settings.shortGroupPosition.c_str(),
-           g_settings.shortGroupAlign.c_str(), g_settings.suppressNativeIndicators ? 1 : 0);
+           g_settings.gridFillOrder.c_str(), g_settings.shortGroupPosition.c_str(),
+           g_settings.shortGroupAlign.c_str());
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return;

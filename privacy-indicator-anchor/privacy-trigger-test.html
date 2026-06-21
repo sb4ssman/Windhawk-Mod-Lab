@@ -93,6 +93,16 @@
       border: 1px solid color-mix(in srgb, #4CAF50 35%, Canvas);
     }
 
+    .small-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+    }
+
+    .small-grid button {
+      width: 100%;
+    }
+
     video#camPreview {
       display: none;
       width: 160px;
@@ -126,6 +136,29 @@
       Each section triggers the corresponding Windows privacy indicator while
       the capture is active.
     </p>
+
+    <section>
+      <h2>🧭 Permission &amp; Device Diagnostics</h2>
+      <div class="buttons">
+        <button id="queryPermissions">Query browser permissions</button>
+        <button id="enumerateDevices">Enumerate media devices</button>
+      </div>
+      <div class="small-grid">
+        <button id="requestNotifications">Request notifications</button>
+        <button id="testClipboardRead">Read clipboard</button>
+        <button id="testClipboardWrite">Write clipboard marker</button>
+        <button id="requestMidi">Request MIDI access</button>
+        <button id="requestSerial">Request serial port</button>
+        <button id="requestHid">Request HID device</button>
+        <button id="requestUsb">List USB grants</button>
+        <button id="requestBluetooth">Request Bluetooth device</button>
+      </div>
+      <p class="note">
+        These probes mostly exercise permission prompts rather than taskbar privacy
+        glyphs. They help separate browser permission state from Windows tray
+        indicator state, and they reveal which APIs are available on the test machine.
+      </p>
+    </section>
 
     <section>
       <h2>🎤 Microphone</h2>
@@ -227,6 +260,17 @@
   <script>
     const logEl       = document.querySelector("#log");
 
+    const queryPermissions    = document.querySelector("#queryPermissions");
+    const enumerateDevices    = document.querySelector("#enumerateDevices");
+    const requestNotifications = document.querySelector("#requestNotifications");
+    const testClipboardRead   = document.querySelector("#testClipboardRead");
+    const testClipboardWrite  = document.querySelector("#testClipboardWrite");
+    const requestMidi         = document.querySelector("#requestMidi");
+    const requestSerial       = document.querySelector("#requestSerial");
+    const requestHid          = document.querySelector("#requestHid");
+    const requestUsb          = document.querySelector("#requestUsb");
+    const requestBluetooth    = document.querySelector("#requestBluetooth");
+
     const startMic    = document.querySelector("#startMic");
     const stopMic     = document.querySelector("#stopMic");
     const micStatus   = document.querySelector("#micStatus");
@@ -266,11 +310,144 @@
       if (stream) for (const t of stream.getTracks()) t.stop();
     }
 
+    function wireTrackLogging(stream, label) {
+      if (!stream) return;
+      for (const track of stream.getTracks()) {
+        const prefix = `${label} ${track.kind}`;
+        log(`${prefix} track: state=${track.readyState}, muted=${track.muted}, enabled=${track.enabled}, label="${track.label || "(no label yet)"}"`);
+        track.addEventListener("mute", () => log(`${prefix} track muted — possible hardware switch or source interruption.`));
+        track.addEventListener("unmute", () => log(`${prefix} track unmuted.`));
+        track.addEventListener("ended", () => log(`${prefix} track ended.`));
+      }
+    }
+
+    // ── Permission and device probes ───────────────────────────
+
+    async function queryPermission(name) {
+      if (!navigator.permissions?.query) {
+        log(`Permission ${name}: Permissions API unavailable.`);
+        return;
+      }
+      try {
+        const status = await navigator.permissions.query({ name });
+        log(`Permission ${name}: ${status.state}`);
+        status.onchange = () => log(`Permission ${name} changed: ${status.state}`);
+      } catch (e) {
+        log(`Permission ${name}: ${e.name}: ${e.message}`);
+      }
+    }
+
+    queryPermissions.addEventListener("click", async () => {
+      for (const name of ["microphone", "camera", "geolocation", "notifications", "clipboard-read", "clipboard-write", "midi"]) {
+        await queryPermission(name);
+      }
+    });
+
+    enumerateDevices.addEventListener("click", async () => {
+      if (!navigator.mediaDevices?.enumerateDevices) {
+        log("enumerateDevices unavailable.");
+        return;
+      }
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (!devices.length) {
+          log("No media devices returned.");
+          return;
+        }
+        devices.forEach((device, i) => {
+          log(`Device ${i + 1}: kind=${device.kind}, label="${device.label || "(hidden until permission is granted)"}", id=${device.deviceId ? "present" : "missing"}, group=${device.groupId ? "present" : "missing"}`);
+        });
+      } catch (e) {
+        log(`enumerateDevices error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    requestNotifications.addEventListener("click", async () => {
+      if (!("Notification" in window)) { log("Notifications API unavailable."); return; }
+      try {
+        const state = await Notification.requestPermission();
+        log(`Notifications permission: ${state}`);
+      } catch (e) {
+        log(`Notifications error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    testClipboardRead.addEventListener("click", async () => {
+      if (!navigator.clipboard?.readText) { log("Clipboard read unavailable."); return; }
+      try {
+        const text = await navigator.clipboard.readText();
+        log(`Clipboard read OK (${text.length} chars).`);
+      } catch (e) {
+        log(`Clipboard read error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    testClipboardWrite.addEventListener("click", async () => {
+      if (!navigator.clipboard?.writeText) { log("Clipboard write unavailable."); return; }
+      try {
+        await navigator.clipboard.writeText(`Privacy test marker ${new Date().toISOString()}`);
+        log("Clipboard write OK.");
+      } catch (e) {
+        log(`Clipboard write error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    requestMidi.addEventListener("click", async () => {
+      if (!navigator.requestMIDIAccess) { log("MIDI access unavailable."); return; }
+      try {
+        const access = await navigator.requestMIDIAccess({ sysex: false });
+        log(`MIDI access OK: inputs=${access.inputs.size}, outputs=${access.outputs.size}.`);
+      } catch (e) {
+        log(`MIDI error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    requestSerial.addEventListener("click", async () => {
+      if (!navigator.serial?.requestPort) { log("Serial API unavailable."); return; }
+      try {
+        await navigator.serial.requestPort();
+        log("Serial port selected.");
+      } catch (e) {
+        log(`Serial error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    requestHid.addEventListener("click", async () => {
+      if (!navigator.hid?.requestDevice) { log("HID API unavailable."); return; }
+      try {
+        const devices = await navigator.hid.requestDevice({ filters: [] });
+        log(`HID selected: ${devices.length} device(s).`);
+      } catch (e) {
+        log(`HID error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    requestUsb.addEventListener("click", async () => {
+      if (!navigator.usb?.getDevices) { log("USB API unavailable."); return; }
+      try {
+        const devices = await navigator.usb.getDevices();
+        log(`USB grants: ${devices.length} device(s).`);
+      } catch (e) {
+        log(`USB error: ${e.name}: ${e.message}`);
+      }
+    });
+
+    requestBluetooth.addEventListener("click", async () => {
+      if (!navigator.bluetooth?.requestDevice) { log("Bluetooth API unavailable."); return; }
+      try {
+        const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
+        log(`Bluetooth device selected: ${device.name || "(unnamed)"}.`);
+      } catch (e) {
+        log(`Bluetooth error: ${e.name}: ${e.message}`);
+      }
+    });
+
     // ── Microphone ─────────────────────────────────────────────
 
     startMic.addEventListener("click", async () => {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        wireTrackLogging(micStream, "Microphone");
         startMic.disabled = true;
         stopMic.disabled = false;
         micStatus.classList.add("active");
@@ -294,6 +471,7 @@
     startCam.addEventListener("click", async () => {
       try {
         camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        wireTrackLogging(camStream, "Camera");
         camPreview.srcObject = camStream;
         camPreview.classList.add("visible");
         startCam.disabled = true;
@@ -321,6 +499,7 @@
     startBoth.addEventListener("click", async () => {
       try {
         bothStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        wireTrackLogging(bothStream, "Mic+Camera");
         bothPreview.srcObject = bothStream;
         bothPreview.style.display = "block";
         startBoth.disabled = true;
@@ -352,6 +531,7 @@
       }
       try {
         captureStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        wireTrackLogging(captureStream, "Screen capture");
         captureStream.getVideoTracks()[0].addEventListener("ended", () => {
           // User stopped sharing via the browser's built-in stop button
           captureStream = null;
@@ -423,6 +603,15 @@
     log(`Supports getUserMedia: ${typeof navigator.mediaDevices?.getUserMedia === "function" ? "yes ✓" : "no"}`);
     log(`Supports getDisplayMedia: ${typeof navigator.mediaDevices?.getDisplayMedia === "function" ? "yes ✓" : "no"}`);
     log(`Supports geolocation: ${typeof navigator.geolocation?.getCurrentPosition === "function" ? "yes ✓" : "no"}`);
+    log(`Supports Permissions API: ${typeof navigator.permissions?.query === "function" ? "yes ✓" : "no"}`);
+    log(`Supports Clipboard API: ${typeof navigator.clipboard?.readText === "function" ? "yes ✓" : "no"}`);
+    const deviceApiSupport = [
+      navigator.serial ? "serial" : "",
+      navigator.hid ? "hid" : "",
+      navigator.usb ? "usb" : "",
+      navigator.bluetooth ? "bluetooth" : ""
+    ].filter(Boolean).join(" ") || "none";
+    log(`Supports Serial/HID/USB/Bluetooth: ${deviceApiSupport}`);
   </script>
 </body>
 </html>
