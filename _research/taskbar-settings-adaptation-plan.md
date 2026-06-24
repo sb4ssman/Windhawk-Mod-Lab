@@ -7,6 +7,22 @@ settings rubric without changing default behavior. The goal is uniform
 capabilities, naming, code structure, and UI settings where those concepts
 apply. The goal is not to make every mod expose every control.
 
+## Normalization Status — 2026-06-24
+
+- `taskbar-folder-menus`: settings follow host, content, layout, dimensions,
+  content styling, surface/state styling, group geometry, then Shell behavior.
+- `privacy-indicator-anchor`: visible settings use canonical `fillOrder`,
+  `buttonSpacing`, `groupPaddingLeft/Right`, and `groupOffsetX/Y`; legacy names
+  remain accepted.
+- `omnibutton-customizer`: keeps truthful `slotWidth` / `slotHeight`, while
+  visible per-item nudges use canonical `<item>OffsetX/Y` names with legacy
+  aliases.
+- `taskbar-vd-switcher`: settings are ordered by placement, grid, dimensions,
+  content, surface/state, group geometry, then special behavior.
+- `tray-utility-customizer`: follows the same hierarchy, with detection and
+  diagnostics last.
+- Clock Spacer and Taskmanager Tail remain outside this visual-control pass.
+
 ## Non-Negotiables
 
 - Preserve current defaults.
@@ -339,4 +355,3 @@ Plan:
 - Unload removes injected elements and restores native UI.
 - Click/hit-test behavior is unchanged.
 - README and embedded Windhawk settings describe only controls that are real.
-

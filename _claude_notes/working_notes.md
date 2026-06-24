@@ -12,15 +12,20 @@
 
 ## Current focus
 
-1. **Clock Spacer** — v1.0, PR submitted: https://github.com/ramensoftware/windhawk-mods/pull/4443. Retry thread converted to a stoppable scan thread and waited in `Wh_ModUninit` with a sent-message pump. User manually toggled the mod off/on several times with no issue after the readiness pass. Fixed restart persistence: LoadLibraryExW fallback hook, Wh_ApplyHookOperations in AfterInit, atomic g_systemTrayModuleHooked, GetSystemTrayModuleHandle version check, added -lversion to compilerOptions. **Next: monitor maintainer review.**
+1. **Clock Spacer** — STALEMATE. PR #4443 (standalone) redirected by m417z to his dev repo. Integration PR #68 (m417z/my-windhawk-mods) stalled: m417z wants a TextAlignment=Justify + non-justifying-spaces approach; we couldn't get it to work and fell back to generated Grid/star-column layout which he won't accept for complexity. Left research at `taskbar-clock-customization-spacer/` and `_archive/clock-spacer/` for him to adapt if he chooses. **No further action planned.**
    - Important discovery: `%s%` at line edges is useful. `%s%content` right-aligns, `content%s%` left-aligns, `%s%content%s%` centers. This makes Clock Spacer a per-row alignment tool, not only a between-token gap tool.
-   - Upstream posture: include note that the standalone companion is ready as-is, and that we would be happy to see the elastic `%s%` token absorbed into Taskbar Clock Customization if m417z wants it there. Best native implementation would use the clock mod's raw format strings plus real XAML text measurement to choose/cap width.
 
-2. **Taskbar Virtual Desktop Switcher** — v1.5 published as `taskbar-vd-switcher` (PR #3932, merged 2026-06-17). v1.6 improvements are in-tree locally. PR #4484 (mis-submitted under `virtual-desktop-switcher` id) needs to be closed; v1.6 should be resubmitted as an update PR against the existing mod file. **Next: close #4484, open update PR.**
+2. **Taskbar Virtual Desktop Switcher** — v1.5 published as `taskbar-vd-switcher` (PR #3932, merged 2026-06-17). v1.6 update PR #4516 open: https://github.com/ramensoftware/windhawk-mods/pull/4516. **Next: monitor review.**
 
 3. **Taskbar Folder Menus** — v0.5, PR #4485 open: https://github.com/ramensoftware/windhawk-mods/pull/4485. Features: right-click Shell context menu, "Open in Explorer" in subfolder headers, lazy subfolder loading, `#4488FF` default hover. **Next: monitor review.**
 
-4. **Vertical OmniButton** — v1.4, PR #3859 updated. All review fixes applied. Retry thread removed. Test before declaring ready.
+4. **OmniButton Customizer** — active development. New in latest build (4e5e347):
+   - `batteryPercentMode: independent` — battery glyph and percent placed as independent grid items at any position. Battery CP spans full grid; glyph at (bCol*slotW, bRow*slotH), percent at ((pCol-1)*slotW, pRow*slotH) absolute within CP.
+   - Per-glyph colors: `wifiColor`, `volumeColor`, `batteryColor`, `percentColor` (hex #RRGGBB or #AARRGGBB). Searches for `InnerTextBlock` by name, fallback to first TextBlock in subtree.
+   - Animated colors: `wifiColorTo` etc. + `colorAnimateDuration` — WinRT Storyboard+ColorAnimation looping pulse.
+   - Unknown slot logging for future Windows builds.
+   - PR #3859 (vertical-omnibutton) still open — can retire once customizer is submitted.
+   **Next: test in Windhawk; verify independent mode math and color application; then PR as omnibutton-customizer.**
 
 5. **Privacy Indicator Anchor** — v0.7 (in-tree, NOT committed). Full Option C grid: `itemOrder` (comma-separated token list replaces show* booleans and layoutMode), `gridColumns`, `gridFillOrder` (rowFirst/colFirst), `shortGroupPosition` (first/last), `shortGroupAlign` (center/start/end). `ComputeIconPlacement()` helper handles all arrangements. Camera experimental (0xE722, requires NoPhysicalCameraLED). Test page updated with camera + mic+cam combined section. Archive: tpia-test3.cpp.
 
@@ -42,9 +47,9 @@
 
 Status: omnibutton ✓, vd-switcher ✓, clock-spacer TBD, taskmanager-tail N/A (no system tray hook), folder-menu TBD, privacy-anchor TBD.
 
-### OmniButton PR #3859 — open items before merge
-- [x] README doc: `→ Settings → Textual mode.` — DONE
-- [ ] Investigate whether retry thread can be eliminated (m417z questioned its necessity)
+### OmniButton PR #3859 — status
+
+Contacted m417z (2026-06-21) to propose retiring vertical-omnibutton in favor of omnibutton-customizer. Awaiting response. If he agrees, close #3859 and submit omnibutton-customizer as the single OmniButton mod. If not, the 5 inline review comments from 2026-05-09 still need a response commit (ARM64 probe, retry thread, %% escape, README wording, auto-revoke) — handled in separate chat.
 
 ---
 

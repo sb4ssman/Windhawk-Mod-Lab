@@ -43,9 +43,6 @@ This recreates the most useful part of the classic Windows taskbar toolbar workf
 | Button width | 32 px | Width of each folder button |
 | Button height | 22 px | Height of each folder button |
 | Button spacing | 4 px | Gap between buttons |
-| Max menu items | 0 (unlimited) | Limit items shown per folder |
-| Subfolder depth | 0 (unlimited) | How many subfolder levels to include |
-| Show hidden/system items | Off | Include hidden and system Shell items |
 | Default button text | 📁 | Fallback icon for entries with long labels |
 | Text/icon size | 10 pt | Button label font size |
 | Text color | *(system)* | Optional `#RRGGBB` or `#AARRGGBB` |
@@ -61,6 +58,9 @@ This recreates the most useful part of the classic Windows taskbar toolbar workf
 | Group padding right | 0 px | Extra space to the right of the button group |
 | Group X offset | 0 px | Shift the entire group left or right |
 | Group Y offset | 0 px | Shift the entire group up or down |
+| Max menu items | 0 (unlimited) | Limit items shown per folder |
+| Subfolder depth | 0 (unlimited) | How many subfolder levels to include |
+| Show hidden/system items | Off | Include hidden and system Shell items |
 
 ## Folder entry format
 

@@ -50,30 +50,30 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Position | After clock | Where to place the switcher: system tray positions, left/right of Start, or over Start |
-| Button width | 20 px | Width of each button |
-| Button height | 22 px | Height of each button |
-| Button spacing | 2 px | Gap between buttons in the grid |
 | Grid mode | Smart automatic | Smart, single row/column, fixed rows, fixed columns, or fixed grid |
 | Smart layout | Balanced | Balanced, pack vertical, or pack horizontal |
 | Fill order | Row-first | Row-first or column-first |
 | Rows | 0 (auto) | Fixed rows, or max rows for smart mode when set |
 | Columns | 0 (auto) | Fixed columns, or max columns for smart mode when set |
 | Short group alignment | Center | Align a shorter last row/column to start, center, or end |
+| Button width | 20 px | Width of each button |
+| Button height | 22 px | Height of each button |
+| Button spacing | 2 px | Gap between buttons in the grid |
+| Label format | Numbers | Numbers · Roman numerals · Dots · Custom |
+| Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
+| Font size | 10 pt | Button label size |
 | Active color | `#4488FF` | Background for the current desktop |
 | Inactive color | *(system)* | Background for other desktops |
 | Opacity | 100 | 0–100; lower values let the taskbar show through |
 | Shine effect | Off | Gradient highlight on buttons with custom colors |
-| Label format | Numbers | Numbers · Roman numerals · Dots · Custom |
-| Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
-| Padding left | 0 px | Extra space to the left of the button grid |
-| Padding right | 2 px | Extra space to the right of the button grid |
 | Active text color | *(system)* | Foreground color for the current-desktop button |
 | Inactive text color | *(system)* | Foreground color for other buttons |
-| Font size | 10 pt | Button label size |
 | Corner radius | 4 px | Rounded corners (0 = square, 4 = Windows default) |
 | Active bold | Off | Bold the current desktop's label |
 | Border thickness | 0 px | Button border width |
 | Border color | *(system)* | Button border color |
+| Padding left | 0 px | Extra space to the left of the button grid |
+| Padding right | 2 px | Extra space to the right of the button grid |
 | Hide when single | Off | Don't show the bar when only one desktop exists |
 | Task View button | Off | Optional button that opens Task View for previewing, creating, or closing desktops |
 | Task View button label | ⊞ | Text shown on the Task View button |

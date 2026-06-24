@@ -16,17 +16,16 @@ or Widgets frequently access location.
 - Row-first or column-first grid fill
 - Short row/column placement and alignment controls
 - Placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
-- Per-icon X/Y nudges plus whole-bar X/Y offset
+- Per-icon X/Y nudges plus whole-group X/Y offset
 - Optional active glow and custom active color
 - Optional testing toggle to let Windows' native privacy indicators appear
 
 ## Settings Compatibility
 
-The mod keeps its existing user-facing icon names, such as `iconSpacing` and
-`barOffsetX/Y`, because they describe the privacy indicator UI clearly. The code
-also accepts the shared taskbar-control aliases `buttonSpacing`,
-`groupPaddingLeft/Right`, `groupOffsetX/Y`, and `fillOrder` for consistency with
-the other lab mods.
+The visible settings use the shared taskbar-control names `fillOrder`,
+`buttonSpacing`, `groupPaddingLeft/Right`, and `groupOffsetX/Y`. Existing
+configurations using `gridFillOrder`, `iconSpacing`, `paddingLeft/Right`, or
+`barOffsetX/Y` remain supported as compatibility aliases.
 
 ## Files
 
@@ -52,3 +51,6 @@ the `NoPhysicalCameraLED` registry behavior applies.
 `suppressNativeIndicators` defaults to `1` so the mod hides Windows' own pop-in
 privacy indicators and mirrors state into the stable placeholders. Set it to `0`
 temporarily when comparing against Windows' native tray glyphs during testing.
+
+Run `privacy-diag.ps1 -Watch` while flipping hardware privacy switches to see
+compact microphone and camera state changes without restarting the full report.

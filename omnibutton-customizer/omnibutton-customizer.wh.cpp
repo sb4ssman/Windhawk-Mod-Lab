@@ -75,15 +75,21 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 
 // ==WindhawkModSettings==
 /*
-- slotWidth: 32
-  $name: Slot width (px)
+- itemOrder: "wifi volume battery percent"
+  $name: Item order
   $description: >-
-    Width of each grid column in pixels. Default 32 matches the standard icon size.
+    Space-separated tokens in grid fill order: wifi, volume, battery, percent.
+    Absent items (no battery on desktop) are skipped automatically.
 
-- slotHeight: 0
-  $name: Slot height (px, 0 = auto)
+- batteryPercentMode: coupled
+  $name: Battery / percent mode
   $description: >-
-    Height of each grid row. 0 = taskbar height ÷ rows (minimum 20px, capped at 32px).
+    Coupled: percent renders inside the battery slot (native behavior).
+    Independent: battery glyph and percent are independent grid items and can be
+    placed anywhere — even non-adjacent cells.
+  $options:
+  - coupled: Coupled
+  - independent: Independent
 
 - gridColumns: 2
   $name: Grid columns (0 = auto)
@@ -109,47 +115,41 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
   - center: Center
   - end: End (right/bottom)
 
+- slotWidth: 32
+  $name: Slot width (px)
+  $description: >-
+    Width of each grid column in pixels. Default 32 matches the standard icon size.
+
+- slotHeight: 0
+  $name: Slot height (px, 0 = auto)
+  $description: >-
+    Height of each grid row. 0 = taskbar height ÷ rows (minimum 20px, capped at 32px).
+
 - buttonHorizontalPadding: 2
   $name: Button horizontal padding (px)
   $description: Internal horizontal padding on each side of the grid. Default 2.
 
-- itemOrder: "wifi volume battery percent"
-  $name: Item order
-  $description: >-
-    Space-separated tokens in grid fill order: wifi, volume, battery, percent.
-    Absent items (no battery on desktop) are skipped automatically.
-
-- batteryPercentMode: coupled
-  $name: Battery / percent mode
-  $description: >-
-    Coupled: percent renders inside the battery slot (native behavior).
-    Independent: battery glyph and percent are independent grid items and can be
-    placed anywhere — even non-adjacent cells.
-  $options:
-  - coupled: Coupled
-  - independent: Independent
-
-- wifiX: 0
+- wifiOffsetX: 0
   $name: Wifi nudge X
   $description: Fine horizontal offset for the wifi glyph. Negative = left.
 
-- wifiY: 0
+- wifiOffsetY: 0
   $name: Wifi nudge Y
   $description: Fine vertical offset for the wifi glyph. Negative = up.
 
-- volumeX: 0
+- volumeOffsetX: 0
   $name: Volume nudge X
-- volumeY: 0
+- volumeOffsetY: 0
   $name: Volume nudge Y
 
-- batteryX: 0
+- batteryOffsetX: 0
   $name: Battery nudge X
-- batteryY: 0
+- batteryOffsetY: 0
   $name: Battery nudge Y
 
-- percentX: 0
+- percentOffsetX: 0
   $name: Battery percent nudge X
-- percentY: 0
+- percentOffsetY: 0
   $name: Battery percent nudge Y
 
 - wifiColor: ""
@@ -204,6 +204,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 #include <windows.h>
 
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
@@ -1135,7 +1136,9 @@ static bool CleanupLiveOmniButton() {
         auto ip   = cp   ? FindChildByClassName(cp, L"Windows.UI.Xaml.Controls.ItemsPresenter") : nullptr;
         auto sp   = ip   ? FindChildByClassName(ip, L"Windows.UI.Xaml.Controls.StackPanel").try_as<StackPanel>() : nullptr;
         if (!sp || !sp.IsItemsHost()) return false;
-        FrameworkElement wifi, vol, batt, bglyph, bpct; StackPanel bip;
+        FrameworkElement wifi{nullptr}, vol{nullptr}, batt{nullptr};
+        FrameworkElement bglyph{nullptr}, bpct{nullptr};
+        StackPanel bip{nullptr};
         int nc = VisualTreeHelper::GetChildrenCount(sp);
         if (nc >= 1) wifi = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
         if (nc >= 2) vol  = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
@@ -1306,7 +1309,8 @@ BOOL Wh_ModInit() {
         Wh_Log(L"[Init] System tray module not loaded yet");
         HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
         auto pLoad = kb ? reinterpret_cast<LoadLibraryExW_t>(GetProcAddress(kb, "LoadLibraryExW")) : nullptr;
-        if (pLoad) WindhawkUtils::Wh_SetFunctionHookT(pLoad, LoadLibraryExW_Hook, &LoadLibraryExW_Original);
+        if (pLoad) WindhawkUtils::SetFunctionHook(
+            pLoad, LoadLibraryExW_Hook, &LoadLibraryExW_Original);
     }
     return TRUE;
 }

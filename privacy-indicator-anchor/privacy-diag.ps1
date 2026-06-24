@@ -1,4 +1,8 @@
 #Requires -Version 5.1
+param(
+    [switch]$Watch,
+    [int]$WatchIntervalSeconds = 2
+)
 <#
 .SYNOPSIS
     Privacy Indicator Anchor — diagnostic script
@@ -48,8 +52,7 @@ function Verdict($feature, [bool]$disabled) {
 # Load WinRT type for DeviceAccessInformation (used in Camera section)
 $winrtLoaded = $false
 try {
-    $null = [Windows.Devices.Enumeration.DeviceAccessInformation,
-             Windows.Devices.Enumeration, ContentType=WindowsRuntime]
+    $null = [Windows.Devices.Enumeration.DeviceAccessInformation, Windows.Devices.Enumeration, ContentType=WindowsRuntime]
     $winrtLoaded = $true
 } catch {}
 
@@ -444,3 +447,41 @@ foreach ($kv in $candidates.GetEnumerator()) {
 
 Write-Host ""
 Write-Host "Done." -ForegroundColor White
+
+function Get-CompactCameraState {
+    $dai = Get-CameraAccessStatus
+    $daiText = if ($null -ne $dai) { "$dai/$([int]$dai)" } else { "unavailable" }
+    $cams = @(Get-PnpDevice -Class 'Camera' -ErrorAction SilentlyContinue |
+              Where-Object { $_.FriendlyName -notmatch '\bIR\b|Hello|Face' })
+    if ($cams.Count -eq 0) {
+        return "DeviceAccess=$daiText; non-IR camera=none"
+    }
+    $parts = foreach ($cam in $cams) {
+        $probProp = $cam | Get-PnpDeviceProperty -KeyName 'DEVPKEY_Device_ProblemCode' -ErrorAction SilentlyContinue
+        $probCode = if ($probProp -and $null -ne $probProp.Data) { $probProp.Data } else { "" }
+        $problemText = if ($probCode -ne '') { "/Problem=$probCode" } else { "" }
+        "{0}:{1}{2}" -f $cam.FriendlyName, $cam.Status, $problemText
+    }
+    return "DeviceAccess=$daiText; " + ($parts -join '; ')
+}
+
+function Get-CompactMicState {
+    try {
+        $endpoint = [AudioDiag]::CheckMicEndpoint()
+    } catch {
+        $endpoint = "AudioDiag unavailable"
+    }
+    $micHKCU = RegVal HKCU 'Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone' 'Value'
+    return "Endpoint=$endpoint; Consent=$micHKCU"
+}
+
+if ($Watch) {
+    Write-Host ""
+    Write-Host "Watching compact mic/camera state. Press Ctrl+C to stop." -ForegroundColor Cyan
+    while ($true) {
+        $now = Get-Date -Format 'HH:mm:ss'
+        Write-Host "[$now] Mic:    $(Get-CompactMicState)"
+        Write-Host "[$now] Camera: $(Get-CompactCameraState)"
+        Start-Sleep -Seconds ([Math]::Max(1, $WatchIntervalSeconds))
+    }
+}

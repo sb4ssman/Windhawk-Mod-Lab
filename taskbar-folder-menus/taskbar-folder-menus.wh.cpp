@@ -63,9 +63,6 @@ Emoji labels are a natural fit for narrow buttons. Label ideas: 📁 folder,
 | Button width | 32 px | Width of each folder button |
 | Button height | 22 px | Height of each folder button |
 | Button spacing | 4 px | Gap between buttons |
-| Max menu items | 0 (unlimited) | Limit items shown per folder |
-| Subfolder depth | 0 (unlimited) | How many subfolder levels to include |
-| Show hidden/system items | Off | Include hidden and system Shell items |
 | Default button text | 📁 | Fallback icon for entries with long labels |
 | Text/icon size | 10 pt | Button label font size |
 | Text color | *(system)* | Optional hex color for button labels |
@@ -81,6 +78,9 @@ Emoji labels are a natural fit for narrow buttons. Label ideas: 📁 folder,
 | Group padding right | 0 px | Extra space to the right of the button group |
 | Group X offset | 0 px | Shift the entire group left or right |
 | Group Y offset | 0 px | Shift the entire group up or down |
+| Max menu items | 0 (unlimited) | Limit items shown per folder |
+| Subfolder depth | 0 (unlimited) | How many subfolder levels to include |
+| Show hidden/system items | Off | Include hidden and system Shell items |
 
 ## Note on shell:Desktop
 
@@ -151,17 +151,6 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
 - buttonSpacing: 4
   $name: Button spacing (px)
 
-- maxMenuItems: 0
-  $name: Max menu items per folder
-  $description: Limit menu size for very large folders. 0 = unlimited.
-
-- maxDepth: 0
-  $name: Subfolder depth
-  $description: How many subfolder levels to include as nested menus. 0 = unlimited.
-
-- showHidden: false
-  $name: Show hidden/system items
-
 - buttonText: "📁"
   $name: Default button text
   $description: >-
@@ -223,6 +212,17 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
 - groupOffsetY: 0
   $name: Group Y offset (px)
   $description: Move the entire button group up (negative) or down (positive).
+
+- maxMenuItems: 0
+  $name: Max menu items per folder
+  $description: Limit menu size for very large folders. 0 = unlimited.
+
+- maxDepth: 0
+  $name: Subfolder depth
+  $description: How many subfolder levels to include as nested menus. 0 = unlimited.
+
+- showHidden: false
+  $name: Show hidden/system items
 
 */
 // ==/WindhawkModSettings==

@@ -49,7 +49,7 @@ and `shortGroupAlign` to control where it sits and how it's aligned:
 | last           | start  | `[loc  mic]` / `[cam     ]` |
 | last           | end    | `[loc  mic]` / `[     cam]` |
 
-`gridFillOrder: colFirst` fills columns instead of rows, giving vertical
+`fillOrder: colFirst` fills columns instead of rows, giving vertical
 arrangements like:
 
 ```
@@ -61,11 +61,15 @@ arrangements like:
 
 // ==WindhawkModSettings==
 /*
-- idleOpacity: 50
-  $name: Idle opacity (0-100)
-  $description: >-
-    Opacity when no app is using the feature. 0 = invisible but space reserved;
-    100 = always full brightness.
+- position: "beforeOmni"
+  $name: Position
+  $description: Where to place the privacy placeholders in the tray.
+  $options:
+  - "beforeIcons": "Before notification icons"
+  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
+  - "beforeClock": "Before clock"
+  - "afterClock": "After clock"
+  - "afterShowDesktop": "After Show Desktop strip"
 
 - itemOrder: "location,mic,camera"
   $name: Icon order
@@ -80,7 +84,7 @@ arrangements like:
     Number of columns. 1 = vertical stack. 2 = two-column grid (default). Set
     to 3 or more for a single row when showing 3 icons.
 
-- gridFillOrder: "rowFirst"
+- fillOrder: "rowFirst"
   $name: Fill order
   $description: Whether items fill left-to-right then down, or top-to-bottom then right.
   $options:
@@ -108,33 +112,9 @@ arrangements like:
 - iconSize: 16
   $name: Icon size (pt)
 
-- position: "beforeOmni"
-  $name: Position
-  $description: Where to place the privacy placeholders in the tray.
-  $options:
-  - "beforeIcons": "Before notification icons"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeClock": "Before clock"
-  - "afterClock": "After clock"
-  - "afterShowDesktop": "After Show Desktop strip"
-
-- paddingLeft: 0
-  $name: Padding left (px)
-
-- paddingRight: 0
-  $name: Padding right (px)
-
-- iconSpacing: 4
+- buttonSpacing: 4
   $name: Icon spacing (px)
   $description: Gap between icons in both directions.
-
-- barOffsetX: 0
-  $name: Bar X offset (px)
-  $description: Move the entire bar left (negative) or right (positive).
-
-- barOffsetY: 0
-  $name: Bar Y offset (px)
-  $description: Move the entire bar up (negative) or down (positive).
 
 - locationOffsetX: 0
   $name: Location X offset (px)
@@ -159,6 +139,12 @@ arrangements like:
 
 - copilotOffsetY: 0
   $name: Copilot Y offset (px)
+
+- idleOpacity: 50
+  $name: Idle opacity (0-100)
+  $description: >-
+    Opacity when no app is using the feature. 0 = invisible but space reserved;
+    100 = always full brightness.
 
 - glowEnabled: 0
   $name: Glow when active (1=on, 0=off)
@@ -207,6 +193,20 @@ arrangements like:
   $description: >-
     Opacity of the disabled slash overlay. 100 = fully visible (default).
     Lower values make the slash more subtle.
+
+- groupPaddingLeft: 0
+  $name: Group padding left (px)
+
+- groupPaddingRight: 0
+  $name: Group padding right (px)
+
+- groupOffsetX: 0
+  $name: Group X offset (px)
+  $description: Move the entire icon group left (negative) or right (positive).
+
+- groupOffsetY: 0
+  $name: Group Y offset (px)
+  $description: Move the entire icon group up (negative) or down (positive).
 
 - suppressNativeIndicators: 1
   $name: Suppress Windows privacy indicators (1=on, 0=off)
@@ -368,6 +368,7 @@ static HWND              g_taskbarWnd           = nullptr;
 static bool              g_taskbarViewDllLoaded = false;
 static HANDLE            g_retryThread          = nullptr;
 static HANDLE            g_retryStopEvent       = nullptr;
+static HANDLE            g_stateRefreshEvent    = nullptr;
 
 static std::atomic<bool> g_locActive{false};
 static std::atomic<bool> g_micActive{false};
@@ -834,7 +835,10 @@ static bool CheckMicDisabled() {
     IMMDevice* pDev = nullptr;
     HRESULT hr = pEnum->GetDefaultAudioEndpoint(eCapture, eConsole, &pDev);
     pEnum->Release();
-    if (FAILED(hr)) return false;  // E_NOTFOUND = no capture device at all
+    if (FAILED(hr)) {
+        Wh_Log(L"[Mic] => disabled/unavailable (no default capture endpoint), hr=0x%08X", hr);
+        return true;  // E_NOTFOUND = no capture device at all
+    }
 
     bool disabled = false;
     DWORD state = 0;
@@ -854,6 +858,160 @@ static bool CheckMicDisabled() {
     pDev->Release();
     return disabled;
 }
+
+class MicPrivacyMonitor final : public IMMNotificationClient,
+                                public IAudioEndpointVolumeCallback {
+public:
+    explicit MicPrivacyMonitor(HANDLE refreshEvent) : m_refreshEvent(refreshEvent) {}
+
+    HRESULT Init() {
+        HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                      IID_PPV_ARGS(&m_enum));
+        if (FAILED(hr)) {
+            Wh_Log(L"[MicMon] MMDeviceEnumerator failed hr=0x%08X", hr);
+            return hr;
+        }
+
+        hr = m_enum->RegisterEndpointNotificationCallback(this);
+        if (FAILED(hr)) {
+            Wh_Log(L"[MicMon] RegisterEndpointNotificationCallback failed hr=0x%08X", hr);
+        }
+
+        AttachDefaultEndpoint();
+        SignalRefresh(L"init");
+        return S_OK;
+    }
+
+    void Cleanup() {
+        DetachEndpointVolume();
+        if (m_enum) {
+            m_enum->UnregisterEndpointNotificationCallback(this);
+            m_enum->Release();
+            m_enum = nullptr;
+        }
+    }
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override {
+        if (!ppvObject) return E_POINTER;
+        if (riid == __uuidof(IUnknown) || riid == __uuidof(IMMNotificationClient)) {
+            *ppvObject = static_cast<IMMNotificationClient*>(this);
+        } else if (riid == __uuidof(IAudioEndpointVolumeCallback)) {
+            *ppvObject = static_cast<IAudioEndpointVolumeCallback*>(this);
+        } else {
+            *ppvObject = nullptr;
+            return E_NOINTERFACE;
+        }
+        AddRef();
+        return S_OK;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() override {
+        return (ULONG)InterlockedIncrement(&m_refCount);
+    }
+
+    ULONG STDMETHODCALLTYPE Release() override {
+        ULONG count = (ULONG)InterlockedDecrement(&m_refCount);
+        if (count == 0) m_refCount = 1; // lifetime is owned by the monitor thread
+        return count;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) override {
+        Wh_Log(L"[MicMon] DeviceStateChanged state=0x%X id=%s", dwNewState, pwstrDeviceId ? pwstrDeviceId : L"");
+        AttachDefaultEndpoint();
+        SignalRefresh(L"device state");
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) override {
+        Wh_Log(L"[MicMon] DeviceAdded id=%s", pwstrDeviceId ? pwstrDeviceId : L"");
+        AttachDefaultEndpoint();
+        SignalRefresh(L"device added");
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) override {
+        Wh_Log(L"[MicMon] DeviceRemoved id=%s", pwstrDeviceId ? pwstrDeviceId : L"");
+        AttachDefaultEndpoint();
+        SignalRefresh(L"device removed");
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDefaultDeviceId) override {
+        if (flow == eCapture && (role == eConsole || role == eCommunications)) {
+            Wh_Log(L"[MicMon] DefaultDeviceChanged role=%d id=%s", (int)role,
+                   pwstrDefaultDeviceId ? pwstrDefaultDeviceId : L"");
+            AttachDefaultEndpoint();
+            SignalRefresh(L"default device");
+        }
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY) override {
+        Wh_Log(L"[MicMon] PropertyValueChanged id=%s", pwstrDeviceId ? pwstrDeviceId : L"");
+        SignalRefresh(L"property");
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnNotify(PAUDIO_VOLUME_NOTIFICATION_DATA pNotify) override {
+        if (pNotify) {
+            Wh_Log(L"[MicMon] EndpointVolume muted=%d master=%.3f",
+                   pNotify->bMuted ? 1 : 0, pNotify->fMasterVolume);
+        } else {
+            Wh_Log(L"[MicMon] EndpointVolume changed");
+        }
+        SignalRefresh(L"endpoint volume");
+        return S_OK;
+    }
+
+private:
+    void SignalRefresh(PCWSTR reason) {
+        Wh_Log(L"[MicMon] Refresh requested: %s", reason);
+        if (m_refreshEvent) SetEvent(m_refreshEvent);
+    }
+
+    void DetachEndpointVolume() {
+        if (m_volume) {
+            m_volume->UnregisterControlChangeNotify(this);
+            m_volume->Release();
+            m_volume = nullptr;
+        }
+        if (m_device) {
+            m_device->Release();
+            m_device = nullptr;
+        }
+    }
+
+    void AttachDefaultEndpoint() {
+        if (!m_enum) return;
+        DetachEndpointVolume();
+
+        HRESULT hr = m_enum->GetDefaultAudioEndpoint(eCapture, eConsole, &m_device);
+        if (FAILED(hr)) {
+            Wh_Log(L"[MicMon] Default capture endpoint unavailable hr=0x%08X", hr);
+            return;
+        }
+
+        hr = m_device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL, nullptr,
+                                reinterpret_cast<void**>(&m_volume));
+        if (FAILED(hr)) {
+            Wh_Log(L"[MicMon] EndpointVolume activate failed hr=0x%08X", hr);
+            return;
+        }
+
+        hr = m_volume->RegisterControlChangeNotify(this);
+        if (FAILED(hr)) {
+            Wh_Log(L"[MicMon] RegisterControlChangeNotify failed hr=0x%08X", hr);
+        } else {
+            Wh_Log(L"[MicMon] Watching default capture endpoint volume");
+        }
+    }
+
+    volatile LONG m_refCount = 1;
+    HANDLE m_refreshEvent = nullptr;
+    IMMDeviceEnumerator* m_enum = nullptr;
+    IMMDevice* m_device = nullptr;
+    IAudioEndpointVolume* m_volume = nullptr;
+};
 
 // Returns true if a camera device exists in the Windows device database but none is
 // currently accessible — i.e. the physical kill switch has cut power to the camera.
@@ -886,7 +1044,7 @@ static bool CheckCameraDisabled() {
     bool hasAny = SetupDiEnumDeviceInfo(allDevs, 0, &d) == TRUE;
     SetupDiDestroyDeviceInfoList(allDevs);
     Wh_Log(L"[Cam] hasAny=%d", hasAny);
-    if (!hasAny) { Wh_Log(L"[Cam] => enabled (no camera hardware)"); return false; }
+    if (!hasAny) { Wh_Log(L"[Cam] => disabled/unavailable (no camera hardware)"); return true; }
     // Check if any non-IR camera is present (powered on)
     // Filter out IR/Hello cameras which are always-on and would mask a hardware kill switch.
     HDEVINFO presentDevs = SetupDiGetClassDevs(&GUID_DEVCLASS_CAMERA_LOCAL, nullptr, nullptr, DIGCF_PRESENT);
@@ -1773,9 +1931,12 @@ static void ApplyStyleOnWindowThread() {
 
 static void StopRetryThread() {
     if (g_retryStopEvent) SetEvent(g_retryStopEvent);
+    if (g_stateRefreshEvent) SetEvent(g_stateRefreshEvent);
     if (g_retryThread) { WaitForSingleObject(g_retryThread, 3000); CloseHandle(g_retryThread); }
     if (g_retryStopEvent) CloseHandle(g_retryStopEvent);
+    if (g_stateRefreshEvent) CloseHandle(g_stateRefreshEvent);
     g_retryThread = nullptr; g_retryStopEvent = nullptr;
+    g_stateRefreshEvent = nullptr;
 }
 
 // ============================================================
@@ -1896,10 +2057,16 @@ void Wh_ModAfterInit() {
         ApplyStyleOnWindowThread();
 
     g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!g_retryStopEvent) return;
-    HANDLE stopEvent = g_retryStopEvent;
+    g_stateRefreshEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!g_retryStopEvent || !g_stateRefreshEvent) {
+        if (g_retryStopEvent) { CloseHandle(g_retryStopEvent); g_retryStopEvent = nullptr; }
+        if (g_stateRefreshEvent) { CloseHandle(g_stateRefreshEvent); g_stateRefreshEvent = nullptr; }
+        return;
+    }
     g_retryThread = CreateThread(nullptr, 0, [](void* param) -> DWORD {
-        HANDLE stop = static_cast<HANDLE>(param);
+        UNREFERENCED_PARAMETER(param);
+        HANDLE stop = g_retryStopEvent;
+        HANDLE refresh = g_stateRefreshEvent;
         // Phase 1: retry injection up to 5×
         for (int i = 0; i < 5 && !g_unloading; i++) {
             if (WaitForSingleObject(stop, 2000) != WAIT_TIMEOUT) return 0;
@@ -1909,19 +2076,28 @@ void Wh_ModAfterInit() {
         }
         // Phase 2: poll hardware-disabled states every 3 seconds
         if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return 0;
+        MicPrivacyMonitor micMonitor(refresh);
+        micMonitor.Init();
         Wh_Log(L"[Poll] Phase 2 starting — initial hardware state check");
         UpdateDisabledStates();
         Wh_Log(L"[Poll] Baseline: loc=%d mic=%d cam=%d copInst=%d copAct=%d copDis=%d",
                g_locDisabled.load(), g_micDisabled.load(), g_camDisabled.load(),
                g_copilotInstalled.load(), g_copilotActive.load(), g_copilotDisabled.load());
+        HANDLE waitEvents[] = { stop, refresh };
         while (!g_unloading) {
-            if (WaitForSingleObject(stop, 3000) != WAIT_TIMEOUT) break;
+            DWORD wait = WaitForMultipleObjects(ARRAYSIZE(waitEvents), waitEvents, FALSE, 3000);
+            if (wait == WAIT_OBJECT_0) break;
+            if (wait == WAIT_OBJECT_0 + 1) Wh_Log(L"[Poll] Native refresh event");
             UpdateDisabledStates();
         }
+        micMonitor.Cleanup();
         CoUninitialize();
         return 0;
-    }, stopEvent, 0, nullptr);
-    if (!g_retryThread) { CloseHandle(g_retryStopEvent); g_retryStopEvent = nullptr; }
+    }, nullptr, 0, nullptr);
+    if (!g_retryThread) {
+        CloseHandle(g_retryStopEvent); g_retryStopEvent = nullptr;
+        CloseHandle(g_stateRefreshEvent); g_stateRefreshEvent = nullptr;
+    }
 }
 
 void Wh_ModUninit() {

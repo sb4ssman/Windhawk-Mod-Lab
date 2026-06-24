@@ -64,30 +64,30 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Position | After clock | Where to place the switcher: system tray positions, left/right of Start, or over Start |
-| Button width | 20 px | Width of each button |
-| Button height | 22 px | Height of each button |
-| Button spacing | 2 px | Gap between buttons in the grid |
 | Grid mode | Smart automatic | Smart, single row/column, fixed rows, fixed columns, or fixed grid |
 | Smart layout | Balanced | Balanced, pack vertical, or pack horizontal |
 | Fill order | Row-first | Row-first or column-first |
 | Rows | 0 (auto) | Fixed rows, or max rows for smart mode when set |
 | Columns | 0 (auto) | Fixed columns, or max columns for smart mode when set |
 | Short group alignment | Center | Align a shorter last row/column to start, center, or end |
+| Button width | 20 px | Width of each button |
+| Button height | 22 px | Height of each button |
+| Button spacing | 2 px | Gap between buttons in the grid |
+| Label format | Numbers | Numbers · Roman numerals · Dots · Custom |
+| Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
+| Font size | 10 pt | Button label size |
 | Active color | `#4488FF` | Background for the current desktop |
 | Inactive color | *(system)* | Background for other desktops |
 | Opacity | 100 | 0–100; lower values let the taskbar show through |
 | Shine effect | Off | Gradient highlight on buttons with custom colors |
-| Label format | Numbers | Numbers · Roman numerals · Dots · Custom |
-| Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
-| Padding left | 0 px | Extra space to the left of the button grid |
-| Padding right | 2 px | Extra space to the right of the button grid |
 | Active text color | *(system)* | Foreground color for the current-desktop button |
 | Inactive text color | *(system)* | Foreground color for other buttons |
-| Font size | 10 pt | Button label size |
 | Corner radius | 4 px | Rounded corners (0 = square, 4 = Windows default) |
 | Active bold | Off | Bold the current desktop's label |
 | Border thickness | 0 px | Button border width |
 | Border color | *(system)* | Button border color |
+| Padding left | 0 px | Extra space to the left of the button grid |
+| Padding right | 2 px | Extra space to the right of the button grid |
 | Hide when single | Off | Don't show the bar when only one desktop exists |
 | Task View button | Off | Optional button that opens Task View for previewing, creating, or closing desktops |
 | Task View button position | After | Column before/after desktop buttons, or sliver row above/below |
@@ -129,16 +129,6 @@ This mod builds directly on patterns established by several community mods:
   - "nextToStart": "Left of Start button (experimental)"
   - "overStart": "Over Start button (experimental)"
   - "rightOfStart": "Right of Start button (experimental)"
-
-- buttonWidth: 20
-  $name: Button width (px)
-
-- buttonHeight: 22
-  $name: Button height (px)
-
-- buttonSpacing: 2
-  $name: Button spacing (px)
-  $description: Gap between buttons in the grid
 
 - gridMode: autoSmart
   $name: Grid mode
@@ -187,6 +177,41 @@ This mod builds directly on patterns established by several community mods:
     no limit). Ignored in Single row and Single column modes. In row-first fill,
     3 columns with 4 desktops gives a 3+1 layout.
 
+- shortGroupAlign: "center"
+  $name: Short column/row alignment
+  $description: >-
+    When the last column (column-first) or last row (row-first) has fewer
+    buttons than the others, where to place those buttons within the available space.
+  $options:
+  - "start": "Start (top for columns, left for rows)"
+  - "center": "Center"
+  - "end": "End (bottom for columns, right for rows)"
+
+- buttonWidth: 20
+  $name: Button width (px)
+
+- buttonHeight: 22
+  $name: Button height (px)
+
+- buttonSpacing: 2
+  $name: Button spacing (px)
+  $description: Gap between buttons in the grid
+
+- labelFormat: "number"
+  $name: Label format
+  $options:
+  - "number": "Numbers  1  2  3"
+  - "roman": "Roman numerals  I  II  III"
+  - "dot": "Dots  ●  ○  ○"
+  - "custom": "Custom labels"
+
+- customLabels: ""
+  $name: Custom labels (comma-separated, e.g. "H,W,M")
+  $description: Used when label format is Custom. Falls back to numbers if labels run out.
+
+- fontSize: 10
+  $name: Font size (pt)
+
 - activeBackgroundColor: "#4488FF"
   $name: Active desktop color (hex, empty = system default)
 
@@ -201,26 +226,11 @@ This mod builds directly on patterns established by several community mods:
   $name: Shine effect
   $description: Adds a subtle gradient highlight. Applies when a custom color is set.
 
-- labelFormat: "number"
-  $name: Label format
-  $options:
-  - "number": "Numbers  1  2  3"
-  - "roman": "Roman numerals  I  II  III"
-  - "dot": "Dots  ●  ○  ○"
-  - "custom": "Custom labels"
-
-- customLabels: ""
-  $name: Custom labels (comma-separated, e.g. "H,W,M")
-  $description: Used when label format is Custom. Falls back to numbers if labels run out.
-
 - activeTextColor: ""
   $name: Active desktop text color (hex, empty = system default)
 
 - inactiveTextColor: ""
   $name: Inactive button text color (hex, empty = system default)
-
-- fontSize: 10
-  $name: Font size (pt)
 
 - cornerRadius: 4
   $name: Corner radius (px)
@@ -234,10 +244,6 @@ This mod builds directly on patterns established by several community mods:
 
 - borderColor: ""
   $name: Button border color (hex, empty = system default)
-
-- hideWhenSingle: false
-  $name: Hide when only one desktop
-  $description: Don't show the button bar when there is only one virtual desktop
 
 - groupPaddingLeft: 0
   $name: Padding left (px)
@@ -254,15 +260,9 @@ This mod builds directly on patterns established by several community mods:
     centered position. 0 = auto-centered. Applies after automatic centering,
     so it works in combination with all grid and sliver settings.
 
-- shortGroupAlign: "center"
-  $name: Short column/row alignment
-  $description: >-
-    When the last column (column-first) or last row (row-first) has fewer
-    buttons than the others, where to place those buttons within the available space.
-  $options:
-  - "start": "Start (top for columns, left for rows)"
-  - "center": "Center"
-  - "end": "End (bottom for columns, right for rows)"
+- hideWhenSingle: false
+  $name: Hide when only one desktop
+  $description: Don't show the button bar when there is only one virtual desktop
 
 - showMasterButton: false
   $name: Show Task View button
@@ -2299,9 +2299,9 @@ BOOL Wh_ModInit() {
             ? reinterpret_cast<LoadLibraryExW_t>(GetProcAddress(kernelbase, "LoadLibraryExW"))
             : nullptr;
         if (pLoadLibraryExW)
-            WindhawkUtils::Wh_SetFunctionHookT(pLoadLibraryExW,
-                                               LoadLibraryExW_Hook,
-                                               &LoadLibraryExW_Original);
+            WindhawkUtils::SetFunctionHook(pLoadLibraryExW,
+                                           LoadLibraryExW_Hook,
+                                           &LoadLibraryExW_Original);
     }
     return TRUE;
 }

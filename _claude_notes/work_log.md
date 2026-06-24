@@ -108,6 +108,15 @@ with mod-prefixed filenames.
 - Both PR branches had stray `vertical-omnibutton.wh.cpp` (pulled from fork's diverged main); removed in follow-up commits
 - Both PRs passed CI after fixes
 
+## 2026-06-21 — PR status audit and VDS rename
+
+- Audited all open PRs and maintainer comments across ramensoftware/windhawk-mods and m417z/my-windhawk-mods.
+- Clock spacer confirmed stalled: PR #4443 (standalone) and PR #68 (integration) both at impasse; no further action planned.
+- Discovered PR #4484 (virtual-desktop-switcher) was a mistake: m417z confirmed mod IDs are permanent; the mod is already published as `taskbar-vd-switcher`.
+- Renamed local folder and source: `virtual-desktop-switcher/` → `taskbar-vd-switcher/`, `virtual-desktop-switcher.wh.cpp` → `taskbar-vd-switcher.wh.cpp`. Updated `@id`, `@name`, all asset URLs, and all references across CLAUDE.md, README.md, working_notes.md, work_log.md, research docs.
+- Closed PR #4484; opened PR #4516 as clean single-file update to existing mod: https://github.com/ramensoftware/windhawk-mods/pull/4516
+- Contacted m417z on PR #3859 to propose retiring vertical-omnibutton in favor of omnibutton-customizer (full superset: any grid, per-element nudge, item reorder). Awaiting response.
+
 ## 2026-06-15 — Clock Spacer PR readiness pass
 
 - User confirmed Clock Spacer has been working and toggled off/on several times without issues.

@@ -16,6 +16,7 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.5, submission prep | Compact taskbar buttons that open configured Shell targets as popup menus with right-click context menus and subfolder navigation |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
 | [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.6, published | Clickable virtual desktop buttons with grid layouts, Task View button, tray placement, and Start-adjacent placement |
+| [tray-utility-customizer/](tray-utility-customizer/) | v0.3, lab test | Arranges detected Windows tray utilities into a configurable row, column, or grid |
 
 ## Repository Layout
 
@@ -28,6 +29,7 @@ Windhawk-Mod-Lab/
   taskbar-folder-menus/
   taskmanager-tail/
   taskbar-vd-switcher/
+  tray-utility-customizer/
   _archive/          old retired folders or moved work
   _claude_notes/     root-level development notes for all mods
   _profiles/         local Windhawk profile snapshots
