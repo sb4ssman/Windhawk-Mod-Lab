@@ -1,6 +1,6 @@
 // ==WindhawkMod==
-// @id              tray-privacy-indicator-anchor
-// @name            Tray Privacy Indicator Anchor
+// @id              tray-privacy-indicator-anchor3
+// @name            Tray Privacy Indicator Anchor3
 // @description     Permanently shows location/microphone/camera/Copilot icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
 // @version         0.9
 // @author          sb4ssman
@@ -11,211 +11,11 @@
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
-/*
-# Tray Privacy Indicator Anchor
-
-Windows 11 shows location and microphone icons in the system tray when an app
-accesses those features, then removes them — causing nearby icons to shift.
-
-This mod injects permanent placeholder icons:
-
-- **Always visible** — dim when nothing is using the feature
-- **Full brightness** when the feature is actively in use
-- **Camera** — experimental placeholder; activates only on devices where
-  Windows shows a software camera indicator (requires `NoPhysicalCameraLED`
-  registry value, or a device with no hardware camera LED)
-- **Copilot** — experimental; shows whether the Copilot app is installed
-  and/or actively running. Slash overlay = not installed or disabled (by
-  group policy or the taskbar Settings toggle).
-
-## Icon order and grid layout
-
-`itemOrder` is a comma-separated list of icon tokens that controls which icons
-appear and in what sequence: `location`, `mic`, `camera`, `copilot`. Remove a
-token to hide that icon; reorder tokens to change the display order.
-
-`gridRows` and `gridColumns` shape the icon grid; `0` (the default for both) is
-automatic: a single column when the whole icon stack fits the taskbar height
-(double-height taskbars), otherwise more columns. Set either one to fix that
-axis — the other follows from the icon count.
-
-When one row or column has fewer icons than the rest, use `shortGroupPosition`
-and `shortGroupAlign` to control where it sits and how it's aligned:
-
-| shortGroupPosition | shortGroupAlign | Result with location,mic,camera in 2 cols |
-| --- | --- | --- |
-| last (default) | center | `[loc  mic]` / `[  cam  ]` |
-| first          | center | `[  loc  ]` / `[mic  cam]` |
-| last           | start  | `[loc  mic]` / `[cam     ]` |
-| last           | end    | `[loc  mic]` / `[     cam]` |
-
-`fillOrder: columnFirst` fills columns instead of rows, giving vertical
-arrangements like:
-
-```
-[loc] [cam]      [loc] [mic]
-[mic] [   ]  or  [   ] [cam]   (short column centered)
-```
-
-## Colors
-
-`activeColor` (icons in use) and `slashColor` (the disabled slash overlay)
-accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
-`accent`, `accentLight`, and `accentDark` for the Windows accent shades, or
-`transparent`. Leaving either empty keeps the system foreground color.
-*/
+/*...*/
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
-/*
-- position: "beforeOmni"
-  $name: Position
-  $description: Where to place the privacy placeholders in the tray.
-  $options:
-  - "beforeIcons": "Before notification icons"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeClock": "Before clock"
-  - "afterClock": "After clock"
-  - "afterShowDesktop": "After Show Desktop strip"
-
-- itemOrder: "location,mic,camera,copilot"
-  $name: Icon order
-  $description: >-
-    Comma-separated list of icons to show, in order. Valid tokens: location,
-    mic, camera, copilot. Remove a token to hide that icon. Reorder to change
-    layout. Camera and copilot are experimental — see mod description.
-
-- gridRows: 0
-  $name: Rows (0 = auto)
-  $description: >-
-    Rows in the icon grid. 0 = automatic from the icon count and taskbar
-    height (see Columns).
-
-- gridColumns: 0
-  $name: Columns (0 = auto)
-  $description: >-
-    Columns in the icon grid. 0 (default) picks automatically: a single column
-    when the whole icon stack fits the taskbar height (double-height
-    taskbars), otherwise more columns.
-
-- fillOrder: "rowFirst"
-  $name: Fill order
-  $options:
-  - "rowFirst": "Row first"
-  - "columnFirst": "Column first"
-
-- shortGroupPosition: "last"
-  $name: Short row or column
-  $description: When icons don't divide evenly, where the short row/column goes.
-  $options:
-  - "first": "First"
-  - "last": "Last"
-
-- shortGroupAlign: "center"
-  $name: Short row or column alignment
-  $options:
-  - "start": "Start"
-  - "center": "Center"
-  - "end": "End"
-
-- iconSize: 16
-  $name: Icon size (pt)
-
-- buttonSpacing: 4
-  $name: Icon spacing (px)
-  $description: Gap between icons in both directions.
-
-- idleOpacity: 50
-  $name: Idle opacity (0-100)
-  $description: >-
-    Opacity when no app is using the feature. 0 = invisible but space reserved;
-    100 = always full brightness.
-
-- activeColor: ""
-  $name: Active icon color
-  $description: >-
-    Color applied to icons while their feature is in use. Hex ("#RRGGBB" or
-    "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty (default) keeps the system foreground color at full brightness.
-
-- glowEnabled: 0
-  $name: Glow when active (1=on, 0=off)
-  $description: >-
-    Adds a larger bloom glyph behind the icon when active. Uses the Windows
-    accent color unless an Active icon color is set.
-
-- glowOpacity: 40
-  $name: Glow opacity (0-100)
-  $description: Brightness of the bloom layer. 0 = invisible; 100 = same as icon.
-
-- slashColor: ""
-  $name: Slash color
-  $description: >-
-    Color of the slash overlay shown when a feature is disabled. Hex
-    ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or
-    "transparent". Leave empty (default) to use the system foreground color,
-    matching the dimmed icon.
-
-- slashDirection: "falling"
-  $name: Slash direction
-  $description: >-
-    Direction of the diagonal line drawn through the icon when disabled.
-    Falling (the default) avoids visually colliding with the icon glyphs.
-  $options:
-  - "falling": "Falling (\ upper-left to lower-right)"
-  - "rising": "Rising (/ lower-left to upper-right)"
-
-- slashOpacity: 100
-  $name: Slash opacity (0-100)
-  $description: >-
-    Opacity of the disabled slash overlay. 100 = fully visible (default).
-    Lower values make the slash more subtle.
-
-- groupPaddingLeft: 0
-  $name: Group padding left (px)
-
-- groupPaddingRight: 0
-  $name: Group padding right (px)
-
-- groupOffsetX: 0
-  $name: Group X offset (px)
-  $description: Move the entire icon group left (negative) or right (positive).
-
-- groupOffsetY: 0
-  $name: Group Y offset (px)
-  $description: Move the entire icon group up (negative) or down (positive).
-
-- locationOffsetX: 0
-  $name: Location X offset (px)
-
-- locationOffsetY: 0
-  $name: Location Y offset (px)
-
-- micOffsetX: 0
-  $name: Microphone X offset (px)
-
-- micOffsetY: 0
-  $name: Microphone Y offset (px)
-
-- cameraOffsetX: 0
-  $name: Camera X offset (px)
-
-- cameraOffsetY: 0
-  $name: Camera Y offset (px)
-
-- copilotOffsetX: 0
-  $name: Copilot X offset (px)
-
-- copilotOffsetY: 0
-  $name: Copilot Y offset (px)
-
-- suppressNativeIndicators: 1
-  $name: Suppress Windows privacy indicators (1=on, 0=off)
-  $description: >-
-    When on, hides Windows' own pop-in privacy indicators and mirrors their
-    state into this mod's stable placeholder icons. Turn off temporarily when
-    testing Windows' native glyphs and tray behavior.
-*/
+/*...*/
 // ==/WindhawkModSettings==
 
 #undef GetCurrentTime
@@ -238,8 +38,6 @@ accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
 #include <cfgmgr32.h>
 #include <setupapi.h>
 #include <tlhelp32.h>
-#include <wbemidl.h>
-#include <oleauto.h>
 
 #include <algorithm>
 #include <atomic>
@@ -510,7 +308,7 @@ struct ModSettings {
     int  glowOpacity    = 40;
     bool slashColorSet  = false;   // false = system theme
     winrt::Windows::UI::Color slashColorValue{};
-    std::wstring slashDirection = L"falling";
+    std::wstring slashDirection = L"rising";
     int  slashOpacity   = 100;
     bool suppressNativeIndicators = true;
 };
@@ -1225,100 +1023,9 @@ private:
     IAudioEndpointVolume* m_volume = nullptr;
 };
 
-// Lenovo Legion camera kill switch. The switch cuts the sensor stream WITHOUT
-// any PnP/consent signal (live-verified: device stays Status=OK and
-// MediaCapture init succeeds with the switch active), but the EC reports its
-// state via ACPI WMI: LENOVO_GAMEZONE_DATA.GetCameraStatus — the same call
-// Legion Toolkit uses. Data: 1 = camera on, 0 = camera off.
-// Returns 1 = switch reports camera OFF, 0 = camera on, -1 = unavailable
-// (non-Lenovo machine, class missing, or access denied — then never retried).
-static int CheckLenovoCameraSwitchOff() {
-    static std::atomic<bool> s_unavailable{false};
-    if (s_unavailable) return -1;
-
-    static const CLSID kCLSID_WbemLocator =
-        {0x4590f811, 0x1d3a, 0x11d0, {0x89, 0x1f, 0x00, 0xaa, 0x00, 0x4b, 0x2e, 0x24}};
-    static const IID kIID_IWbemLocator =
-        {0xdc12a687, 0x737f, 0x11cf, {0x88, 0x4d, 0x00, 0xaa, 0x00, 0x4b, 0x2e, 0x24}};
-
-    int result = -1;
-    bool permanentFailure = true;  // assume unavailable unless the call chain works
-
-    IWbemLocator* loc = nullptr;
-    if (FAILED(CoCreateInstance(kCLSID_WbemLocator, nullptr, CLSCTX_INPROC_SERVER,
-                                kIID_IWbemLocator, (void**)&loc)) || !loc) {
-        s_unavailable = true;
-        return -1;
-    }
-
-    IWbemServices* svc = nullptr;
-    BSTR ns = SysAllocString(L"ROOT\\WMI");
-    HRESULT hr = loc->ConnectServer(ns, nullptr, nullptr, nullptr, 0, nullptr, nullptr, &svc);
-    SysFreeString(ns);
-    if (SUCCEEDED(hr) && svc) {
-        CoSetProxyBlanket(svc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, nullptr,
-                          RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE,
-                          nullptr, EOAC_NONE);
-
-        BSTR wql   = SysAllocString(L"WQL");
-        BSTR query = SysAllocString(L"SELECT * FROM LENOVO_GAMEZONE_DATA");
-        IEnumWbemClassObject* en = nullptr;
-        hr = svc->ExecQuery(wql, query,
-                            WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
-                            nullptr, &en);
-        SysFreeString(wql);
-        SysFreeString(query);
-        if (SUCCEEDED(hr) && en) {
-            IWbemClassObject* inst = nullptr;
-            ULONG got = 0;
-            if (SUCCEEDED(en->Next(5000, 1, &inst, &got)) && got == 1 && inst) {
-                VARIANT vPath; VariantInit(&vPath);
-                if (SUCCEEDED(inst->Get(L"__PATH", 0, &vPath, nullptr, nullptr)) &&
-                    vPath.vt == VT_BSTR) {
-                    BSTR method = SysAllocString(L"GetCameraStatus");
-                    IWbemClassObject* out = nullptr;
-                    hr = svc->ExecMethod(vPath.bstrVal, method, 0, nullptr,
-                                         nullptr, &out, nullptr);
-                    SysFreeString(method);
-                    if (SUCCEEDED(hr) && out) {
-                        VARIANT vData; VariantInit(&vData);
-                        if (SUCCEEDED(out->Get(L"Data", 0, &vData, nullptr, nullptr)) &&
-                            (vData.vt == VT_I4 || vData.vt == VT_UI4)) {
-                            result = (vData.lVal == 0) ? 1 : 0;
-                            permanentFailure = false;
-                            Wh_Log(L"[Cam] Lenovo GetCameraStatus=%ld => switchOff=%d",
-                                   vData.lVal, result);
-                        }
-                        VariantClear(&vData);
-                        out->Release();
-                    } else {
-                        Wh_Log(L"[Cam] Lenovo GetCameraStatus ExecMethod hr=0x%08X", hr);
-                    }
-                }
-                VariantClear(&vPath);
-                inst->Release();
-            } else {
-                Wh_Log(L"[Cam] LENOVO_GAMEZONE_DATA instance unavailable (denied or absent)");
-            }
-            en->Release();
-        } else {
-            Wh_Log(L"[Cam] LENOVO_GAMEZONE_DATA query hr=0x%08X", hr);
-        }
-        svc->Release();
-    }
-    loc->Release();
-
-    if (permanentFailure) s_unavailable = true;
-    return result;
-}
-
 // Returns true if a camera device exists in the Windows device database but none is
 // currently accessible — i.e. the physical kill switch has cut power to the camera.
 static bool CheckCameraDisabled() {
-    // Check 0: Lenovo Legion kill switch via ACPI WMI (the only observable
-    // signal for switches that cut the stream without touching PnP).
-    int lenovoOff = CheckLenovoCameraSwitchOff();
-    if (lenovoOff == 1) { Wh_Log(L"[Cam] => disabled (Lenovo kill switch)"); return true; }
     // Check 1: WinRT DeviceAccessInformation (most reliable for Privacy Settings toggle)
     try {
         using namespace winrt::Windows::Devices::Enumeration;

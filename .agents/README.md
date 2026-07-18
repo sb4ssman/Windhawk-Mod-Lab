@@ -41,10 +41,13 @@ start of a new chat means cross-checking all of these, not just reading one:
 
 - `.agents/` is the home for all agent notes, tools, and generated outputs.
   Do not create per-mod agent-note folders inside mod directories.
-- [working_notes.md](working_notes.md) — current state only: active work,
-  per-mod status, next steps. Durable policy belongs in this file instead.
-- [work_log.md](work_log.md) — completed lab-level milestones, newest context
-  at the bottom.
+- [working_notes.md](working_notes.md) — a LIVING TODO LIST: active work,
+  per-mod status, next steps. Prune it every session; it should stay short
+  (roughly a screenful, not hundreds of lines). COMPLETED WORK — anything
+  written in the past tense — moves to work_log.md, not here. Durable policy
+  belongs in this file (README) instead; reference material goes to knowledge/.
+- [work_log.md](work_log.md) — completed lab-level milestones, chronological,
+  newest entry at the bottom. Insert entries in date order, never just append.
 - RECONCILE BEFORE TRUSTING: if working_notes and work_log disagree, the newer
   dated entry wins, and any claim about PR/test/push status must be verified
   against git and the actual PR branches before acting or reporting on it.
