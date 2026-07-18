@@ -146,3 +146,35 @@ with mod-prefixed filenames.
 - Bumped Clock Spacer to v1.0 for submission.
 - Copied `clock-spacer.wh.cpp` to `windhawk-mods/mods/taskbar-clock-spacer.wh.cpp`, committed as `89f1bc6f` on branch `add-taskbar-clock-spacer`, pushed to fork, and opened PR #4443: https://github.com/ramensoftware/windhawk-mods/pull/4443
 - Root README now marks Clock Spacer v1.0 as PR submitted.
+
+## 2026-07-17 — FAILED live-test round: privacy-anchor + omnibutton fixes did not work
+
+User verdict after compiling the fresh versions (battery percent on): **"All the
+problems persist. No work has been accomplished."** Recorded per user direction.
+
+- **Privacy anchor — camera still not detected.** The user has a hardware
+  camera kill switch; the ConsentStore usage-record detection
+  (`LastUsedTimeStop == 0`) did not light the camera icon, and/or the
+  disabled-state slash did not reflect the kill switch. The whole
+  camera-detection stack (DeviceAccess consent, SetupDi present-device probe,
+  ConsentStore) remains unproven against this hardware.
+- **Privacy anchor — copilot slash still appears then disappears**, on a
+  machine where Copilot does not exist and is disabled in every way including
+  group policy. `CheckCopilotInstalled` is returning a false positive (likely a
+  stale WebExperience package registration whose path still exists), and
+  `CheckCopilotDisabled` only checks `ShowCopilotButton` — it does NOT check
+  the Copilot group policy (`Software\Policies\Microsoft\Windows\WindowsCopilot`
+  `TurnOffWindowsCopilot`) or other disable mechanisms. Known gap, unfixed.
+- **OmniButton — still a mess.** Battery percent problems persist despite the
+  late-percent LayoutUpdated fix, and switching `batteryPercentMode` to
+  independent makes the battery glyph disappear entirely (worse than coupled).
+  The static-analysis root cause for the missing percent was evidently wrong or
+  incomplete; the independent-mode transform math has never been verified live.
+- The smart-grid template adoption (both mods) compiled and is not implicated
+  by the user's testing ("if we actually have the good gridding we can trust it
+  for now, something else is going wrong") — but it is also UNTESTED.
+
+Lesson recorded: two rounds of compile-checked static fixes have now failed
+live testing. The next session must start from live evidence — Windhawk logs
+from the user's machine (`[Battery]`, `[Layout]`, `[Cam]`, `[Copilot]`,
+`[Usage]` lines) — before writing any more code.

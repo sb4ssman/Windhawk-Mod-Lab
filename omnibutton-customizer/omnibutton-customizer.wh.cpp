@@ -1,7 +1,7 @@
 // ==WindhawkMod==
 // @id              omnibutton-customizer
 // @name            OmniButton Customizer
-// @description     Rearrange the Windows 11 OmniButton (wifi/volume/battery) into any grid — custom order, nudges, independent battery+percent placement, and per-glyph colors with animation
+// @description     Rearrange the Windows 11 OmniButton (wifi/volume/battery) into any grid — custom order, nudges, independent battery+percent placement, and per-glyph colors
 // @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
@@ -29,11 +29,12 @@ ContentPresenter spans the full grid footprint and both sub-elements are offset 
 ## Grid settings
 
 - **Slot width / height** — size of each grid cell. Height 0 = taskbar height ÷ rows.
-- **Grid columns / rows** — 0 = auto: a single column when all items fit the
+- **Grid rows / columns** — 0 = auto: a single column when all items fit the
   taskbar height (double-height taskbars), otherwise more columns — 4 items on
   a single-height taskbar become a 2x2.
 - **Fill order** — row-first or column-first.
-- **Short group alignment** — when the last row/column is shorter, align start/center/end.
+- **Short row or column** — when items don't divide evenly, whether the short
+  row/column is first or last, and how it's aligned (start/center/end).
 
 ## Item order
 
@@ -47,12 +48,6 @@ Set `wifiColor`, `volumeColor`, `batteryColor`, `percentColor` to a hex color
 (`#RRGGBB` or `#AARRGGBB`, the alpha byte is honored), the generics `accent`,
 `accentLight`, and `accentDark` for the Windows accent shades, or `transparent`.
 Leave empty to use the default theme color.
-
-## Animated colors
-
-Set `wifiColorTo` (and the matching `wifiColor` as the starting color) to make the
-wifi glyph animate between the two colors in a looping pulse. Repeat for any item.
-`colorAnimateDuration` controls the half-cycle duration in milliseconds.
 
 ## Presets
 
@@ -96,32 +91,38 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
   - coupled: Coupled
   - independent: Independent
 
+- gridRows: 0
+  $name: Rows (0 = auto)
+  $description: >-
+    Rows in the layout grid. 0 = automatic from the item count and taskbar
+    height (see Columns).
+
 - gridColumns: 0
-  $name: Grid columns (0 = auto)
+  $name: Columns (0 = auto)
   $description: >-
     Columns in the layout grid. 0 (default) picks automatically: a single
     column when all items fit the taskbar height (double-height taskbars),
     otherwise more columns — 4 items on a single-height taskbar become a 2x2.
 
-- gridRows: 0
-  $name: Grid rows (0 = auto)
-  $description: >-
-    Rows in the layout grid. 0 = automatic from the item count and taskbar
-    height (see Grid columns).
-
 - fillOrder: rowFirst
   $name: Fill order
   $options:
-  - rowFirst: Row-first (left to right, then down)
-  - columnFirst: Column-first (top to bottom, then right)
+  - rowFirst: Row first
+  - columnFirst: Column first
+
+- shortGroupPosition: last
+  $name: Short row or column
+  $description: When items don't divide evenly, where the short row/column goes.
+  $options:
+  - first: First
+  - last: Last
 
 - shortGroupAlign: center
-  $name: Short group alignment
-  $description: Alignment of the last row/column when it has fewer items than the others.
+  $name: Short row or column alignment
   $options:
-  - start: Start (left/top)
+  - start: Start
   - center: Center
-  - end: End (right/bottom)
+  - end: End
 
 - slotWidth: 32
   $name: Slot width (px)
@@ -132,6 +133,30 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
   $name: Slot height (px, 0 = auto)
   $description: >-
     Height of each grid row. 0 = taskbar height ÷ rows (minimum 20px, capped at 32px).
+
+- wifiColor: ""
+  $name: Wifi icon color
+  $description: >-
+    Hex ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" / "accentDark",
+    or "transparent". Empty = theme default.
+
+- volumeColor: ""
+  $name: Volume icon color
+  $description: >-
+    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty = theme default.
+
+- batteryColor: ""
+  $name: Battery icon color
+  $description: >-
+    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty = theme default.
+
+- percentColor: ""
+  $name: Battery percent color
+  $description: >-
+    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty = theme default.
 
 - buttonHorizontalPadding: 2
   $name: Button horizontal padding (px)
@@ -159,51 +184,6 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
   $name: Battery percent nudge X
 - percentOffsetY: 0
   $name: Battery percent nudge Y
-
-- wifiColor: ""
-  $name: Wifi icon color
-  $description: >-
-    Hex ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" / "accentDark",
-    or "transparent". Empty = theme default.
-
-- wifiColorTo: ""
-  $name: Wifi icon animated color
-  $description: >-
-    If set, the wifi glyph pulses between Wifi icon color and this color.
-    Requires Wifi icon color to be set.
-
-- volumeColor: ""
-  $name: Volume icon color
-  $description: >-
-    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty = theme default.
-
-- volumeColorTo: ""
-  $name: Volume icon animated color
-
-- batteryColor: ""
-  $name: Battery icon color
-  $description: >-
-    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty = theme default.
-
-- batteryColorTo: ""
-  $name: Battery icon animated color
-
-- percentColor: ""
-  $name: Battery percent color
-  $description: >-
-    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty = theme default.
-
-- percentColorTo: ""
-  $name: Battery percent animated color
-
-- colorAnimateDuration: 2000
-  $name: Color animation half-cycle (ms)
-  $description: >-
-    Duration of one half of the color animation cycle in milliseconds.
-    The animation auto-reverses, so total cycle = 2× this value. Default 2000.
 */
 // ==/WindhawkModSettings==
 
@@ -211,7 +191,6 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 #include <atomic>
 #include <functional>
 #include <list>
-#include <vector>
 #include <winrt/base.h>
 #include <windhawk_api.h>
 #include <windhawk_utils.h>
@@ -227,41 +206,255 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
-#include <winrt/Windows.UI.Xaml.Media.Animation.h>
 
 using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Media;
-using namespace winrt::Windows::UI::Xaml::Media::Animation;
 using winrt::Windows::UI::Color;
 using winrt::Windows::Foundation::IInspectable;
-using winrt::Windows::Foundation::TimeSpan;
+
+// ── Smart grid layout ─────────────────────────────────────────────────────
+// Template block: _templates/smart-grid-layout.h v1.0 (verbatim copy — keep
+// in sync with the template; Windhawk mods are single-file).
+
+#include <climits>
+
+namespace windhawk_mod_templates::smart_grid {
+
+enum class GridMode {
+    AutoSmart,
+    SingleRow,
+    SingleColumn,
+    FixedRows,
+    FixedColumns,
+    FixedGrid,
+};
+
+enum class SmartLayout { Balanced, PackVertical, PackHorizontal };
+enum class FillOrder { RowFirst, ColumnFirst };
+enum class ShortGroupPosition { First, Last };
+enum class ShortGroupAlign { Start, Center, End };
+
+struct Config {
+    GridMode mode = GridMode::AutoSmart;
+    SmartLayout smartLayout = SmartLayout::Balanced;
+    FillOrder fillOrder = FillOrder::RowFirst;
+    ShortGroupPosition shortGroupPosition = ShortGroupPosition::Last;
+    ShortGroupAlign shortGroupAlign = ShortGroupAlign::Center;
+    int rows = 0;          // exact in fixed modes; maximum in AutoSmart
+    int columns = 0;       // exact in fixed modes; maximum in AutoSmart
+    int availableRows = 1; // derive from host height / item pitch
+};
+
+struct Layout {
+    int rows = 1;
+    int columns = 1;
+};
+
+// A short group may need to span its complete axis so a half-cell offset can
+// be expressed with Margin. Multiply offsetUnits by item-size-plus-spacing.
+struct Cell {
+    int row = 0;
+    int column = 0;
+    int rowSpan = 1;
+    int columnSpan = 1;
+    double topOffsetUnits = 0.0;
+    double leftOffsetUnits = 0.0;
+};
+
+inline int ScoreCandidate(int rows, int columns, int count,
+                          SmartLayout preference) {
+    int waste = rows * columns - count;
+    int widePenalty = columns > rows ? (columns - rows) * 2 : 0;
+    int score = waste * 10 + widePenalty;
+
+    if (preference == SmartLayout::PackVertical)
+        score -= rows * 20;
+    else if (preference == SmartLayout::PackHorizontal)
+        score += rows * 20;
+    else
+        score -= rows * 3;
+
+    return score;
+}
+
+inline Layout ComputeLayout(int count, Config const& config) {
+    count = std::max(1, count);
+    Layout result;
+    int availableRows = std::clamp(config.availableRows, 1, count);
+    if (config.rows > 0 && config.mode == GridMode::AutoSmart)
+        availableRows = std::min(availableRows, config.rows);
+
+    switch (config.mode) {
+        case GridMode::SingleRow:
+            result = {1, count};
+            break;
+        case GridMode::SingleColumn:
+            result = {count, 1};
+            break;
+        case GridMode::FixedRows:
+            result.rows = std::clamp(config.rows, 1, count);
+            result.columns = (count + result.rows - 1) / result.rows;
+            break;
+        case GridMode::FixedColumns:
+            result.columns = std::clamp(config.columns, 1, count);
+            result.rows = (count + result.columns - 1) / result.columns;
+            break;
+        case GridMode::FixedGrid:
+            result.rows = std::clamp(config.rows, 1, count);
+            result.columns = config.columns > 0
+                ? std::clamp(config.columns, 1, count)
+                : (count + result.rows - 1) / result.rows;
+            if (result.rows * result.columns < count)
+                result.rows = (count + result.columns - 1) / result.columns;
+            break;
+        case GridMode::AutoSmart: {
+            int bestScore = INT_MAX;
+            int firstRows = availableRows > 1 && count > 1 &&
+                            config.smartLayout != SmartLayout::PackHorizontal
+                ? 2 : 1;
+            for (int rows = firstRows; rows <= availableRows; ++rows) {
+                int columns = (count + rows - 1) / rows;
+                if (config.columns > 0 && columns > config.columns)
+                    continue;
+                int score = ScoreCandidate(rows, columns, count,
+                                           config.smartLayout);
+                if (score < bestScore) {
+                    bestScore = score;
+                    result = {rows, columns};
+                }
+            }
+            if (bestScore == INT_MAX) {
+                result.columns = std::clamp(config.columns, 1, count);
+                result.rows = (count + result.columns - 1) / result.columns;
+            }
+            break;
+        }
+    }
+
+    result.rows = std::clamp(result.rows, 1, count);
+    result.columns = std::max(1, result.columns);
+    while (result.rows * result.columns < count) {
+        if (config.mode == GridMode::FixedColumns)
+            ++result.rows;
+        else
+            ++result.columns;
+    }
+    return result;
+}
+
+inline double AlignOffset(int capacity, int itemCount,
+                          ShortGroupAlign alignment) {
+    int unused = std::max(0, capacity - itemCount);
+    if (alignment == ShortGroupAlign::Center)
+        return unused / 2.0;
+    if (alignment == ShortGroupAlign::End)
+        return static_cast<double>(unused);
+    return 0.0;
+}
+
+inline Cell GetCell(int index, int count, Layout const& layout,
+                    Config const& config) {
+    Cell cell;
+    index = std::clamp(index, 0, std::max(0, count - 1));
+
+    if (config.fillOrder == FillOrder::RowFirst) {
+        int groupCount = (count + layout.columns - 1) / layout.columns;
+        int shortCount = count % layout.columns;
+        if (!shortCount) shortCount = layout.columns;
+        int group;
+        int itemInGroup;
+        if (shortCount < layout.columns &&
+            config.shortGroupPosition == ShortGroupPosition::First) {
+            if (index < shortCount) {
+                group = 0;
+                itemInGroup = index;
+            } else {
+                int adjusted = index - shortCount;
+                group = 1 + adjusted / layout.columns;
+                itemInGroup = adjusted % layout.columns;
+            }
+        } else {
+            group = index / layout.columns;
+            itemInGroup = index % layout.columns;
+        }
+        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
+            ? 0 : groupCount - 1;
+        bool isShort = shortCount < layout.columns && group == shortGroup;
+
+        cell.row = group;
+        cell.column = itemInGroup;
+        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
+            cell.column = 0;
+            cell.columnSpan = layout.columns;
+            cell.leftOffsetUnits = AlignOffset(layout.columns, shortCount,
+                                               config.shortGroupAlign) +
+                                   itemInGroup;
+        }
+    } else {
+        int groupCount = (count + layout.rows - 1) / layout.rows;
+        int shortCount = count % layout.rows;
+        if (!shortCount) shortCount = layout.rows;
+        int group;
+        int itemInGroup;
+        if (shortCount < layout.rows &&
+            config.shortGroupPosition == ShortGroupPosition::First) {
+            if (index < shortCount) {
+                group = 0;
+                itemInGroup = index;
+            } else {
+                int adjusted = index - shortCount;
+                group = 1 + adjusted / layout.rows;
+                itemInGroup = adjusted % layout.rows;
+            }
+        } else {
+            group = index / layout.rows;
+            itemInGroup = index % layout.rows;
+        }
+        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
+            ? 0 : groupCount - 1;
+        bool isShort = shortCount < layout.rows && group == shortGroup;
+
+        cell.row = itemInGroup;
+        cell.column = group;
+        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
+            cell.row = 0;
+            cell.rowSpan = layout.rows;
+            cell.topOffsetUnits = AlignOffset(layout.rows, shortCount,
+                                              config.shortGroupAlign) +
+                                  itemInGroup;
+        }
+    }
+    return cell;
+}
+
+} // namespace windhawk_mod_templates::smart_grid
+
+namespace grid = windhawk_mod_templates::smart_grid;
 
 // ── Settings ───────────────────────────────────────────────────────────────
 
-enum class FillOrder     { ColumnFirst, RowFirst };
-enum class ShortAlign    { Start, Center, End };
-enum class BattPctMode   { Coupled, Independent };
+enum class BattPctMode { Coupled, Independent };
 
 struct {
-    int        slotWidth;
-    int        slotHeight;
-    int        gridColumns;
-    int        gridRows;
-    FillOrder  fillOrder;
-    ShortAlign shortGroupAlign;
-    int        buttonHorizontalPadding;
     wchar_t    itemOrderStr[128];
     BattPctMode batteryPercentMode;
+    int        gridRows;
+    int        gridColumns;
+    grid::FillOrder          fillOrder;
+    grid::ShortGroupPosition shortGroupPosition;
+    grid::ShortGroupAlign    shortGroupAlign;
+    int        slotWidth;
+    int        slotHeight;
+    wchar_t    wifiColor[32];
+    wchar_t    volumeColor[32];
+    wchar_t    batteryColor[32];
+    wchar_t    percentColor[32];
+    int        buttonHorizontalPadding;
     int        wifiX,    wifiY;
     int        volumeX,  volumeY;
     int        batteryX, batteryY;
     int        percentX, percentY;
-    wchar_t    wifiColor[32],     wifiColorTo[32];
-    wchar_t    volumeColor[32],   volumeColorTo[32];
-    wchar_t    batteryColor[32],  batteryColorTo[32];
-    wchar_t    percentColor[32],  percentColorTo[32];
-    int        colorAnimateDuration;
 } g_settings;
 
 std::atomic<bool> g_unloading = false;
@@ -279,23 +472,6 @@ static void LoadSettings() {
     auto clampPad   = [](int v) { return v < 0 ? 0 : v > 24 ? 24 : v; };
     auto clampNudge = [](int v) { return v < -40 ? -40 : v > 40 ? 40 : v; };
 
-    int sw = clampSlot(Wh_GetIntSetting(L"slotWidth"));
-    g_settings.slotWidth  = sw < 16 ? 32 : sw;
-    g_settings.slotHeight = clampSlot(Wh_GetIntSetting(L"slotHeight"));
-    g_settings.gridColumns = clampGrid(Wh_GetIntSetting(L"gridColumns"));
-    g_settings.gridRows    = clampGrid(Wh_GetIntSetting(L"gridRows"));
-    g_settings.buttonHorizontalPadding = clampPad(Wh_GetIntSetting(L"buttonHorizontalPadding"));
-
-    { auto* s = Wh_GetStringSetting(L"fillOrder");
-      g_settings.fillOrder = (s && wcscmp(s,L"rowFirst")==0) ? FillOrder::RowFirst : FillOrder::ColumnFirst;
-      if (s) Wh_FreeStringSetting(s); }
-
-    { auto* s = Wh_GetStringSetting(L"shortGroupAlign");
-      if      (s && wcscmp(s,L"start")==0) g_settings.shortGroupAlign = ShortAlign::Start;
-      else if (s && wcscmp(s,L"end")==0)   g_settings.shortGroupAlign = ShortAlign::End;
-      else                                  g_settings.shortGroupAlign = ShortAlign::Center;
-      if (s) Wh_FreeStringSetting(s); }
-
     { auto* s = Wh_GetStringSetting(L"itemOrder");
       if (s && *s) {
           wcsncpy(g_settings.itemOrderStr, s, 127); g_settings.itemOrderStr[127] = L'\0';
@@ -310,6 +486,37 @@ static void LoadSettings() {
                                     ? BattPctMode::Independent : BattPctMode::Coupled;
       if (s) Wh_FreeStringSetting(s); }
 
+    g_settings.gridRows    = clampGrid(Wh_GetIntSetting(L"gridRows"));
+    g_settings.gridColumns = clampGrid(Wh_GetIntSetting(L"gridColumns"));
+
+    { auto* s = Wh_GetStringSetting(L"fillOrder");
+      g_settings.fillOrder = (s && wcscmp(s,L"columnFirst")==0)
+                           ? grid::FillOrder::ColumnFirst : grid::FillOrder::RowFirst;
+      if (s) Wh_FreeStringSetting(s); }
+
+    { auto* s = Wh_GetStringSetting(L"shortGroupPosition");
+      g_settings.shortGroupPosition = (s && wcscmp(s,L"first")==0)
+                                    ? grid::ShortGroupPosition::First
+                                    : grid::ShortGroupPosition::Last;
+      if (s) Wh_FreeStringSetting(s); }
+
+    { auto* s = Wh_GetStringSetting(L"shortGroupAlign");
+      if      (s && wcscmp(s,L"start")==0) g_settings.shortGroupAlign = grid::ShortGroupAlign::Start;
+      else if (s && wcscmp(s,L"end")==0)   g_settings.shortGroupAlign = grid::ShortGroupAlign::End;
+      else                                  g_settings.shortGroupAlign = grid::ShortGroupAlign::Center;
+      if (s) Wh_FreeStringSetting(s); }
+
+    int sw = clampSlot(Wh_GetIntSetting(L"slotWidth"));
+    g_settings.slotWidth  = sw < 16 ? 32 : sw;
+    g_settings.slotHeight = clampSlot(Wh_GetIntSetting(L"slotHeight"));
+
+    LoadColorSetting(L"wifiColor",    g_settings.wifiColor);
+    LoadColorSetting(L"volumeColor",  g_settings.volumeColor);
+    LoadColorSetting(L"batteryColor", g_settings.batteryColor);
+    LoadColorSetting(L"percentColor", g_settings.percentColor);
+
+    g_settings.buttonHorizontalPadding = clampPad(Wh_GetIntSetting(L"buttonHorizontalPadding"));
+
     g_settings.wifiX    = clampNudge(Wh_GetIntSetting(L"wifiOffsetX"));
     g_settings.wifiY    = clampNudge(Wh_GetIntSetting(L"wifiOffsetY"));
     g_settings.volumeX  = clampNudge(Wh_GetIntSetting(L"volumeOffsetX"));
@@ -318,18 +525,6 @@ static void LoadSettings() {
     g_settings.batteryY = clampNudge(Wh_GetIntSetting(L"batteryOffsetY"));
     g_settings.percentX = clampNudge(Wh_GetIntSetting(L"percentOffsetX"));
     g_settings.percentY = clampNudge(Wh_GetIntSetting(L"percentOffsetY"));
-
-    LoadColorSetting(L"wifiColor",      g_settings.wifiColor);
-    LoadColorSetting(L"wifiColorTo",    g_settings.wifiColorTo);
-    LoadColorSetting(L"volumeColor",    g_settings.volumeColor);
-    LoadColorSetting(L"volumeColorTo",  g_settings.volumeColorTo);
-    LoadColorSetting(L"batteryColor",   g_settings.batteryColor);
-    LoadColorSetting(L"batteryColorTo", g_settings.batteryColorTo);
-    LoadColorSetting(L"percentColor",   g_settings.percentColor);
-    LoadColorSetting(L"percentColorTo", g_settings.percentColorTo);
-
-    int dur = Wh_GetIntSetting(L"colorAnimateDuration");
-    g_settings.colorAnimateDuration = (dur < 100 ? 2000 : dur > 30000 ? 30000 : dur);
 }
 
 // ── Cached element references ─────────────────────────────────────────────
@@ -348,8 +543,6 @@ static TextBlock g_volumeGlyphTB{ nullptr };
 static TextBlock g_batteryGlyphTB{ nullptr };
 static TextBlock g_percentTB{ nullptr };
 
-static std::vector<Storyboard> g_activeStoryboards;
-
 static StackPanel         g_layoutUpdatedSP{ nullptr };
 static winrt::event_token g_layoutUpdatedToken{};
 
@@ -360,8 +553,15 @@ static std::list<FrameworkElement::Loaded_revoker> g_autoRevokerList;
 static bool CleanupLiveOmniButton();
 
 // ── Grid geometry ─────────────────────────────────────────────────────────
+// All layout math comes from the smart-grid template; the mod-specific parts
+// are the taskbar-height probe, mode derivation from the rows/columns
+// settings, and the slot height.
 
-struct GridGeom { int cols, rows, slotH; };
+struct GridGeom {
+    grid::Config config;
+    grid::Layout layout;
+    int slotH;
+};
 
 static GridGeom ResolveGeometry(int itemCount, HWND hTaskbarWnd) {
     int taskbarH = 48;
@@ -370,76 +570,34 @@ static GridGeom ResolveGeometry(int itemCount, HWND hTaskbarWnd) {
     }
     if (itemCount < 1) itemCount = 1;
 
-    int rows = g_settings.gridRows;
-    int cols = g_settings.gridColumns;
+    GridGeom geom;
+    geom.config.fillOrder          = g_settings.fillOrder;
+    geom.config.shortGroupPosition = g_settings.shortGroupPosition;
+    geom.config.shortGroupAlign    = g_settings.shortGroupAlign;
+    geom.config.rows               = g_settings.gridRows;
+    geom.config.columns            = g_settings.gridColumns;
+    if      (g_settings.gridRows > 0 && g_settings.gridColumns > 0)
+        geom.config.mode = grid::GridMode::FixedGrid;
+    else if (g_settings.gridRows > 0)
+        geom.config.mode = grid::GridMode::FixedRows;
+    else if (g_settings.gridColumns > 0)
+        geom.config.mode = grid::GridMode::FixedColumns;
+    else
+        geom.config.mode = grid::GridMode::AutoSmart;
 
-    if (rows <= 0 && cols <= 0) {
-        // Full auto: prefer a single column whenever all items fit the taskbar
-        // height (double-height taskbars — narrowest footprint, least empty
-        // space); otherwise add columns (4 items on a single-height taskbar
-        // become a 2x2). A 24px unit keeps auto rows readable; the slotHeight
-        // setting overrides it.
-        int unit = g_settings.slotHeight > 0 ? g_settings.slotHeight : 24;
-        int rowsFit = std::max(1, taskbarH / std::max(1, unit));
-        rows = std::min(itemCount, rowsFit);
-        cols = (itemCount + rows - 1) / rows;
-        rows = (itemCount + cols - 1) / cols;  // drop rows the items can't fill
-    } else if (rows <= 0) {
-        // Columns fixed by the user: rows follow from the item count.
-        cols = std::min(cols, itemCount);
-        rows = (itemCount + cols - 1) / cols;
-    } else if (cols <= 0) {
-        // Rows fixed by the user: columns follow from the item count.
-        rows = std::min(rows, itemCount);
-        cols = (itemCount + rows - 1) / rows;
-    }
-    if (rows < 1) rows = 1;
-    if (cols < 1) cols = 1;
+    // Auto row capacity: a 24px pitch keeps auto rows readable; the slotHeight
+    // setting overrides it. Balanced AutoSmart then prefers a single column on
+    // double-height taskbars and a 2x2 for 4 items on single-height.
+    int unit = g_settings.slotHeight > 0 ? g_settings.slotHeight : 24;
+    geom.config.availableRows = std::max(1, taskbarH / std::max(1, unit));
 
-    int slotH = g_settings.slotHeight > 0 ? g_settings.slotHeight : (taskbarH / rows);
-    if (slotH > 32) slotH = 32;
-    if (slotH < 16) slotH = 16;
-    return { cols, rows, slotH };
-}
+    geom.layout = grid::ComputeLayout(itemCount, geom.config);
 
-static void ItemGridPos(int idx, int cols, int rows, FillOrder fill,
-                        ShortAlign align, int itemCount,
-                        int& outCol, int& outRow)
-{
-    if (fill == FillOrder::ColumnFirst) {
-        int fullCols = itemCount / rows, rem = itemCount % rows;
-        outCol = idx / rows; outRow = idx % rows;
-        if (rem > 0 && outCol == fullCols) {
-            int gap = rows - rem;
-            if (align == ShortAlign::Center) outRow += gap / 2;
-            else if (align == ShortAlign::End) outRow += gap;
-        }
-    } else {
-        int fullRows = itemCount / cols, rem = itemCount % cols;
-        outRow = idx / cols; outCol = idx % cols;
-        if (rem > 0 && outRow == fullRows) {
-            int gap = cols - rem;
-            if (align == ShortAlign::Center) outCol += gap / 2;
-            else if (align == ShortAlign::End) outCol += gap;
-        }
-    }
-}
-
-static void ShortGroupCenterNudge(int gridPos, int cols, int rows, FillOrder fill,
-                                  int itemCount, int slotW, int slotH,
-                                  int& nudgeX, int& nudgeY) {
-    nudgeX = nudgeY = 0;
-    if (fill == FillOrder::RowFirst) {
-        int rem = itemCount % cols;
-        if (rem > 0 && (gridPos / cols) == (itemCount / cols)) {
-            if ((cols - rem) % 2 == 1) nudgeX = slotW / 2;
-        }
-    } else {
-        int rem = itemCount % rows;
-        if (rem > 0 && (gridPos / rows) == (itemCount / rows)) {
-            if ((rows - rem) % 2 == 1) nudgeY = slotH / 2;
-        }
-    }
+    geom.slotH = g_settings.slotHeight > 0 ? g_settings.slotHeight
+                                           : (taskbarH / geom.layout.rows);
+    if (geom.slotH > 32) geom.slotH = 32;
+    if (geom.slotH < 16) geom.slotH = 16;
+    return geom;
 }
 
 // ── XAML helpers ──────────────────────────────────────────────────────────
@@ -622,13 +780,7 @@ static TextBlock AcquireGlyphTB(FrameworkElement const& root) {
     return FindFirstTextBlock(root);  // fallback for battery/non-standard templates
 }
 
-static void StopAndClearStoryboards() {
-    for (auto& sb : g_activeStoryboards) { try { sb.Stop(); } catch (...) {} }
-    g_activeStoryboards.clear();
-}
-
 static void ClearGlyphColors() {
-    StopAndClearStoryboards();
     auto clearTB = [](TextBlock const& tb) {
         if (tb) try { tb.ClearValue(TextBlock::ForegroundProperty()); } catch (...) {}
     };
@@ -638,36 +790,16 @@ static void ClearGlyphColors() {
     clearTB(g_percentTB);
 }
 
-static void ApplyGlyphColor(TextBlock const& tb,
-                            const wchar_t* fromHex, const wchar_t* toHex, int durMs) {
+static void ApplyGlyphColor(TextBlock const& tb, const wchar_t* colorStr) {
     if (!tb) return;
-    Color fromColor{}, toColor{};
-    bool hasFrom = ParseHexColor(fromHex, fromColor);
-    bool hasTo   = ParseHexColor(toHex,   toColor);
-    if (!hasFrom) {
+    Color color{};
+    if (!ParseHexColor(colorStr, color)) {
         try { tb.ClearValue(TextBlock::ForegroundProperty()); } catch (...) {}
         return;
     }
     SolidColorBrush brush;
-    brush.Color(fromColor);
-    try { tb.Foreground(brush); } catch (...) { return; }
-    if (hasTo) {
-        try {
-            ColorAnimation anim;
-            anim.From(fromColor);
-            anim.To(toColor);
-            TimeSpan ts{ int64_t(durMs) * 10000LL };
-            anim.Duration(DurationHelper::FromTimeSpan(ts));
-            anim.AutoReverse(true);
-            anim.RepeatBehavior(RepeatBehaviorHelper::Forever());
-            Storyboard sb;
-            sb.Children().Append(anim);
-            Storyboard::SetTarget(anim, brush);
-            Storyboard::SetTargetProperty(anim, L"Color");
-            sb.Begin();
-            g_activeStoryboards.push_back(sb);
-        } catch (...) {}
-    }
+    brush.Color(color);
+    try { tb.Foreground(brush); } catch (...) {}
 }
 
 static void ApplyAllColors() {
@@ -676,11 +808,10 @@ static void ApplyAllColors() {
     if (!g_batteryGlyphTB && g_batteryGlyphFE)   g_batteryGlyphTB = AcquireGlyphTB(g_batteryGlyphFE);
     if (!g_percentTB && g_batteryPercentFE)       g_percentTB = g_batteryPercentFE.try_as<TextBlock>();
 
-    StopAndClearStoryboards();
-    ApplyGlyphColor(g_wifiGlyphTB,    g_settings.wifiColor,    g_settings.wifiColorTo,    g_settings.colorAnimateDuration);
-    ApplyGlyphColor(g_volumeGlyphTB,  g_settings.volumeColor,  g_settings.volumeColorTo,  g_settings.colorAnimateDuration);
-    ApplyGlyphColor(g_batteryGlyphTB, g_settings.batteryColor, g_settings.batteryColorTo, g_settings.colorAnimateDuration);
-    ApplyGlyphColor(g_percentTB,      g_settings.percentColor, g_settings.percentColorTo, g_settings.colorAnimateDuration);
+    ApplyGlyphColor(g_wifiGlyphTB,    g_settings.wifiColor);
+    ApplyGlyphColor(g_volumeGlyphTB,  g_settings.volumeColor);
+    ApplyGlyphColor(g_batteryGlyphTB, g_settings.batteryColor);
+    ApplyGlyphColor(g_percentTB,      g_settings.percentColor);
 }
 
 // ── OmniButton chrome / internal footprint ────────────────────────────────
@@ -705,8 +836,8 @@ static void ApplyOmniButtonChrome() {
 }
 
 static void ApplyItemsHostFootprint(StackPanel const& sp, const GridGeom& geom) {
-    sp.Width(double(geom.cols * g_settings.slotWidth));
-    sp.Height(double(geom.rows * geom.slotH));
+    sp.Width(double(geom.layout.columns * g_settings.slotWidth));
+    sp.Height(double(geom.layout.rows * geom.slotH));
     sp.HorizontalAlignment(HorizontalAlignment::Center);
     sp.VerticalAlignment(VerticalAlignment::Center);
     sp.InvalidateMeasure();
@@ -720,10 +851,8 @@ static void CleanupXamlElements(
     FrameworkElement bp, StackPanel bip,
     FrameworkElement biglyph, FrameworkElement bipct)
 {
-    // Stop storyboards first so animations don't race with element cleanup.
-    // Foreground clearing is handled by CleanupAndResetCurrentElements while refs are still live.
-    StopAndClearStoryboards();
-
+    // Foreground clearing is handled by CleanupAndResetCurrentElements while
+    // refs are still live.
     try {
         if (sp) {
             sp.Orientation(Orientation::Horizontal);
@@ -821,7 +950,7 @@ static void RevokeLayoutUpdated() {
 
 static void CleanupAndResetCurrentElements() {
     RevokeLayoutUpdated();
-    // Clear glyph colors (stops storyboards, clears Foreground) while refs are still live
+    // Clear glyph Foregrounds while refs are still live
     ClearGlyphColors();
     auto sp      = g_omniStackPanel; auto btn     = g_omniButton;
     auto wifi    = g_wifiPresenter;  auto vol     = g_volumePresenter;
@@ -859,13 +988,12 @@ static void ResolveItemPositions(const wchar_t* orderStr, bool hasBattery, bool 
     for (int i = 0; i < 4; i++) if (!present[i]) posMap[i] = -1;
 }
 
+// Translate an item from its natural StackPanel position (slotIdx rows of
+// vertical stacking) to an absolute pixel position within the grid footprint.
 static void PositionSlot(FrameworkElement const& fe, int slotIdx,
-                         int col, int row, const GridGeom& geom,
-                         int nudgeX, int nudgeY)
+                         int x, int y, int slotH, int nudgeX, int nudgeY)
 {
-    int baseX = col * g_settings.slotWidth;
-    int baseY = -(slotIdx * geom.slotH) + (row * geom.slotH);
-    ApplyOffset(fe, baseX + nudgeX, baseY + nudgeY);
+    ApplyOffset(fe, x + nudgeX, -(slotIdx * slotH) + y + nudgeY);
 }
 
 static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
@@ -907,21 +1035,20 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     int posMap[4];
     ResolveItemPositions(g_settings.itemOrderStr, hasBattPres, hasPercent, posMap);
     Wh_Log(L"[Layout] items=%d cols=%d rows=%d slotH=%d order=[%d,%d,%d,%d] mode=%s",
-        itemCount, geom.cols, geom.rows, geom.slotH,
+        itemCount, geom.layout.columns, geom.layout.rows, geom.slotH,
         posMap[0], posMap[1], posMap[2], posMap[3],
         g_settings.batteryPercentMode == BattPctMode::Independent ? L"indep" : L"coupled");
 
     if (g_omniButton) ApplyOmniButtonChrome();
     ApplyItemsHostFootprint(sp, geom);
 
-    // Helper: resolve (col, row) + short-group center nudge for a grid position
-    auto resolvePos = [&](int gridPos, int& col, int& row, int& cnx, int& cny) {
-        ItemGridPos(gridPos, geom.cols, geom.rows,
-                    g_settings.fillOrder, g_settings.shortGroupAlign, itemCount, col, row);
-        cnx = cny = 0;
-        if (g_settings.shortGroupAlign == ShortAlign::Center)
-            ShortGroupCenterNudge(gridPos, geom.cols, geom.rows, g_settings.fillOrder,
-                                  itemCount, g_settings.slotWidth, geom.slotH, cnx, cny);
+    // Helper: absolute pixel position of a grid slot, including short-group
+    // placement and alignment (template GetCell expresses those as fractional
+    // offset units of one slot).
+    auto resolvePos = [&](int gridPos, int& outX, int& outY) {
+        grid::Cell c = grid::GetCell(gridPos, itemCount, geom.layout, geom.config);
+        outX = int((c.column + c.leftOffsetUnits) * g_settings.slotWidth);
+        outY = int((c.row + c.topOffsetUnits) * geom.slotH);
     };
 
     // ── Wifi (slot 0) ──
@@ -935,8 +1062,8 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
                 cp.HorizontalContentAlignment(HorizontalAlignment::Center);
                 cp.VerticalContentAlignment(VerticalAlignment::Center);
             }
-            int col, row, cnx, cny; resolvePos(posMap[0], col, row, cnx, cny);
-            PositionSlot(wifi, 0, col, row, geom, g_settings.wifiX + cnx, g_settings.wifiY + cny);
+            int x, y; resolvePos(posMap[0], x, y);
+            PositionSlot(wifi, 0, x, y, geom.slotH, g_settings.wifiX, g_settings.wifiY);
         }
     }
     // ── Volume (slot 1) ──
@@ -950,8 +1077,8 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
                 cp.HorizontalContentAlignment(HorizontalAlignment::Center);
                 cp.VerticalContentAlignment(VerticalAlignment::Center);
             }
-            int col, row, cnx, cny; resolvePos(posMap[1], col, row, cnx, cny);
-            PositionSlot(vol, 1, col, row, geom, g_settings.volumeX + cnx, g_settings.volumeY + cny);
+            int x, y; resolvePos(posMap[1], x, y);
+            PositionSlot(vol, 1, x, y, geom.slotH, g_settings.volumeX, g_settings.volumeY);
         }
     }
 
@@ -967,8 +1094,8 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
             //   percent  transform      = ((pCol-1)*slotW, pRow*slotH) + nudge
             //     [percent natural X = slotW (glyph width); (pCol-1)*slotW corrects for it]
 
-            g_batteryPresenter.Width(double(geom.cols * g_settings.slotWidth));
-            g_batteryPresenter.Height(double(geom.rows * geom.slotH));
+            g_batteryPresenter.Width(double(geom.layout.columns * g_settings.slotWidth));
+            g_batteryPresenter.Height(double(geom.layout.rows * geom.slotH));
             g_batteryPresenter.HorizontalAlignment(HorizontalAlignment::Left);
             g_batteryPresenter.VerticalAlignment(VerticalAlignment::Top);
             if (auto bcp = g_batteryPresenter.try_as<ContentPresenter>()) {
@@ -983,20 +1110,21 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
             if (g_batteryPercentFE) g_batteryPercentFE.VerticalAlignment(VerticalAlignment::Top);
 
             // Absolute position of battery glyph within battery CP
-            int bCol, bRow, bcnx, bcny; resolvePos(posMap[2], bCol, bRow, bcnx, bcny);
+            int bx, by; resolvePos(posMap[2], bx, by);
             if (g_batteryGlyphFE)
                 ApplyOffset(g_batteryGlyphFE,
-                    bCol * g_settings.slotWidth + g_settings.batteryX + bcnx,
-                    bRow * geom.slotH           + g_settings.batteryY + bcny);
+                    bx + g_settings.batteryX, by + g_settings.batteryY);
 
-            // Absolute position of percent within battery CP
-            int pCol, pRow, pcnx, pcny; resolvePos(posMap[3], pCol, pRow, pcnx, pcny);
+            // Absolute position of percent within battery CP. The percent's
+            // natural X is one glyph-slot in (the glyph is fixed to slotWidth),
+            // so subtract it.
+            int px, py; resolvePos(posMap[3], px, py);
             if (g_batteryPercentFE)
                 ApplyOffset(g_batteryPercentFE,
-                    (pCol - 1) * g_settings.slotWidth + g_settings.percentX + pcnx,
-                    pRow * geom.slotH                 + g_settings.percentY + pcny);
+                    px - g_settings.slotWidth + g_settings.percentX,
+                    py + g_settings.percentY);
 
-            Wh_Log(L"[Layout] Indep batt=grid(%d,%d) pct=grid(%d,%d)", bCol, bRow, pCol, pRow);
+            Wh_Log(L"[Layout] Indep batt=(%d,%d)px pct=(%d,%d)px", bx, by, px, py);
         } else {
             // Coupled mode: battery CP at its grid cell, percent offset relative to battery
             double battW = double(g_settings.slotWidth * (hasPercent ? 2 : 1));
@@ -1010,19 +1138,19 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
                 bcp.HorizontalContentAlignment(HorizontalAlignment::Left);
                 bcp.VerticalContentAlignment(VerticalAlignment::Center);
             }
-            int bCol, bRow, bcnx, bcny; resolvePos(posMap[2], bCol, bRow, bcnx, bcny);
-            PositionSlot(g_batteryPresenter, battIdx, bCol, bRow, geom,
-                         g_settings.batteryX + bcnx, g_settings.batteryY + bcny);
+            int bx, by; resolvePos(posMap[2], bx, by);
+            PositionSlot(g_batteryPresenter, battIdx, bx, by, geom.slotH,
+                         g_settings.batteryX, g_settings.batteryY);
 
             if (hasPercent && g_batteryPercentFE) {
-                int pCol, pRow, pcnx, pcny; resolvePos(posMap[3], pCol, pRow, pcnx, pcny);
-                int relX = (pCol - bCol - 1) * g_settings.slotWidth
-                         + g_settings.percentX + (pcnx - bcnx);
-                int relY = (pRow - bRow) * geom.slotH
-                         + g_settings.percentY + (pcny - bcny);
+                // Percent offset relative to the battery cell; its natural X
+                // is one glyph-slot in, so subtract it.
+                int px, py; resolvePos(posMap[3], px, py);
+                int relX = px - bx - g_settings.slotWidth + g_settings.percentX;
+                int relY = py - by + g_settings.percentY;
                 ApplyOffset(g_batteryPercentFE, relX, relY);
-                Wh_Log(L"[Layout] Coupled pct at grid(%d,%d) batt at grid(%d,%d) relX=%d relY=%d",
-                    pCol, pRow, bCol, bRow, relX, relY);
+                Wh_Log(L"[Layout] Coupled pct=(%d,%d)px batt=(%d,%d)px relX=%d relY=%d",
+                    px, py, bx, by, relX, relY);
             }
         }
     }
@@ -1405,7 +1533,7 @@ static bool HookTaskbarDllSymbols() {
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] OmniButton Customizer v1.0+colors");
+    Wh_Log(L"[Init] OmniButton Customizer v1.0");
     LoadSettings();
     if (!HookTaskbarDllSymbols())
         Wh_Log(L"[Init] taskbar.dll symbol hooks failed — continuing");

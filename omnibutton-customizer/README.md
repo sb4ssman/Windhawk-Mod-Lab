@@ -15,11 +15,12 @@ ContentPresenter spans the full grid footprint and both sub-elements are offset 
 ## Grid settings
 
 - **Slot width / height** — size of each grid cell. Height 0 = taskbar height ÷ rows.
-- **Grid columns / rows** — 0 = auto: a single column when all items fit the
+- **Grid rows / columns** — 0 = auto: a single column when all items fit the
   taskbar height (double-height taskbars), otherwise more columns — 4 items on
   a single-height taskbar become a 2x2.
 - **Fill order** — row-first or column-first.
-- **Short group alignment** — when the last row/column is shorter, align start/center/end.
+- **Short row or column** — when items don't divide evenly, whether the short
+  row/column is first or last, and how it's aligned (start/center/end).
 
 ## Item order
 
@@ -33,12 +34,6 @@ Set `wifiColor`, `volumeColor`, `batteryColor`, `percentColor` to a hex color
 (`#RRGGBB` or `#AARRGGBB`, the alpha byte is honored), the generics `accent`,
 `accentLight`, and `accentDark` for the Windows accent shades, or `transparent`.
 Leave empty to use the default theme color.
-
-## Animated colors
-
-Set `wifiColorTo` (and the matching `wifiColor` as the starting color) to make the
-wifi glyph animate between the two colors in a looping pulse. Repeat for any item.
-`colorAnimateDuration` controls the half-cycle duration in milliseconds.
 
 ## Presets
 

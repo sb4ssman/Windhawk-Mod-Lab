@@ -33,13 +33,10 @@ This mod injects permanent placeholder icons:
 appear and in what sequence: `location`, `mic`, `camera`, `copilot`. Remove a
 token to hide that icon; reorder tokens to change the display order.
 
-`gridColumns` sets how many columns the icon bar uses:
-
-- `0` (default) — automatic: a single column when the whole icon stack fits
-  the taskbar height (double-height taskbars), otherwise two columns
-- `1` — single column (vertical stack)
-- `2` — two-column grid; with 3 icons this gives one short row
-- `3` or more — single row when icon count ≤ columns
+`gridRows` and `gridColumns` shape the icon grid; `0` (the default for both) is
+automatic: a single column when the whole icon stack fits the taskbar height
+(double-height taskbars), otherwise more columns. Set either one to fix that
+axis — the other follows from the icon count.
 
 When one row or column has fewer icons than the rest, use `shortGroupPosition`
 and `shortGroupAlign` to control where it sits and how it's aligned:
@@ -51,7 +48,7 @@ and `shortGroupAlign` to control where it sits and how it's aligned:
 | last           | start  | `[loc  mic]` / `[cam     ]` |
 | last           | end    | `[loc  mic]` / `[     cam]` |
 
-`fillOrder: colFirst` fills columns instead of rows, giving vertical
+`fillOrder: columnFirst` fills columns instead of rows, giving vertical
 arrangements like:
 
 ```
@@ -87,38 +84,38 @@ accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
     mic, camera, copilot. Remove a token to hide that icon. Reorder to change
     layout. Camera and copilot are experimental — see mod description.
 
-- gridColumns: 0
-  $name: Grid columns (0 = auto)
+- gridRows: 0
+  $name: Rows (0 = auto)
   $description: >-
-    Number of columns. 0 (default) picks automatically: a single column when
-    the whole icon stack fits the taskbar height (double-height taskbars),
-    otherwise two columns. 1 = vertical stack. Set to 3 or more for a single
-    row when showing 3 icons.
+    Rows in the icon grid. 0 = automatic from the icon count and taskbar
+    height (see Columns).
+
+- gridColumns: 0
+  $name: Columns (0 = auto)
+  $description: >-
+    Columns in the icon grid. 0 (default) picks automatically: a single column
+    when the whole icon stack fits the taskbar height (double-height
+    taskbars), otherwise more columns.
 
 - fillOrder: "rowFirst"
   $name: Fill order
-  $description: Whether items fill left-to-right then down, or top-to-bottom then right.
   $options:
-  - "rowFirst": "Row-first (left to right, then down)"
-  - "colFirst": "Column-first (top to bottom, then right)"
+  - "rowFirst": "Row first"
+  - "columnFirst": "Column first"
 
 - shortGroupPosition: "last"
-  $name: Short group position
-  $description: >-
-    When icons don't fill evenly, the short row/column can be at the start or end.
+  $name: Short row or column
+  $description: When icons don't divide evenly, where the short row/column goes.
   $options:
-  - "last": "Short group at end (bottom or right)"
-  - "first": "Short group at start (top or left)"
+  - "first": "First"
+  - "last": "Last"
 
 - shortGroupAlign: "center"
-  $name: Short group alignment
-  $description: >-
-    How to align icons in the short row/column. Center spans the available
-    space and centers the icon(s); start and end pin them to one side.
+  $name: Short row or column alignment
   $options:
+  - "start": "Start"
   - "center": "Center"
-  - "start": "Start (left/top)"
-  - "end": "End (right/bottom)"
+  - "end": "End"
 
 - iconSize: 16
   $name: Icon size (pt)
@@ -127,35 +124,18 @@ accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
   $name: Icon spacing (px)
   $description: Gap between icons in both directions.
 
-- locationOffsetX: 0
-  $name: Location X offset (px)
-
-- locationOffsetY: 0
-  $name: Location Y offset (px)
-
-- micOffsetX: 0
-  $name: Microphone X offset (px)
-
-- micOffsetY: 0
-  $name: Microphone Y offset (px)
-
-- cameraOffsetX: 0
-  $name: Camera X offset (px)
-
-- cameraOffsetY: 0
-  $name: Camera Y offset (px)
-
-- copilotOffsetX: 0
-  $name: Copilot X offset (px)
-
-- copilotOffsetY: 0
-  $name: Copilot Y offset (px)
-
 - idleOpacity: 50
   $name: Idle opacity (0-100)
   $description: >-
     Opacity when no app is using the feature. 0 = invisible but space reserved;
     100 = always full brightness.
+
+- activeColor: ""
+  $name: Active icon color
+  $description: >-
+    Color applied to icons while their feature is in use. Hex ("#RRGGBB" or
+    "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty (default) keeps the system foreground color at full brightness.
 
 - glowEnabled: 0
   $name: Glow when active (1=on, 0=off)
@@ -166,13 +146,6 @@ accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
 - glowOpacity: 40
   $name: Glow opacity (0-100)
   $description: Brightness of the bloom layer. 0 = invisible; 100 = same as icon.
-
-- activeColor: ""
-  $name: Active icon color
-  $description: >-
-    Color applied to icons while their feature is in use. Hex ("#RRGGBB" or
-    "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty (default) keeps the system foreground color at full brightness.
 
 - slashColor: ""
   $name: Slash color
@@ -208,6 +181,30 @@ accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
 - groupOffsetY: 0
   $name: Group Y offset (px)
   $description: Move the entire icon group up (negative) or down (positive).
+
+- locationOffsetX: 0
+  $name: Location X offset (px)
+
+- locationOffsetY: 0
+  $name: Location Y offset (px)
+
+- micOffsetX: 0
+  $name: Microphone X offset (px)
+
+- micOffsetY: 0
+  $name: Microphone Y offset (px)
+
+- cameraOffsetX: 0
+  $name: Camera X offset (px)
+
+- cameraOffsetY: 0
+  $name: Camera Y offset (px)
+
+- copilotOffsetX: 0
+  $name: Copilot X offset (px)
+
+- copilotOffsetY: 0
+  $name: Copilot Y offset (px)
 
 - suppressNativeIndicators: 1
   $name: Suppress Windows privacy indicators (1=on, 0=off)
@@ -255,21 +252,243 @@ using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Media;
 
 // ============================================================
+// Smart grid layout
+// Template block: _templates/smart-grid-layout.h v1.0 (verbatim copy — keep
+// in sync with the template; Windhawk mods are single-file).
+// ============================================================
+
+#include <climits>
+
+namespace windhawk_mod_templates::smart_grid {
+
+enum class GridMode {
+    AutoSmart,
+    SingleRow,
+    SingleColumn,
+    FixedRows,
+    FixedColumns,
+    FixedGrid,
+};
+
+enum class SmartLayout { Balanced, PackVertical, PackHorizontal };
+enum class FillOrder { RowFirst, ColumnFirst };
+enum class ShortGroupPosition { First, Last };
+enum class ShortGroupAlign { Start, Center, End };
+
+struct Config {
+    GridMode mode = GridMode::AutoSmart;
+    SmartLayout smartLayout = SmartLayout::Balanced;
+    FillOrder fillOrder = FillOrder::RowFirst;
+    ShortGroupPosition shortGroupPosition = ShortGroupPosition::Last;
+    ShortGroupAlign shortGroupAlign = ShortGroupAlign::Center;
+    int rows = 0;          // exact in fixed modes; maximum in AutoSmart
+    int columns = 0;       // exact in fixed modes; maximum in AutoSmart
+    int availableRows = 1; // derive from host height / item pitch
+};
+
+struct Layout {
+    int rows = 1;
+    int columns = 1;
+};
+
+// A short group may need to span its complete axis so a half-cell offset can
+// be expressed with Margin. Multiply offsetUnits by item-size-plus-spacing.
+struct Cell {
+    int row = 0;
+    int column = 0;
+    int rowSpan = 1;
+    int columnSpan = 1;
+    double topOffsetUnits = 0.0;
+    double leftOffsetUnits = 0.0;
+};
+
+inline int ScoreCandidate(int rows, int columns, int count,
+                          SmartLayout preference) {
+    int waste = rows * columns - count;
+    int widePenalty = columns > rows ? (columns - rows) * 2 : 0;
+    int score = waste * 10 + widePenalty;
+
+    if (preference == SmartLayout::PackVertical)
+        score -= rows * 20;
+    else if (preference == SmartLayout::PackHorizontal)
+        score += rows * 20;
+    else
+        score -= rows * 3;
+
+    return score;
+}
+
+inline Layout ComputeLayout(int count, Config const& config) {
+    count = std::max(1, count);
+    Layout result;
+    int availableRows = std::clamp(config.availableRows, 1, count);
+    if (config.rows > 0 && config.mode == GridMode::AutoSmart)
+        availableRows = std::min(availableRows, config.rows);
+
+    switch (config.mode) {
+        case GridMode::SingleRow:
+            result = {1, count};
+            break;
+        case GridMode::SingleColumn:
+            result = {count, 1};
+            break;
+        case GridMode::FixedRows:
+            result.rows = std::clamp(config.rows, 1, count);
+            result.columns = (count + result.rows - 1) / result.rows;
+            break;
+        case GridMode::FixedColumns:
+            result.columns = std::clamp(config.columns, 1, count);
+            result.rows = (count + result.columns - 1) / result.columns;
+            break;
+        case GridMode::FixedGrid:
+            result.rows = std::clamp(config.rows, 1, count);
+            result.columns = config.columns > 0
+                ? std::clamp(config.columns, 1, count)
+                : (count + result.rows - 1) / result.rows;
+            if (result.rows * result.columns < count)
+                result.rows = (count + result.columns - 1) / result.columns;
+            break;
+        case GridMode::AutoSmart: {
+            int bestScore = INT_MAX;
+            int firstRows = availableRows > 1 && count > 1 &&
+                            config.smartLayout != SmartLayout::PackHorizontal
+                ? 2 : 1;
+            for (int rows = firstRows; rows <= availableRows; ++rows) {
+                int columns = (count + rows - 1) / rows;
+                if (config.columns > 0 && columns > config.columns)
+                    continue;
+                int score = ScoreCandidate(rows, columns, count,
+                                           config.smartLayout);
+                if (score < bestScore) {
+                    bestScore = score;
+                    result = {rows, columns};
+                }
+            }
+            if (bestScore == INT_MAX) {
+                result.columns = std::clamp(config.columns, 1, count);
+                result.rows = (count + result.columns - 1) / result.columns;
+            }
+            break;
+        }
+    }
+
+    result.rows = std::clamp(result.rows, 1, count);
+    result.columns = std::max(1, result.columns);
+    while (result.rows * result.columns < count) {
+        if (config.mode == GridMode::FixedColumns)
+            ++result.rows;
+        else
+            ++result.columns;
+    }
+    return result;
+}
+
+inline double AlignOffset(int capacity, int itemCount,
+                          ShortGroupAlign alignment) {
+    int unused = std::max(0, capacity - itemCount);
+    if (alignment == ShortGroupAlign::Center)
+        return unused / 2.0;
+    if (alignment == ShortGroupAlign::End)
+        return static_cast<double>(unused);
+    return 0.0;
+}
+
+inline Cell GetCell(int index, int count, Layout const& layout,
+                    Config const& config) {
+    Cell cell;
+    index = std::clamp(index, 0, std::max(0, count - 1));
+
+    if (config.fillOrder == FillOrder::RowFirst) {
+        int groupCount = (count + layout.columns - 1) / layout.columns;
+        int shortCount = count % layout.columns;
+        if (!shortCount) shortCount = layout.columns;
+        int group;
+        int itemInGroup;
+        if (shortCount < layout.columns &&
+            config.shortGroupPosition == ShortGroupPosition::First) {
+            if (index < shortCount) {
+                group = 0;
+                itemInGroup = index;
+            } else {
+                int adjusted = index - shortCount;
+                group = 1 + adjusted / layout.columns;
+                itemInGroup = adjusted % layout.columns;
+            }
+        } else {
+            group = index / layout.columns;
+            itemInGroup = index % layout.columns;
+        }
+        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
+            ? 0 : groupCount - 1;
+        bool isShort = shortCount < layout.columns && group == shortGroup;
+
+        cell.row = group;
+        cell.column = itemInGroup;
+        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
+            cell.column = 0;
+            cell.columnSpan = layout.columns;
+            cell.leftOffsetUnits = AlignOffset(layout.columns, shortCount,
+                                               config.shortGroupAlign) +
+                                   itemInGroup;
+        }
+    } else {
+        int groupCount = (count + layout.rows - 1) / layout.rows;
+        int shortCount = count % layout.rows;
+        if (!shortCount) shortCount = layout.rows;
+        int group;
+        int itemInGroup;
+        if (shortCount < layout.rows &&
+            config.shortGroupPosition == ShortGroupPosition::First) {
+            if (index < shortCount) {
+                group = 0;
+                itemInGroup = index;
+            } else {
+                int adjusted = index - shortCount;
+                group = 1 + adjusted / layout.rows;
+                itemInGroup = adjusted % layout.rows;
+            }
+        } else {
+            group = index / layout.rows;
+            itemInGroup = index % layout.rows;
+        }
+        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
+            ? 0 : groupCount - 1;
+        bool isShort = shortCount < layout.rows && group == shortGroup;
+
+        cell.row = itemInGroup;
+        cell.column = group;
+        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
+            cell.row = 0;
+            cell.rowSpan = layout.rows;
+            cell.topOffsetUnits = AlignOffset(layout.rows, shortCount,
+                                              config.shortGroupAlign) +
+                                  itemInGroup;
+        }
+    }
+    return cell;
+}
+
+} // namespace windhawk_mod_templates::smart_grid
+
+namespace grid = windhawk_mod_templates::smart_grid;
+
+// ============================================================
 // Settings
 // ============================================================
 
 struct ModSettings {
-    int  idleOpacity  = 50;
-    std::wstring itemOrder          = L"location,mic,camera,copilot";
-    int  gridColumns                = 2;
-    std::wstring fillOrder          = L"rowFirst";
-    std::wstring shortGroupPosition = L"last";
-    std::wstring shortGroupAlign    = L"center";
-    int  iconSize     = 16;
     std::wstring position = L"beforeOmni";
+    std::wstring itemOrder = L"location,mic,camera,copilot";
+    int  gridRows    = 0;
+    int  gridColumns = 0;
+    grid::FillOrder          fillOrder          = grid::FillOrder::RowFirst;
+    grid::ShortGroupPosition shortGroupPosition = grid::ShortGroupPosition::Last;
+    grid::ShortGroupAlign    shortGroupAlign    = grid::ShortGroupAlign::Center;
+    int  iconSize      = 16;
+    int  buttonSpacing = 4;
+    int  idleOpacity   = 50;
     int  groupPaddingLeft = 0;
     int  groupPaddingRight = 0;
-    int  buttonSpacing = 4;
     int  groupOffsetX = 0;
     int  groupOffsetY = 0;
     int  locationOffsetX = 0;
@@ -351,14 +570,24 @@ static bool ParseColorToken(const wchar_t* s, winrt::Windows::UI::Color& out) {
 
 static void LoadSettings() {
     auto clamp = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
-    g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity"), 0, 100);
-    g_settings.itemOrder            = GetStringSetting(L"itemOrder");
-    g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns"), 0, 10);
-    g_settings.fillOrder            = GetStringSetting(L"fillOrder");
-    g_settings.shortGroupPosition   = GetStringSetting(L"shortGroupPosition");
-    g_settings.shortGroupAlign      = GetStringSetting(L"shortGroupAlign");
+    g_settings.position  = GetStringSetting(L"position");
+    g_settings.itemOrder = GetStringSetting(L"itemOrder");
+    g_settings.gridRows    = clamp(Wh_GetIntSetting(L"gridRows"), 0, 10);
+    g_settings.gridColumns = clamp(Wh_GetIntSetting(L"gridColumns"), 0, 10);
+    { std::wstring s = GetStringSetting(L"fillOrder");
+      // "colFirst" accepted as a legacy spelling of "columnFirst"
+      g_settings.fillOrder = (s == L"columnFirst" || s == L"colFirst")
+                           ? grid::FillOrder::ColumnFirst : grid::FillOrder::RowFirst; }
+    { std::wstring s = GetStringSetting(L"shortGroupPosition");
+      g_settings.shortGroupPosition = (s == L"first")
+                                    ? grid::ShortGroupPosition::First
+                                    : grid::ShortGroupPosition::Last; }
+    { std::wstring s = GetStringSetting(L"shortGroupAlign");
+      if      (s == L"start") g_settings.shortGroupAlign = grid::ShortGroupAlign::Start;
+      else if (s == L"end")   g_settings.shortGroupAlign = grid::ShortGroupAlign::End;
+      else                    g_settings.shortGroupAlign = grid::ShortGroupAlign::Center; }
     g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize"), 8, 48);
-    g_settings.position             = GetStringSetting(L"position");
+    g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity"), 0, 100);
     g_settings.groupPaddingLeft     = clamp(Wh_GetIntSetting(L"groupPaddingLeft"), -40, 40);
     g_settings.groupPaddingRight    = clamp(Wh_GetIntSetting(L"groupPaddingRight"), -40, 40);
     g_settings.buttonSpacing        = clamp(Wh_GetIntSetting(L"buttonSpacing"), 0, 40);
@@ -684,94 +913,6 @@ static std::vector<std::wstring> ParseItemOrder(std::wstring const& s) {
         start = end + 1;
     }
     return result;
-}
-
-// ============================================================
-// Grid placement helper (Option C)
-// ============================================================
-
-struct GridPlacement {
-    int row, col, rowSpan, colSpan;
-    double topOffsetUnits;
-    double leftOffsetUnits;
-};
-
-static GridPlacement ComputeIconPlacement(
-    int i, int N, int cols,
-    bool colFirst, bool shortFirst,
-    const std::wstring& align)
-{
-    GridPlacement p{};
-    p.rowSpan = 1;
-    p.colSpan = 1;
-
-    int rows = (N + cols - 1) / cols;
-    auto alignOffset = [&](int capacity, int itemCount) {
-        int unused = std::max(0, capacity - itemCount);
-        if (align == L"center") return unused / 2.0;
-        if (align == L"end") return static_cast<double>(unused);
-        return 0.0;
-    };
-
-    if (!colFirst) {
-        int groupCount = (N + cols - 1) / cols;
-        int shortCount = N % cols;
-        if (!shortCount) shortCount = cols;
-        int group;
-        int item;
-        if (shortFirst && shortCount < cols) {
-            if (i < shortCount) {
-                group = 0;
-                item = i;
-            } else {
-                int adjusted = i - shortCount;
-                group = 1 + adjusted / cols;
-                item = adjusted % cols;
-            }
-        } else {
-            group = i / cols;
-            item = i % cols;
-        }
-        int shortGroup = shortFirst ? 0 : groupCount - 1;
-        bool isShort = shortCount < cols && group == shortGroup;
-        p.row = group;
-        p.col = item;
-        if (isShort && align != L"start") {
-            p.col = 0;
-            p.colSpan = cols;
-            p.leftOffsetUnits = alignOffset(cols, shortCount) + item;
-        }
-    } else {
-        int groupCount = (N + rows - 1) / rows;
-        int shortCount = N % rows;
-        if (!shortCount) shortCount = rows;
-        int group;
-        int item;
-        if (shortFirst && shortCount < rows) {
-            if (i < shortCount) {
-                group = 0;
-                item = i;
-            } else {
-                int adjusted = i - shortCount;
-                group = 1 + adjusted / rows;
-                item = adjusted % rows;
-            }
-        } else {
-            group = i / rows;
-            item = i % rows;
-        }
-        int shortGroup = shortFirst ? 0 : groupCount - 1;
-        bool isShort = shortCount < rows && group == shortGroup;
-        p.row = item;
-        p.col = group;
-        if (isShort && align != L"start") {
-            p.row = 0;
-            p.rowSpan = rows;
-            p.topOffsetUnits = alignOffset(rows, shortCount) + item;
-        }
-    }
-
-    return p;
 }
 
 // ============================================================
@@ -1556,29 +1697,41 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                  (double)g_settings.groupPaddingRight, 0.0 });
     ApplyOffset(bar, g_settings.groupOffsetX, g_settings.groupOffsetY);
 
-    int N    = (int)activeItems.size();
-    int cols = g_settings.gridColumns;
-    if (cols <= 0) {
-        // Auto: single column when the whole icon stack fits the taskbar
-        // height (double-height taskbars) — narrowest footprint, least empty
-        // space. Otherwise two columns (compact triangle on single-height).
+    int N = (int)activeItems.size();
+
+    // Grid shape from the smart-grid template; mode derives from the rows /
+    // columns settings (0 = auto).
+    grid::Config cfg;
+    cfg.fillOrder          = g_settings.fillOrder;
+    cfg.shortGroupPosition = g_settings.shortGroupPosition;
+    cfg.shortGroupAlign    = g_settings.shortGroupAlign;
+    cfg.rows               = g_settings.gridRows;
+    cfg.columns            = g_settings.gridColumns;
+    if      (g_settings.gridRows > 0 && g_settings.gridColumns > 0)
+        cfg.mode = grid::GridMode::FixedGrid;
+    else if (g_settings.gridRows > 0)
+        cfg.mode = grid::GridMode::FixedRows;
+    else if (g_settings.gridColumns > 0)
+        cfg.mode = grid::GridMode::FixedColumns;
+    else
+        cfg.mode = grid::GridMode::AutoSmart;
+
+    // Row capacity from the taskbar height and icon pitch: a single column on
+    // double-height taskbars, more columns when the stack doesn't fit.
+    {
         int taskbarH = 48;
         HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-        RECT r{};
-        if (hWnd && GetWindowRect(hWnd, &r))
-            taskbarH = (int)(r.bottom - r.top);
-        int stackH = N * g_settings.iconSize +
-                     std::max(0, N - 1) * std::max(0, g_settings.buttonSpacing);
-        cols = (stackH <= taskbarH) ? 1 : 2;
-        Wh_Log(L"[Layout] Auto columns: taskbarH=%d stackH=%d -> %d col(s)",
-               taskbarH, stackH, cols);
+        RECT rc{};
+        if (hWnd && GetWindowRect(hWnd, &rc))
+            taskbarH = (int)(rc.bottom - rc.top);
+        int pitch = g_settings.iconSize + std::max(0, g_settings.buttonSpacing);
+        cfg.availableRows = std::max(1,
+            (taskbarH + std::max(0, g_settings.buttonSpacing)) / std::max(1, pitch));
     }
-    cols = std::max(1, std::min(N, cols));
-    int rows = (N + cols - 1) / cols;
-    bool colFirst   = (g_settings.fillOrder == L"colFirst" ||
-                       g_settings.fillOrder == L"columnFirst");
-    bool shortFirst = (g_settings.shortGroupPosition == L"first");
-    const auto& align = g_settings.shortGroupAlign;
+
+    grid::Layout layout = grid::ComputeLayout(N, cfg);
+    int rows = layout.rows;
+    int cols = layout.columns;
 
     for (int r = 0; r < rows; r++) {
         RowDefinition rd;
@@ -1828,14 +1981,14 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         else if (token == L"camera")   { g_camIcon     = iconFe; g_camGlowIcon     = glowFe; g_camSlashIcon     = slashLine; }
         else /* copilot */             { g_copilotIcon = iconFe; g_copilotGlowIcon = glowFe; g_copilotSlashIcon = slashLine; }
 
-        auto placement = ComputeIconPlacement(i, N, cols, colFirst, shortFirst, align);
+        grid::Cell placement = grid::GetCell(i, N, layout, cfg);
         Grid::SetRow(slot, placement.row);
-        Grid::SetColumn(slot, placement.col);
+        Grid::SetColumn(slot, placement.column);
         if (placement.rowSpan > 1) Grid::SetRowSpan(slot, placement.rowSpan);
-        if (placement.colSpan > 1) Grid::SetColumnSpan(slot, placement.colSpan);
+        if (placement.columnSpan > 1) Grid::SetColumnSpan(slot, placement.columnSpan);
         if (placement.rowSpan > 1)
             slot.VerticalAlignment(VerticalAlignment::Top);
-        if (placement.colSpan > 1)
+        if (placement.columnSpan > 1)
             slot.HorizontalAlignment(HorizontalAlignment::Left);
         if (placement.topOffsetUnits || placement.leftOffsetUnits) {
             double pitch = g_settings.iconSize + g_settings.buttonSpacing;
@@ -1856,8 +2009,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     g_syntheticColumn = insertCol;
 
     UpdateSyntheticState();
-    Wh_Log(L"[Inject] PrivacyAnchorBar: %d icons, %d cols, %d rows, colFirst=%d, shortFirst=%d",
-           N, cols, rows, colFirst ? 1 : 0, shortFirst ? 1 : 0);
+    Wh_Log(L"[Inject] PrivacyAnchorBar: %d icons, %d cols, %d rows", N, cols, rows);
     return true;
 }
 
@@ -2332,10 +2484,9 @@ void Wh_ModUninit() {
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
-    Wh_Log(L"[Settings] order=%s cols=%d fill=%s shortPos=%s shortAlign=%s suppressNative=%d",
-           g_settings.itemOrder.c_str(), g_settings.gridColumns,
-           g_settings.fillOrder.c_str(), g_settings.shortGroupPosition.c_str(),
-           g_settings.shortGroupAlign.c_str(), g_settings.suppressNativeIndicators ? 1 : 0);
+    Wh_Log(L"[Settings] order=%s rows=%d cols=%d suppressNative=%d",
+           g_settings.itemOrder.c_str(), g_settings.gridRows,
+           g_settings.gridColumns, g_settings.suppressNativeIndicators ? 1 : 0);
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return;
