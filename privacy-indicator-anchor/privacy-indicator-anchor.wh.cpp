@@ -30,13 +30,15 @@ This mod injects permanent placeholder icons:
 ## Icon order and grid layout
 
 `itemOrder` is a comma-separated list of icon tokens that controls which icons
-appear and in what sequence: `location`, `mic`, `camera`. Remove a token to
-hide that icon; reorder tokens to change the display order.
+appear and in what sequence: `location`, `mic`, `camera`, `copilot`. Remove a
+token to hide that icon; reorder tokens to change the display order.
 
 `gridColumns` sets how many columns the icon bar uses:
 
+- `0` (default) — automatic: a single column when the whole icon stack fits
+  the taskbar height (double-height taskbars), otherwise two columns
 - `1` — single column (vertical stack)
-- `2` — two-column grid (default); with 3 icons this gives one short row
+- `2` — two-column grid; with 3 icons this gives one short row
 - `3` or more — single row when icon count ≤ columns
 
 When one row or column has fewer icons than the rest, use `shortGroupPosition`
@@ -56,6 +58,13 @@ arrangements like:
 [loc] [cam]      [loc] [mic]
 [mic] [   ]  or  [   ] [cam]   (short column centered)
 ```
+
+## Colors
+
+`activeColor` (icons in use) and `slashColor` (the disabled slash overlay)
+accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
+`accent`, `accentLight`, and `accentDark` for the Windows accent shades, or
+`transparent`. Leaving either empty keeps the system foreground color.
 */
 // ==/WindhawkModReadme==
 
@@ -71,18 +80,20 @@ arrangements like:
   - "afterClock": "After clock"
   - "afterShowDesktop": "After Show Desktop strip"
 
-- itemOrder: "location,mic,camera"
+- itemOrder: "location,mic,camera,copilot"
   $name: Icon order
   $description: >-
     Comma-separated list of icons to show, in order. Valid tokens: location,
     mic, camera, copilot. Remove a token to hide that icon. Reorder to change
     layout. Camera and copilot are experimental — see mod description.
 
-- gridColumns: 2
-  $name: Grid columns
+- gridColumns: 0
+  $name: Grid columns (0 = auto)
   $description: >-
-    Number of columns. 1 = vertical stack. 2 = two-column grid (default). Set
-    to 3 or more for a single row when showing 3 icons.
+    Number of columns. 0 (default) picks automatically: a single column when
+    the whole icon stack fits the taskbar height (double-height taskbars),
+    otherwise two columns. 1 = vertical stack. Set to 3 or more for a single
+    row when showing 3 icons.
 
 - fillOrder: "rowFirst"
   $name: Fill order
@@ -150,36 +161,26 @@ arrangements like:
   $name: Glow when active (1=on, 0=off)
   $description: >-
     Adds a larger bloom glyph behind the icon when active. Uses the Windows
-    accent color unless custom active color is enabled.
+    accent color unless an Active icon color is set.
 
 - glowOpacity: 40
   $name: Glow opacity (0-100)
   $description: Brightness of the bloom layer. 0 = invisible; 100 = same as icon.
 
-- activeColorEnabled: 0
-  $name: Custom active color (1=on, 0=off)
+- activeColor: ""
+  $name: Active icon color
   $description: >-
-    When off (default), active icons show at full brightness in the system
-    foreground color. When on, applies the R/G/B color below instead.
-
-- activeColorR: 255
-  $name: Active color — R (0-255)
-
-- activeColorG: 180
-  $name: Active color — G (0-255)
-
-- activeColorB: 60
-  $name: Active color — B (0-255)
-  $description: >-
-    RGB tint applied to icons in use when custom active color is enabled.
-    Default warm orange (255,180,60).
+    Color applied to icons while their feature is in use. Hex ("#RRGGBB" or
+    "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty (default) keeps the system foreground color at full brightness.
 
 - slashColor: ""
-  $name: Slash color (hex, empty = system)
+  $name: Slash color
   $description: >-
-    Color of the slash overlay shown when a feature is disabled. Leave empty
-    (default) to use the system foreground color, matching the dimmed icon.
-    Enter a hex color without the # sign, e.g. DC1E1E for red.
+    Color of the slash overlay shown when a feature is disabled. Hex
+    ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or
+    "transparent". Leave empty (default) to use the system foreground color,
+    matching the dimmed icon.
 
 - slashDirection: "rising"
   $name: Slash direction
@@ -259,7 +260,7 @@ using namespace winrt::Windows::UI::Xaml::Media;
 
 struct ModSettings {
     int  idleOpacity  = 50;
-    std::wstring itemOrder          = L"location,mic,camera";
+    std::wstring itemOrder          = L"location,mic,camera,copilot";
     int  gridColumns                = 2;
     std::wstring fillOrder          = L"rowFirst";
     std::wstring shortGroupPosition = L"last";
@@ -279,13 +280,12 @@ struct ModSettings {
     int  cameraOffsetY = 0;
     int  copilotOffsetX = 0;
     int  copilotOffsetY = 0;
-    bool activeColorEnabled = false;
-    int  activeColorR   = 255;
-    int  activeColorG   = 180;
-    int  activeColorB   = 60;
+    bool activeColorSet = false;
+    winrt::Windows::UI::Color activeColorValue{};
     bool glowEnabled    = false;
     int  glowOpacity    = 40;
-    int  slashColor     = -1;  // -1 = system theme; otherwise 0x00RRGGBB
+    bool slashColorSet  = false;   // false = system theme
+    winrt::Windows::UI::Color slashColorValue{};
     std::wstring slashDirection = L"rising";
     int  slashOpacity   = 100;
     bool suppressNativeIndicators = true;
@@ -299,11 +299,61 @@ static std::wstring GetStringSetting(PCWSTR name) {
     return value;
 }
 
+// Color-returning variant of the canonical token parser (_templates/button-surface.h):
+// "#RRGGBB" / "#AARRGGBB" hex (alpha honored, "#" required), the generics
+// "accent" / "accentLight" / "accentDark" / "transparent", and the numbered
+// Windows shades "accentLight1"-"3" / "accentDark1"-"3" (accepted silently,
+// undocumented). Empty/unparseable returns false = keep the native behavior.
+static bool ParseColorToken(const wchar_t* s, winrt::Windows::UI::Color& out) {
+    using winrt::Windows::UI::ViewManagement::UIColorType;
+    if (!s || !*s) return false;
+
+    if (_wcsicmp(s, L"transparent") == 0) {
+        out = {0, 0, 0, 0};
+        return true;
+    }
+
+    static const struct { const wchar_t* token; UIColorType type; } kAccentTokens[] = {
+        {L"accent",       UIColorType::Accent},
+        {L"accentLight",  UIColorType::AccentLight2},
+        {L"accentDark",   UIColorType::AccentDark1},
+        {L"accentLight1", UIColorType::AccentLight1},
+        {L"accentLight2", UIColorType::AccentLight2},
+        {L"accentLight3", UIColorType::AccentLight3},
+        {L"accentDark1",  UIColorType::AccentDark1},
+        {L"accentDark2",  UIColorType::AccentDark2},
+        {L"accentDark3",  UIColorType::AccentDark3},
+    };
+    for (auto const& entry : kAccentTokens) {
+        if (_wcsicmp(s, entry.token) == 0) {
+            try {
+                winrt::Windows::UI::ViewManagement::UISettings settings;
+                out = settings.GetColorValue(entry.type);
+                return true;
+            } catch (...) {
+                Wh_Log(L"[Color] Failed to read the Windows accent color");
+                return false;
+            }
+        }
+    }
+
+    if (*s != L'#') return false;
+    const wchar_t* p = s + 1;
+    size_t len = wcslen(p);
+    if (len != 6 && len != 8) return false;
+    for (size_t i = 0; i < len; i++)
+        if (!iswxdigit(p[i])) return false;
+    unsigned long v = wcstoul(p, nullptr, 16);
+    if (len == 6) { out = {255, BYTE(v>>16), BYTE(v>>8), BYTE(v)}; }
+    else          { out = {BYTE(v>>24), BYTE(v>>16), BYTE(v>>8), BYTE(v)}; }
+    return true;
+}
+
 static void LoadSettings() {
     auto clamp = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
     g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity"), 0, 100);
     g_settings.itemOrder            = GetStringSetting(L"itemOrder");
-    g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns"), 1, 10);
+    g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns"), 0, 10);
     g_settings.fillOrder            = GetStringSetting(L"fillOrder");
     g_settings.shortGroupPosition   = GetStringSetting(L"shortGroupPosition");
     g_settings.shortGroupAlign      = GetStringSetting(L"shortGroupAlign");
@@ -324,18 +374,10 @@ static void LoadSettings() {
     g_settings.copilotOffsetY       = clamp(Wh_GetIntSetting(L"copilotOffsetY"), -40, 40);
     g_settings.glowEnabled          = Wh_GetIntSetting(L"glowEnabled") != 0;
     g_settings.glowOpacity          = clamp(Wh_GetIntSetting(L"glowOpacity"), 0, 100);
-    g_settings.activeColorEnabled   = Wh_GetIntSetting(L"activeColorEnabled") != 0;
-    g_settings.activeColorR         = clamp(Wh_GetIntSetting(L"activeColorR"), 0, 255);
-    g_settings.activeColorG         = clamp(Wh_GetIntSetting(L"activeColorG"), 0, 255);
-    g_settings.activeColorB         = clamp(Wh_GetIntSetting(L"activeColorB"), 0, 255);
-    {
-        std::wstring hex = GetStringSetting(L"slashColor");
-        const wchar_t* p = hex.c_str();
-        if (*p == L'#') p++;
-        wchar_t* end = nullptr;
-        long val = wcstol(p, &end, 16);
-        g_settings.slashColor = (end && end != p) ? (int)val : -1;
-    }
+    g_settings.activeColorSet = ParseColorToken(
+        GetStringSetting(L"activeColor").c_str(), g_settings.activeColorValue);
+    g_settings.slashColorSet = ParseColorToken(
+        GetStringSetting(L"slashColor").c_str(), g_settings.slashColorValue);
     g_settings.slashDirection = GetStringSetting(L"slashDirection");
     g_settings.slashOpacity   = clamp(Wh_GetIntSetting(L"slashOpacity"), 0, 100);
     g_settings.suppressNativeIndicators = Wh_GetIntSetting(L"suppressNativeIndicators") != 0;
@@ -355,6 +397,12 @@ static HANDLE            g_stateRefreshEvent    = nullptr;
 static std::atomic<bool> g_locActive{false};
 static std::atomic<bool> g_micActive{false};
 static std::atomic<bool> g_camActive{false};
+// Usage-record detection (ConsentStore LastUsedTimeStop==0) — covers hardware
+// camera/mic/location that never get a native tray glyph. ORed with the
+// glyph-driven *Active flags above when rendering.
+static std::atomic<bool> g_locUsage{false};
+static std::atomic<bool> g_micUsage{false};
+static std::atomic<bool> g_camUsage{false};
 static std::atomic<bool> g_locDisabled{false};
 static std::atomic<bool> g_micDisabled{false};
 static std::atomic<bool> g_camDisabled{false};
@@ -732,10 +780,7 @@ static GridPlacement ComputeIconPlacement(
 
 static void UpdateSyntheticOpacity() {
     double idleOp = g_settings.idleOpacity / 100.0;
-    winrt::Windows::UI::Color activeColor{255,
-        (BYTE)g_settings.activeColorR,
-        (BYTE)g_settings.activeColorG,
-        (BYTE)g_settings.activeColorB};
+    winrt::Windows::UI::Color activeColor = g_settings.activeColorValue;
 
     // active   = feature in use → full opacity, optional custom color + glow
     // disabled = service off   → idle opacity, slash visible
@@ -760,9 +805,9 @@ static void UpdateSyntheticOpacity() {
         bool effectiveActive = active && !disabled;
         icon.Opacity(effectiveActive ? 1.0 : idleOp);
 
-        // Custom active tint — only when the user explicitly enables it.
+        // Custom active tint — only when the user sets an active color.
         // Default: clear any explicit brush so system theme foreground applies.
-        if (g_settings.activeColorEnabled && effectiveActive) {
+        if (g_settings.activeColorSet && effectiveActive) {
             if (auto tb = icon.try_as<TextBlock>()) {
                 SolidColorBrush activeBrush; activeBrush.Color(activeColor);
                 tb.Foreground(activeBrush);
@@ -791,11 +836,11 @@ static void UpdateSyntheticOpacity() {
     };
 
     applySlot(g_locIcon, g_locGlowIcon, g_locSlashIcon,
-              g_locActive.load(), g_locDisabled.load());
+              g_locActive.load() || g_locUsage.load(), g_locDisabled.load());
     applySlot(g_micIcon, g_micGlowIcon, g_micSlashIcon,
-              g_micActive.load(), g_micDisabled.load());
+              g_micActive.load() || g_micUsage.load(), g_micDisabled.load());
     applySlot(g_camIcon, g_camGlowIcon, g_camSlashIcon,
-              g_camActive.load(), g_camDisabled.load());
+              g_camActive.load() || g_camUsage.load(), g_camDisabled.load());
     applySlot(g_copilotIcon, g_copilotGlowIcon, g_copilotSlashIcon,
               g_copilotActive.load(), g_copilotDisabled.load());
 }
@@ -814,9 +859,9 @@ static void SetIconTooltip(FrameworkElement const& fe, PCWSTR label, bool active
 }
 
 static void UpdateSyntheticTooltips() {
-    if (g_locIcon) SetIconTooltip(g_locIcon, L"Location",   g_locActive.load(), g_locDisabled.load());
-    if (g_micIcon) SetIconTooltip(g_micIcon, L"Microphone", g_micActive.load(), g_micDisabled.load());
-    if (g_camIcon) SetIconTooltip(g_camIcon, L"Camera",     g_camActive.load(), g_camDisabled.load());
+    if (g_locIcon) SetIconTooltip(g_locIcon, L"Location",   g_locActive.load() || g_locUsage.load(), g_locDisabled.load());
+    if (g_micIcon) SetIconTooltip(g_micIcon, L"Microphone", g_micActive.load() || g_micUsage.load(), g_micDisabled.load());
+    if (g_camIcon) SetIconTooltip(g_camIcon, L"Camera",     g_camActive.load() || g_camUsage.load(), g_camDisabled.load());
     if (g_copilotIcon) SetIconTooltip(g_copilotIcon,
         L"Copilot", g_copilotActive.load(), g_copilotDisabled.load(),
         L"Installed (not running)", L"Not installed / disabled");
@@ -1328,6 +1373,59 @@ static bool CheckLocationDisabled() {
     return false;
 }
 
+// In-use detection via CapabilityAccessManager usage records: each app that
+// uses a capability gets a subkey under ConsentStore\<capability> (packaged
+// apps directly, win32 apps under NonPackaged\) with LastUsedTimeStart /
+// LastUsedTimeStop QWORDs. Stop == 0 while Start is set means the app is using
+// the capability RIGHT NOW. This is how Settings > Privacy shows "currently in
+// use", and it fires for hardware cameras/mics that never get a tray glyph.
+static bool ScanConsentUsage(HKEY hive, const std::wstring& path, int depth = 0) {
+    if (depth > 1) return false;
+    HKEY hk = nullptr;
+    if (RegOpenKeyExW(hive, path.c_str(), 0,
+                      KEY_READ | KEY_ENUMERATE_SUB_KEYS, &hk) != ERROR_SUCCESS)
+        return false;
+    bool inUse = false;
+    wchar_t name[256];
+    for (DWORD i = 0; !inUse; i++) {
+        DWORD nameLen = ARRAYSIZE(name);
+        LONG e = RegEnumKeyExW(hk, i, name, &nameLen,
+                               nullptr, nullptr, nullptr, nullptr);
+        if (e == ERROR_NO_MORE_ITEMS) break;
+        if (e != ERROR_SUCCESS) continue;
+        if (_wcsicmp(name, L"NonPackaged") == 0) {
+            inUse = ScanConsentUsage(hive, path + L"\\" + name, depth + 1);
+            continue;
+        }
+        HKEY hApp = nullptr;
+        if (RegOpenKeyExW(hk, name, 0, KEY_READ, &hApp) == ERROR_SUCCESS) {
+            ULONGLONG start = 0, stop = 0;
+            DWORD sz = sizeof(start);
+            bool hasStart = RegQueryValueExW(hApp, L"LastUsedTimeStart", nullptr,
+                                nullptr, (LPBYTE)&start, &sz) == ERROR_SUCCESS &&
+                            start != 0;
+            sz = sizeof(stop);
+            bool hasStop = RegQueryValueExW(hApp, L"LastUsedTimeStop", nullptr,
+                               nullptr, (LPBYTE)&stop, &sz) == ERROR_SUCCESS;
+            RegCloseKey(hApp);
+            if (hasStart && hasStop && stop == 0) {
+                Wh_Log(L"[Usage] %s in use by %s", path.c_str(), name);
+                inUse = true;
+            }
+        }
+    }
+    RegCloseKey(hk);
+    return inUse;
+}
+
+static bool CheckCapabilityInUse(PCWSTR capability) {
+    std::wstring base =
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager"
+        L"\\ConsentStore\\";
+    return ScanConsentUsage(HKEY_CURRENT_USER,  base + capability) ||
+           ScanConsentUsage(HKEY_LOCAL_MACHINE, base + capability);
+}
+
 // Poll all privacy states and push UI update if anything changed.
 // Must be called from a thread with COM initialized (COINIT_MULTITHREADED).
 static void UpdateDisabledStates() {
@@ -1335,6 +1433,9 @@ static void UpdateDisabledStates() {
     bool locDis  = CheckLocationDisabled();
     bool micDis  = CheckMicDisabled();
     bool camDis  = CheckCameraDisabled();
+    bool locUse  = CheckCapabilityInUse(L"location");
+    bool micUse  = CheckCapabilityInUse(L"microphone");
+    bool camUse  = CheckCapabilityInUse(L"webcam");
     bool copInst = CheckCopilotInstalled();
     bool copAct  = CheckCopilotActive();
     // Update installed first so CheckCopilotDisabled can read it.
@@ -1347,6 +1448,9 @@ static void UpdateDisabledStates() {
     bool changed = (g_locDisabled.exchange(locDis)           != locDis)  ||
                    (g_micDisabled.exchange(micDis)           != micDis)  ||
                    (g_camDisabled.exchange(camDis)           != camDis)  ||
+                   (g_locUsage.exchange(locUse)              != locUse)  ||
+                   (g_micUsage.exchange(micUse)              != micUse)  ||
+                   (g_camUsage.exchange(camUse)              != camUse)  ||
                    (prevCopI                                != copInst) ||
                    (g_copilotActive.exchange(copAct)         != copAct)  ||
                    (g_copilotDisabled.exchange(copDis)       != copDis);
@@ -1453,7 +1557,23 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     ApplyOffset(bar, g_settings.groupOffsetX, g_settings.groupOffsetY);
 
     int N    = (int)activeItems.size();
-    int cols = std::max(1, std::min(N, g_settings.gridColumns));
+    int cols = g_settings.gridColumns;
+    if (cols <= 0) {
+        // Auto: single column when the whole icon stack fits the taskbar
+        // height (double-height taskbars) — narrowest footprint, least empty
+        // space. Otherwise two columns (compact triangle on single-height).
+        int taskbarH = 48;
+        HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+        RECT r{};
+        if (hWnd && GetWindowRect(hWnd, &r))
+            taskbarH = (int)(r.bottom - r.top);
+        int stackH = N * g_settings.iconSize +
+                     std::max(0, N - 1) * std::max(0, g_settings.buttonSpacing);
+        cols = (stackH <= taskbarH) ? 1 : 2;
+        Wh_Log(L"[Layout] Auto columns: taskbarH=%d stackH=%d -> %d col(s)",
+               taskbarH, stackH, cols);
+    }
+    cols = std::max(1, std::min(N, cols));
     int rows = (N + cols - 1) / cols;
     bool colFirst   = (g_settings.fillOrder == L"colFirst" ||
                        g_settings.fillOrder == L"columnFirst");
@@ -1526,10 +1646,8 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         slot.VerticalAlignment(VerticalAlignment::Center);
 
         winrt::Windows::UI::Color glowColor;
-        if (g_settings.activeColorEnabled) {
-            glowColor = {255, (BYTE)g_settings.activeColorR,
-                              (BYTE)g_settings.activeColorG,
-                              (BYTE)g_settings.activeColorB};
+        if (g_settings.activeColorSet) {
+            glowColor = g_settings.activeColorValue;
         } else {
             try {
                 winrt::Windows::UI::ViewManagement::UISettings ui;
@@ -1690,11 +1808,8 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         slashLine.IsHitTestVisible(false);
         {
             SolidColorBrush slashBrush;
-            if (g_settings.slashColor >= 0) {
-                slashBrush.Color({255,
-                    (BYTE)((g_settings.slashColor >> 16) & 0xFF),
-                    (BYTE)((g_settings.slashColor >>  8) & 0xFF),
-                    (BYTE)( g_settings.slashColor        & 0xFF)});
+            if (g_settings.slashColorSet) {
+                slashBrush.Color(g_settings.slashColorValue);
             } else {
                 bool isDark = (Application::Current().RequestedTheme()
                                == ApplicationTheme::Dark);
@@ -1747,6 +1862,23 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
 }
 
 static void RemoveSyntheticIcons() {
+    // XAML defers removed-subtree teardown to a later UI tick, which can land
+    // after the mod DLL unloads. The boxed tooltip and automation-name values on
+    // the synthetic icons are implemented in this DLL, so release them before
+    // removal (same crash class as folder-menus crash-on-disable).
+    auto clearIconState = [](FrameworkElement const& fe) {
+        if (!fe) return;
+        try { ToolTipService::SetToolTip(fe, nullptr); } catch (...) {}
+        try {
+            fe.ClearValue(winrt::Windows::UI::Xaml::Automation::
+                          AutomationProperties::NameProperty());
+        } catch (...) {}
+    };
+    clearIconState(g_locIcon);
+    clearIconState(g_micIcon);
+    clearIconState(g_camIcon);
+    clearIconState(g_copilotIcon);
+
     auto gridParent = g_syntheticParent ? g_syntheticParent.try_as<Grid>() : nullptr;
     if (!gridParent) {
         g_syntheticGrid    = nullptr;
@@ -1914,6 +2046,9 @@ static void ClearPrivacyStates() {
     g_locActive.store(false);
     g_micActive.store(false);
     g_camActive.store(false);
+    g_locUsage.store(false);
+    g_micUsage.store(false);
+    g_camUsage.store(false);
     g_locDisabled.store(false);
     g_micDisabled.store(false);
     g_camDisabled.store(false);
@@ -2179,14 +2314,17 @@ void Wh_ModUninit() {
     g_unloading = true;
     Wh_Log(L"[Uninit]");
     StopRetryThread();
-    g_loadedRevokers.clear();
+    // Loaded revokers wrap WinRT objects that must be destroyed on the UI
+    // thread — clear them inside RunFromWindowThread, not here.
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {
         RunFromWindowThread(hWnd, [](void*) {
+            g_loadedRevokers.clear();
             ClearPrivacyStates();
             RemoveSyntheticIcons();
         }, nullptr);
     } else {
+        g_loadedRevokers.clear();
         ClearPrivacyStates();
         RemoveSyntheticIcons();
     }

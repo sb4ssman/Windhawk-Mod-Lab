@@ -1,91 +1,63 @@
 # OmniButton Customizer
 
-Windhawk mod for rearranging the Windows 11 system tray OmniButton
-(wifi, volume/sound, battery, and battery percentage) into a configurable grid.
+Rearranges the Windows 11 system tray OmniButton (wifi, volume/sound, battery, battery
+percentage) into any grid layout. Designed for multi-row taskbars.
 
-This grew out of Vertical OmniButton. The original vertical stack is now just
-one preset: set `gridColumns` to `1` and use `itemOrder: "wifi volume battery"`.
+## Battery / percent modes
 
-## What It Does
+**Coupled** (default): battery and percent share a slot, rendered side-by-side inside the
+native inner panel. Works best when both are in adjacent grid cells.
 
-- Reorders OmniButton items with `itemOrder`
-- Lays items out by rows or columns
-- Supports 1-column, 2x2, horizontal, and custom grid layouts
-- Treats battery percentage as a separate fourth item when Windows exposes it
-- Adds per-item X/Y nudges for final pixel alignment
-- Keeps the outer OmniButton placement native while sizing the internal items
-  host to the configured grid footprint
-- Avoids XAML Diagnostics, so it can coexist with Windows 11 Taskbar Styler
+**Independent**: battery glyph and percent text are each treated as independent grid items
+and can be placed at any grid position, including non-adjacent ones. The battery
+ContentPresenter spans the full grid footprint and both sub-elements are offset absolutely.
 
-## Useful Presets
+## Grid settings
 
-Standard 2x2:
+- **Slot width / height** — size of each grid cell. Height 0 = taskbar height ÷ rows.
+- **Grid columns / rows** — 0 = auto: a single column when all items fit the
+  taskbar height (double-height taskbars), otherwise more columns — 4 items on
+  a single-height taskbar become a 2x2.
+- **Fill order** — row-first or column-first.
+- **Short group alignment** — when the last row/column is shorter, align start/center/end.
 
-```text
-gridColumns: 2
-fillOrder: rowFirst
-itemOrder: "wifi volume battery percent"
-```
+## Item order
 
-Classic vertical stack, no percent:
+`itemOrder` is a space-separated list: `wifi`, `volume`, `battery`, `percent`.
+Rearrange tokens to change which grid cell each item lands in. Items absent from
+Windows (e.g. no battery on a desktop) are silently skipped.
 
-```text
-gridColumns: 1
-itemOrder: "wifi volume battery"
-```
+## Per-item glyph colors
 
-Vertical stack with percent:
+Set `wifiColor`, `volumeColor`, `batteryColor`, `percentColor` to a hex color
+(`#RRGGBB` or `#AARRGGBB`, the alpha byte is honored), the generics `accent`,
+`accentLight`, and `accentDark` for the Windows accent shades, or `transparent`.
+Leave empty to use the default theme color.
 
-```text
-gridColumns: 1
-itemOrder: "wifi volume battery percent"
-```
+## Animated colors
 
-Swap wifi and volume:
+Set `wifiColorTo` (and the matching `wifiColor` as the starting color) to make the
+wifi glyph animate between the two colors in a looping pulse. Repeat for any item.
+`colorAnimateDuration` controls the half-cycle duration in milliseconds.
 
-```text
-itemOrder: "volume wifi battery percent"
-```
+## Presets
 
-Column-first 2x2:
+### Standard 2×2
+`gridColumns: 2` · `fillOrder: rowFirst` · `itemOrder: "wifi volume battery percent"`
+(the auto default already picks this shape on a single-height taskbar)
 
-```text
-gridColumns: 2
-fillOrder: columnFirst
-itemOrder: "wifi volume battery percent"
-```
+### Single column — 3 icons (no percent)
+`gridColumns: 1` · `itemOrder: "wifi volume battery"`
 
-Original horizontal shape:
+### Single column — all 4 icons
+`gridColumns: 1` · `itemOrder: "wifi volume battery percent"`
 
-```text
-gridRows: 1
-itemOrder: "wifi volume battery"
-```
+### Percent top, battery bottom (independent mode)
+`batteryPercentMode: independent` · `itemOrder: "wifi volume percent battery"`
 
-## Test Checklist
+### Wide bar (original OmniButton style)
+`gridRows: 1` · `itemOrder: "wifi volume battery"`
 
-- Enable mod with default 2x2 layout
-- Toggle off and verify the native horizontal OmniButton returns
-- Test `gridColumns: 1` with `itemOrder: "wifi volume battery"`
-- Test `gridColumns: 1` with `itemOrder: "wifi volume battery percent"`
-- Test `fillOrder: columnFirst`
-- Test `itemOrder: "volume wifi battery percent"`
-- Change each nudge setting and verify only that item moves
-- Restart Explorer and verify the layout reapplies
-- Change settings after restart and verify there are no stale transforms
-- Verify the OmniButton stays between the expected tray elements and does not
-  overlap the customized clock
+## Windows 11 Taskbar Styler compatibility
 
-## Notes
-
-- Battery percentage must be enabled in Windows for the `percent` item to exist.
-- If Windows does not expose battery percentage, the `percent` token is skipped.
-- The mod hooks `IconView::IconView` and uses `GetTaskbarXamlRoot` to find the
-  live taskbar XAML tree.
-- The outer `ControlCenterButton` is not forced to a custom width or position.
-  The inner items host reports the grid footprint so Windows can reserve space
-  naturally in the tray.
-- Per-item nudge settings use canonical names such as `wifiOffsetX`,
-  `volumeOffsetY`, `batteryOffsetX`, and `percentOffsetY`. Existing configurations
-  using the shorter `wifiX`, `volumeY`, `batteryX`, or `percentY` names remain
-  supported as compatibility aliases.
+Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.

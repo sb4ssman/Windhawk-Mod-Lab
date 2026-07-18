@@ -5,11 +5,19 @@ or otherwise) working in this repo. Root `CLAUDE.md` and `AGENTS.md` are identic
 pointers to this file. Durable rules live here; current state lives in the
 working notes.
 
-## Session start
+## Session start — getting your bearings
+
+NOTHING in these notes is authoritative on its own. Chats get cut off
+mid-update, so any single file can be stale. Getting your bearings at the
+start of a new chat means cross-checking all of these, not just reading one:
 
 1. Read this file.
-2. Read [working_notes.md](working_notes.md) — current goals, active work, key facts.
-3. Read [work_log.md](work_log.md) — completed lab-level work log.
+2. Start at [working_notes.md](working_notes.md) — current goals, active work,
+   key facts.
+3. ALWAYS also check [work_log.md](work_log.md) AND git history
+   (`git log --oneline`, `git status`, and the PR branches in the fork at
+   `t:/Github/sb4ssman/windhawk-mods/` when PR state matters). Where they
+   disagree, the newest evidence wins — and git/PR state beats notes.
 4. If you need a map of the repo, run `python .agents/tools/generate_folder_map.py`
    (writes to [outputs/folder_structure.md](outputs/folder_structure.md)).
 5. Check [../_research/](../_research/) for investigations, design docs, and open
@@ -37,6 +45,12 @@ working notes.
   per-mod status, next steps. Durable policy belongs in this file instead.
 - [work_log.md](work_log.md) — completed lab-level milestones, newest context
   at the bottom.
+- RECONCILE BEFORE TRUSTING: if working_notes and work_log disagree, the newer
+  dated entry wins, and any claim about PR/test/push status must be verified
+  against git and the actual PR branches before acting or reporting on it.
+  Never tell the user something is "blocked" or "pending" based on notes alone.
+- Any session that completes work MUST update working_notes.md before ending —
+  stale "Next:" lines that describe already-done work have caused real damage.
 - [knowledge/](knowledge/) — older per-mod notes, mod-prefixed filenames.
   Add new per-mod development notes here with a clear mod prefix.
 - [tools/](tools/) — helper scripts. [outputs/](outputs/) — generated files.

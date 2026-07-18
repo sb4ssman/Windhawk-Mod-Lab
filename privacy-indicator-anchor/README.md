@@ -20,12 +20,12 @@ or Widgets frequently access location.
 - Optional active glow and custom active color
 - Optional testing toggle to let Windows' native privacy indicators appear
 
-## Settings Compatibility
+## Colors
 
-The visible settings use the shared taskbar-control names `fillOrder`,
-`buttonSpacing`, `groupPaddingLeft/Right`, and `groupOffsetX/Y`. Existing
-configurations using `gridFillOrder`, `iconSpacing`, `paddingLeft/Right`, or
-`barOffsetX/Y` remain supported as compatibility aliases.
+`activeColor` (icons in use) and `slashColor` (the disabled slash overlay)
+accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
+`accent`, `accentLight`, and `accentDark` for the Windows accent shades, or
+`transparent`. Leaving either empty keeps the system foreground color.
 
 ## Files
 

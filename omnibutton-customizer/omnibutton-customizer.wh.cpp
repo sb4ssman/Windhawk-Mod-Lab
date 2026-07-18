@@ -29,7 +29,9 @@ ContentPresenter spans the full grid footprint and both sub-elements are offset 
 ## Grid settings
 
 - **Slot width / height** — size of each grid cell. Height 0 = taskbar height ÷ rows.
-- **Grid columns / rows** — 0 = auto from item count and taskbar height.
+- **Grid columns / rows** — 0 = auto: a single column when all items fit the
+  taskbar height (double-height taskbars), otherwise more columns — 4 items on
+  a single-height taskbar become a 2x2.
 - **Fill order** — row-first or column-first.
 - **Short group alignment** — when the last row/column is shorter, align start/center/end.
 
@@ -42,7 +44,9 @@ Windows (e.g. no battery on a desktop) are silently skipped.
 ## Per-item glyph colors
 
 Set `wifiColor`, `volumeColor`, `batteryColor`, `percentColor` to a hex color
-(`#RRGGBB` or `#AARRGGBB`). Leave empty to use the default theme color.
+(`#RRGGBB` or `#AARRGGBB`, the alpha byte is honored), the generics `accent`,
+`accentLight`, and `accentDark` for the Windows accent shades, or `transparent`.
+Leave empty to use the default theme color.
 
 ## Animated colors
 
@@ -52,8 +56,9 @@ wifi glyph animate between the two colors in a looping pulse. Repeat for any ite
 
 ## Presets
 
-### Standard 2×2 (default)
+### Standard 2×2
 `gridColumns: 2` · `fillOrder: rowFirst` · `itemOrder: "wifi volume battery percent"`
+(the auto default already picks this shape on a single-height taskbar)
 
 ### Single column — 3 icons (no percent)
 `gridColumns: 1` · `itemOrder: "wifi volume battery"`
@@ -91,15 +96,18 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
   - coupled: Coupled
   - independent: Independent
 
-- gridColumns: 2
+- gridColumns: 0
   $name: Grid columns (0 = auto)
   $description: >-
-    Columns in the layout grid. 0 = auto from item count and available rows.
+    Columns in the layout grid. 0 (default) picks automatically: a single
+    column when all items fit the taskbar height (double-height taskbars),
+    otherwise more columns — 4 items on a single-height taskbar become a 2x2.
 
 - gridRows: 0
   $name: Grid rows (0 = auto)
   $description: >-
-    Rows in the layout grid. 0 = taskbar height ÷ slot height.
+    Rows in the layout grid. 0 = automatic from the item count and taskbar
+    height (see Grid columns).
 
 - fillOrder: rowFirst
   $name: Fill order
@@ -154,7 +162,9 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 
 - wifiColor: ""
   $name: Wifi icon color
-  $description: Hex color for the wifi glyph (e.g. #FF8800 or #AAFFFF00). Empty = theme default.
+  $description: >-
+    Hex ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" / "accentDark",
+    or "transparent". Empty = theme default.
 
 - wifiColorTo: ""
   $name: Wifi icon animated color
@@ -164,21 +174,27 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 
 - volumeColor: ""
   $name: Volume icon color
-  $description: Hex color for the volume glyph. Empty = theme default.
+  $description: >-
+    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty = theme default.
 
 - volumeColorTo: ""
   $name: Volume icon animated color
 
 - batteryColor: ""
   $name: Battery icon color
-  $description: Hex color for the battery glyph. Empty = theme default.
+  $description: >-
+    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty = theme default.
 
 - batteryColorTo: ""
   $name: Battery icon animated color
 
 - percentColor: ""
   $name: Battery percent color
-  $description: Hex color for the percentage text. Empty = theme default.
+  $description: >-
+    Hex, "accent" / "accentLight" / "accentDark", or "transparent".
+    Empty = theme default.
 
 - percentColorTo: ""
   $name: Battery percent animated color
@@ -191,6 +207,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 */
 // ==/WindhawkModSettings==
 
+#include <algorithm>
 #include <atomic>
 #include <functional>
 #include <list>
@@ -206,6 +223,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.UI.h>
+#include <winrt/Windows.UI.ViewManagement.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
@@ -350,18 +368,37 @@ static GridGeom ResolveGeometry(int itemCount, HWND hTaskbarWnd) {
     if (hTaskbarWnd) {
         RECT r{}; if (GetWindowRect(hTaskbarWnd, &r)) taskbarH = r.bottom - r.top;
     }
+    if (itemCount < 1) itemCount = 1;
+
     int rows = g_settings.gridRows;
-    if (rows <= 0) {
-        rows = g_settings.slotHeight > 0 ? taskbarH / g_settings.slotHeight
-                                         : taskbarH / 32;
-        if (rows > itemCount) rows = itemCount;
-        if (rows < 2) rows = 2;
+    int cols = g_settings.gridColumns;
+
+    if (rows <= 0 && cols <= 0) {
+        // Full auto: prefer a single column whenever all items fit the taskbar
+        // height (double-height taskbars — narrowest footprint, least empty
+        // space); otherwise add columns (4 items on a single-height taskbar
+        // become a 2x2). A 24px unit keeps auto rows readable; the slotHeight
+        // setting overrides it.
+        int unit = g_settings.slotHeight > 0 ? g_settings.slotHeight : 24;
+        int rowsFit = std::max(1, taskbarH / std::max(1, unit));
+        rows = std::min(itemCount, rowsFit);
+        cols = (itemCount + rows - 1) / rows;
+        rows = (itemCount + cols - 1) / cols;  // drop rows the items can't fill
+    } else if (rows <= 0) {
+        // Columns fixed by the user: rows follow from the item count.
+        cols = std::min(cols, itemCount);
+        rows = (itemCount + cols - 1) / cols;
+    } else if (cols <= 0) {
+        // Rows fixed by the user: columns follow from the item count.
+        rows = std::min(rows, itemCount);
+        cols = (itemCount + rows - 1) / rows;
     }
+    if (rows < 1) rows = 1;
+    if (cols < 1) cols = 1;
+
     int slotH = g_settings.slotHeight > 0 ? g_settings.slotHeight : (taskbarH / rows);
     if (slotH > 32) slotH = 32;
     if (slotH < 16) slotH = 16;
-    int cols = g_settings.gridColumns;
-    if (cols <= 0) { cols = (itemCount + rows - 1) / rows; if (cols < 1) cols = 1; }
     return { cols, rows, slotH };
 }
 
@@ -430,6 +467,23 @@ static void ClearLayoutProperties(FrameworkElement const& fe) {
     fe.ClearValue(UIElement::RenderTransformProperty());
 }
 
+// Clear RenderTransform on every FrameworkElement in a subtree. Cleanup
+// safety net: if Windows re-templated an element between apply and cleanup
+// (observed with the battery percent TextBlock), the cached ref no longer
+// matches the live element and a stale TranslateTransform survives disable.
+static void ClearTransformsRecursive(DependencyObject const& node, int depth = 0) {
+    if (depth > 6) return;
+    int n = VisualTreeHelper::GetChildrenCount(node);
+    for (int i = 0; i < n; i++) {
+        auto child = VisualTreeHelper::GetChild(node, i);
+        if (!child) continue;
+        if (auto fe = child.try_as<FrameworkElement>()) {
+            try { fe.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
+        }
+        ClearTransformsRecursive(child, depth + 1);
+    }
+}
+
 static bool HasBatteryDescendant(DependencyObject const& node, int depth = 0) {
     if (depth > 3) return false;
     int n = VisualTreeHelper::GetChildrenCount(node);
@@ -481,11 +535,49 @@ static bool WalkSetupBatteryInnerPanel(DependencyObject const& node, int slotW, 
 
 // ── Color / animation helpers ─────────────────────────────────────────────
 
+// Color-returning variant of the canonical token parser (_templates/button-surface.h):
+// "#RRGGBB" / "#AARRGGBB" hex (bare hex also accepted for back-compat), the
+// generics "accent" / "accentLight" / "accentDark" / "transparent", and the
+// numbered Windows shades "accentLight1"-"3" / "accentDark1"-"3" (accepted
+// silently, undocumented). Empty/unparseable returns false = keep native.
 static bool ParseHexColor(const wchar_t* s, Color& out) {
+    using winrt::Windows::UI::ViewManagement::UIColorType;
     if (!s || !*s) return false;
+
+    if (_wcsicmp(s, L"transparent") == 0) {
+        out = {0, 0, 0, 0};
+        return true;
+    }
+
+    static const struct { const wchar_t* token; UIColorType type; } kAccentTokens[] = {
+        {L"accent",       UIColorType::Accent},
+        {L"accentLight",  UIColorType::AccentLight2},
+        {L"accentDark",   UIColorType::AccentDark1},
+        {L"accentLight1", UIColorType::AccentLight1},
+        {L"accentLight2", UIColorType::AccentLight2},
+        {L"accentLight3", UIColorType::AccentLight3},
+        {L"accentDark1",  UIColorType::AccentDark1},
+        {L"accentDark2",  UIColorType::AccentDark2},
+        {L"accentDark3",  UIColorType::AccentDark3},
+    };
+    for (auto const& entry : kAccentTokens) {
+        if (_wcsicmp(s, entry.token) == 0) {
+            try {
+                winrt::Windows::UI::ViewManagement::UISettings settings;
+                out = settings.GetColorValue(entry.type);
+                return true;
+            } catch (...) {
+                Wh_Log(L"[Color] Failed to read the Windows accent color");
+                return false;
+            }
+        }
+    }
+
     const wchar_t* p = (*s == L'#') ? s + 1 : s;
     size_t len = wcslen(p);
     if (len != 6 && len != 8) return false;
+    for (size_t i = 0; i < len; i++)
+        if (!iswxdigit(p[i])) return false;
     wchar_t buf[9]{};
     wcsncpy(buf, p, 8);
     unsigned long v = wcstoul(buf, nullptr, 16);
@@ -669,6 +761,10 @@ static void CleanupXamlElements(
                 bcp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
                 bcp.ClearValue(ContentPresenter::VerticalContentAlignmentProperty());
             }
+            // Sweep the whole battery subtree for stale transforms — the
+            // cached glyph/percent refs can go stale if Windows re-templated
+            // the battery content (stranded "80%" after disable).
+            ClearTransformsRecursive(bp);
         }
     } catch (...) {}
     try {
@@ -907,8 +1003,13 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
             g_batteryPresenter.Width(battW);
             g_batteryPresenter.Height(double(geom.slotH));
             g_batteryPresenter.HorizontalAlignment(HorizontalAlignment::Left);
-            if (auto bcp = g_batteryPresenter.try_as<ContentPresenter>())
+            if (auto bcp = g_batteryPresenter.try_as<ContentPresenter>()) {
+                // Left-pin the inner panel so the percent's natural X is exactly
+                // one glyph-slot from the cell origin — the relX math below
+                // assumes it; native centering would skew it by half the slack.
+                bcp.HorizontalContentAlignment(HorizontalAlignment::Left);
                 bcp.VerticalContentAlignment(VerticalAlignment::Center);
+            }
             int bCol, bRow, bcnx, bcny; resolvePos(posMap[2], bCol, bRow, bcnx, bcny);
             PositionSlot(g_batteryPresenter, battIdx, bCol, bRow, geom,
                          g_settings.batteryX + bcnx, g_settings.batteryY + bcny);
@@ -939,7 +1040,8 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
     if (!sp) return;
 
     bool allReady = g_wifiPresenter && g_volumePresenter &&
-                    (!g_batteryPresenter || g_batteryInnerPanel);
+                    (!g_batteryPresenter ||
+                     (g_batteryInnerPanel && g_batteryPercentFE));
     if (allReady) {
         sp.LayoutUpdated(g_layoutUpdatedToken); g_layoutUpdatedToken = {};
         g_layoutUpdatedSP = nullptr;
@@ -957,6 +1059,12 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
     }
     bool percentNowPresent = g_batteryPresenter && !g_batteryInnerPanel &&
                              WalkSetupBatteryInnerPanel(g_batteryPresenter, g_settings.slotWidth);
+    // Percent TextBlock materialized after the initial layout (e.g. the user
+    // flipped the Windows battery-percent switch while the mod was applied).
+    if (!percentNowPresent && g_batteryInnerPanel && !g_batteryPercentFE &&
+        VisualTreeHelper::GetChildrenCount(g_batteryInnerPanel) >= 2) {
+        percentNowPresent = true;
+    }
 
     if (!batteryNowPresent && !percentNowPresent) return;
 
@@ -1181,7 +1289,8 @@ static void ApplyAllSettings() {
                     ApplyLayout(sp, hWnd);
                     bool needsDeferred = !g_wifiPresenter || !g_volumePresenter ||
                                          !g_batteryPresenter ||
-                                         (g_batteryPresenter && !g_batteryInnerPanel);
+                                         (g_batteryPresenter &&
+                                          (!g_batteryInnerPanel || !g_batteryPercentFE));
                     if (needsDeferred) {
                         g_layoutUpdatedSP = sp;
                         g_layoutUpdatedToken = sp.LayoutUpdated(OnLayoutUpdated);
