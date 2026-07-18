@@ -123,8 +123,9 @@ with mod-prefixed filenames.
 
 - **Folder-menus crash-on-disable root-caused via minidump** (Windows.UI.Xaml.dll AV on a UI tick after mod DLL unload): XAML defers removed-subtree teardown; Click delegates/tooltips/boxed Content pointed into the unloaded DLL. Fix mirrors taskbar-ai-quota: `ClearButtonEventState()` revokes/clears before removal. Live-tested OK (race — log window open masks it).
 - **Color rubric decided**: 5 canonical slots + optional identity axis; 4 generics `accent`/`accentLight`/`accentDark`/`transparent`, numbered shades silent; defaults never hardcoded hex. Applied to templates + both mods; VDS settings YAML reordered to canonical slot order; folder READMEs regenerated (verify-readme-sync passes).
-- **PR #4516**: description updated with proper `## Changelog` section (m417z's blocker); clarification comment posted. Awaiting merge of v1.6.
-- **PR #4485**: folder-menus v0.6 pushed (all 4 review items + crash fix + generics + hover default `accent`); review reply posted.
+- **PR #4516**: changelog blocker fixed, then v1.7 pushed superseding v1.6 (full-rebuild highlight fix, accent default + generics, multi-monitor). All CI green. Awaiting merge.
+- **PR #4485**: folder-menus v0.6 pushed (all 4 review items + crash fix + generics + hover default `accent`); review reply posted. CI failed once on new "Mod authorship" PR-body requirement — section added, all CI green.
+- **Template audit of remaining mods** (see dated section in `_templates/six-mod-settings-audit.md`): omnibutton needs Color-returning generic parser; privacy-anchor needs tooltip-clear before removal (folder-menus crash class), UI-thread revoker clear, and `activeColor`/`slashColor` shape fixes; tray-utility conformant. Added teardown contract to lifecycle template + `_templates/compile-check.ps1`.
 - Both mods live-tested locally (VDS v1.7 incl. accent default; multi-monitor toggle behavior per session notes).
 - Compile-check workflow established: Windhawk's bundled clang with `-fsyntax-only -DUNICODE -D_UNICODE -include windows.h -include windhawk_api.h`.
 
