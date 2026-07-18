@@ -1,4 +1,4 @@
-# Virtual Desktop Switcher
+# Taskbar Virtual Desktop Switcher
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
 
@@ -44,6 +44,7 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 - Per-state text color, font size, corner radius, bold, and border
 - Tooltip on each button shows the desktop's display name
 - Option to hide the bar entirely when only one desktop exists
+- Experimental option to also show the switcher on secondary monitors' taskbars
 
 ## Settings
 
@@ -62,28 +63,39 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 | Label format | Numbers | Numbers · Roman numerals · Dots · Custom |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
 | Font size | 10 pt | Button label size |
-| Active color | `#4488FF` | Background for the current desktop |
-| Inactive color | *(system)* | Background for other desktops |
+| Active text color | *(native)* | Current desktop's label color |
+| Inactive text color | *(native)* | Other desktops' label color |
+| Active color | `accent` | Current desktop background; empty keeps the native surface |
+| Inactive color | *(native)* | Other desktop backgrounds; empty keeps the native button surface |
+| Hover background color | *(automatic)* | Forces one shared hover color; empty brightens each button's current background, native surfaces keep native hover |
+| Click background color | *(automatic)* | Forces one shared pressed color; empty darkens each button's current background, native surfaces keep native pressed |
+| Border color | *(native)* | Button border color |
+| Border thickness | 0 px | Button border width |
+| Corner radius | 4 px | Rounded corners (0 = square, 4 = Windows default) |
 | Opacity | 100 | 0–100; lower values let the taskbar show through |
 | Shine effect | Off | Gradient highlight on buttons with custom colors |
-| Active text color | *(system)* | Foreground color for the current-desktop button |
-| Inactive text color | *(system)* | Foreground color for other buttons |
-| Corner radius | 4 px | Rounded corners (0 = square, 4 = Windows default) |
 | Active bold | Off | Bold the current desktop's label |
-| Border thickness | 0 px | Button border width |
-| Border color | *(system)* | Button border color |
 | Padding left | 0 px | Extra space to the left of the button grid |
 | Padding right | 2 px | Extra space to the right of the button grid |
 | Hide when single | Off | Don't show the bar when only one desktop exists |
+| Show on all taskbars | Off | Experimental: also inject into secondary monitors' taskbars (tray positions only; may need an Explorer restart after enabling) |
 | Task View button | Off | Optional button that opens Task View for previewing, creating, or closing desktops |
 | Task View button label | ⊞ | Text shown on the Task View button |
 | Task View button position | After | Column before/after desktop buttons, or sliver row above/below |
 | Task View button sliver height | 6 px | Height of the Task View button when used as a sliver row |
 | Task View button column width | 14 px | Width of the Task View button when used as a side column |
 
+All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
+honored), the generics `accent`, `accentLight`, and `accentDark` for the
+Windows accent shades, or `transparent` for a fully transparent surface —
+nothing drawn, element still present and clickable. Leaving a color empty
+keeps the native behavior described for that setting — including the Active
+color, where empty means the current desktop's button keeps the plain native
+surface with no highlight at all.
+
 ## Known limitations
 
-- Only the primary taskbar is supported (multi-monitor requires hooking secondary taskbars)
+- Multi-monitor support is experimental and off by default: secondary taskbars use the tray positions only (Start positions stay on the primary taskbar), and they are discovered as their tray icons load — after enabling the option, an Explorer restart (or toggling the mod off and on) may be needed before the buttons appear on other monitors
 - Buttons may not appear until the mod injects on the first tray icon load; retry loop runs up to 5 times at 2-second intervals
 
 ## Credits and inspirations
