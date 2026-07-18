@@ -8,6 +8,23 @@ Reported by user: "half to maybe a whole button is unclickable, right after havi
 
 Intermittent, timing-correlated with a previous button click. Buttons are visually present and correctly rendered.
 
+## 2026-07-16 root cause and fix candidate
+
+Issue [ramensoftware/windhawk-mods#4784](https://github.com/ramensoftware/windhawk-mods/issues/4784)
+reproduces the same transition: after clicking one desktop, part of another
+button stops receiving hover/click input until the pointer leaves and returns.
+
+`UpdateHighlights()` assigned `btn.Background(nullptr)` whenever the new button
+state had no custom color. That creates a local null value instead of restoring
+the native Button background. The initial buttons inherited the native template
+correctly, but after the first desktop switch the newly inactive button could be
+left with only its rendered content reliably hit-testable.
+
+The fix uses `ClearValue(Control::BackgroundProperty())` whenever no custom
+background brush applies, both during initial styling and highlight updates.
+This restores the native full-button surface and visual states. Source compiles;
+live repeated-click confirmation is still required.
+
 ## Injection Architecture
 
 `InjectButtonGrid` inserts a new `Auto` `ColumnDefinition` into `SystemTrayFrameGrid` at `insertCol`.

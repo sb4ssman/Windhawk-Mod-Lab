@@ -260,12 +260,6 @@ static void LoadSettings() {
     auto clampGrid  = [](int v) { return v < 0 ? 0 : v > 8  ? 8  : v; };
     auto clampPad   = [](int v) { return v < 0 ? 0 : v > 24 ? 24 : v; };
     auto clampNudge = [](int v) { return v < -40 ? -40 : v > 40 ? 40 : v; };
-    auto getNudge   = [&](PCWSTR canon, PCWSTR legacy) {
-        constexpr int kUnset = -2147483647;
-        int v = Wh_GetIntSetting(canon, kUnset);
-        if (v == kUnset) v = Wh_GetIntSetting(legacy);
-        return clampNudge(v);
-    };
 
     int sw = clampSlot(Wh_GetIntSetting(L"slotWidth"));
     g_settings.slotWidth  = sw < 16 ? 32 : sw;
@@ -298,14 +292,14 @@ static void LoadSettings() {
                                     ? BattPctMode::Independent : BattPctMode::Coupled;
       if (s) Wh_FreeStringSetting(s); }
 
-    g_settings.wifiX    = getNudge(L"wifiOffsetX",    L"wifiX");
-    g_settings.wifiY    = getNudge(L"wifiOffsetY",    L"wifiY");
-    g_settings.volumeX  = getNudge(L"volumeOffsetX",  L"volumeX");
-    g_settings.volumeY  = getNudge(L"volumeOffsetY",  L"volumeY");
-    g_settings.batteryX = getNudge(L"batteryOffsetX", L"batteryX");
-    g_settings.batteryY = getNudge(L"batteryOffsetY", L"batteryY");
-    g_settings.percentX = getNudge(L"percentOffsetX", L"percentX");
-    g_settings.percentY = getNudge(L"percentOffsetY", L"percentY");
+    g_settings.wifiX    = clampNudge(Wh_GetIntSetting(L"wifiOffsetX"));
+    g_settings.wifiY    = clampNudge(Wh_GetIntSetting(L"wifiOffsetY"));
+    g_settings.volumeX  = clampNudge(Wh_GetIntSetting(L"volumeOffsetX"));
+    g_settings.volumeY  = clampNudge(Wh_GetIntSetting(L"volumeOffsetY"));
+    g_settings.batteryX = clampNudge(Wh_GetIntSetting(L"batteryOffsetX"));
+    g_settings.batteryY = clampNudge(Wh_GetIntSetting(L"batteryOffsetY"));
+    g_settings.percentX = clampNudge(Wh_GetIntSetting(L"percentOffsetX"));
+    g_settings.percentY = clampNudge(Wh_GetIntSetting(L"percentOffsetY"));
 
     LoadColorSetting(L"wifiColor",      g_settings.wifiColor);
     LoadColorSetting(L"wifiColorTo",    g_settings.wifiColorTo);
@@ -1026,7 +1020,8 @@ static void* CTaskBand_ITaskListWndSite_vftable = nullptr;
 
 static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     if (!CTaskBand_GetTaskbarHost_Original || !TaskbarHost_FrameHeight_Original ||
-        !std__Ref_count_base__Decref_Original) return nullptr;
+        !std__Ref_count_base__Decref_Original ||
+        !CTaskBand_ITaskListWndSite_vftable) return nullptr;
     HWND hTaskSwWnd = (HWND)GetProp(hTaskbarWnd, L"TaskbandHWND");
     if (!hTaskSwWnd) return nullptr;
     void* taskBand = (void*)GetWindowLongPtr(hTaskSwWnd, 0);
@@ -1037,7 +1032,10 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     }
     void* hsp[2]{};
     CTaskBand_GetTaskbarHost_Original(tbfs, hsp);
-    if (!hsp[0] && !hsp[1]) return nullptr;
+    if (!hsp[0] || !hsp[1]) {
+        if (hsp[1]) std__Ref_count_base__Decref_Original(hsp[1]);
+        return nullptr;
+    }
     size_t offset = 0x10;
 #if defined(_M_X64)
     {

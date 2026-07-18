@@ -18,7 +18,8 @@ The repeatable loop is:
 1. Assign capability profiles.
 2. Map the mod against the capability matrix.
 3. Add only the controls required by those profiles.
-4. Keep old setting names as compatibility aliases.
+4. Keep published setting keys stable; align visible labels without renaming
+   stored keys.
 5. Test in the lab repo.
 6. Stage to the sister fork.
 7. Sync any fork-side fixes back to the lab source.
@@ -355,11 +356,17 @@ Do not casually break existing user settings.
 
 When normalizing names:
 
-1. Prefer the canonical setting name.
-2. If the canonical setting is empty/default, read the old name as a fallback.
-3. Keep old behavior unless the user explicitly chose the new setting.
-4. Document canonical names in README and Windhawk settings descriptions.
-5. Remove old names only in a deliberate cleanup pass, if ever.
+1. For an unpublished mod, prefer the canonical setting key from the start.
+2. For a published mod, retain its existing key and use `$name` or descriptions
+   for canonical user-facing language.
+3. Don't declare a replacement key and infer "unset" from its default.
+   `Wh_GetIntSetting` returns zero for a missing value and
+   `Wh_GetStringSetting` returns an empty string; declared settings normally
+   return their schema defaults, so explicit and untouched defaults can't be
+   distinguished reliably.
+4. Use a compatibility alias only when the old value's absence is genuinely
+   observable and unambiguous.
+5. Remove or rename published keys only as an explicit breaking migration.
 
 ## Settings Order
 
@@ -426,4 +433,3 @@ Not currently applicable:
 - Start overlay placement
 
 This is the kind of scoped answer the rubric should produce for each mod.
-

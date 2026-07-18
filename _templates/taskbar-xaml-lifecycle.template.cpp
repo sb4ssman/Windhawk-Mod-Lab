@@ -23,6 +23,21 @@ static bool ApplyModUi() {
 
 static void RemoveModUi() {
     // TODO: Revoke events, remove the owned root/lease, and restore snapshots.
+    //
+    // TEARDOWN CONTRACT (crash class found 2026-07-17 in folder-menus): XAML
+    // tears removed subtrees down on a LATER UI tick, which can land after the
+    // mod DLL has been unloaded. Any object implemented in this DLL that the
+    // subtree still references is then freed memory. Before Children().RemoveAt
+    // on anything you injected, release every mod-implemented reference:
+    //   1. revoke event tokens (Click/Tapped/Pointer*/property-changed);
+    //   2. ToolTipService::SetToolTip(element, IInspectable{nullptr});
+    //   3. null boxed Content / Tag set via winrt::box_value (the boxed
+    //      wrapper's vtable lives in this DLL — system brushes/transforms are
+    //      safe, boxed values and delegates are not);
+    //   4. stop and clear Storyboards the mod started.
+    // Reference: taskbar-ai-quota ClearQuotaEventState ("Routed event
+    // delegates point into this DLL, so revoke before XAML tears down the
+    // subtree"), folder-menus ClearButtonEventState.
 }
 
 static std::atomic<bool> g_templateUnloading{false};

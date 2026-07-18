@@ -71,6 +71,79 @@ means the profile does not belong to the mod.
 - No universal placement host, placement lease broker, or shared-root protocol
   was implemented.
 
+## 2026-07-17 audit — color rubric + teardown contract
+
+Context: the color rubric was finalized (5 canonical slots + optional identity
+axis; generics `accent`/`accentLight`/`accentDark`/`transparent`, numbered
+shades silent; defaults never hardcoded hex) and a teardown contract was added
+to `taskbar-xaml-lifecycle.template.cpp` after the folder-menus
+crash-on-disable was root-caused (XAML defers removed-subtree teardown past
+DLL unload; mod-implemented delegates/tooltips/boxed values must be released
+before removal).
+
+VD Switcher and Folder Menus are fully conformant (parser table, canonical
+slot order, generic defaults, teardown clears, readme sync verified).
+
+### OmniButton Customizer
+
+- Teardown: SOUND. Storyboards stopped and cleared, layout token revoked,
+  glyph foregrounds cleared, auto-revokers cleared on the UI thread. No
+  injected elements with delegates or tooltips.
+- Colors: NONCONFORMANT — `ParseHexColor` is hex-only (`Color` out-param, `#`
+  optional). Needs the generic token table (accent family via
+  `UISettings::GetColorValue` → `Color`, `transparent` = A0). Identity axis
+  here is per-glyph (`wifiColor`, `volumeColor`, …) with the animation `…To`
+  variants — the naming is fine as the per-item form of the text slot; only
+  the parser and `$description`s need the upgrade. Defaults are empty ✓.
+- Settings order: per-glyph colors grouped ✓; no violations found.
+
+### Tray Utility Customizer
+
+- Teardown: SOUND for its model — native relocation only, `RestoreLayout()`
+  restores snapshots, revokers cleared on the UI thread, no injected surfaces,
+  no tooltips, no delegates on native elements.
+- Colors: none (native surfaces throughout) — rubric n/a.
+- Settings: canonical names (`itemOrder`, `gridColumns`/`gridRows`,
+  `fillOrder`, `shortGroupAlign`, `buttonWidth/Height/Spacing`, per-item
+  `<item>OffsetX/Y`) ✓. Missing `shortGroupPosition` (trailing only) — add
+  when convenient.
+
+### Privacy Indicator Anchor
+
+- Teardown: GAP (same class as the folder-menus crash, lower severity).
+  Property-changed callbacks on native elements are unregistered ✓, but the
+  injected synthetic icons carry boxed-hstring tooltips
+  (`ToolTipService::SetToolTip(fe, box_value(...))`) that are NOT cleared
+  before `Children().RemoveAt`. Add a tooltip-clear pass at the top of
+  `RemoveSyntheticIcons`. Also: `g_loadedRevokers.clear()` runs off the UI
+  thread in `Wh_ModUninit` — move inside the `RunFromWindowThread` lambda to
+  match the other mods.
+- Colors: NONCONFORMANT twice — (a) `activeColorEnabled` + `activeColorR/G/B`
+  integer triplet should become a single `activeColor` string (hex/generics;
+  empty = current default behavior); (b) `slashColor` takes bare hex WITHOUT
+  `#` — adopt the canonical parser. Mod is unpublished, so no compat aliases
+  needed.
+- Settings: grid family canonical ✓ (`itemOrder`, `gridColumns`, `fillOrder`,
+  `shortGroupPosition`, `shortGroupAlign`).
+
+### Template additions made this pass
+
+- `taskbar-xaml-lifecycle.template.cpp`: teardown contract comment block in
+  `RemoveModUi` (the four release steps + references).
+- `button-surface.h`: full generic token table in `ParseColor`.
+- `settings-profiles.md`: color token convention, optional-identity-axis rule,
+  no-hardcoded-defaults rule.
+
+### Candidate future template additions (not yet done)
+
+- A `Color`-returning variant of the token parser for glyph mods (OmniButton,
+  Privacy Anchor color paths take `Color`, not `Brush`).
+- `shortGroupPosition` into the shared grid block for the three mods that
+  only support trailing short groups.
+- The compile-check command line (Windhawk's bundled clang,
+  `-fsyntax-only -DUNICODE -D_UNICODE -include windows.h -include
+  windhawk_api.h`) as a checked-in script next to `verify-readme-sync.ps1`.
+
 ## Remaining differences to resolve gradually
 
 - VDS has the best smart-grid selector but published row/column/opacity/color

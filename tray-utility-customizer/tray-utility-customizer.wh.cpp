@@ -99,7 +99,7 @@ bundled together and the log identifies the shared host.
   - center: Center
   - end: End
 
-- buttonWidth: 32
+- buttonWidth: 24
   $name: Button width (px)
 
 - buttonHeight: 24
@@ -277,6 +277,7 @@ static std::list<FrameworkElement::Loaded_revoker> g_loadedRevokers;
 
 struct HostSnapshot {
     FrameworkElement element{nullptr};
+    FrameworkElement columnMarker{nullptr};
     int column = 0;
     int columnSpan = 1;
     int row = 0;
@@ -305,6 +306,10 @@ static bool g_layoutApplied = false;
 static bool g_insertedColumn = false;
 static int g_layoutColumn = -1;
 static Grid g_layoutGrid{nullptr};
+static FrameworkElement g_layoutColumnMarker{nullptr};
+
+static constexpr PCWSTR kLayoutColumnMarkerName =
+    L"TrayUtilityCustomizerColumnMarker";
 
 static int ClampSetting(int value, int low, int high) {
     return value < low ? low : value > high ? high : value;
@@ -382,14 +387,8 @@ static void LoadSettings() {
     } else {
         g_settings.position = Position::Overflow;
     }
-    constexpr int kUnsetInt = -2147483647;
-    int buttonWidth =
-        Wh_GetIntSetting(L"buttonWidth", kUnsetInt);
-    if (buttonWidth == kUnsetInt) {
-        buttonWidth = Wh_GetIntSetting(L"slotWidth", 32);
-    }
     g_settings.buttonWidth =
-        ClampSetting(buttonWidth, 16, 96);
+        ClampSetting(Wh_GetIntSetting(L"buttonWidth"), 16, 96);
     g_settings.buttonHeight =
         ClampSetting(Wh_GetIntSetting(L"buttonHeight"), 12, 64);
     g_settings.buttonSpacing =
@@ -470,9 +469,18 @@ static bool RunFromWindowThread(HWND hWnd,
     }
 
     Param param{proc, procParam};
-    SendMessage(hWnd, message, 0, reinterpret_cast<LPARAM>(&param));
+    DWORD_PTR messageResult = 0;
+    bool sent =
+        SendMessageTimeoutW(
+            hWnd,
+            message,
+            0,
+            reinterpret_cast<LPARAM>(&param),
+            SMTO_ABORTIFHUNG | SMTO_BLOCK,
+            3000,
+            &messageResult) != 0;
     UnhookWindowsHookEx(hook);
-    return true;
+    return sent;
 }
 
 static HWND FindCurrentProcessTaskbarWnd() {
@@ -509,7 +517,8 @@ static void* CTaskBand_ITaskListWndSite_vftable = nullptr;
 static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     if (!CTaskBand_GetTaskbarHost_Original ||
         !TaskbarHost_FrameHeight_Original ||
-        !std__Ref_count_base__Decref_Original) {
+        !std__Ref_count_base__Decref_Original ||
+        !CTaskBand_ITaskListWndSite_vftable) {
         return nullptr;
     }
 
@@ -540,7 +549,11 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     void* taskbarHostSharedPtr[2]{};
     CTaskBand_GetTaskbarHost_Original(taskBandForSite,
                                      taskbarHostSharedPtr);
-    if (!taskbarHostSharedPtr[0] && !taskbarHostSharedPtr[1]) {
+    if (!taskbarHostSharedPtr[0] || !taskbarHostSharedPtr[1]) {
+        if (taskbarHostSharedPtr[1]) {
+            std__Ref_count_base__Decref_Original(
+                taskbarHostSharedPtr[1]);
+        }
         return nullptr;
     }
 
@@ -862,7 +875,9 @@ static void LogElement(FrameworkElement const& element,
     }
 }
 
-static HostSnapshot CaptureHost(FrameworkElement const& element) {
+static HostSnapshot CaptureHost(FrameworkElement const& element,
+                                Grid const& trayGrid,
+                                int markerIndex) {
     HostSnapshot snapshot;
     snapshot.element = element;
     snapshot.column = Grid::GetColumn(element);
@@ -879,30 +894,59 @@ static HostSnapshot CaptureHost(FrameworkElement const& element) {
     snapshot.horizontalAlignment = element.HorizontalAlignment();
     snapshot.verticalAlignment = element.VerticalAlignment();
     snapshot.renderTransform = element.RenderTransform();
+
+    Grid marker;
+    marker.Name(
+        L"TrayUtilityCustomizerHostMarker_" +
+        std::to_wstring(markerIndex));
+    marker.Width(0);
+    marker.Height(0);
+    marker.MinWidth(0);
+    marker.MinHeight(0);
+    marker.MaxWidth(0);
+    marker.MaxHeight(0);
+    marker.IsHitTestVisible(false);
+    Grid::SetColumn(marker, snapshot.column);
+    Grid::SetColumnSpan(marker, 1);
+    Grid::SetRow(marker, snapshot.row);
+    Grid::SetRowSpan(marker, snapshot.rowSpan);
+    trayGrid.Children().Append(marker);
+    snapshot.columnMarker = marker;
     return snapshot;
 }
 
 static void RestoreHost(HostSnapshot& snapshot) {
-    if (!snapshot.element) {
-        return;
-    }
-
     try {
-        Grid::SetColumn(snapshot.element, snapshot.column);
-        Grid::SetColumnSpan(snapshot.element, snapshot.columnSpan);
-        Grid::SetRow(snapshot.element, snapshot.row);
-        Grid::SetRowSpan(snapshot.element, snapshot.rowSpan);
-        snapshot.element.Width(snapshot.width);
-        snapshot.element.Height(snapshot.height);
-        snapshot.element.MinWidth(snapshot.minWidth);
-        snapshot.element.MinHeight(snapshot.minHeight);
-        snapshot.element.MaxWidth(snapshot.maxWidth);
-        snapshot.element.MaxHeight(snapshot.maxHeight);
-        snapshot.element.Margin(snapshot.margin);
-        snapshot.element.HorizontalAlignment(
-            snapshot.horizontalAlignment);
-        snapshot.element.VerticalAlignment(snapshot.verticalAlignment);
-        snapshot.element.RenderTransform(snapshot.renderTransform);
+        if (snapshot.element) {
+            int restoreColumn = snapshot.column;
+            if (snapshot.columnMarker) {
+                restoreColumn = Grid::GetColumn(snapshot.columnMarker);
+            }
+
+            Grid::SetColumn(snapshot.element, restoreColumn);
+            Grid::SetColumnSpan(snapshot.element, snapshot.columnSpan);
+            Grid::SetRow(snapshot.element, snapshot.row);
+            Grid::SetRowSpan(snapshot.element, snapshot.rowSpan);
+            snapshot.element.Width(snapshot.width);
+            snapshot.element.Height(snapshot.height);
+            snapshot.element.MinWidth(snapshot.minWidth);
+            snapshot.element.MinHeight(snapshot.minHeight);
+            snapshot.element.MaxWidth(snapshot.maxWidth);
+            snapshot.element.MaxHeight(snapshot.maxHeight);
+            snapshot.element.Margin(snapshot.margin);
+            snapshot.element.HorizontalAlignment(
+                snapshot.horizontalAlignment);
+            snapshot.element.VerticalAlignment(snapshot.verticalAlignment);
+            snapshot.element.RenderTransform(snapshot.renderTransform);
+        }
+
+        if (snapshot.columnMarker && g_layoutGrid) {
+            uint32_t markerIndex = 0;
+            if (g_layoutGrid.Children().IndexOf(
+                    snapshot.columnMarker, markerIndex)) {
+                g_layoutGrid.Children().RemoveAt(markerIndex);
+            }
+        }
     } catch (...) {
         Wh_Log(L"[Restore] Native host restore failed");
     }
@@ -911,14 +955,31 @@ static void RestoreHost(HostSnapshot& snapshot) {
 
 static void RemoveInsertedColumn() {
     if (!g_insertedColumn || !g_layoutGrid ||
-        g_layoutColumn < 0) {
+        !g_layoutColumnMarker) {
         return;
     }
 
-    auto columns = g_layoutGrid.ColumnDefinitions();
-    if (static_cast<uint32_t>(g_layoutColumn) < columns.Size()) {
-        columns.RemoveAt(static_cast<uint32_t>(g_layoutColumn));
+    uint32_t markerIndex = 0;
+    if (!g_layoutGrid.Children().IndexOf(
+            g_layoutColumnMarker, markerIndex)) {
+        Wh_Log(
+            L"[Restore] Dedicated-column marker missing; "
+            L"leaving columns untouched");
+        return;
     }
+
+    int liveColumn = Grid::GetColumn(g_layoutColumnMarker);
+    g_layoutGrid.Children().RemoveAt(markerIndex);
+
+    auto columns = g_layoutGrid.ColumnDefinitions();
+    if (liveColumn < 0 ||
+        static_cast<uint32_t>(liveColumn) >= columns.Size()) {
+        Wh_Log(
+            L"[Restore] Dedicated-column marker has invalid column %d",
+            liveColumn);
+        return;
+    }
+    columns.RemoveAt(static_cast<uint32_t>(liveColumn));
 
     auto children = g_layoutGrid.Children();
     for (uint32_t i = 0; i < children.Size(); i++) {
@@ -929,10 +990,10 @@ static void RemoveInsertedColumn() {
         }
         int column = Grid::GetColumn(element);
         int span = Grid::GetColumnSpan(element);
-        if (column > g_layoutColumn) {
+        if (column > liveColumn) {
             Grid::SetColumn(element, column - 1);
-        } else if (column < g_layoutColumn &&
-                   column + span > g_layoutColumn) {
+        } else if (column < liveColumn &&
+                   column + span > liveColumn) {
             Grid::SetColumnSpan(element, span - 1);
         }
     }
@@ -950,6 +1011,7 @@ static void RestoreLayout() {
     g_hostSnapshots.clear();
     g_insertedColumn = false;
     g_layoutColumn = -1;
+    g_layoutColumnMarker = nullptr;
     g_layoutGrid = nullptr;
     g_layoutApplied = false;
     Wh_Log(L"[Restore] Native utility layout restored");
@@ -1047,21 +1109,13 @@ static LayoutMetrics CalculateLayoutMetrics(
         std::max(0, metrics.rows - 1) *
             g_settings.buttonSpacing;
 
-    double safeHeight = std::max(0.0, trayHeight - 8.0);
     if (metrics.rows > 1 &&
-        metrics.groupHeight > safeHeight) {
+        metrics.groupHeight > trayHeight) {
         Wh_Log(
             L"[Layout] Requested vertical layout needs %.1fpx "
-            L"but tray safe height is %.1fpx; using a row",
+            L"but tray height is %.1fpx; honoring the requested layout",
             metrics.groupHeight,
-            safeHeight);
-        metrics.columns = std::max(1, itemCount);
-        metrics.rows = 1;
-        metrics.groupWidth =
-            metrics.columns * g_settings.buttonWidth +
-            std::max(0, metrics.columns - 1) *
-                g_settings.buttonSpacing;
-        metrics.groupHeight = g_settings.buttonHeight;
+            trayHeight);
     }
     return metrics;
 }
@@ -1118,6 +1172,20 @@ static int InsertDedicatedColumn(
             Grid::SetColumnSpan(element, span + 1);
         }
     }
+
+    Grid marker;
+    marker.Name(kLayoutColumnMarkerName);
+    marker.Width(0);
+    marker.Height(0);
+    marker.MinWidth(0);
+    marker.MinHeight(0);
+    marker.MaxWidth(0);
+    marker.MaxHeight(0);
+    marker.IsHitTestVisible(false);
+    Grid::SetColumn(marker, insertColumn);
+    trayGrid.Children().Append(marker);
+    g_layoutColumnMarker = marker;
+
     return insertColumn;
 }
 
@@ -1292,12 +1360,16 @@ static bool ApplyLayout() {
         return true;
     }
 
-    for (auto const& utility : utilities) {
+    g_layoutGrid = trayGrid;
+    g_layoutApplied = true;
+    for (int index = 0;
+         index < static_cast<int>(utilities.size());
+         index++) {
+        auto const& utility = utilities[index];
         LogElement(utility.element, utility.token.c_str());
         g_hostSnapshots.push_back(
-            CaptureHost(utility.element));
+            CaptureHost(utility.element, trayGrid, index));
     }
-    g_layoutApplied = true;
 
     auto metrics = CalculateLayoutMetrics(
         static_cast<int>(utilities.size()),
@@ -1366,7 +1438,11 @@ static bool ApplyLayout() {
                     Grid::GetColumn(reference) +
                     (insertAfter ? 1 : 0);
             } else {
-                sharedColumn = 0;
+                Wh_Log(
+                    L"[Apply] Requested position anchor unavailable; "
+                    L"leaving the native layout unchanged");
+                RestoreLayout();
+                return false;
             }
         }
         sharedColumn = InsertDedicatedColumn(
@@ -1374,7 +1450,6 @@ static bool ApplyLayout() {
         g_insertedColumn = true;
     }
 
-    g_layoutGrid = trayGrid;
     g_layoutColumn = sharedColumn;
 
     double pitchX =
@@ -1569,6 +1644,9 @@ static HMODULE WINAPI LoadLibraryExW_Hook(
         Wh_Log(L"[Hooks] System tray module loaded: %s", fileName);
         if (HookSystemTraySymbols(module)) {
             Wh_ApplyHookOperations();
+        } else {
+            g_systemTrayModuleHooked = false;
+            Wh_Log(L"[Hooks] System tray symbol hooks failed");
         }
     }
     return module;
@@ -1600,7 +1678,15 @@ static void StopRetryThread() {
         SetEvent(g_retryStopEvent);
     }
     if (g_retryThread) {
-        WaitForSingleObject(g_retryThread, 3000);
+        DWORD result;
+        do {
+            result = MsgWaitForMultipleObjects(
+                1, &g_retryThread, FALSE, INFINITE, QS_SENDMESSAGE);
+            if (result == WAIT_OBJECT_0 + 1) {
+                MSG message;
+                PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
+            }
+        } while (result == WAIT_OBJECT_0 + 1);
         CloseHandle(g_retryThread);
         g_retryThread = nullptr;
     }
@@ -1616,13 +1702,15 @@ BOOL Wh_ModInit() {
 
     if (!HookTaskbarDllSymbols()) {
         Wh_Log(L"[Init] taskbar.dll symbol hooks failed");
+        return FALSE;
     }
 
     if (HMODULE module = GetSystemTrayModuleHandle()) {
-        g_systemTrayModuleHooked = true;
         if (!HookSystemTraySymbols(module)) {
             Wh_Log(L"[Init] system tray symbol hooks failed");
+            return FALSE;
         }
+        g_systemTrayModuleHooked = true;
     } else {
         HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
         auto loadLibraryExW = kernelbase
@@ -1634,6 +1722,9 @@ BOOL Wh_ModInit() {
                 loadLibraryExW,
                 LoadLibraryExW_Hook,
                 &LoadLibraryExW_Original);
+        } else {
+            Wh_Log(L"[Init] LoadLibraryExW hook unavailable");
+            return FALSE;
         }
     }
     return TRUE;

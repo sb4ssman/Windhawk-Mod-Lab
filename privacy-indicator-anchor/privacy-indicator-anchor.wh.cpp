@@ -261,18 +261,14 @@ struct ModSettings {
     int  idleOpacity  = 50;
     std::wstring itemOrder          = L"location,mic,camera";
     int  gridColumns                = 2;
-    std::wstring gridFillOrder      = L"rowFirst";
     std::wstring fillOrder          = L"rowFirst";
     std::wstring shortGroupPosition = L"last";
     std::wstring shortGroupAlign    = L"center";
     int  iconSize     = 16;
     std::wstring position = L"beforeOmni";
-    int  paddingLeft  = 0;
-    int  paddingRight = 0;
-    int  iconSpacing  = 4;
+    int  groupPaddingLeft = 0;
+    int  groupPaddingRight = 0;
     int  buttonSpacing = 4;
-    int  barOffsetX   = 0;
-    int  barOffsetY   = 0;
     int  groupOffsetX = 0;
     int  groupOffsetY = 0;
     int  locationOffsetX = 0;
@@ -296,67 +292,53 @@ struct ModSettings {
 };
 static ModSettings g_settings;
 
-static std::wstring GetStringSetting(PCWSTR name, PCWSTR fallback) {
+static std::wstring GetStringSetting(PCWSTR name) {
     PCWSTR raw = Wh_GetStringSetting(name);
-    std::wstring value = raw ? raw : fallback;
+    std::wstring value = raw;
     Wh_FreeStringSetting(raw);
     return value;
 }
 
 static void LoadSettings() {
     auto clamp = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
-    auto getCanonicalInt = [](PCWSTR canonicalName, PCWSTR legacyName,
-                              int defaultValue, int lo, int hi) {
-        constexpr int kUnset = -2147483647;
-        int value = Wh_GetIntSetting(canonicalName, kUnset);
-        if (value == kUnset) {
-            value = Wh_GetIntSetting(legacyName, defaultValue);
-        }
-        return std::max(lo, std::min(hi, value));
-    };
-
-    g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity", 50), 0, 100);
-    g_settings.itemOrder            = GetStringSetting(L"itemOrder", L"location,mic,camera");
-    g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns", 2), 1, 10);
-    g_settings.gridFillOrder        = GetStringSetting(L"gridFillOrder", L"rowFirst");
-    g_settings.fillOrder            = GetStringSetting(L"fillOrder", g_settings.gridFillOrder.c_str());
-    g_settings.shortGroupPosition   = GetStringSetting(L"shortGroupPosition", L"last");
-    g_settings.shortGroupAlign      = GetStringSetting(L"shortGroupAlign", L"center");
-    g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize", 16), 8, 48);
-    g_settings.position             = GetStringSetting(L"position", L"beforeOmni");
-    g_settings.paddingLeft          = getCanonicalInt(L"groupPaddingLeft", L"paddingLeft", 0, -40, 40);
-    g_settings.paddingRight         = getCanonicalInt(L"groupPaddingRight", L"paddingRight", 0, -40, 40);
-    g_settings.iconSpacing          = clamp(Wh_GetIntSetting(L"iconSpacing", 4), 0, 40);
-    g_settings.buttonSpacing        = getCanonicalInt(L"buttonSpacing", L"iconSpacing", 4, 0, 40);
-    g_settings.barOffsetX           = clamp(Wh_GetIntSetting(L"barOffsetX", 0), -40, 40);
-    g_settings.barOffsetY           = clamp(Wh_GetIntSetting(L"barOffsetY", 0), -40, 40);
-    g_settings.groupOffsetX         = getCanonicalInt(L"groupOffsetX", L"barOffsetX", 0, -40, 40);
-    g_settings.groupOffsetY         = getCanonicalInt(L"groupOffsetY", L"barOffsetY", 0, -40, 40);
-    g_settings.locationOffsetX      = clamp(Wh_GetIntSetting(L"locationOffsetX", 0), -40, 40);
-    g_settings.locationOffsetY      = clamp(Wh_GetIntSetting(L"locationOffsetY", 0), -40, 40);
-    g_settings.micOffsetX           = clamp(Wh_GetIntSetting(L"micOffsetX", 0), -40, 40);
-    g_settings.micOffsetY           = clamp(Wh_GetIntSetting(L"micOffsetY", 0), -40, 40);
-    g_settings.cameraOffsetX        = clamp(Wh_GetIntSetting(L"cameraOffsetX", 0), -40, 40);
-    g_settings.cameraOffsetY        = clamp(Wh_GetIntSetting(L"cameraOffsetY", 0), -40, 40);
-    g_settings.copilotOffsetX       = clamp(Wh_GetIntSetting(L"copilotOffsetX", 0), -40, 40);
-    g_settings.copilotOffsetY       = clamp(Wh_GetIntSetting(L"copilotOffsetY", 0), -40, 40);
-    g_settings.glowEnabled          = Wh_GetIntSetting(L"glowEnabled", 0) != 0;
-    g_settings.glowOpacity          = clamp(Wh_GetIntSetting(L"glowOpacity", 40), 0, 100);
-    g_settings.activeColorEnabled   = Wh_GetIntSetting(L"activeColorEnabled", 0) != 0;
-    g_settings.activeColorR         = clamp(Wh_GetIntSetting(L"activeColorR", 255), 0, 255);
-    g_settings.activeColorG         = clamp(Wh_GetIntSetting(L"activeColorG", 180), 0, 255);
-    g_settings.activeColorB         = clamp(Wh_GetIntSetting(L"activeColorB",  60), 0, 255);
+    g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity"), 0, 100);
+    g_settings.itemOrder            = GetStringSetting(L"itemOrder");
+    g_settings.gridColumns          = clamp(Wh_GetIntSetting(L"gridColumns"), 1, 10);
+    g_settings.fillOrder            = GetStringSetting(L"fillOrder");
+    g_settings.shortGroupPosition   = GetStringSetting(L"shortGroupPosition");
+    g_settings.shortGroupAlign      = GetStringSetting(L"shortGroupAlign");
+    g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize"), 8, 48);
+    g_settings.position             = GetStringSetting(L"position");
+    g_settings.groupPaddingLeft     = clamp(Wh_GetIntSetting(L"groupPaddingLeft"), -40, 40);
+    g_settings.groupPaddingRight    = clamp(Wh_GetIntSetting(L"groupPaddingRight"), -40, 40);
+    g_settings.buttonSpacing        = clamp(Wh_GetIntSetting(L"buttonSpacing"), 0, 40);
+    g_settings.groupOffsetX         = clamp(Wh_GetIntSetting(L"groupOffsetX"), -40, 40);
+    g_settings.groupOffsetY         = clamp(Wh_GetIntSetting(L"groupOffsetY"), -40, 40);
+    g_settings.locationOffsetX      = clamp(Wh_GetIntSetting(L"locationOffsetX"), -40, 40);
+    g_settings.locationOffsetY      = clamp(Wh_GetIntSetting(L"locationOffsetY"), -40, 40);
+    g_settings.micOffsetX           = clamp(Wh_GetIntSetting(L"micOffsetX"), -40, 40);
+    g_settings.micOffsetY           = clamp(Wh_GetIntSetting(L"micOffsetY"), -40, 40);
+    g_settings.cameraOffsetX        = clamp(Wh_GetIntSetting(L"cameraOffsetX"), -40, 40);
+    g_settings.cameraOffsetY        = clamp(Wh_GetIntSetting(L"cameraOffsetY"), -40, 40);
+    g_settings.copilotOffsetX       = clamp(Wh_GetIntSetting(L"copilotOffsetX"), -40, 40);
+    g_settings.copilotOffsetY       = clamp(Wh_GetIntSetting(L"copilotOffsetY"), -40, 40);
+    g_settings.glowEnabled          = Wh_GetIntSetting(L"glowEnabled") != 0;
+    g_settings.glowOpacity          = clamp(Wh_GetIntSetting(L"glowOpacity"), 0, 100);
+    g_settings.activeColorEnabled   = Wh_GetIntSetting(L"activeColorEnabled") != 0;
+    g_settings.activeColorR         = clamp(Wh_GetIntSetting(L"activeColorR"), 0, 255);
+    g_settings.activeColorG         = clamp(Wh_GetIntSetting(L"activeColorG"), 0, 255);
+    g_settings.activeColorB         = clamp(Wh_GetIntSetting(L"activeColorB"), 0, 255);
     {
-        std::wstring hex = GetStringSetting(L"slashColor", L"");
+        std::wstring hex = GetStringSetting(L"slashColor");
         const wchar_t* p = hex.c_str();
         if (*p == L'#') p++;
         wchar_t* end = nullptr;
         long val = wcstol(p, &end, 16);
         g_settings.slashColor = (end && end != p) ? (int)val : -1;
     }
-    g_settings.slashDirection = GetStringSetting(L"slashDirection", L"rising");
-    g_settings.slashOpacity   = clamp(Wh_GetIntSetting(L"slashOpacity", 100), 0, 100);
-    g_settings.suppressNativeIndicators = Wh_GetIntSetting(L"suppressNativeIndicators", 1) != 0;
+    g_settings.slashDirection = GetStringSetting(L"slashDirection");
+    g_settings.slashOpacity   = clamp(Wh_GetIntSetting(L"slashOpacity"), 0, 100);
+    g_settings.suppressNativeIndicators = Wh_GetIntSetting(L"suppressNativeIndicators") != 0;
 }
 
 // ============================================================
@@ -365,7 +347,7 @@ static void LoadSettings() {
 
 static std::atomic<bool> g_unloading{false};
 static HWND              g_taskbarWnd           = nullptr;
-static bool              g_taskbarViewDllLoaded = false;
+static std::atomic<bool>  g_systemTrayModuleHooked{false};
 static HANDLE            g_retryThread          = nullptr;
 static HANDLE            g_retryStopEvent       = nullptr;
 static HANDLE            g_stateRefreshEvent    = nullptr;
@@ -417,7 +399,39 @@ static void ClearPrivacyStates();
 static void RemoveSyntheticIcons();
 static void StopRetryThread();
 static void UpdateDisabledStates();
-static bool HookTaskbarViewDllSymbols(HMODULE h);
+static bool HookSystemTraySymbols(HMODULE h);
+static void HandleLoadedModuleIfSystemTray(HMODULE module,
+                                            LPCWSTR fileName);
+
+static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE module) {
+    void* fixedFileInfo = nullptr;
+    UINT length = 0;
+    HRSRC resource = FindResourceW(
+        module, MAKEINTRESOURCEW(VS_VERSION_INFO), RT_VERSION);
+    if (!resource) return nullptr;
+    HGLOBAL loaded = LoadResource(module, resource);
+    void* data = loaded ? LockResource(loaded) : nullptr;
+    if (!data || !VerQueryValueW(data, L"\\", &fixedFileInfo, &length) ||
+        !length)
+        return nullptr;
+    return static_cast<VS_FIXEDFILEINFO*>(fixedFileInfo);
+}
+
+static HMODULE GetSystemTrayModuleHandle() {
+    HMODULE module = GetModuleHandleW(L"SystemTray.dll");
+    if (!module) {
+        module = GetModuleHandleW(L"Taskbar.View.dll");
+        if (module) {
+            auto version = GetModuleVersionInfo(module);
+            WORD major = version ? HIWORD(version->dwFileVersionMS) : 0;
+            if (!major || major >= 2604)
+                module = nullptr;
+        }
+    }
+    if (!module)
+        module = GetModuleHandleW(L"ExplorerExtensions.dll");
+    return module;
+}
 
 // ============================================================
 // GetTaskbarXamlRoot
@@ -435,9 +449,16 @@ std__Ref_count_base__Decref_t std__Ref_count_base__Decref_Original;
 static void* CTaskBand_ITaskListWndSite_vftable = nullptr;
 
 static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
+    if (!CTaskBand_GetTaskbarHost_Original ||
+        !TaskbarHost_FrameHeight_Original ||
+        !std__Ref_count_base__Decref_Original ||
+        !CTaskBand_ITaskListWndSite_vftable)
+        return nullptr;
+
     HWND hTaskSwWnd = (HWND)GetProp(hTaskbarWnd, L"TaskbandHWND");
     if (!hTaskSwWnd) return nullptr;
     void* taskBand = (void*)GetWindowLongPtr(hTaskSwWnd, 0);
+    if (!taskBand) return nullptr;
     void* taskBandForSite = taskBand;
     for (int i = 0; *(void**)taskBandForSite != CTaskBand_ITaskListWndSite_vftable; i++) {
         if (i == 20) return nullptr;
@@ -445,7 +466,11 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     }
     void* taskbarHostSharedPtr[2]{};
     CTaskBand_GetTaskbarHost_Original(taskBandForSite, taskbarHostSharedPtr);
-    if (!taskbarHostSharedPtr[0] && !taskbarHostSharedPtr[1]) return nullptr;
+    if (!taskbarHostSharedPtr[0] || !taskbarHostSharedPtr[1]) {
+        if (taskbarHostSharedPtr[1])
+            std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
+        return nullptr;
+    }
     size_t offset = 0x10;
 #if defined(_M_X64)
     {
@@ -469,6 +494,10 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
 #error "Unsupported architecture"
 #endif
     auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
+    if (!iunk) {
+        std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
+        return nullptr;
+    }
     FrameworkElement taskbarElem = nullptr;
     iunk->QueryInterface(winrt::guid_of<FrameworkElement>(), winrt::put_abi(taskbarElem));
     auto result = taskbarElem ? taskbarElem.XamlRoot() : nullptr;
@@ -615,8 +644,8 @@ static std::vector<std::wstring> ParseItemOrder(std::wstring const& s) {
 
 struct GridPlacement {
     int row, col, rowSpan, colSpan;
-    HorizontalAlignment hAlign;
-    VerticalAlignment   vAlign;
+    double topOffsetUnits;
+    double leftOffsetUnits;
 };
 
 static GridPlacement ComputeIconPlacement(
@@ -624,81 +653,73 @@ static GridPlacement ComputeIconPlacement(
     bool colFirst, bool shortFirst,
     const std::wstring& align)
 {
-    GridPlacement p;
-    p.rowSpan = 1; p.colSpan = 1;
-    p.hAlign  = HorizontalAlignment::Stretch;
-    p.vAlign  = VerticalAlignment::Stretch;
+    GridPlacement p{};
+    p.rowSpan = 1;
+    p.colSpan = 1;
 
     int rows = (N + cols - 1) / cols;
+    auto alignOffset = [&](int capacity, int itemCount) {
+        int unused = std::max(0, capacity - itemCount);
+        if (align == L"center") return unused / 2.0;
+        if (align == L"end") return static_cast<double>(unused);
+        return 0.0;
+    };
 
     if (!colFirst) {
-        // Row-first: fill left-to-right, then down.
-        int remainder = N % cols;  // items in the short row (0 = no short row)
-        bool hasShort = remainder > 0;
-
-        if (!shortFirst) {
-            // Short row at end (default).
-            p.row = i / cols;
-            p.col = i % cols;
-            bool inShortRow = hasShort && (p.row == rows - 1);
-            if (inShortRow) {
-                if (remainder == 1) {
-                    if (align == L"center") { p.colSpan = cols; p.hAlign = HorizontalAlignment::Center; }
-                    else if (align == L"end") p.col = cols - 1;
-                }
-                // Multi-item short row: leave as-is (start alignment).
+        int groupCount = (N + cols - 1) / cols;
+        int shortCount = N % cols;
+        if (!shortCount) shortCount = cols;
+        int group;
+        int item;
+        if (shortFirst && shortCount < cols) {
+            if (i < shortCount) {
+                group = 0;
+                item = i;
+            } else {
+                int adjusted = i - shortCount;
+                group = 1 + adjusted / cols;
+                item = adjusted % cols;
             }
         } else {
-            // Short row at start.
-            if (hasShort && i < remainder) {
-                p.row = 0;
-                p.col = i;
-                if (remainder == 1) {
-                    if (align == L"center") { p.colSpan = cols; p.hAlign = HorizontalAlignment::Center; }
-                    else if (align == L"end") p.col = cols - 1;
-                }
-            } else {
-                int j = hasShort ? i - remainder : i;
-                p.row = (hasShort ? 1 : 0) + j / cols;
-                p.col = j % cols;
-            }
+            group = i / cols;
+            item = i % cols;
+        }
+        int shortGroup = shortFirst ? 0 : groupCount - 1;
+        bool isShort = shortCount < cols && group == shortGroup;
+        p.row = group;
+        p.col = item;
+        if (isShort && align != L"start") {
+            p.col = 0;
+            p.colSpan = cols;
+            p.leftOffsetUnits = alignOffset(cols, shortCount) + item;
         }
     } else {
-        // Col-first: fill top-to-bottom, then right.
-        // Each full column gets `rows` items. The short column has (N % rows) items.
-        int itemsPerFullCol = rows;
-        int fullCols        = N / itemsPerFullCol;
-        int remainder       = N % itemsPerFullCol;  // items in short col (0 = no short col)
-        bool hasShort       = remainder > 0;
-
-        if (!shortFirst) {
-            // Short col at end (default).
-            if (i < fullCols * itemsPerFullCol) {
-                p.col = i / itemsPerFullCol;
-                p.row = i % itemsPerFullCol;
+        int groupCount = (N + rows - 1) / rows;
+        int shortCount = N % rows;
+        if (!shortCount) shortCount = rows;
+        int group;
+        int item;
+        if (shortFirst && shortCount < rows) {
+            if (i < shortCount) {
+                group = 0;
+                item = i;
             } else {
-                int j = i - fullCols * itemsPerFullCol;
-                p.col = fullCols;
-                p.row = j;
-                if (remainder == 1) {
-                    if (align == L"center") { p.rowSpan = rows; p.vAlign = VerticalAlignment::Center; }
-                    else if (align == L"end") p.row = rows - 1;
-                }
+                int adjusted = i - shortCount;
+                group = 1 + adjusted / rows;
+                item = adjusted % rows;
             }
         } else {
-            // Short col at start.
-            if (hasShort && i < remainder) {
-                p.col = 0;
-                p.row = i;
-                if (remainder == 1) {
-                    if (align == L"center") { p.rowSpan = rows; p.vAlign = VerticalAlignment::Center; }
-                    else if (align == L"end") p.row = rows - 1;
-                }
-            } else {
-                int j = hasShort ? i - remainder : i;
-                p.col = (hasShort ? 1 : 0) + j / itemsPerFullCol;
-                p.row = j % itemsPerFullCol;
-            }
+            group = i / rows;
+            item = i % rows;
+        }
+        int shortGroup = shortFirst ? 0 : groupCount - 1;
+        bool isShort = shortCount < rows && group == shortGroup;
+        p.row = item;
+        p.col = group;
+        if (isShort && align != L"start") {
+            p.row = 0;
+            p.rowSpan = rows;
+            p.topOffsetUnits = alignOffset(rows, shortCount) + item;
         }
     }
 
@@ -1427,7 +1448,8 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     bar.Name(L"PrivacyAnchorBar");
     bar.VerticalAlignment(VerticalAlignment::Center);
     bar.HorizontalAlignment(HorizontalAlignment::Center);
-    bar.Margin({ (double)g_settings.paddingLeft, 0.0, (double)g_settings.paddingRight, 0.0 });
+    bar.Margin({ (double)g_settings.groupPaddingLeft, 0.0,
+                 (double)g_settings.groupPaddingRight, 0.0 });
     ApplyOffset(bar, g_settings.groupOffsetX, g_settings.groupOffsetY);
 
     int N    = (int)activeItems.size();
@@ -1440,12 +1462,12 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
 
     for (int r = 0; r < rows; r++) {
         RowDefinition rd;
-        rd.Height({ 1.0, GridUnitType::Auto });
+        rd.Height({ (double)g_settings.iconSize, GridUnitType::Pixel });
         bar.RowDefinitions().Append(rd);
     }
     for (int c = 0; c < cols; c++) {
         ColumnDefinition bcd;
-        bcd.Width({ 1.0, GridUnitType::Auto });
+        bcd.Width({ (double)g_settings.iconSize, GridUnitType::Pixel });
         bar.ColumnDefinitions().Append(bcd);
     }
     if (g_settings.buttonSpacing > 0) {
@@ -1696,8 +1718,17 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         Grid::SetColumn(slot, placement.col);
         if (placement.rowSpan > 1) Grid::SetRowSpan(slot, placement.rowSpan);
         if (placement.colSpan > 1) Grid::SetColumnSpan(slot, placement.colSpan);
-        if (placement.hAlign != HorizontalAlignment::Stretch) slot.HorizontalAlignment(placement.hAlign);
-        if (placement.vAlign != VerticalAlignment::Stretch)   slot.VerticalAlignment(placement.vAlign);
+        if (placement.rowSpan > 1)
+            slot.VerticalAlignment(VerticalAlignment::Top);
+        if (placement.colSpan > 1)
+            slot.HorizontalAlignment(HorizontalAlignment::Left);
+        if (placement.topOffsetUnits || placement.leftOffsetUnits) {
+            double pitch = g_settings.iconSize + g_settings.buttonSpacing;
+            auto margin = slot.Margin();
+            margin.Left += placement.leftOffsetUnits * pitch;
+            margin.Top += placement.topOffsetUnits * pitch;
+            slot.Margin(margin);
+        }
 
         bar.Children().Append(slot);
     }
@@ -1726,15 +1757,16 @@ static void RemoveSyntheticIcons() {
         return;
     }
 
+    int col = g_syntheticColumn;
     for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
         auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
         if (fe && fe.Name() == L"PrivacyAnchorBar") {
+            col = Grid::GetColumn(fe);
             gridParent.Children().RemoveAt(i);
             break;
         }
     }
 
-    int col = g_syntheticColumn;
     if (col >= 0 && (uint32_t)col < gridParent.ColumnDefinitions().Size())
         gridParent.ColumnDefinitions().RemoveAt((uint32_t)col);
 
@@ -1932,11 +1964,27 @@ static void ApplyStyleOnWindowThread() {
 static void StopRetryThread() {
     if (g_retryStopEvent) SetEvent(g_retryStopEvent);
     if (g_stateRefreshEvent) SetEvent(g_stateRefreshEvent);
-    if (g_retryThread) { WaitForSingleObject(g_retryThread, 3000); CloseHandle(g_retryThread); }
-    if (g_retryStopEvent) CloseHandle(g_retryStopEvent);
-    if (g_stateRefreshEvent) CloseHandle(g_stateRefreshEvent);
-    g_retryThread = nullptr; g_retryStopEvent = nullptr;
-    g_stateRefreshEvent = nullptr;
+    if (g_retryThread) {
+        DWORD result;
+        do {
+            result = MsgWaitForMultipleObjects(
+                1, &g_retryThread, FALSE, INFINITE, QS_SENDMESSAGE);
+            if (result == WAIT_OBJECT_0 + 1) {
+                MSG message;
+                PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
+            }
+        } while (result == WAIT_OBJECT_0 + 1);
+        CloseHandle(g_retryThread);
+        g_retryThread = nullptr;
+    }
+    if (g_retryStopEvent) {
+        CloseHandle(g_retryStopEvent);
+        g_retryStopEvent = nullptr;
+    }
+    if (g_stateRefreshEvent) {
+        CloseHandle(g_stateRefreshEvent);
+        g_stateRefreshEvent = nullptr;
+    }
 }
 
 // ============================================================
@@ -1984,15 +2032,8 @@ LoadLibraryExW_t LoadLibraryExW_Original;
 
 HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR path, HANDLE file, DWORD flags) {
     HMODULE h = LoadLibraryExW_Original(path, file, flags);
-    if (h && path && !g_taskbarViewDllLoaded) {
-        const wchar_t* base = wcsrchr(path, L'\\');
-        base = base ? base + 1 : path;
-        if (_wcsicmp(base, L"Taskbar.View.dll") == 0) {
-            g_taskbarViewDllLoaded = true;
-            HookTaskbarViewDllSymbols(h);
-            ApplyStyleOnWindowThread();
-        }
-    }
+    if (h && path)
+        HandleLoadedModuleIfSystemTray(h, path);
     return h;
 }
 
@@ -2012,14 +2053,30 @@ static bool HookTaskbarDllSymbols() {
     return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
 }
 
-static bool HookTaskbarViewDllSymbols(HMODULE h) {
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+static bool HookSystemTraySymbols(HMODULE h) {
+    WindhawkUtils::SYMBOL_HOOK systemTrayHooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original,
         IconView_IconView_Hook,
         false,
     }};
-    return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(
+        h, systemTrayHooks, ARRAYSIZE(systemTrayHooks));
+}
+
+static void HandleLoadedModuleIfSystemTray(HMODULE module,
+                                            LPCWSTR fileName) {
+    if (!g_systemTrayModuleHooked &&
+        GetSystemTrayModuleHandle() == module &&
+        !g_systemTrayModuleHooked.exchange(true)) {
+        Wh_Log(L"[Hooks] System tray module loaded: %s", fileName);
+        if (HookSystemTraySymbols(module)) {
+            Wh_ApplyHookOperations();
+        } else {
+            g_systemTrayModuleHooked = false;
+            Wh_Log(L"[Hooks] System tray symbol hooks failed");
+        }
+    }
 }
 
 // ============================================================
@@ -2030,30 +2087,48 @@ BOOL Wh_ModInit() {
     Wh_Log(L"[Init] Privacy Anchor v0.9");
     LoadSettings();
 
-    if (!HookTaskbarDllSymbols())
+    if (!HookTaskbarDllSymbols()) {
         Wh_Log(L"[Init] taskbar.dll symbols failed");
+        return FALSE;
+    }
 
-    HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
-    auto pLLEW = kb ? (LoadLibraryExW_t)GetProcAddress(kb, "LoadLibraryExW") : nullptr;
-    if (pLLEW)
-        Wh_SetFunctionHook((void*)pLLEW, (void*)LoadLibraryExW_Hook, (void**)&LoadLibraryExW_Original);
-
-    HMODULE tvDll = GetModuleHandleW(L"Taskbar.View.dll");
-    if (tvDll) {
-        g_taskbarViewDllLoaded = true;
-        if (!HookTaskbarViewDllSymbols(tvDll))
-            Wh_Log(L"[Init] Taskbar.View.dll hook failed");
+    if (HMODULE module = GetSystemTrayModuleHandle()) {
+        if (!HookSystemTraySymbols(module)) {
+            Wh_Log(L"[Init] System tray symbol hooks failed");
+            return FALSE;
+        }
+        g_systemTrayModuleHooked = true;
+    } else {
+        HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
+        auto loadLibraryExW = kernelbase
+            ? reinterpret_cast<LoadLibraryExW_t>(
+                  GetProcAddress(kernelbase, "LoadLibraryExW"))
+            : nullptr;
+        if (!loadLibraryExW ||
+            !WindhawkUtils::SetFunctionHook(
+                loadLibraryExW,
+                LoadLibraryExW_Hook,
+                &LoadLibraryExW_Original)) {
+            Wh_Log(L"[Init] LoadLibraryExW hook unavailable");
+            return FALSE;
+        }
     }
 
     return TRUE;
 }
 
 void Wh_ModAfterInit() {
-    if (!g_taskbarViewDllLoaded) {
-        HMODULE h = GetModuleHandleW(L"Taskbar.View.dll");
-        if (h) { g_taskbarViewDllLoaded = true; HookTaskbarViewDllSymbols(h); }
+    if (!g_systemTrayModuleHooked) {
+        if (HMODULE module = GetSystemTrayModuleHandle()) {
+            if (!g_systemTrayModuleHooked.exchange(true)) {
+                if (HookSystemTraySymbols(module))
+                    Wh_ApplyHookOperations();
+                else
+                    g_systemTrayModuleHooked = false;
+            }
+        }
     }
-    if (g_taskbarViewDllLoaded)
+    if (g_systemTrayModuleHooked)
         ApplyStyleOnWindowThread();
 
     g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);

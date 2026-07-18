@@ -27,8 +27,9 @@ apply. The goal is not to make every mod expose every control.
 
 - Preserve current defaults.
 - Preserve current behavior when users do not touch new settings.
-- Read old setting names as compatibility aliases when canonical names are
-  introduced.
+- Preserve published setting keys. Windhawk doesn't expose whether a declared
+  setting is untouched, so a new key with a schema default can't reliably fall
+  back to an old key. Use `$name` and descriptions for vocabulary alignment.
 - Approach each mod individually; use profiles to decide what belongs.
 - Keep lab repo and sister fork synchronized after staging or PR fixes.
 - Do not normalize by broad refactor. Make narrow, testable passes.
@@ -38,8 +39,10 @@ apply. The goal is not to make every mod expose every control.
 Each mod adaptation should follow this sequence:
 
 1. Record profiles for the mod.
-2. Add canonical settings with defaults that reproduce current behavior.
-3. Add alias reads for old names.
+2. Keep existing storage keys for published settings; normalize their visible
+   `$name` and descriptions where useful.
+3. Use aliases only for undeclared/optional legacy data where absence can be
+   distinguished unambiguously.
 4. Internally group settings by profile: host, group, surface, content, state.
 5. Apply settings at the right layer in code.
 6. Update the embedded Windhawk settings block.
@@ -103,21 +106,17 @@ Do not change defaults:
 - Keep current button size, spacing, active color, label format, master button
   defaults, and hide-when-single behavior.
 
-Normalize in phases:
+Normalize without renaming published keys:
 
-1. Add canonical aliases:
-   - `gridRows` reads/falls back to `buttonRows`.
-   - `gridColumns` reads/falls back to `buttonColumns`.
-   - `opacity` reads/falls back to `buttonOpacity`.
-   - `activeBackgroundColor` reads/falls back to `activeColor`.
-   - `inactiveBackgroundColor` reads/falls back to `inactiveColor`.
-   - `groupPaddingLeft` / `groupPaddingRight` read/fall back to
-     `paddingLeft` / `paddingRight`.
-   - `groupOffsetY` reads/falls back to `gridVerticalOffset`.
-2. Rename internal setting fields only after aliases exist.
-3. Keep old Windhawk settings visible until the alias behavior has been tested.
-4. Later, update README to teach canonical names while noting old-name
-   compatibility.
+1. Keep `buttonRows`, `buttonColumns`, `buttonOpacity`, `activeColor`,
+   `inactiveColor`, `paddingLeft`, `paddingRight`, and `gridVerticalOffset` as
+   the persistent Windhawk keys.
+2. Use `$name` and descriptions to present the shared vocabulary in the UI.
+3. Internal C++ field names can be normalized independently because they don't
+   affect stored user settings.
+4. Do not add parallel declared canonical keys: their schema defaults make
+   untouched values indistinguishable from explicit user choices, so fallback
+   to the legacy keys is not reliable.
 
 Implementation notes:
 

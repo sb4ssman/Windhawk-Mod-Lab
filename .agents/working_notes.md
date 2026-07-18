@@ -31,7 +31,12 @@ docs/screenshots are current — see standing directives in README.md).
 
 - 5 canonical slots in order: text, background, hover bg, pressed bg, border — then border thickness, corner radius, opacity, shine. **Optional identity axis** (e.g. VDS active/inactive): text and background split per identity in place; hover/pressed/border never split.
 - 4 documented generics: `accent`, `accentLight` (AccentLight2), `accentDark` (AccentDark1), `transparent`. Numbered shades `accentLight1`–`3`/`accentDark1`–`3` accepted silently, undocumented. Defaults must be generics or empty — never hardcoded hex (folder-menus hover default changed `#4488FF` → `accent`).
-- Canonical parser + convention in `_templates/button-surface.h` and `_templates/settings-profiles.md`. Applied to vd-switcher + folder-menus (incl. VDS YAML reorder to canonical slot order). **Still to apply: omnibutton-customizer (per-glyph colors), tray-utility-customizer, privacy-indicator-anchor (has hardcoded 255/180/60 RGB triplet ints — nonconforming shape).**
+- Canonical parser + convention in `_templates/button-surface.h` and `_templates/settings-profiles.md`. Applied to vd-switcher + folder-menus (incl. VDS YAML reorder to canonical slot order).
+- **Full audit of remaining mods done 2026-07-17** — see the dated section in `_templates/six-mod-settings-audit.md`. Action queue:
+  - omnibutton: generic token table in `ParseHexColor` (Color-returning variant needed); teardown already sound.
+  - privacy-anchor: (1) clear synthetic-icon tooltips before `RemoveSyntheticIcons` removal (folder-menus crash class); (2) move `g_loadedRevokers.clear()` onto the UI thread; (3) replace `activeColorEnabled`+R/G/B with one `activeColor` string; (4) `slashColor` → canonical `#`-prefixed parser with generics (unpublished, no aliases needed).
+  - tray-utility: conformant; optionally add `shortGroupPosition`.
+  - Teardown contract now documented in `_templates/taskbar-xaml-lifecycle.template.cpp`; compile-check script at `_templates/compile-check.ps1`.
 
 ## Mod infrastructure checklist (all system-tray mods must have)
 

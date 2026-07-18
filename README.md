@@ -15,7 +15,7 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-clock-customization-spacer/](taskbar-clock-customization-spacer/) | submitted integration scratch | Elastic spacer support for Taskbar Clock Customization format strings |
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.5, submission prep | Compact taskbar buttons that open configured Shell targets as popup menus with right-click context menus and subfolder navigation |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.6, published | Clickable virtual desktop buttons with grid layouts, Task View button, tray placement, and Start-adjacent placement |
+| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7, local test; v1.6 update PR open | Clickable virtual desktop buttons with grid layouts, Task View button, tray placement, and Start-adjacent placement |
 | [tray-utility-customizer/](tray-utility-customizer/) | v0.3, lab test | Arranges detected Windows tray utilities into a configurable row, column, or grid |
 
 ## Repository Layout
@@ -30,13 +30,14 @@ Windhawk-Mod-Lab/
   taskmanager-tail/
   taskbar-vd-switcher/
   tray-utility-customizer/
+  .agents/           agent instructions, notes, tools, and generated outputs
   _archive/          old retired folders or moved work
-  _claude_notes/     root-level development notes for all mods
   _profiles/         local Windhawk profile snapshots
   _research/         shared investigations and design notes
+  _templates/        shared code templates and submission checklists
 ```
 
 Each mod folder should have its own user-facing `README.md` and can keep its own
-`archive/` folder for old implementation experiments. Development notes that are
-only for Codex/Claude belong in root `_claude_notes/`, not inside individual mod
-folders.
+`archive/` folder for old implementation experiments. Development-agent notes
+belong in `.agents/`, not inside individual mod folders; `CLAUDE.md` and
+`AGENTS.md` are identical pointers into that folder.
