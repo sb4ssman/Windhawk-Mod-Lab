@@ -44,10 +44,24 @@ current docs/screenshots (standing directives in README.md).
    invisible to software at every level on this Legion — hardware-disabled
    detection is IMPOSSIBLE on this machine.** Camera icon contract: bright =
    actively streaming; no disabled-slash here.
-   - [ ] Remove or gate the Lenovo `LENOVO_GAMEZONE_DATA` WMI check (this
-     machine's firmware has no camera methods — it permanently no-ops); update
-     both readmes to document the camera limitation honestly
-   - [ ] Optional last stone: elevated `LENOVO_OTHER_METHOD` method list (low odds)
+   - **Design decision 2026-07-18 (full writeup:
+     knowledge/privacy-anchor-design-notes.md "Hardware kill-switch trust
+     model")**: stop trying to detect switch *position* — generalized past
+     this one Legion, it's unknowable on any machine with a hardware
+     shutter/switch, not just unproven here. Software's honest job is
+     presence + real usage only (both already implemented); the physical
+     switch/LED is the sole source of truth for on/off, trust it instead of
+     simulating it.
+   - [ ] Implement: keep `LENOVO_GAMEZONE_DATA` only as a best-effort
+     self-disabling bonus (already short-circuits via `s_unavailable`) — do
+     NOT chase more vendor WMI classes (`LENOVO_OTHER_METHOD` etc.), the
+     trust model removes the need
+   - [ ] Add `cameraHardwareSwitch` / `micHardwareSwitch` setting
+     (`auto | present | none`, tooltip/readme wording only, no detection
+     logic) so users on other hardware can flag "trust my physical switch"
+   - [ ] Update both readmes with the honest contract: icon = confirmed
+     active streaming; physical switch/LED is authoritative for off-state,
+     the mod cannot and does not claim to show it
    - [ ] Replace 3s polling with event-driven (USER DIRECTIVE — dislikes
      polling): RegNotifyChangeKeyValue on ConsentStore keys + WMI event
      subscription for Lenovo Fn keys (`LENOVO_UTILITY_EVENT`); mic monitor
