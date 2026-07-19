@@ -1,6 +1,9 @@
 #pragma once
 
-// Copy-source template v1.0: reversible SystemTrayFrameGrid column lease.
+// Copy-source template v1.1: reversible SystemTrayFrameGrid column lease.
+// v1.1: split AcquireAt(column) out of Acquire(anchor) so a mod can lease a
+// dedicated column at a column index it resolved itself (e.g. borrowing the
+// hidden-icons column position). First adopter: tray-utility-customizer.
 
 #include <algorithm>
 #include <string>
@@ -71,13 +74,10 @@ inline bool ResolveColumn(Grid const& parent, Anchor anchor, int& column) {
     return true;
 }
 
-inline bool Acquire(Grid const& parent, Anchor anchor,
-                    std::wstring const& markerName, Lease& lease) {
-    if (!parent || markerName.empty() || FindDirectChild(parent, markerName.c_str()))
-        return false;
-
-    int column = -1;
-    if (!ResolveColumn(parent, anchor, column))
+inline bool AcquireAt(Grid const& parent, int column,
+                      std::wstring const& markerName, Lease& lease) {
+    if (!parent || column < 0 || markerName.empty() ||
+        FindDirectChild(parent, markerName.c_str()))
         return false;
 
     ColumnDefinition definition;
@@ -108,6 +108,14 @@ inline bool Acquire(Grid const& parent, Anchor anchor,
 
     lease = {markerName, column};
     return true;
+}
+
+inline bool Acquire(Grid const& parent, Anchor anchor,
+                    std::wstring const& markerName, Lease& lease) {
+    int column = -1;
+    if (!parent || !ResolveColumn(parent, anchor, column))
+        return false;
+    return AcquireAt(parent, column, markerName, lease);
 }
 
 inline bool Release(Grid const& parent, Lease& lease) {

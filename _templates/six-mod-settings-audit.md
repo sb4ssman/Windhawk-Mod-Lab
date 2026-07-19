@@ -1,6 +1,8 @@
 # Six-Mod Settings Audit
 
 Audited against the active sources on 2026-07-16.
+Tray Utility column re-audited 2026-07-19 against v0.4 (full template adoption:
+smart-grid-layout.h v1.0 + injected-grid-column.h v1.1).
 
 Legend: `yes` means canonical/current; `legacy` means a published or truthful
 different name; `partial` means the capability exists with fewer modes; `n/a`
@@ -10,11 +12,11 @@ means the profile does not belong to the mod.
 |---|---|---|---|---|---|---|
 | Owner model | injected group + Start overlay | injected group | injected icon group | native mutation | native relocation | native text mutation |
 | `position` | yes, extended | yes | yes | native | yes | native |
-| Smart layout | full balanced/vertical/horizontal | balanced/vertical/horizontal | missing | existing automatic geometry | partial auto row/column | n/a |
+| Smart layout | full balanced/vertical/horizontal | balanced/vertical/horizontal | missing | existing automatic geometry | balanced/vertical/horizontal | n/a |
 | Rows | `buttonRows` legacy | `gridRows` | missing | `gridRows` | `gridRows` | n/a |
 | Columns | `buttonColumns` legacy | `gridColumns` | `gridColumns` | `gridColumns` | `gridColumns` | n/a |
 | `fillOrder` | yes | yes | yes | yes | yes | n/a |
-| `shortGroupPosition` | trailing only | yes | yes | trailing only | trailing only | n/a |
+| `shortGroupPosition` | trailing only | yes | yes | trailing only | yes | n/a |
 | `shortGroupAlign` | yes | yes | yes | yes | yes | n/a |
 | Item order | desktop order fixed | folder array order | `itemOrder` string | `itemOrder` string | `itemOrder` string | format lines/arrays |
 | Owned item dimensions | button width/height | button width/height | icon size | slot width/height | button width/height | width/height/max width |
@@ -30,7 +32,7 @@ means the profile does not belong to the mod.
 | Opacity | `buttonOpacity` legacy | `opacity` | idle/glow/slash | per-color animation | native | text styles |
 | Shine | yes | yes | n/a | gradient endpoints | n/a | n/a |
 | Accent keyword | yes | yes | RGB fields | missing | n/a | text-style parser |
-| Reversible insertion marker | named root + live column | named root + live column | named root + live column | n/a | explicit marker + snapshots | n/a |
+| Reversible insertion marker | named root + live column | named root + live column | named root + live column | n/a | template column lease + snapshots | n/a |
 | Startup trigger | IconView + retry | TrayUI + retry | three-DLL IconView + retry | IconView + retry | Loaded hooks + retry | upstream-specific hooks |
 
 ## Repeated settings evidence

@@ -588,3 +588,30 @@ Windhawk Clang syntax compilation passes. The mod is NOT live-tested: the
 `TrayUI::StartTaskbar` path, the visual result, and teardown all still need a
 run in Explorer. Branch `add-taskbar-clock-spacer` is ~248k deletions out of date
 against upstream/main and needs rebasing before PR #4443 can merge.
+
+## 2026-07-19 — Tray Utility Customizer v0.4: first full template adoption
+
+Reworked tray-utility-customizer from its pre-template v0.3 into the lab's
+first fully template-conformant mod. Adopted `_templates/smart-grid-layout.h`
+v1.0 as a verbatim block (replacing the third independent inline grid
+implementation) and `_templates/injected-grid-column.h` for the dedicated-column
+lease. Extended that template to v1.1 with an `AcquireAt(column)` overload so a
+mod can lease a column at a self-resolved index (borrowing the hidden-icons or
+Emoji column for multi-column layouts); `Acquire(anchor)` now delegates to it.
+No other adopters existed, so no rollout comparison was needed.
+
+Settings converted to the canonical profile and order: `gridMode`
+(autoSmart/singleRow/singleColumn/fixedRows/fixedColumns/fixedGrid),
+`smartLayout`, `gridRows`, `gridColumns`, `fillOrder`, `shortGroupPosition`
+(new), `shortGroupAlign`. Eliminated old junk: the `layoutMode` key (mod
+unpublished, no alias kept), the v0.2 stale-layout recovery shims, and legacy
+`overflowFirst`/`emojiFirst` itemOrder aliases. `detailedLogging` default
+flipped to false. Fixed the code/docs contradiction about over-tall layouts:
+docs now state that Smart automatic never exceeds the tray height while fixed
+modes honor the requested shape (matching the code, which logs and honors).
+
+Verification: Windhawk clang syntax check passes for the mod and the modified
+template header; the smart-grid template test suite still passes;
+`verify-readme-sync.ps1` reports README_MATCH. Root README updated (v0.4 row,
+plus fixing the stale clock-spacer rows) and the six-mod audit matrix
+re-audited for the Tray Utility column. NOT live-tested; screenshots pending.

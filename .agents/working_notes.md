@@ -9,8 +9,13 @@ Living todo list — current state only, pruned every session. Completed work
 Five mods to prepare. No submissions until each works as described with
 current docs/screenshots (standing directives in README.md).
 
-1. **Taskbar Clock Spacer** — ACTIVE. v1.1 written in `taskbar-clock-spacer/`,
-   static checks pass, NOT live-tested.
+1. **Taskbar Clock Spacer** — ACTIVE. v1.1 FAILED first live round (2026-07-19,
+   user report): the spacer effect does not work as expected ("something is
+   funny" — behavior unspecified, needs diagnosis with logs/UWPSpy), and the
+   WEATHER-COMPONENT SPACER feature is MISSING entirely (a spacer slot for the
+   taskbar weather widget/component was part of the intended feature set).
+   - [ ] Diagnose the wrong/absent spacer effect on live taskbar
+   - [ ] Add the weather-component spacer feature
    DIRECTION SETTLED 2026-07-19: the deliverable is the STANDALONE companion mod
    (`@id taskbar-clock-spacer`, PR #4443, still open). The integration attempt
    (PR #68 in m417z/my-windhawk-mods) is finished — the maintainer preferred a
@@ -51,7 +56,15 @@ current docs/screenshots (standing directives in README.md).
    fix job. Still open from that review: the DPI-units bug in
    `GetAvailableFolderRows` (physical px ÷ DIP pitch), a likely cause of the
    chevron-area overlap.
-   READY FOR SCREENSHOTS. The v0.6 reviewer
+   NEW REGRESSIONS (2026-07-19, user report — screenshots BLOCKED until fixed):
+   - [ ] Mod does NOT survive a reboot (buttons/layout gone after restart —
+         likely the startup path never re-applies; investigate init/retry
+         lifecycle vs `TrayUI::StartTaskbar`)
+   - [ ] Smart grid "fucking SUCKS and doesn't work correctly at all" (user,
+         2026-07-19). Likely related to the known DPI-units bug in
+         `GetAvailableFolderRows`. Fix against `_templates/smart-grid-layout.h`,
+         don't re-derive inline math.
+   Previously: READY FOR SCREENSHOTS — now blocked on the two items above. The v0.6 reviewer
    revision is compile-checked and live-confirmed: native Shell context menus,
    modal verbs, nested-cascade retention, click-away dismissal, and button
    visual reset are working. Defaults are now Smart automatic, automatic
@@ -106,6 +119,11 @@ current docs/screenshots (standing directives in README.md).
    - [ ] Live-test the four-state visual polish: idle, active, unavailable, and
          active-while-unavailable. Compare steady/pulse/radiate at low and high
          intensity, and confirm radiation never changes tray width.
+   - [ ] MISSING SMART GRID (2026-07-19, user report): the anchor has no smart
+         grid layout at all. Adopt `_templates/smart-grid-layout.h` +
+         `settings-profiles.md` group-layout profile (gridMode/smartLayout/
+         gridRows/gridColumns/fillOrder/shortGroup*) so its layout settings are
+         uniform with the other tray mods.
    - [ ] If user's saved `slashDirection` is still "rising" from the old
      default, one dropdown click to Falling fixes it
    - [x] Embedded↔folder readme unification
@@ -114,11 +132,34 @@ current docs/screenshots (standing directives in README.md).
    - Design/reference: knowledge/privacy-anchor-design-notes.md,
      `_research/privacy-indicator-anchor-design.md`
 
+## Tray Utility Customizer — v0.4 REWORKED 2026-07-19, READY FOR LIVE TEST
+
+Full template adoption done: smart-grid-layout.h v1.0 (verbatim block),
+injected-grid-column.h v1.1 (new `AcquireAt` overload added to the template for
+borrowed-column leases; tray-utility is first adopter), canonical settings
+(gridMode/smartLayout/gridRows/gridColumns/fillOrder/shortGroupPosition/
+shortGroupAlign) in canonical order. Removed: `layoutMode` key (unpublished, no
+alias), v0.2 recovery shims, legacy itemOrder aliases, inline grid math.
+`detailedLogging` now defaults false. Compile-checked OK; README sync verified;
+audit matrix updated. NOTE: user's saved `layoutMode`/old settings are ignored —
+reconfigure via the new dropdowns once.
+- [ ] Live test (recommended flow is in the old folder README history; core:
+      overflow+emoji column at hidden-icons anchor → flyouts/tooltips/
+      right-click → autoSmart on double-height → dedicated anchors →
+      settings reload → Explorer restart → disable/unload restore)
+- [ ] Screenshots: one ordinary single-height, one double-height/elaborate
+- [ ] Wire screenshots into both README layers, then submission checklist
+
 ## Lab-level todos
+- [ ] TEMPLATE UNIFORMITY IS A STANDING PRIORITY (user, 2026-07-19): mods keep
+      shipping without the curated `_templates/` profiles (settings names,
+      order, smart grid). Every mod touched must be checked against
+      `_templates/settings-profiles.md` + `six-mod-settings-audit.md` before
+      screenshots/PR. Remaining known gaps: privacy-indicator-anchor (smart
+      grid settings not exposed/working per user), folder-menus (smart grid
+      broken). tray-utility-customizer RESOLVED 2026-07-19 (v0.4).
 - [ ] taskmanager-tail README: user decision needed on unification direction
       (published mod; folder README is standalone-repo style)
-- [ ] tray-utility-customizer: dedicated settings/readme pass (folder README
-      richer than embedded); optionally add `shortGroupPosition`
 - [ ] windhawk-mods PR update script (pull upstream → copy .wh.cpp →
       create/update PR); fork at `t:/Github/sb4ssman/windhawk-mods/`
 

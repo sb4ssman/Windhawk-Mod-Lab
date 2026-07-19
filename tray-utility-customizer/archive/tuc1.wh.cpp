@@ -1,8 +1,8 @@
 // ==WindhawkMod==
 // @id              tray-utility-customizer
 // @name            Tray Utility Customizer
-// @description     Arranges Windows tray utility controls such as Show hidden icons, Emoji, touch keyboard, pen menu, and virtual touchpad into a configurable row, column, or smart grid.
-// @version         0.4
+// @description     Arranges Windows tray utility controls such as Show hidden icons, Emoji, touch keyboard, pen menu, and virtual touchpad into a configurable row, column, or grid.
+// @version         0.3
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -15,7 +15,7 @@
 # Tray Utility Customizer
 
 Arranges low-frequency Windows 11 system-tray utility controls into one compact
-row, column, or smart grid:
+row, column, or grid:
 
 - **Show hidden icons** (the overflow chevron)
 - **Emoji and more** (emoji, GIF, kaomoji, symbols, and clipboard history)
@@ -25,61 +25,44 @@ row, column, or smart grid:
 - **Input/language indicator**
 
 Only controls detected on the current Windows build are included. The mod keeps
-Windows-owned controls intact and moves their native tray hosts instead of
-drawing replacement buttons or forwarding clicks.
-
-## Layout
-
-- **Smart automatic** picks the densest sensible grid for the item count and
-  the current taskbar height, tuned by the Smart layout preference (balanced,
-  pack vertical, or pack horizontal). It never exceeds the tray height.
-- **Single row** and **Single column** are exactly that.
-- **Fixed rows / Fixed columns / Fixed grid** honor the requested shape even if
-  it is taller than the tray; use the minimum tray height guard to keep short
-  taskbars native.
-
-When the last grid row or column is not full, the short group can be placed
-first or last and aligned to the start, center, or end.
-
-## Position
-
-The group can borrow the hidden-icons or Emoji column, or lease a dedicated
-tray column before the notification icons, before Wi-Fi/volume/battery, before
-or after the clock, or after the Show Desktop strip. The lease is
-marker-tracked and fully reversible on unload.
+Windows-owned controls intact and moves their native tray hosts instead of drawing
+replacement buttons or forwarding clicks.
 
 ## Detection
 
-- **Automatic** uses Windows accessibility metadata and a guarded Emoji
-  fallback.
-- **Force MainStack** allows the complete native `MainStack` to participate
-  when Windows doesn't expose useful metadata. It can include unrelated
-  indicators.
+- **Automatic** uses Windows accessibility metadata and a guarded Emoji fallback.
+- **Force MainStack** allows the complete native `MainStack` to participate when
+  Windows doesn't expose useful metadata. It can include unrelated indicators.
 
-Use `itemOrder` to select and order utilities. If multiple selected utilities
-belong to one indivisible Windows host, they stay bundled together and the log
-identifies the shared host.
+## Layout and position
+
+Use `itemOrder` to select and order utilities. Choose a row, column, grid, or
+automatic layout. The group can borrow the original hidden-icons or Emoji column,
+or reserve a dedicated column at several tray positions.
+
+If multiple selected utilities belong to one indivisible Windows host, they stay
+bundled together and the log identifies the shared host.
 */
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
 /*
-- enabled: true
-  $name: Enable utility layout
-
 - position: overflow
-  $name: Position
+  $name: Group position
   $description: >-
-    Borrow a native utility column or lease a dedicated column elsewhere in
+    Borrow a native utility column or insert a dedicated column elsewhere in
     the system tray.
   $options:
   - overflow: Hidden-icons column
   - emoji: Emoji column
   - beforeIcons: Before notification icons
-  - beforeOmni: Before network, volume, and battery
+  - beforeOmni: Before Wi-Fi/volume/battery
   - beforeClock: Before clock
   - afterClock: After clock
-  - afterShowDesktop: After Show Desktop
+  - afterShowDesktop: After Show Desktop strip
+
+- enabled: true
+  $name: Enable utility layout
 
 - itemOrder: "overflow,emoji"
   $name: Utility items and order
@@ -88,43 +71,29 @@ identifies the shared host.
     detected on this Windows build are included. Valid tokens: overflow, emoji,
     touchKeyboard, penMenu, virtualTouchpad, inputIndicator.
 
-- gridMode: autoSmart
-  $name: Grid mode
+- layoutMode: column
+  $name: Layout
   $options:
-  - autoSmart: Smart automatic
-  - singleRow: Single row
-  - singleColumn: Single column
-  - fixedRows: Fixed rows
-  - fixedColumns: Fixed columns
-  - fixedGrid: Fixed rows and columns
-
-- smartLayout: balanced
-  $name: Smart layout
-  $options:
-  - balanced: Balanced
-  - packVertical: Pack vertical
-  - packHorizontal: Pack horizontal
-
-- gridRows: 0
-  $name: Rows (0 = auto)
+  - auto: Automatic
+  - row: Row
+  - column: Column
+  - grid: Grid
 
 - gridColumns: 0
-  $name: Columns (0 = auto)
+  $name: Grid columns (0 = auto)
+
+- gridRows: 0
+  $name: Grid rows (0 = auto)
 
 - fillOrder: rowFirst
-  $name: Fill order
+  $name: Grid fill order
   $options:
-  - rowFirst: Row first
-  - columnFirst: Column first
-
-- shortGroupPosition: last
-  $name: Short row or column
-  $options:
-  - first: First
-  - last: Last
+  - rowFirst: Row-first
+  - columnFirst: Column-first
 
 - shortGroupAlign: center
-  $name: Short row or column alignment
+  $name: Short row/column alignment
+  $description: Alignment when the final grid row or column is not full.
   $options:
   - start: Start
   - center: Center
@@ -139,12 +108,6 @@ identifies the shared host.
 - buttonSpacing: 0
   $name: Button spacing (px)
   $description: Horizontal and vertical gap between utility cells.
-
-- groupOffsetX: 0
-  $name: Group horizontal offset (px)
-
-- groupOffsetY: 0
-  $name: Group vertical offset (px)
 
 - overflowOffsetX: 0
   $name: Hidden icons X offset (px)
@@ -182,11 +145,17 @@ identifies the shared host.
 - inputIndicatorOffsetY: 0
   $name: Input indicator Y offset (px)
 
+- groupOffsetX: 0
+  $name: Group X offset (px)
+
+- groupOffsetY: 0
+  $name: Group Y offset (px)
+
 - minimumTrayHeight: 44
   $name: Minimum tray height (px)
   $description: >-
-    Below this height the mod leaves the native layout unchanged. Use 0 to
-    allow stacking on any taskbar height.
+    Below this height the mod leaves the native layout unchanged. Use 0 to allow
+    stacking on any taskbar height.
 
 - mergeMode: auto
   $name: Detection mode
@@ -197,7 +166,7 @@ identifies the shared host.
   - auto: Automatic
   - forceMainStack: Force MainStack (experimental)
 
-- detailedLogging: false
+- detailedLogging: true
   $name: Detailed discovery logging
   $description: >-
     Logs tray host names, classes, columns, visible IconView counts, and the
@@ -234,382 +203,27 @@ using namespace winrt::Windows::UI::Xaml::Automation;
 using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Media;
 
-// ── Smart grid layout ─────────────────────────────────────────────────────
-// Template block: _templates/smart-grid-layout.h v1.0 (verbatim copy — keep
-// in sync with the template; Windhawk mods are single-file).
-
-#include <climits>
-
-namespace windhawk_mod_templates::smart_grid {
-
-enum class GridMode {
-    AutoSmart,
-    SingleRow,
-    SingleColumn,
-    FixedRows,
-    FixedColumns,
-    FixedGrid,
-};
-
-enum class SmartLayout { Balanced, PackVertical, PackHorizontal };
-enum class FillOrder { RowFirst, ColumnFirst };
-enum class ShortGroupPosition { First, Last };
-enum class ShortGroupAlign { Start, Center, End };
-
-struct Config {
-    GridMode mode = GridMode::AutoSmart;
-    SmartLayout smartLayout = SmartLayout::Balanced;
-    FillOrder fillOrder = FillOrder::RowFirst;
-    ShortGroupPosition shortGroupPosition = ShortGroupPosition::Last;
-    ShortGroupAlign shortGroupAlign = ShortGroupAlign::Center;
-    int rows = 0;          // exact in fixed modes; maximum in AutoSmart
-    int columns = 0;       // exact in fixed modes; maximum in AutoSmart
-    int availableRows = 1; // derive from host height / item pitch
-};
-
-struct Layout {
-    int rows = 1;
-    int columns = 1;
-};
-
-// A short group may need to span its complete axis so a half-cell offset can
-// be expressed with Margin. Multiply offsetUnits by item-size-plus-spacing.
-struct Cell {
-    int row = 0;
-    int column = 0;
-    int rowSpan = 1;
-    int columnSpan = 1;
-    double topOffsetUnits = 0.0;
-    double leftOffsetUnits = 0.0;
-};
-
-inline int ScoreCandidate(int rows, int columns, int count,
-                          SmartLayout preference) {
-    int waste = rows * columns - count;
-    int widePenalty = columns > rows ? (columns - rows) * 2 : 0;
-    int score = waste * 10 + widePenalty;
-
-    if (preference == SmartLayout::PackVertical)
-        score -= rows * 20;
-    else if (preference == SmartLayout::PackHorizontal)
-        score += rows * 20;
-    else
-        score -= rows * 3;
-
-    return score;
-}
-
-inline Layout ComputeLayout(int count, Config const& config) {
-    count = std::max(1, count);
-    Layout result;
-    int availableRows = std::clamp(config.availableRows, 1, count);
-    if (config.rows > 0 && config.mode == GridMode::AutoSmart)
-        availableRows = std::min(availableRows, config.rows);
-
-    switch (config.mode) {
-        case GridMode::SingleRow:
-            result = {1, count};
-            break;
-        case GridMode::SingleColumn:
-            result = {count, 1};
-            break;
-        case GridMode::FixedRows:
-            result.rows = std::clamp(config.rows, 1, count);
-            result.columns = (count + result.rows - 1) / result.rows;
-            break;
-        case GridMode::FixedColumns:
-            result.columns = std::clamp(config.columns, 1, count);
-            result.rows = (count + result.columns - 1) / result.columns;
-            break;
-        case GridMode::FixedGrid:
-            result.rows = std::clamp(config.rows, 1, count);
-            result.columns = config.columns > 0
-                ? std::clamp(config.columns, 1, count)
-                : (count + result.rows - 1) / result.rows;
-            if (result.rows * result.columns < count)
-                result.rows = (count + result.columns - 1) / result.columns;
-            break;
-        case GridMode::AutoSmart: {
-            int bestScore = INT_MAX;
-            int firstRows = availableRows > 1 && count > 1 &&
-                            config.smartLayout != SmartLayout::PackHorizontal
-                ? 2 : 1;
-            for (int rows = firstRows; rows <= availableRows; ++rows) {
-                int columns = (count + rows - 1) / rows;
-                if (config.columns > 0 && columns > config.columns)
-                    continue;
-                int score = ScoreCandidate(rows, columns, count,
-                                           config.smartLayout);
-                if (score < bestScore) {
-                    bestScore = score;
-                    result = {rows, columns};
-                }
-            }
-            if (bestScore == INT_MAX) {
-                result.columns = std::clamp(config.columns, 1, count);
-                result.rows = (count + result.columns - 1) / result.columns;
-            }
-            break;
-        }
-    }
-
-    result.rows = std::clamp(result.rows, 1, count);
-    result.columns = std::max(1, result.columns);
-    while (result.rows * result.columns < count) {
-        if (config.mode == GridMode::FixedColumns)
-            ++result.rows;
-        else
-            ++result.columns;
-    }
-    return result;
-}
-
-inline double AlignOffset(int capacity, int itemCount,
-                          ShortGroupAlign alignment) {
-    int unused = std::max(0, capacity - itemCount);
-    if (alignment == ShortGroupAlign::Center)
-        return unused / 2.0;
-    if (alignment == ShortGroupAlign::End)
-        return static_cast<double>(unused);
-    return 0.0;
-}
-
-inline Cell GetCell(int index, int count, Layout const& layout,
-                    Config const& config) {
-    Cell cell;
-    index = std::clamp(index, 0, std::max(0, count - 1));
-
-    if (config.fillOrder == FillOrder::RowFirst) {
-        int groupCount = (count + layout.columns - 1) / layout.columns;
-        int shortCount = count % layout.columns;
-        if (!shortCount) shortCount = layout.columns;
-        int group;
-        int itemInGroup;
-        if (shortCount < layout.columns &&
-            config.shortGroupPosition == ShortGroupPosition::First) {
-            if (index < shortCount) {
-                group = 0;
-                itemInGroup = index;
-            } else {
-                int adjusted = index - shortCount;
-                group = 1 + adjusted / layout.columns;
-                itemInGroup = adjusted % layout.columns;
-            }
-        } else {
-            group = index / layout.columns;
-            itemInGroup = index % layout.columns;
-        }
-        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
-            ? 0 : groupCount - 1;
-        bool isShort = shortCount < layout.columns && group == shortGroup;
-
-        cell.row = group;
-        cell.column = itemInGroup;
-        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
-            cell.column = 0;
-            cell.columnSpan = layout.columns;
-            cell.leftOffsetUnits = AlignOffset(layout.columns, shortCount,
-                                               config.shortGroupAlign) +
-                                   itemInGroup;
-        }
-    } else {
-        int groupCount = (count + layout.rows - 1) / layout.rows;
-        int shortCount = count % layout.rows;
-        if (!shortCount) shortCount = layout.rows;
-        int group;
-        int itemInGroup;
-        if (shortCount < layout.rows &&
-            config.shortGroupPosition == ShortGroupPosition::First) {
-            if (index < shortCount) {
-                group = 0;
-                itemInGroup = index;
-            } else {
-                int adjusted = index - shortCount;
-                group = 1 + adjusted / layout.rows;
-                itemInGroup = adjusted % layout.rows;
-            }
-        } else {
-            group = index / layout.rows;
-            itemInGroup = index % layout.rows;
-        }
-        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
-            ? 0 : groupCount - 1;
-        bool isShort = shortCount < layout.rows && group == shortGroup;
-
-        cell.row = itemInGroup;
-        cell.column = group;
-        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
-            cell.row = 0;
-            cell.rowSpan = layout.rows;
-            cell.topOffsetUnits = AlignOffset(layout.rows, shortCount,
-                                              config.shortGroupAlign) +
-                                  itemInGroup;
-        }
-    }
-    return cell;
-}
-
-} // namespace windhawk_mod_templates::smart_grid
-
-// ── Injected grid column ──────────────────────────────────────────────────
-// Template block: _templates/injected-grid-column.h v1.1 (verbatim copy —
-// keep in sync with the template; Windhawk mods are single-file).
-
-namespace windhawk_mod_templates::injected_grid_column {
-
-using winrt::Windows::UI::Xaml::FrameworkElement;
-using winrt::Windows::UI::Xaml::GridUnitType;
-using winrt::Windows::UI::Xaml::Controls::ColumnDefinition;
-using winrt::Windows::UI::Xaml::Controls::Grid;
-
-enum class Anchor {
-    BeforeIcons,
-    BeforeOmni,
-    BeforeClock,
-    AfterClock,
-    AfterShowDesktop,
-};
-
-struct Lease {
-    std::wstring markerName;
-    int column = -1;
-};
-
-inline FrameworkElement FindDirectChild(Grid const& parent,
-                                        wchar_t const* name) {
-    for (auto const& child : parent.Children()) {
-        auto element = child.try_as<FrameworkElement>();
-        if (element && element.Name() == name)
-            return element;
-    }
-    return nullptr;
-}
-
-inline bool ResolveColumn(Grid const& parent, Anchor anchor, int& column) {
-    if (anchor == Anchor::BeforeIcons) {
-        column = 0;
-        return true;
-    }
-
-    wchar_t const* referenceName = nullptr;
-    bool after = false;
-    switch (anchor) {
-        case Anchor::BeforeOmni:
-            referenceName = L"ControlCenterButton";
-            break;
-        case Anchor::BeforeClock:
-            referenceName = L"NotificationCenterButton";
-            break;
-        case Anchor::AfterClock:
-            referenceName = L"ShowDesktopStack";
-            break;
-        case Anchor::AfterShowDesktop:
-            referenceName = L"ShowDesktopStack";
-            after = true;
-            break;
-        case Anchor::BeforeIcons:
-            break;
-    }
-
-    auto reference = FindDirectChild(parent, referenceName);
-    if (!reference)
-        return false; // Never silently turn an unavailable anchor into column 0.
-    column = Grid::GetColumn(reference) + (after ? 1 : 0);
-    return true;
-}
-
-inline bool AcquireAt(Grid const& parent, int column,
-                      std::wstring const& markerName, Lease& lease) {
-    if (!parent || column < 0 || markerName.empty() ||
-        FindDirectChild(parent, markerName.c_str()))
-        return false;
-
-    ColumnDefinition definition;
-    definition.Width({1.0, GridUnitType::Auto});
-    if (static_cast<uint32_t>(column) < parent.ColumnDefinitions().Size())
-        parent.ColumnDefinitions().InsertAt(column, definition);
-    else
-        parent.ColumnDefinitions().Append(definition);
-
-    for (auto const& child : parent.Children()) {
-        auto element = child.try_as<FrameworkElement>();
-        if (!element) continue;
-        int start = Grid::GetColumn(element);
-        int span = Grid::GetColumnSpan(element);
-        if (start >= column)
-            Grid::SetColumn(element, start + 1);
-        else if (start + span > column)
-            Grid::SetColumnSpan(element, span + 1);
-    }
-
-    Grid marker;
-    marker.Name(markerName);
-    marker.Width(0.0);
-    marker.Height(0.0);
-    marker.IsHitTestVisible(false);
-    Grid::SetColumn(marker, column);
-    parent.Children().Append(marker);
-
-    lease = {markerName, column};
-    return true;
-}
-
-inline bool Acquire(Grid const& parent, Anchor anchor,
-                    std::wstring const& markerName, Lease& lease) {
-    int column = -1;
-    if (!parent || !ResolveColumn(parent, anchor, column))
-        return false;
-    return AcquireAt(parent, column, markerName, lease);
-}
-
-inline bool Release(Grid const& parent, Lease& lease) {
-    if (!parent || lease.markerName.empty())
-        return false;
-
-    uint32_t markerIndex = 0;
-    bool found = false;
-    int liveColumn = lease.column;
-    for (uint32_t i = 0; i < parent.Children().Size(); ++i) {
-        auto element = parent.Children().GetAt(i).try_as<FrameworkElement>();
-        if (element && element.Name() == lease.markerName) {
-            markerIndex = i;
-            liveColumn = Grid::GetColumn(element);
-            found = true;
-            break;
-        }
-    }
-    if (!found || liveColumn < 0)
-        return false;
-
-    parent.Children().RemoveAt(markerIndex);
-    if (static_cast<uint32_t>(liveColumn) < parent.ColumnDefinitions().Size())
-        parent.ColumnDefinitions().RemoveAt(liveColumn);
-
-    for (auto const& child : parent.Children()) {
-        auto element = child.try_as<FrameworkElement>();
-        if (!element) continue;
-        int start = Grid::GetColumn(element);
-        int span = Grid::GetColumnSpan(element);
-        if (start > liveColumn)
-            Grid::SetColumn(element, start - 1);
-        else if (start < liveColumn && start + span > liveColumn)
-            Grid::SetColumnSpan(element, std::max(1, span - 1));
-    }
-
-    lease = {};
-    return true;
-}
-
-} // namespace windhawk_mod_templates::injected_grid_column
-
-namespace grid = windhawk_mod_templates::smart_grid;
-namespace lease_column = windhawk_mod_templates::injected_grid_column;
-
-// ── Settings ──────────────────────────────────────────────────────────────
-
 enum class MergeMode {
     Auto,
     ForceMainStack,
+};
+
+enum class LayoutMode {
+    Auto,
+    Row,
+    Column,
+    Grid,
+};
+
+enum class FillOrder {
+    RowFirst,
+    ColumnFirst,
+};
+
+enum class ShortAlign {
+    Start,
+    Center,
+    End,
 };
 
 enum class Position {
@@ -624,18 +238,18 @@ enum class Position {
 
 struct Settings {
     bool enabled;
-    Position position;
+    MergeMode mergeMode;
     std::wstring itemOrder;
-    grid::GridMode gridMode;
-    grid::SmartLayout smartLayout;
-    int gridRows;
+    LayoutMode layoutMode;
     int gridColumns;
-    grid::FillOrder fillOrder;
-    grid::ShortGroupPosition shortGroupPosition;
-    grid::ShortGroupAlign shortGroupAlign;
+    int gridRows;
+    FillOrder fillOrder;
+    ShortAlign shortGroupAlign;
+    Position position;
     int buttonWidth;
     int buttonHeight;
     int buttonSpacing;
+    int minimumTrayHeight;
     int groupOffsetX;
     int groupOffsetY;
     int overflowOffsetX;
@@ -650,8 +264,6 @@ struct Settings {
     int virtualTouchpadOffsetY;
     int inputIndicatorOffsetX;
     int inputIndicatorOffsetY;
-    int minimumTrayHeight;
-    MergeMode mergeMode;
     bool detailedLogging;
 };
 
@@ -691,8 +303,10 @@ struct UtilityHost {
 
 static std::vector<HostSnapshot> g_hostSnapshots;
 static bool g_layoutApplied = false;
+static bool g_insertedColumn = false;
+static int g_layoutColumn = -1;
 static Grid g_layoutGrid{nullptr};
-static lease_column::Lease g_columnLease;
+static FrameworkElement g_layoutColumnMarker{nullptr};
 
 static constexpr PCWSTR kLayoutColumnMarkerName =
     L"TrayUtilityCustomizerColumnMarker";
@@ -710,12 +324,52 @@ static std::wstring GetStringSetting(PCWSTR key) {
     return result;
 }
 
-static int GetOffsetSetting(PCWSTR key) {
-    return ClampSetting(Wh_GetIntSetting(key), -100, 100);
-}
-
 static void LoadSettings() {
     g_settings.enabled = Wh_GetIntSetting(L"enabled") != 0;
+
+    auto mergeMode = GetStringSetting(L"mergeMode");
+    if (mergeMode == L"forceMainStack") {
+        g_settings.mergeMode = MergeMode::ForceMainStack;
+    } else {
+        g_settings.mergeMode = MergeMode::Auto;
+    }
+
+    g_settings.itemOrder = GetStringSetting(L"itemOrder");
+    if (g_settings.itemOrder.empty()) {
+        g_settings.itemOrder = L"overflow,emoji";
+    } else if (g_settings.itemOrder == L"overflowFirst") {
+        g_settings.itemOrder = L"overflow,emoji";
+    } else if (g_settings.itemOrder == L"emojiFirst") {
+        g_settings.itemOrder = L"emoji,overflow";
+    }
+
+    auto layoutMode = GetStringSetting(L"layoutMode");
+    if (layoutMode == L"row") {
+        g_settings.layoutMode = LayoutMode::Row;
+    } else if (layoutMode == L"grid") {
+        g_settings.layoutMode = LayoutMode::Grid;
+    } else if (layoutMode == L"auto") {
+        g_settings.layoutMode = LayoutMode::Auto;
+    } else {
+        g_settings.layoutMode = LayoutMode::Column;
+    }
+
+    g_settings.gridColumns =
+        ClampSetting(Wh_GetIntSetting(L"gridColumns"), 0, 8);
+    g_settings.gridRows =
+        ClampSetting(Wh_GetIntSetting(L"gridRows"), 0, 8);
+    g_settings.fillOrder =
+        GetStringSetting(L"fillOrder") == L"columnFirst"
+            ? FillOrder::ColumnFirst
+            : FillOrder::RowFirst;
+    auto shortAlign = GetStringSetting(L"shortGroupAlign");
+    if (shortAlign == L"start") {
+        g_settings.shortGroupAlign = ShortAlign::Start;
+    } else if (shortAlign == L"end") {
+        g_settings.shortGroupAlign = ShortAlign::End;
+    } else {
+        g_settings.shortGroupAlign = ShortAlign::Center;
+    }
 
     auto position = GetStringSetting(L"position");
     if (position == L"emoji") {
@@ -733,96 +387,45 @@ static void LoadSettings() {
     } else {
         g_settings.position = Position::Overflow;
     }
-
-    g_settings.itemOrder = GetStringSetting(L"itemOrder");
-    if (g_settings.itemOrder.empty()) {
-        g_settings.itemOrder = L"overflow,emoji";
-    }
-
-    auto gridMode = GetStringSetting(L"gridMode");
-    if (gridMode == L"singleRow") {
-        g_settings.gridMode = grid::GridMode::SingleRow;
-    } else if (gridMode == L"singleColumn") {
-        g_settings.gridMode = grid::GridMode::SingleColumn;
-    } else if (gridMode == L"fixedRows") {
-        g_settings.gridMode = grid::GridMode::FixedRows;
-    } else if (gridMode == L"fixedColumns") {
-        g_settings.gridMode = grid::GridMode::FixedColumns;
-    } else if (gridMode == L"fixedGrid") {
-        g_settings.gridMode = grid::GridMode::FixedGrid;
-    } else {
-        g_settings.gridMode = grid::GridMode::AutoSmart;
-    }
-
-    auto smartLayout = GetStringSetting(L"smartLayout");
-    if (smartLayout == L"packVertical") {
-        g_settings.smartLayout = grid::SmartLayout::PackVertical;
-    } else if (smartLayout == L"packHorizontal") {
-        g_settings.smartLayout = grid::SmartLayout::PackHorizontal;
-    } else {
-        g_settings.smartLayout = grid::SmartLayout::Balanced;
-    }
-
-    g_settings.gridRows =
-        ClampSetting(Wh_GetIntSetting(L"gridRows"), 0, 8);
-    g_settings.gridColumns =
-        ClampSetting(Wh_GetIntSetting(L"gridColumns"), 0, 8);
-    g_settings.fillOrder =
-        GetStringSetting(L"fillOrder") == L"columnFirst"
-            ? grid::FillOrder::ColumnFirst
-            : grid::FillOrder::RowFirst;
-    g_settings.shortGroupPosition =
-        GetStringSetting(L"shortGroupPosition") == L"first"
-            ? grid::ShortGroupPosition::First
-            : grid::ShortGroupPosition::Last;
-    auto shortAlign = GetStringSetting(L"shortGroupAlign");
-    if (shortAlign == L"start") {
-        g_settings.shortGroupAlign = grid::ShortGroupAlign::Start;
-    } else if (shortAlign == L"end") {
-        g_settings.shortGroupAlign = grid::ShortGroupAlign::End;
-    } else {
-        g_settings.shortGroupAlign = grid::ShortGroupAlign::Center;
-    }
-
     g_settings.buttonWidth =
         ClampSetting(Wh_GetIntSetting(L"buttonWidth"), 16, 96);
     g_settings.buttonHeight =
         ClampSetting(Wh_GetIntSetting(L"buttonHeight"), 12, 64);
     g_settings.buttonSpacing =
         ClampSetting(Wh_GetIntSetting(L"buttonSpacing"), -16, 32);
-
-    g_settings.groupOffsetX = GetOffsetSetting(L"groupOffsetX");
-    g_settings.groupOffsetY = GetOffsetSetting(L"groupOffsetY");
-    g_settings.overflowOffsetX = GetOffsetSetting(L"overflowOffsetX");
-    g_settings.overflowOffsetY = GetOffsetSetting(L"overflowOffsetY");
-    g_settings.emojiOffsetX = GetOffsetSetting(L"emojiOffsetX");
-    g_settings.emojiOffsetY = GetOffsetSetting(L"emojiOffsetY");
-    g_settings.touchKeyboardOffsetX =
-        GetOffsetSetting(L"touchKeyboardOffsetX");
-    g_settings.touchKeyboardOffsetY =
-        GetOffsetSetting(L"touchKeyboardOffsetY");
-    g_settings.penMenuOffsetX = GetOffsetSetting(L"penMenuOffsetX");
-    g_settings.penMenuOffsetY = GetOffsetSetting(L"penMenuOffsetY");
-    g_settings.virtualTouchpadOffsetX =
-        GetOffsetSetting(L"virtualTouchpadOffsetX");
-    g_settings.virtualTouchpadOffsetY =
-        GetOffsetSetting(L"virtualTouchpadOffsetY");
-    g_settings.inputIndicatorOffsetX =
-        GetOffsetSetting(L"inputIndicatorOffsetX");
-    g_settings.inputIndicatorOffsetY =
-        GetOffsetSetting(L"inputIndicatorOffsetY");
-
     g_settings.minimumTrayHeight =
         ClampSetting(Wh_GetIntSetting(L"minimumTrayHeight"), 0, 160);
-    g_settings.mergeMode =
-        GetStringSetting(L"mergeMode") == L"forceMainStack"
-            ? MergeMode::ForceMainStack
-            : MergeMode::Auto;
+    g_settings.groupOffsetX =
+        ClampSetting(Wh_GetIntSetting(L"groupOffsetX"), -100, 100);
+    g_settings.groupOffsetY =
+        ClampSetting(Wh_GetIntSetting(L"groupOffsetY"), -100, 100);
+    g_settings.overflowOffsetX =
+        ClampSetting(Wh_GetIntSetting(L"overflowOffsetX"), -100, 100);
+    g_settings.overflowOffsetY =
+        ClampSetting(Wh_GetIntSetting(L"overflowOffsetY"), -100, 100);
+    g_settings.emojiOffsetX =
+        ClampSetting(Wh_GetIntSetting(L"emojiOffsetX"), -100, 100);
+    g_settings.emojiOffsetY =
+        ClampSetting(Wh_GetIntSetting(L"emojiOffsetY"), -100, 100);
+    g_settings.touchKeyboardOffsetX =
+        ClampSetting(Wh_GetIntSetting(L"touchKeyboardOffsetX"), -100, 100);
+    g_settings.touchKeyboardOffsetY =
+        ClampSetting(Wh_GetIntSetting(L"touchKeyboardOffsetY"), -100, 100);
+    g_settings.penMenuOffsetX =
+        ClampSetting(Wh_GetIntSetting(L"penMenuOffsetX"), -100, 100);
+    g_settings.penMenuOffsetY =
+        ClampSetting(Wh_GetIntSetting(L"penMenuOffsetY"), -100, 100);
+    g_settings.virtualTouchpadOffsetX =
+        ClampSetting(Wh_GetIntSetting(L"virtualTouchpadOffsetX"), -100, 100);
+    g_settings.virtualTouchpadOffsetY =
+        ClampSetting(Wh_GetIntSetting(L"virtualTouchpadOffsetY"), -100, 100);
+    g_settings.inputIndicatorOffsetX =
+        ClampSetting(Wh_GetIntSetting(L"inputIndicatorOffsetX"), -100, 100);
+    g_settings.inputIndicatorOffsetY =
+        ClampSetting(Wh_GetIntSetting(L"inputIndicatorOffsetY"), -100, 100);
     g_settings.detailedLogging =
         Wh_GetIntSetting(L"detailedLogging") != 0;
 }
-
-// ── Taskbar plumbing ──────────────────────────────────────────────────────
 
 using RunFromWindowThreadProc_t = void (*)(void*);
 
@@ -1009,8 +612,6 @@ static FrameworkElement FindChildRecursive(
     return nullptr;
 }
 
-// ── Utility discovery ─────────────────────────────────────────────────────
-
 static std::wstring ToLower(std::wstring value) {
     for (auto& ch : value) {
         ch = static_cast<wchar_t>(towlower(ch));
@@ -1057,6 +658,19 @@ static FrameworkElement FindDirectTrayHost(
             return current.try_as<FrameworkElement>();
         }
         current = parent;
+    }
+    return nullptr;
+}
+
+static FrameworkElement FindDirectChildByName(
+    Grid const& trayGrid,
+    PCWSTR name) {
+    auto children = trayGrid.Children();
+    for (uint32_t i = 0; i < children.Size(); i++) {
+        auto element = children.GetAt(i).try_as<FrameworkElement>();
+        if (element && element.Name() == name) {
+            return element;
+        }
     }
     return nullptr;
 }
@@ -1261,8 +875,6 @@ static void LogElement(FrameworkElement const& element,
     }
 }
 
-// ── Snapshot / restore ────────────────────────────────────────────────────
-
 static HostSnapshot CaptureHost(FrameworkElement const& element,
                                 Grid const& trayGrid,
                                 int markerIndex) {
@@ -1341,29 +953,69 @@ static void RestoreHost(HostSnapshot& snapshot) {
     snapshot = {};
 }
 
+static void RemoveInsertedColumn() {
+    if (!g_insertedColumn || !g_layoutGrid ||
+        !g_layoutColumnMarker) {
+        return;
+    }
+
+    uint32_t markerIndex = 0;
+    if (!g_layoutGrid.Children().IndexOf(
+            g_layoutColumnMarker, markerIndex)) {
+        Wh_Log(
+            L"[Restore] Dedicated-column marker missing; "
+            L"leaving columns untouched");
+        return;
+    }
+
+    int liveColumn = Grid::GetColumn(g_layoutColumnMarker);
+    g_layoutGrid.Children().RemoveAt(markerIndex);
+
+    auto columns = g_layoutGrid.ColumnDefinitions();
+    if (liveColumn < 0 ||
+        static_cast<uint32_t>(liveColumn) >= columns.Size()) {
+        Wh_Log(
+            L"[Restore] Dedicated-column marker has invalid column %d",
+            liveColumn);
+        return;
+    }
+    columns.RemoveAt(static_cast<uint32_t>(liveColumn));
+
+    auto children = g_layoutGrid.Children();
+    for (uint32_t i = 0; i < children.Size(); i++) {
+        auto element =
+            children.GetAt(i).try_as<FrameworkElement>();
+        if (!element) {
+            continue;
+        }
+        int column = Grid::GetColumn(element);
+        int span = Grid::GetColumnSpan(element);
+        if (column > liveColumn) {
+            Grid::SetColumn(element, column - 1);
+        } else if (column < liveColumn &&
+                   column + span > liveColumn) {
+            Grid::SetColumnSpan(element, span - 1);
+        }
+    }
+}
+
 static void RestoreLayout() {
     if (!g_layoutApplied) {
         return;
     }
 
-    if (!g_columnLease.markerName.empty() && g_layoutGrid) {
-        if (!lease_column::Release(g_layoutGrid, g_columnLease)) {
-            Wh_Log(
-                L"[Restore] Dedicated-column marker missing; "
-                L"leaving columns untouched");
-            g_columnLease = {};
-        }
-    }
+    RemoveInsertedColumn();
     for (auto& snapshot : g_hostSnapshots) {
         RestoreHost(snapshot);
     }
     g_hostSnapshots.clear();
+    g_insertedColumn = false;
+    g_layoutColumn = -1;
+    g_layoutColumnMarker = nullptr;
     g_layoutGrid = nullptr;
     g_layoutApplied = false;
     Wh_Log(L"[Restore] Native utility layout restored");
 }
-
-// ── Layout application ────────────────────────────────────────────────────
 
 static void ApplyHostLayout(FrameworkElement const& host,
                             int column,
@@ -1389,6 +1041,237 @@ static void ApplyHostLayout(FrameworkElement const& host,
     transform.Y(verticalOffset + static_cast<double>(
         g_settings.groupOffsetY + offsetY));
     host.RenderTransform(transform);
+}
+
+struct LayoutMetrics {
+    int columns = 1;
+    int rows = 1;
+    double groupWidth = 0;
+    double groupHeight = 0;
+};
+
+static LayoutMetrics CalculateLayoutMetrics(
+    int itemCount,
+    double trayHeight) {
+    LayoutMetrics metrics;
+    LayoutMode mode = g_settings.layoutMode;
+    if (mode == LayoutMode::Auto) {
+        double neededHeight =
+            itemCount * g_settings.buttonHeight +
+            std::max(0, itemCount - 1) *
+                g_settings.buttonSpacing;
+        mode = trayHeight >= neededHeight
+                   ? LayoutMode::Column
+                   : LayoutMode::Row;
+    }
+
+    if (mode == LayoutMode::Row) {
+        metrics.columns = std::max(1, itemCount);
+        metrics.rows = 1;
+    } else if (mode == LayoutMode::Column) {
+        metrics.columns = 1;
+        metrics.rows = std::max(1, itemCount);
+    } else {
+        int columns = g_settings.gridColumns;
+        int rows = g_settings.gridRows;
+        if (columns <= 0 && rows <= 0) {
+            columns = static_cast<int>(
+                std::ceil(std::sqrt(
+                    static_cast<double>(itemCount))));
+        }
+        if (columns <= 0) {
+            columns = static_cast<int>(
+                std::ceil(static_cast<double>(itemCount) /
+                          std::max(1, rows)));
+        }
+        if (rows <= 0) {
+            rows = static_cast<int>(
+                std::ceil(static_cast<double>(itemCount) /
+                          std::max(1, columns)));
+        }
+        while (columns * rows < itemCount) {
+            if (g_settings.fillOrder == FillOrder::RowFirst) {
+                rows++;
+            } else {
+                columns++;
+            }
+        }
+        metrics.columns = std::max(1, columns);
+        metrics.rows = std::max(1, rows);
+    }
+
+    metrics.groupWidth =
+        metrics.columns * g_settings.buttonWidth +
+        std::max(0, metrics.columns - 1) *
+            g_settings.buttonSpacing;
+    metrics.groupHeight =
+        metrics.rows * g_settings.buttonHeight +
+        std::max(0, metrics.rows - 1) *
+            g_settings.buttonSpacing;
+
+    if (metrics.rows > 1 &&
+        metrics.groupHeight > trayHeight) {
+        Wh_Log(
+            L"[Layout] Requested vertical layout needs %.1fpx "
+            L"but tray height is %.1fpx; honoring the requested layout",
+            metrics.groupHeight,
+            trayHeight);
+    }
+    return metrics;
+}
+
+static FrameworkElement FindPositionReference(
+    Grid const& trayGrid,
+    Position position) {
+    if (position == Position::BeforeOmni) {
+        return FindDirectChildByName(
+            trayGrid, L"ControlCenterButton");
+    }
+    if (position == Position::BeforeClock) {
+        return FindDirectChildByName(
+            trayGrid, L"NotificationCenterButton");
+    }
+    if (position == Position::AfterClock ||
+        position == Position::AfterShowDesktop) {
+        return FindDirectChildByName(
+            trayGrid, L"ShowDesktopStack");
+    }
+    return nullptr;
+}
+
+static int InsertDedicatedColumn(
+    Grid const& trayGrid,
+    int insertColumn,
+    double width) {
+    ColumnDefinition definition;
+    definition.Width(
+        GridLength{width, GridUnitType::Pixel});
+    auto columns = trayGrid.ColumnDefinitions();
+    if (static_cast<uint32_t>(insertColumn) <
+        columns.Size()) {
+        columns.InsertAt(
+            static_cast<uint32_t>(insertColumn),
+            definition);
+    } else {
+        insertColumn = static_cast<int>(columns.Size());
+        columns.Append(definition);
+    }
+
+    auto children = trayGrid.Children();
+    for (uint32_t i = 0; i < children.Size(); i++) {
+        auto element =
+            children.GetAt(i).try_as<FrameworkElement>();
+        if (!element) {
+            continue;
+        }
+        int column = Grid::GetColumn(element);
+        int span = Grid::GetColumnSpan(element);
+        if (column >= insertColumn) {
+            Grid::SetColumn(element, column + 1);
+        } else if (column + span > insertColumn) {
+            Grid::SetColumnSpan(element, span + 1);
+        }
+    }
+
+    Grid marker;
+    marker.Name(kLayoutColumnMarkerName);
+    marker.Width(0);
+    marker.Height(0);
+    marker.MinWidth(0);
+    marker.MinHeight(0);
+    marker.MaxWidth(0);
+    marker.MaxHeight(0);
+    marker.IsHitTestVisible(false);
+    Grid::SetColumn(marker, insertColumn);
+    trayGrid.Children().Append(marker);
+    g_layoutColumnMarker = marker;
+
+    return insertColumn;
+}
+
+static bool LooksLikeStaleV02Host(
+    FrameworkElement const& host) {
+    if (!host || std::isnan(host.Width()) ||
+        std::isnan(host.Height())) {
+        return false;
+    }
+    return host.RenderTransform()
+        .try_as<TranslateTransform>() != nullptr;
+}
+
+static void ResetHostToNativeDefaults(
+    FrameworkElement const& host,
+    int column) {
+    Grid::SetColumn(host, column);
+    Grid::SetColumnSpan(host, 1);
+    host.Width(NAN);
+    host.Height(NAN);
+    host.MinWidth(0);
+    host.MinHeight(0);
+    host.MaxWidth(INFINITY);
+    host.MaxHeight(INFINITY);
+    host.Margin(Thickness{});
+    host.HorizontalAlignment(HorizontalAlignment::Stretch);
+    host.VerticalAlignment(VerticalAlignment::Stretch);
+    host.RenderTransform(Transform{nullptr});
+}
+
+static void RecoverStaleV02Layout(
+    Grid const& trayGrid,
+    FrameworkElement const& overflowHost,
+    FrameworkElement const& emojiHost) {
+    if (!overflowHost || !emojiHost ||
+        Grid::GetColumn(overflowHost) !=
+            Grid::GetColumn(emojiHost) ||
+        !LooksLikeStaleV02Host(overflowHost) ||
+        !LooksLikeStaleV02Host(emojiHost)) {
+        return;
+    }
+
+    auto notificationArea =
+        FindDirectChildByName(
+            trayGrid, L"NotificationAreaIcons");
+    auto mainStack =
+        FindDirectChildByName(trayGrid, L"MainStack");
+    auto secondaryClock =
+        FindDirectChildByName(
+            trayGrid, L"SecondaryClockStack");
+
+    int overflowColumn =
+        notificationArea
+            ? std::max(
+                  0,
+                  Grid::GetColumn(notificationArea) - 1)
+            : Grid::GetColumn(overflowHost);
+    int emojiColumn =
+        secondaryClock
+            ? std::max(
+                  0,
+                  Grid::GetColumn(secondaryClock) - 1)
+            : mainStack
+                  ? Grid::GetColumn(mainStack) + 1
+                  : Grid::GetColumn(emojiHost);
+
+    ResetHostToNativeDefaults(
+        overflowHost, overflowColumn);
+    ResetHostToNativeDefaults(
+        emojiHost, emojiColumn);
+
+    auto columns = trayGrid.ColumnDefinitions();
+    if (overflowColumn >= 0 &&
+        static_cast<uint32_t>(overflowColumn) <
+            columns.Size()) {
+        columns.GetAt(
+            static_cast<uint32_t>(overflowColumn))
+            .Width(GridLength{
+                1.0, GridUnitType::Auto});
+    }
+
+    Wh_Log(
+        L"[Recovery] Repaired stale v0.2 layout "
+        L"(overflow col=%d, emoji col=%d)",
+        overflowColumn,
+        emojiColumn);
 }
 
 static bool ApplyLayout() {
@@ -1437,14 +1320,24 @@ static bool ApplyLayout() {
     }
 
     auto overflowHost =
-        lease_column::FindDirectChild(trayGrid, L"NotifyIconStack");
+        FindDirectChildByName(trayGrid, L"NotifyIconStack");
     if (!overflowHost) {
         Wh_Log(L"[Apply] NotifyIconStack not found");
         return false;
     }
 
     auto mainStack =
-        lease_column::FindDirectChild(trayGrid, L"MainStack");
+        FindDirectChildByName(trayGrid, L"MainStack");
+
+    auto emojiElement =
+        FindUtilityElement(trayGrid, L"emoji");
+    auto exactEmojiHost =
+        emojiElement
+            ? FindDirectTrayHost(
+                  trayGrid, emojiElement)
+            : nullptr;
+    RecoverStaleV02Layout(
+        trayGrid, overflowHost, exactEmojiHost);
 
     if (g_settings.minimumTrayHeight > 0 &&
         trayGrid.ActualHeight() <
@@ -1478,141 +1371,145 @@ static bool ApplyLayout() {
             CaptureHost(utility.element, trayGrid, index));
     }
 
-    int count = static_cast<int>(utilities.size());
-    double pitchX =
-        g_settings.buttonWidth + g_settings.buttonSpacing;
-    double pitchY =
-        g_settings.buttonHeight + g_settings.buttonSpacing;
+    auto metrics = CalculateLayoutMetrics(
+        static_cast<int>(utilities.size()),
+        trayGrid.ActualHeight());
 
-    grid::Config config;
-    config.mode = g_settings.gridMode;
-    config.smartLayout = g_settings.smartLayout;
-    config.fillOrder = g_settings.fillOrder;
-    config.shortGroupPosition = g_settings.shortGroupPosition;
-    config.shortGroupAlign = g_settings.shortGroupAlign;
-    config.rows = g_settings.gridRows;
-    config.columns = g_settings.gridColumns;
-    config.availableRows =
-        pitchY > 0
-            ? std::max(
-                  1,
-                  static_cast<int>(
-                      (trayGrid.ActualHeight() +
-                       g_settings.buttonSpacing) /
-                      pitchY))
-            : 1;
-
-    auto layout = grid::ComputeLayout(count, config);
-    double groupWidth =
-        layout.columns * g_settings.buttonWidth +
-        std::max(0, layout.columns - 1) *
-            g_settings.buttonSpacing;
-    double groupHeight =
-        layout.rows * g_settings.buttonHeight +
-        std::max(0, layout.rows - 1) *
-            g_settings.buttonSpacing;
-    if (groupHeight > trayGrid.ActualHeight()) {
-        Wh_Log(
-            L"[Layout] Requested layout needs %.1fpx but tray "
-            L"height is %.1fpx; honoring the requested layout",
-            groupHeight,
-            trayGrid.ActualHeight());
-    }
-
+    int sharedColumn = -1;
     FrameworkElement emojiHost = nullptr;
-    for (auto const& utility : utilities) {
-        if (utility.token == L"emoji") {
-            emojiHost = utility.element;
-            break;
-        }
+    auto emojiIt = std::find_if(
+        utilities.begin(),
+        utilities.end(),
+        [](UtilityHost const& utility) {
+            return utility.token == L"emoji";
+        });
+    if (emojiIt != utilities.end()) {
+        emojiHost = emojiIt->element;
     }
-    if (!emojiHost && g_settings.position == Position::Emoji) {
+    if (!emojiHost) {
         auto emojiElement =
             FindUtilityElement(trayGrid, L"emoji");
         if (emojiElement) {
             emojiHost =
                 FindDirectTrayHost(trayGrid, emojiElement);
+        } else if (mainStack &&
+                   (g_settings.mergeMode ==
+                        MergeMode::ForceMainStack ||
+                    CountVisibleIconViews(mainStack) == 1)) {
+            emojiHost = mainStack;
         }
     }
 
-    bool borrowPosition =
-        g_settings.position == Position::Overflow ||
-        g_settings.position == Position::Emoji;
-    int sharedColumn = -1;
-
-    if (borrowPosition && layout.columns == 1) {
-        if (g_settings.position == Position::Emoji &&
-            emojiHost) {
-            sharedColumn = Grid::GetColumn(emojiHost);
-        } else {
-            if (g_settings.position == Position::Emoji) {
-                Wh_Log(
-                    L"[Apply] Emoji anchor unavailable; "
-                    L"using hidden-icons column");
-            }
-            sharedColumn = Grid::GetColumn(overflowHost);
+    bool customPosition =
+        g_settings.position != Position::Overflow &&
+        g_settings.position != Position::Emoji;
+    bool dedicated =
+        customPosition ||
+        metrics.columns > 1;
+    if (g_settings.position == Position::Emoji &&
+        emojiHost && !dedicated) {
+        sharedColumn = Grid::GetColumn(emojiHost);
+    } else if (!customPosition && !dedicated) {
+        if (g_settings.position == Position::Emoji) {
+            Wh_Log(
+                L"[Apply] Emoji anchor unavailable; "
+                L"using hidden-icons column");
         }
+        sharedColumn = Grid::GetColumn(overflowHost);
     } else {
-        bool acquired = false;
-        if (borrowPosition) {
-            int borrowColumn =
+        if (!customPosition) {
+            sharedColumn =
                 g_settings.position == Position::Emoji &&
                         emojiHost
                     ? Grid::GetColumn(emojiHost)
                     : Grid::GetColumn(overflowHost);
-            acquired = lease_column::AcquireAt(
-                trayGrid, borrowColumn,
-                kLayoutColumnMarkerName, g_columnLease);
         } else {
-            lease_column::Anchor anchor =
-                lease_column::Anchor::BeforeIcons;
-            switch (g_settings.position) {
-                case Position::BeforeOmni:
-                    anchor = lease_column::Anchor::BeforeOmni;
-                    break;
-                case Position::BeforeClock:
-                    anchor = lease_column::Anchor::BeforeClock;
-                    break;
-                case Position::AfterClock:
-                    anchor = lease_column::Anchor::AfterClock;
-                    break;
-                case Position::AfterShowDesktop:
-                    anchor =
-                        lease_column::Anchor::AfterShowDesktop;
-                    break;
-                default:
-                    break;
+            auto reference =
+                FindPositionReference(
+                    trayGrid, g_settings.position);
+            bool insertAfter =
+                g_settings.position ==
+                Position::AfterShowDesktop;
+            if (g_settings.position ==
+                Position::BeforeIcons) {
+                sharedColumn = 0;
+            } else if (reference) {
+                sharedColumn =
+                    Grid::GetColumn(reference) +
+                    (insertAfter ? 1 : 0);
+            } else {
+                Wh_Log(
+                    L"[Apply] Requested position anchor unavailable; "
+                    L"leaving the native layout unchanged");
+                RestoreLayout();
+                return false;
             }
-            acquired = lease_column::Acquire(
-                trayGrid, anchor,
-                kLayoutColumnMarkerName, g_columnLease);
         }
-
-        if (!acquired) {
-            Wh_Log(
-                L"[Apply] Requested position anchor unavailable; "
-                L"leaving the native layout unchanged");
-            RestoreLayout();
-            return false;
-        }
-
-        // The hosts fan out with render transforms, which do not
-        // participate in Auto column sizing, so the leased column
-        // needs an explicit pixel width.
-        trayGrid.ColumnDefinitions()
-            .GetAt(static_cast<uint32_t>(g_columnLease.column))
-            .Width(GridLength{groupWidth, GridUnitType::Pixel});
-        sharedColumn = g_columnLease.column;
+        sharedColumn = InsertDedicatedColumn(
+            trayGrid, sharedColumn, metrics.groupWidth);
+        g_insertedColumn = true;
     }
 
-    for (int index = 0; index < count; index++) {
-        auto cell = grid::GetCell(index, count, layout, config);
-        double columnUnits = cell.column + cell.leftOffsetUnits;
-        double rowUnits = cell.row + cell.topOffsetUnits;
+    g_layoutColumn = sharedColumn;
+
+    double pitchX =
+        g_settings.buttonWidth + g_settings.buttonSpacing;
+    double pitchY =
+        g_settings.buttonHeight + g_settings.buttonSpacing;
+    for (int index = 0;
+         index < static_cast<int>(utilities.size());
+         index++) {
+        double row = 0;
+        double column = 0;
+        if (g_settings.fillOrder == FillOrder::RowFirst) {
+            row = index / metrics.columns;
+            column = index % metrics.columns;
+
+            int shortCount =
+                static_cast<int>(utilities.size()) %
+                metrics.columns;
+            bool inShortRow =
+                shortCount > 0 &&
+                static_cast<int>(row) == metrics.rows - 1;
+            if (inShortRow) {
+                double spare = metrics.columns - shortCount;
+                if (g_settings.shortGroupAlign ==
+                    ShortAlign::Center) {
+                    column += spare / 2.0;
+                } else if (g_settings.shortGroupAlign ==
+                           ShortAlign::End) {
+                    column += spare;
+                }
+            }
+        } else {
+            row = index % metrics.rows;
+            column = index / metrics.rows;
+
+            int shortCount =
+                static_cast<int>(utilities.size()) %
+                metrics.rows;
+            bool inShortColumn =
+                shortCount > 0 &&
+                static_cast<int>(column) ==
+                    metrics.columns - 1;
+            if (inShortColumn) {
+                double spare = metrics.rows - shortCount;
+                if (g_settings.shortGroupAlign ==
+                    ShortAlign::Center) {
+                    row += spare / 2.0;
+                } else if (g_settings.shortGroupAlign ==
+                           ShortAlign::End) {
+                    row += spare;
+                }
+            }
+        }
+
         double x =
-            (columnUnits - (layout.columns - 1) / 2.0) * pitchX;
+            (column - (metrics.columns - 1) / 2.0) *
+            pitchX;
         double y =
-            (rowUnits - (layout.rows - 1) / 2.0) * pitchY;
+            (row - (metrics.rows - 1) / 2.0) *
+            pitchY;
         ApplyHostLayout(
             utilities[index].element,
             sharedColumn,
@@ -1625,11 +1522,11 @@ static bool ApplyLayout() {
     Wh_Log(
         L"[Apply] Utility layout applied: items=%d "
         L"columns=%d rows=%d trayColumn=%d dedicated=%d",
-        count,
-        layout.columns,
-        layout.rows,
+        static_cast<int>(utilities.size()),
+        metrics.columns,
+        metrics.rows,
         sharedColumn,
-        !g_columnLease.markerName.empty());
+        g_insertedColumn);
     return true;
 }
 
@@ -1650,8 +1547,6 @@ static void ApplyLayoutOnWindowThread() {
         },
         nullptr);
 }
-
-// ── Hooks and lifecycle ───────────────────────────────────────────────────
 
 static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE module) {
     void* info = nullptr;
@@ -1802,7 +1697,7 @@ static void StopRetryThread() {
 }
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Tray Utility Customizer v0.4");
+    Wh_Log(L"[Init] Tray Utility Customizer v0.3");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols()) {

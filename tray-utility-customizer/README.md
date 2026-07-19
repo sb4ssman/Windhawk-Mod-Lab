@@ -1,80 +1,47 @@
 # Tray Utility Customizer
 
-Windhawk mod for arranging Windows 11 tray utilities into one configurable row,
-column, or grid.
+Arranges low-frequency Windows 11 system-tray utility controls into one compact
+row, column, or smart grid:
 
-## Current state
+- **Show hidden icons** (the overflow chevron)
+- **Emoji and more** (emoji, GIF, kaomoji, symbols, and clipboard history)
+- **Touch keyboard**
+- **Pen menu**
+- **Virtual touchpad**
+- **Input/language indicator**
 
-Version 0.3 is a guarded lab build.
-
-It can detect:
-
-- Show hidden icons
-- Emoji and more
-- Touch keyboard
-- Pen menu
-- Virtual touchpad
-- Input/language indicator
-
-Only controls available on the current Windows build are included. The controls
-remain native; the mod moves their top-level tray hosts instead of replacing
-their click handlers or flyouts.
-
-Use the `itemOrder` setting to select and order utilities. If two selected
-utilities share one indivisible Windows host, they remain bundled and the log
-reports the relationship.
+Only controls detected on the current Windows build are included. The mod keeps
+Windows-owned controls intact and moves their native tray hosts instead of
+drawing replacement buttons or forwarding clicks.
 
 ## Layout
 
-- Automatic chooses a column when the tray is tall enough and a row otherwise.
-- Row places utilities beside each other.
-- Column stacks them vertically.
-- Grid supports fixed or automatic rows and columns, row-first/column-first fill,
-  and short-row/short-column alignment.
+- **Smart automatic** picks the densest sensible grid for the item count and
+  the current taskbar height, tuned by the Smart layout preference (balanced,
+  pack vertical, or pack horizontal). It never exceeds the tray height.
+- **Single row** and **Single column** are exactly that.
+- **Fixed rows / Fixed columns / Fixed grid** honor the requested shape even if
+  it is taller than the tray; use the minimum tray height guard to keep short
+  taskbars native.
 
-Column layouts at a native anchor reuse the proven native host positioning path.
-Row and multi-column grid layouts reserve a dedicated tray column instead of
-resizing a Windows-owned column. If a requested vertical layout cannot fit safely,
-the mod falls back to a row.
+When the last grid row or column is not full, the short group can be placed
+first or last and aligned to the start, center, or end.
 
 ## Position
 
-The group can borrow:
+The group can borrow the hidden-icons or Emoji column, or lease a dedicated
+tray column before the notification icons, before Wi-Fi/volume/battery, before
+or after the clock, or after the Show Desktop strip. The lease is
+marker-tracked and fully reversible on unload.
 
-- The hidden-icons column
-- The Emoji column
+## Detection
 
-Or it can insert a dedicated tray column:
+- **Automatic** uses Windows accessibility metadata and a guarded Emoji
+  fallback.
+- **Force MainStack** allows the complete native `MainStack` to participate
+  when Windows doesn't expose useful metadata. It can include unrelated
+  indicators.
 
-- Before notification icons
-- Before Wi-Fi/volume/battery
-- Before the clock
-- After the clock
-- After the Show Desktop strip
-
-## Useful controls
-
-- Utility selection and ordering
-- Row, column, automatic, or grid layout
-- Grid rows, columns, fill order, and short-group alignment
-- Tray position
-- Button width and height
-- Horizontal/vertical spacing
-- Whole-group X/Y offsets
-- Independent offsets for every supported utility
-- Minimum tray height safety threshold
-
-## Recommended test
-
-1. Start with `overflow,emoji`, column layout, and hidden-icons position.
-2. Verify both flyouts, tooltips, right-click behavior, and unload restoration.
-3. Try row layout.
-4. Try a dedicated position such as Before Wi-Fi/volume/battery.
-5. Add any other utility enabled in Windows Taskbar settings.
-6. Restart Explorer and repeat.
-
-Force MainStack is a diagnostic fallback. It can move unrelated privacy or input
-indicators if Windows bundles them in that host.
-
-Initial testing targets the primary Windows 11 taskbar. Live testing is still
-required for flyout anchoring and hit testing.
+Use `itemOrder` to select and order utilities. If multiple selected utilities
+belong to one indivisible Windows host, they stay bundled together and the log
+identifies the shared host.
