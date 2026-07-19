@@ -2,7 +2,7 @@
 // @id              tray-utility-customizer
 // @name            Tray Utility Customizer
 // @description     Arranges Windows tray utility controls such as Show hidden icons, Emoji, touch keyboard, pen menu, and virtual touchpad into a configurable row, column, or smart grid.
-// @version         0.5
+// @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -2300,7 +2300,7 @@ static void StopRetryThread() {
 }
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Tray Utility Customizer v0.4");
+    Wh_Log(L"[Init] Tray Utility Customizer v1.0");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols()) {

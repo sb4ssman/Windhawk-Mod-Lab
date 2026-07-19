@@ -16,7 +16,7 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.6, PR #4485 revisions in local test | Compact taskbar buttons that open configured Shell targets as popup menus with classic Shell context menus and subfolder navigation |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
 | [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7, local test; v1.6 update PR open | Clickable virtual desktop buttons with grid layouts, Task View button, tray placement, and Start-adjacent placement |
-| [tray-utility-customizer/](tray-utility-customizer/) | v0.4, ready for live test | Arranges detected Windows tray utilities into a configurable row, column, or smart grid |
+| [tray-utility-customizer/](tray-utility-customizer/) | v1.0, submitted (PR open) | Arranges detected Windows tray utilities into a configurable row, column, or smart grid |
 
 ## Repository Layout
 

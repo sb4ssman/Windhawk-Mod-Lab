@@ -615,3 +615,32 @@ template header; the smart-grid template test suite still passes;
 `verify-readme-sync.ps1` reports README_MATCH. Root README updated (v0.4 row,
 plus fixing the stale clock-spacer rows) and the six-mod audit matrix
 re-audited for the Tray Utility column. NOT live-tested; screenshots pending.
+
+## 2026-07-19 — Tray Utility Customizer v1.0 submitted (PR #4841)
+
+Completed the same-day arc from template rework to submission. After the v0.4
+template adoption, the session added experimental Left/Right-of-Start overlay
+positions (self-correcting Start counter-shift), switched host placement from
+render transforms to margin-based layout so flyouts anchor correctly, fixed
+the after-Show-Desktop off-screen bug via injected-grid-column.h v1.2
+(span-aware "after" anchors), and made the layout react to live utility
+appearance/disappearance: effective-visibility IconView scanning in discovery,
+per-host content baselines, visibility watchers, a throttled (250 ms) tray
+LayoutUpdated intactness check, and a 150 ms debounced reapply. User
+live-confirmed the emoji taskbar-settings toggle recenters the chevron and
+re-gathers on re-enable, and captured the three README screenshots.
+
+Submitted as PR #4841 on ramensoftware/windhawk-mods (branch
+add-tray-utility-customizer, commit 4e95b3fe, @version 1.0 — bumped from the
+user's 0.5 per new-mod convention). All three documentation layers verified
+in sync (README_MATCH) and Windhawk clang syntax check passed at submission.
+
+Post-submission: the upstream PR validation failed because the description
+dropped the required "## Mod authorship" template section. Restored the full
+template in the PR body (checked "The submitter, with AI assistance" and
+"Claude"), pushed an empty commit to re-trigger CI (description edits don't
+re-run the workflow), and all checks came back green: PR validation plus the
+Windhawk 1.6.1 / 1.7.3 / 2.0.0-alpha.1 compile matrix. PR #4841 now awaits
+maintainer review. A 250 ms tick-count throttle was also added to the tray
+LayoutUpdated intactness check before submission so layout bursts collapse to
+at most four checks per second.
