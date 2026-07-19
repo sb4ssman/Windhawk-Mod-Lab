@@ -9,17 +9,49 @@ Living todo list — current state only, pruned every session. Completed work
 Five mods to prepare. No submissions until each works as described with
 current docs/screenshots (standing directives in README.md).
 
-1. **Clock Spacer** — STALEMATE (PR #4443 / integration PR #68, see work log
-   2026-06-21). No action planned.
+1. **Taskbar Clock Spacer** — ACTIVE. v1.1 written in `taskbar-clock-spacer/`,
+   static checks pass, NOT live-tested.
+   DIRECTION SETTLED 2026-07-19: the deliverable is the STANDALONE companion mod
+   (`@id taskbar-clock-spacer`, PR #4443, still open). The integration attempt
+   (PR #68 in m417z/my-windhawk-mods) is finished — the maintainer preferred a
+   Justify-based approach and implemented it himself; the user closed it out in
+   comment on 2026-07-19. PR #68 is still technically OPEN and should be closed
+   explicitly.
+   - PDH `0xC0000BC6` is OUT OF SCOPE: it comes from m417z's performance-metrics
+     code in the integration copy. The standalone mod has zero PDH references.
+     `knowledge/taskbar-clock-spacer-pdh-invalid-data.md` applies only to the
+     archived integration copy.
+   - [ ] Live-test: spacers expand with Max width set; confirm the per-second
+         rebuild is gone (visual tree stable under UWPSpy)
+   - [ ] Live-test the `TrayUI::StartTaskbar` path via an Explorer restart, and
+         mod-disable teardown (clock returns to normal)
+   - [ ] Re-test multiple `%s%` per line, multiline clock content, settings
+         reload, and `minSpacerWidth`
+   - [ ] Fresh screenshots
+   - [ ] Rebase branch `add-taskbar-clock-spacer` — it is ~248k deletions out of
+         date against upstream/main and cannot merge as-is
+   - [ ] Reframe the PR #4443 description as "companion mod, since the token
+         didn't fit the canonical customizer"
+   - Folders: `taskbar-clock-spacer/` is active. `clock-spacer/` (v1.0) and
+     `taskbar-clock-customization-spacer/` (integration copy) are being archived
+     by the user.
 
-2. **Taskbar VD Switcher** — v1.7 on PR #4516, CI green, awaiting merge.
+2. **Taskbar VD Switcher** — v1.7 MERGED 2026-07-18 (PR #4516). Remaining work
+   is follow-up, not release-blocking.
    - [ ] Verify the full-rebuild change also fixes issue #4784 (hover/hit-test)
    - [ ] Test the experimental `multiMonitor` toggle (deferred: Explorer
          restarts disrupt the user's desktop order)
    - [ ] Refresh screenshots (accent default changed visuals)
    - [ ] Sync folder README settings table
 
-3. **Taskbar Folder Menus** — READY FOR SCREENSHOTS. The v0.6 reviewer
+3. **Taskbar Folder Menus** — REVIEWED 2026-07-18 on PR #4485; both required
+   items are ALREADY FIXED in the local working tree (`WM_MENURBUTTONUP`,
+   `[[clang::no_destroy]]`, and the optional `-lversion`/`winver.h` removal).
+   The PR branch is stale by ~631 lines — this is a push-and-reply job, not a
+   fix job. Still open from that review: the DPI-units bug in
+   `GetAvailableFolderRows` (physical px ÷ DIP pitch), a likely cause of the
+   chevron-area overlap.
+   READY FOR SCREENSHOTS. The v0.6 reviewer
    revision is compile-checked and live-confirmed: native Shell context menus,
    modal verbs, nested-cascade retention, click-away dismissal, and button
    visual reset are working. Defaults are now Smart automatic, automatic
@@ -41,7 +73,9 @@ current docs/screenshots (standing directives in README.md).
      favor of the customizer; if refused, the 5 review comments need a response
      commit (archive: knowledge/pr-review-comments.md)
 
-5. **Privacy Indicator Anchor** — ACTIVE TOOLTIP/ACTION TEST. Mostly
+5. **Privacy Indicator Anchor** — WIP, PAUSED FOR CLOCK-SPACER DEBUGGING.
+   Do not treat the visual-state implementation or the 2026-07-19 metadata fix
+   as completion. Mostly
    working as of 2026-07-18 user tests:
    copilot slash now sticks (WebExperience false-positive fixed), slash default
    flipped to falling (`\`), native active-mic suppression CONFIRMED working
@@ -81,10 +115,6 @@ current docs/screenshots (standing directives in README.md).
      `_research/privacy-indicator-anchor-design.md`
 
 ## Lab-level todos
-
-- [ ] Taskbar Clock Customization Spacer: investigate the repeating
-      `PDH_INVALID_DATA` counter failures captured during privacy testing; see
-      `knowledge/taskbar-clock-spacer-pdh-invalid-data.md`.
 - [ ] taskmanager-tail README: user decision needed on unification direction
       (published mod; folder README is standalone-repo style)
 - [ ] tray-utility-customizer: dedicated settings/readme pass (folder README

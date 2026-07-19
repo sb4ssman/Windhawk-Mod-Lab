@@ -519,3 +519,72 @@ occasional Windows/driver latency but no missing behavior observed.
   controls, width-preserving effect, and a deliberately high-impact preset.
 - Windhawk Clang syntax compilation, README parity, and targeted
   `git diff --check` pass. Live visual tuning and final screenshots remain.
+
+## 2026-07-19 — Privacy Anchor settings-metadata parse fix
+
+- Fixed Windhawk's YAML parse failure in the new `glowSpeed` description. The
+  plain scalar contained `Range:`, which YAML treated as a nested mapping; it
+  now uses a folded description without an ambiguous colon.
+- Re-scanned all one-line setting descriptions for the same pattern. Windhawk
+  Clang compilation, README parity, and targeted `git diff --check` pass.
+
+## 2026-07-19 — WIP handoff to Clock Spacer debugging
+
+- Closed this Privacy Indicator Anchor session without declaring the mod
+  complete. Its event-driven state paths are substantially working and the
+  latest source passes static checks, but visual-state tuning, tooltip/action
+  tests, monitor lifecycle tests, and screenshots remain WIP.
+- Promoted the local Taskbar Clock Customization Spacer to the next-chat focus.
+  The handoff covers both the elastic-spacer/layout behavior and the repeating
+  `PDH_INVALID_DATA` (`0xC0000BC6`) failures captured during privacy testing.
+- Preserved the error evidence and investigation checklist in
+  `.agents/knowledge/taskbar-clock-spacer-pdh-invalid-data.md`. No Clock Spacer
+  source change was made during the privacy session; the next chat should
+  reproduce and instrument the problem before attempting a fix.
+
+## 2026-07-19 — Clock Spacer direction settled and standalone matured to v1.1
+
+Reconciled the clock-spacer state against git and both PRs. The lab folder
+`taskbar-clock-customization-spacer/` holds m417z's full clock mod with the
+spacer grafted in (`@id taskbar-clock-customization`, v1.7.5) — the vehicle for
+PR #68, not a deliverable of ours. The actual standalone mod
+(`@id taskbar-clock-spacer`, v1.0, 802 lines) existed only on the PR #4443
+branch and in `_archive/clock-spacer/`; the two copies were byte-identical.
+
+- PR #68 is finished: the maintainer preferred a `TextAlignment::Justify`
+  approach without generated layout elements and implemented it himself
+  (2026-06-29). The user closed it out by comment on 2026-07-19. The standalone
+  companion mod on PR #4443 is the surviving path.
+- The PDH `0xC0000BC6` flood is out of scope for the deliverable: it originates
+  in m417z's performance-metrics code. The standalone mod contains no PDH calls.
+- Created `taskbar-clock-spacer/` and brought the standalone to v1.1.
+
+Engine work backported from the integration copy, which had matured while the
+standalone did not: in-place text updates guarded by a layout key (the old code
+destroyed and rebuilt the whole generated subtree every clock tick), first/last
+segment edge anchoring, `TextAlignment` propagation, insertion at the source
+index, and `\r` handling in line splitting.
+
+Defects fixed in the boilerplate: `GetTaskbarXamlRoot` had no null guards on the
+hooked symbols, `taskBand`, or `iunk`, and tested the host shared_ptr with `&&`
+instead of `||` — and `Wh_ModInit` logged "initial scan disabled" on symbol
+failure without actually disabling the scan, so a resolution failure guaranteed
+a null call. Added the `_M_ARM64` and `#else #error` arms, `[[clang::no_destroy]]`
+on the state vector, a `FALSE` return from `Wh_ModInit` on hook failure, and
+`TrayUI::StartTaskbar` as the primary wait-for-module hook (symbol verified
+against `taskbar-ai-quota` and `taskbar-tray-show-on-hover`) with the
+`LoadLibraryExW` watcher retained as fallback. Switched the deprecated
+`Wh_SetFunctionHookT` to `WindhawkUtils::SetFunctionHook`.
+
+Usability: added `minSpacerWidth` (default 0, no change to default rendering) and
+a one-time log explaining the zero-slack condition. A tinted spacer-diagnostic
+mode was built and then cut at the user's direction — reserving pixels to report
+on missing pixels disrupts the layout it is reporting on, and it was scope creep
+on a single-token mod. Both README layers rewritten to lead with the two hard
+requirements (the companion dependency and the fixed clock width) and to put
+troubleshooting ahead of settings.
+
+Windhawk Clang syntax compilation passes. The mod is NOT live-tested: the
+`TrayUI::StartTaskbar` path, the visual result, and teardown all still need a
+run in Explorer. Branch `add-taskbar-clock-spacer` is ~248k deletions out of date
+against upstream/main and needs rebasing before PR #4443 can merge.

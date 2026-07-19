@@ -282,7 +282,8 @@ compact microphone and camera state changes without restarting the full report.
 
 - glowSpeed: 1200
   $name: Glow cycle (ms)
-  $description: Animation cycle time in milliseconds. Range: 250-5000.
+  $description: >-
+    Animation cycle time in milliseconds. Range is 250-5000.
 
 - slashColor: ""
   $name: Slash color
