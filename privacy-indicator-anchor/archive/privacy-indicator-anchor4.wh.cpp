@@ -14,30 +14,19 @@
 /*
 # Tray Privacy Indicator Anchor
 
-A Windhawk mod for Windows 11 that reserves stable tray space for privacy and
-status indicators. Location, microphone, camera, and Copilot placeholders stay
-visible in the system tray: dim when idle, bright when active.
+Windows 11 shows location and microphone icons in the system tray when an app
+accesses those features, then removes them — causing nearby icons to shift.
 
-The goal is to stop taskbar tray sections from shifting when Windows briefly
-shows or hides privacy indicators, especially when Windows Web Experience Pack
-or Widgets frequently access location.
+This mod injects permanent placeholder icons:
 
-## Features
-
-- Persistent placeholder icons for location, microphone, camera, and Copilot
-- Idle opacity setting so inactive icons can be subtle but still reserve space
-- Configurable icon order with `location`, `mic`, `camera`, and `copilot` tokens
-- Row-first or column-first grid fill
-- Short row/column placement and alignment controls
-- Placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
-- Per-icon X/Y nudges plus whole-group X/Y offset
-- Independent idle, active, disabled, glow, and slash colors
-- Steady, breathing, or radiating active emphasis with reach/speed controls
-- Disabled slash overlays for blocked or unavailable privacy devices
-- Hardware camera shutter/kill-switch detection on supported Windows 11 camera drivers
-- Evidence-specific tooltips instead of a generic "hardware disabled" label
-- Click-through to the relevant Windows privacy, input, camera, taskbar, or app settings
-- Optional testing toggle to let Windows' native privacy indicators appear
+- **Always visible** — dim when nothing is using the feature
+- **Full brightness** when the feature is actively in use
+- **Camera** — bright while Windows reports active webcam use. Slash overlay =
+  camera access denied/unavailable, or a supported hardware privacy shutter
+  or kill switch reports closed.
+- **Copilot** — experimental; shows whether the Copilot app is installed
+  and/or actively running. Slash overlay = not installed or disabled (by
+  group policy or the taskbar Settings toggle).
 
 ## Icon order and grid layout
 
@@ -68,79 +57,25 @@ arrangements like:
 [mic] [   ]  or  [   ] [cam]   (short column centered)
 ```
 
-## States and colors
+## Colors
 
-Each icon has four visual states: idle/available, active, disabled/unavailable,
-and active while disabled. The last state keeps the active treatment underneath
-the slash by default, so a muted or shuttered device still demands attention
-when Windows reports attempted use. `alertWhenBlockedAndActive` can turn that
-combined treatment off.
-
-`idleColor`, `activeColor`, `disabledColor`, `glowColor`, and `slashColor`
+`activeColor` (icons in use) and `slashColor` (the disabled slash overlay)
 accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is honored), the generics
 `accent`, `accentLight`, and `accentDark` for the Windows accent shades, or
-`transparent`. An empty color uses the system foreground, except an empty
-`glowColor`, which follows `activeColor` or the Windows accent color.
+`transparent`. Leaving either empty keeps the system foreground color.
 
-The glow can be a steady halo, a breathing pulse, or animated radiation rings.
-Its opacity, reach, and speed are independent controls. The effect is drawn
-inside the existing icon slot and never changes the taskbar width.
+Hardware camera privacy detection uses Windows 11 `CameraOcclusionInfo` when
+the camera driver supports it. Windows classifies an idle-camera shutter report
+as advisory, so the tooltip identifies it as "likely blocked" and tells the
+user to check the physical control. `cameraHardwareDetection` can disable the
+persistent `SharedReadOnly` monitor. It never starts preview or frame capture.
+The monitor is event-driven; a five-minute watchdog only checks that the
+driver subscription is still responsive. Hiding the camera icon also releases
+the camera controller.
 
-For a deliberately striking treatment, start with `glowStyle: radiate`,
-`glowOpacity: 85`, `glowSize: 260`, and `glowSpeed: 850`, then choose an
-`activeColor`/`glowColor` that fits the rest of the taskbar theme.
-
-## Files
-
-- [privacy-indicator-anchor.wh.cpp](privacy-indicator-anchor.wh.cpp) - Windhawk mod source
-- [privacy-trigger-test.html](privacy-trigger-test.html) - local browser test page for triggering privacy states
-- [privacy-trigger-server.ps1](privacy-trigger-server.ps1) - helper server for the test page
-- [privacy-diag.ps1](privacy-diag.ps1) - diagnostic helper for privacy/device state
-- [archive/](archive/) - earlier experiments
-- [assets/](assets/) - visual/test assets
-
-## Status
-
-Version `0.9` is still in lab development. Camera hardware-switch detection and
-the Copilot indicator are experimental because Windows exposes those states
-differently across devices and builds.
-
-## Notes
-
-Camera activity is detected from Windows webcam-usage records and any mirrored
-native privacy state. Hardware camera blocking uses Windows 11
-`CameraOcclusionInfo` when the camera driver supports it. Cameras without that
-driver capability retain software-access and device-availability checks, but
-their physical shutter or kill-switch state might not be detectable.
-
-Windows documents idle-camera occlusion reports as advisory rather than an
-absolute privacy guarantee. The tooltip therefore says "likely blocked" and
-names the camera-driver evidence. `cameraHardwareDetection` can disable this
-monitor. When enabled, it initializes the default camera controller in
-`SharedReadOnly` mode but never starts preview or frame capture. Turn it off if
-a particular camera activates its LED/indicator or behaves poorly while
-monitored. State changes use the driver's native event; a five-minute watchdog
-only checks that the subscription remains responsive. The controller is also
-released when `camera` is removed from `itemOrder`.
-
-Privacy access, usage records, policies, packages, and device topology are
-monitored with Windows registry/device events rather than a three-second global
-sweep. Copilot process activity is checked separately once per minute, and a
-five-minute health reconciliation repairs any missed notification. Failed
-camera and registry-monitor setup backs off from seconds to thirty minutes;
-access-denied registry monitors remain disabled for the current mod session.
-
-Each icon is clickable. Location opens Location privacy settings. Microphone
-opens either microphone privacy or default-input settings according to the
-reported reason. Camera opens either camera privacy or camera-device settings.
-Copilot opens taskbar or installed-app settings.
-
-`suppressNativeIndicators` defaults to `1` so the mod hides Windows' own pop-in
-privacy indicators and mirrors state into the stable placeholders. Set it to `0`
-temporarily when comparing against Windows' native tray glyphs during testing.
-
-Run `privacy-diag.ps1 -Watch` while flipping hardware privacy switches to see
-compact microphone and camera state changes without restarting the full report.
+Hover an icon for its exact evidence and confidence. Click an icon to open the
+most relevant Windows Settings page: privacy access, recording input, camera
+device, taskbar, or installed apps depending on the reported state.
 */
 // ==/WindhawkModReadme==
 
@@ -218,13 +153,6 @@ compact microphone and camera state changes without restarting the full report.
     Opacity when no app is using the feature. 0 = invisible but space reserved;
     100 = always full brightness.
 
-- idleColor: ""
-  $name: Idle icon color
-  $description: >-
-    Color used while the feature is available but idle. Hex ("#RRGGBB" or
-    "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty (default) keeps the system foreground color.
-
 - activeColor: ""
   $name: Active icon color
   $description: >-
@@ -232,57 +160,15 @@ compact microphone and camera state changes without restarting the full report.
     "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
     Empty (default) keeps the system foreground color at full brightness.
 
-- disabledOpacity: 50
-  $name: Disabled icon opacity (0-100)
-  $description: >-
-    Base-icon opacity when access, a device, or a service is unavailable. The
-    slash has its own opacity control.
-
-- disabledColor: ""
-  $name: Disabled icon color
-  $description: >-
-    Base-icon color while unavailable. Hex ("#RRGGBB" or "#AARRGGBB"),
-    "accent" / "accentLight" / "accentDark", or "transparent". Empty
-    (default) keeps the system foreground color.
-
-- alertWhenBlockedAndActive: 1
-  $name: Emphasize blocked activity (1=on, 0=off)
-  $description: >-
-    When Windows reports use while the feature is blocked, keep the active
-    color and glow beneath the slash. Turn off to use ordinary disabled styling.
-
 - glowEnabled: 0
   $name: Glow when active (1=on, 0=off)
   $description: >-
-    Adds a halo or radiating emphasis behind the icon while active. The effect
-    stays inside the reserved icon slot and does not change taskbar width.
-
-- glowStyle: "radiate"
-  $name: Glow style
-  $options:
-  - "steady": "Steady halo"
-  - "pulse": "Breathing halo"
-  - "radiate": "Radiating rings"
-
-- glowColor: ""
-  $name: Glow color
-  $description: >-
-    Hex ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" /
-    "accentDark", or "transparent". Empty follows Active icon color when set,
-    otherwise it uses the Windows accent color.
+    Adds a larger bloom glyph behind the icon when active. Uses the Windows
+    accent color unless an Active icon color is set.
 
 - glowOpacity: 40
   $name: Glow opacity (0-100)
-  $description: Peak strength of the halo and radiation rings.
-
-- glowSize: 220
-  $name: Glow reach (percent)
-  $description: >-
-    Maximum glow diameter as a percentage of icon size. Range: 100-300.
-
-- glowSpeed: 1200
-  $name: Glow cycle (ms)
-  $description: Animation cycle time in milliseconds. Range: 250-5000.
+  $description: Brightness of the bloom layer. 0 = invisible; 100 = same as icon.
 
 - slashColor: ""
   $name: Slash color
@@ -370,7 +256,6 @@ compact microphone and camera state changes without restarting the full report.
 #include <winrt/Windows.UI.Xaml.Input.h>
 #include <winrt/Windows.UI.Xaml.Markup.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
-#include <winrt/Windows.UI.Xaml.Media.Animation.h>
 #include <winrt/Windows.UI.Xaml.Shapes.h>
 
 #include <mmdeviceapi.h>
@@ -632,12 +517,6 @@ struct ModSettings {
     int  iconSize      = 16;
     int  buttonSpacing = 4;
     int  idleOpacity   = 50;
-    bool idleColorSet = false;
-    winrt::Windows::UI::Color idleColorValue{};
-    int  disabledOpacity = 50;
-    bool disabledColorSet = false;
-    winrt::Windows::UI::Color disabledColorValue{};
-    bool alertWhenBlockedAndActive = true;
     int  groupPaddingLeft = 0;
     int  groupPaddingRight = 0;
     int  groupOffsetX = 0;
@@ -653,12 +532,7 @@ struct ModSettings {
     bool activeColorSet = false;
     winrt::Windows::UI::Color activeColorValue{};
     bool glowEnabled    = false;
-    std::wstring glowStyle = L"radiate";
-    bool glowColorSet = false;
-    winrt::Windows::UI::Color glowColorValue{};
     int  glowOpacity    = 40;
-    int  glowSize       = 220;
-    int  glowSpeed      = 1200;
     bool slashColorSet  = false;   // false = system theme
     winrt::Windows::UI::Color slashColorValue{};
     std::wstring slashDirection = L"falling";
@@ -668,7 +542,6 @@ struct ModSettings {
 static ModSettings g_settings;
 static std::atomic<bool> g_cameraHardwareDetectionEnabled{true};
 static std::atomic<bool> g_cameraItemEnabled{true};
-static std::atomic<bool> g_copilotItemEnabled{true};
 
 static std::vector<std::wstring> ParseItemOrder(std::wstring const& s);
 
@@ -741,9 +614,6 @@ static void LoadSettings() {
     g_cameraItemEnabled.store(
         std::find(enabledItems.begin(), enabledItems.end(), L"camera") !=
         enabledItems.end());
-    g_copilotItemEnabled.store(
-        std::find(enabledItems.begin(), enabledItems.end(), L"copilot") !=
-        enabledItems.end());
     g_settings.gridRows    = clamp(Wh_GetIntSetting(L"gridRows"), 0, 10);
     g_settings.gridColumns = clamp(Wh_GetIntSetting(L"gridColumns"), 0, 10);
     { std::wstring s = GetStringSetting(L"fillOrder");
@@ -760,9 +630,6 @@ static void LoadSettings() {
       else                    g_settings.shortGroupAlign = grid::ShortGroupAlign::Center; }
     g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize"), 8, 48);
     g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity"), 0, 100);
-    g_settings.disabledOpacity      = clamp(Wh_GetIntSetting(L"disabledOpacity"), 0, 100);
-    g_settings.alertWhenBlockedAndActive =
-        Wh_GetIntSetting(L"alertWhenBlockedAndActive") != 0;
     g_settings.groupPaddingLeft     = clamp(Wh_GetIntSetting(L"groupPaddingLeft"), -40, 40);
     g_settings.groupPaddingRight    = clamp(Wh_GetIntSetting(L"groupPaddingRight"), -40, 40);
     g_settings.buttonSpacing        = clamp(Wh_GetIntSetting(L"buttonSpacing"), 0, 40);
@@ -778,19 +645,8 @@ static void LoadSettings() {
     g_settings.copilotOffsetY       = clamp(Wh_GetIntSetting(L"copilotOffsetY"), -40, 40);
     g_settings.glowEnabled          = Wh_GetIntSetting(L"glowEnabled") != 0;
     g_settings.glowOpacity          = clamp(Wh_GetIntSetting(L"glowOpacity"), 0, 100);
-    g_settings.glowSize             = clamp(Wh_GetIntSetting(L"glowSize"), 100, 300);
-    g_settings.glowSpeed            = clamp(Wh_GetIntSetting(L"glowSpeed"), 250, 5000);
-    { std::wstring s = GetStringSetting(L"glowStyle");
-      g_settings.glowStyle = (s == L"steady" || s == L"pulse")
-                           ? s : L"radiate"; }
-    g_settings.idleColorSet = ParseColorToken(
-        GetStringSetting(L"idleColor").c_str(), g_settings.idleColorValue);
     g_settings.activeColorSet = ParseColorToken(
         GetStringSetting(L"activeColor").c_str(), g_settings.activeColorValue);
-    g_settings.disabledColorSet = ParseColorToken(
-        GetStringSetting(L"disabledColor").c_str(), g_settings.disabledColorValue);
-    g_settings.glowColorSet = ParseColorToken(
-        GetStringSetting(L"glowColor").c_str(), g_settings.glowColorValue);
     g_settings.slashColorSet = ParseColorToken(
         GetStringSetting(L"slashColor").c_str(), g_settings.slashColorValue);
     g_settings.slashDirection = GetStringSetting(L"slashDirection");
@@ -818,36 +674,12 @@ enum class PrivacyBlockReason {
 
 enum class PrivacyItemKind { Location, Microphone, Camera, Copilot };
 
-enum StateRefreshFlags : DWORD {
-    RefreshNone             = 0,
-    RefreshLocationState    = 1u << 0,
-    RefreshMicrophoneState  = 1u << 1,
-    RefreshCameraState      = 1u << 2,
-    RefreshLocationUsage    = 1u << 3,
-    RefreshMicrophoneUsage  = 1u << 4,
-    RefreshCameraUsage      = 1u << 5,
-    RefreshCopilotState     = 1u << 6,
-    RefreshCopilotActivity  = 1u << 7,
-    RefreshMonitorSetup     = 1u << 8,
-    RefreshAll = RefreshLocationState | RefreshMicrophoneState |
-                 RefreshCameraState | RefreshLocationUsage |
-                 RefreshMicrophoneUsage | RefreshCameraUsage |
-                 RefreshCopilotState | RefreshCopilotActivity,
-};
-
 static std::atomic<bool> g_unloading{false};
 static HWND              g_taskbarWnd           = nullptr;
 static std::atomic<bool>  g_systemTrayModuleHooked{false};
 static HANDLE            g_retryThread          = nullptr;
 static HANDLE            g_retryStopEvent       = nullptr;
 static HANDLE            g_stateRefreshEvent    = nullptr;
-static std::atomic<DWORD> g_pendingRefreshFlags{RefreshAll};
-
-static void RequestStateRefresh(DWORD flags) {
-    g_pendingRefreshFlags.fetch_or(flags);
-    if (g_stateRefreshEvent)
-        SetEvent(g_stateRefreshEvent);
-}
 
 static std::atomic<bool> g_locActive{false};
 static std::atomic<bool> g_micActive{false};
@@ -896,15 +728,6 @@ struct SlotEventState {
 };
 [[clang::no_destroy]] static std::vector<SlotEventState> g_slotEventStates;
 
-struct GlowAnimationState {
-    FrameworkElement element{nullptr};
-    std::vector<winrt::Windows::UI::Xaml::Media::Animation::Storyboard>
-        storyboards;
-    bool running = false;
-};
-[[clang::no_destroy]] static std::vector<GlowAnimationState>
-    g_glowAnimationStates;
-
 struct PrivacyState {
     enum class Type { Location, Mic, Camera, Both };
     winrt::weak_ref<FrameworkElement> iconViewRef;
@@ -926,7 +749,7 @@ static void ApplyStyleOnWindowThread();
 static void ClearPrivacyStates();
 static void RemoveSyntheticIcons();
 static void StopRetryThread();
-static void UpdatePrivacyStates(DWORD flags);
+static void UpdateDisabledStates();
 static bool HookSystemTraySymbols(HMODULE h);
 static void HandleLoadedModuleIfSystemTray(HMODULE module,
                                             LPCWSTR fileName);
@@ -1170,35 +993,16 @@ static std::vector<std::wstring> ParseItemOrder(std::wstring const& s) {
 // Synthetic icon management
 // ============================================================
 
-static void SetGlowActive(FrameworkElement const& glow, bool active) {
-    if (!glow) return;
-    glow.Visibility(active ? Visibility::Visible : Visibility::Collapsed);
-    for (auto& state : g_glowAnimationStates) {
-        if (state.element != glow || state.running == active) continue;
-        try {
-            for (auto const& storyboard : state.storyboards) {
-                if (active) storyboard.Begin();
-                else        storyboard.Stop();
-            }
-            state.running = active;
-        } catch (...) {
-            Wh_Log(L"[Glow] Failed to %s animation",
-                   active ? L"start" : L"stop");
-        }
-        break;
-    }
-}
-
 static void UpdateSyntheticOpacity() {
-    double idleOpacity = g_settings.idleOpacity / 100.0;
-    double disabledOpacity = g_settings.disabledOpacity / 100.0;
-    bool isDark =
-        Application::Current().RequestedTheme() == ApplicationTheme::Dark;
-    winrt::Windows::UI::Color neutralColor = isDark
-        ? winrt::Windows::UI::Color{255, 255, 255, 255}
-        : winrt::Windows::UI::Color{255, 30, 30, 30};
+    double idleOp = g_settings.idleOpacity / 100.0;
+    winrt::Windows::UI::Color activeColor = g_settings.activeColorValue;
 
-    // setShapeFill covers the Copilot Viewbox/Path and Polygon fallback.
+    // active   = feature in use → full opacity, optional custom color + glow
+    // disabled = service off   → idle opacity, slash visible
+    // idle     = neither       → idle opacity, system foreground, no slash
+    //
+    // setShapeFill: sets Fill on icon. Shape branch handles TextBlock-based icons;
+    // VisualTreeHelper fallback handles Viewbox/Path icons once mounted in the tree.
     auto setShapeFill = [](FrameworkElement fe, winrt::Windows::UI::Color color) {
         SolidColorBrush br; br.Color(color);
         if (auto shape = fe.try_as<winrt::Windows::UI::Xaml::Shapes::Shape>()) {
@@ -1210,45 +1014,40 @@ static void UpdateSyntheticOpacity() {
         if (auto cs = child.try_as<winrt::Windows::UI::Xaml::Shapes::Shape>()) cs.Fill(br);
     };
 
-    auto applyColor = [&](FrameworkElement const& icon, bool colorSet,
-                          winrt::Windows::UI::Color color) {
-        if (auto tb = icon.try_as<TextBlock>()) {
-            if (colorSet) {
-                SolidColorBrush brush; brush.Color(color);
-                tb.Foreground(brush);
-            } else {
-                tb.ClearValue(TextBlock::ForegroundProperty());
-            }
-        } else {
-            // Shape.Fill defaults to null, so explicitly restore a neutral
-            // foreground when no custom color is selected.
-            setShapeFill(icon, colorSet ? color : neutralColor);
-        }
-    };
-
     auto applySlot = [&](FrameworkElement icon, FrameworkElement glow, FrameworkElement slash,
                          bool active, bool disabled) {
         if (!icon) return;
-        bool emphasizedActivity = active &&
-            (!disabled || g_settings.alertWhenBlockedAndActive);
+        bool effectiveActive = active && !disabled;
+        icon.Opacity(effectiveActive ? 1.0 : idleOp);
 
-        if (emphasizedActivity) {
-            icon.Opacity(1.0);
-            applyColor(icon, g_settings.activeColorSet,
-                       g_settings.activeColorValue);
-        } else if (disabled) {
-            icon.Opacity(disabledOpacity);
-            applyColor(icon, g_settings.disabledColorSet,
-                       g_settings.disabledColorValue);
+        // Custom active tint — only when the user sets an active color.
+        // Default: clear any explicit brush so system theme foreground applies.
+        if (g_settings.activeColorSet && effectiveActive) {
+            if (auto tb = icon.try_as<TextBlock>()) {
+                SolidColorBrush activeBrush; activeBrush.Color(activeColor);
+                tb.Foreground(activeBrush);
+            } else {
+                setShapeFill(icon, activeColor);
+            }
         } else {
-            icon.Opacity(idleOpacity);
-            applyColor(icon, g_settings.idleColorSet,
-                       g_settings.idleColorValue);
+            if (auto tb = icon.try_as<TextBlock>()) {
+                tb.ClearValue(TextBlock::ForegroundProperty());
+            } else {
+                // Shapes and Viewbox containers: restore neutral system-foreground color.
+                // (Shape.Fill default is null/transparent, so ClearValue would hide it.)
+                bool isDark = (Application::Current().RequestedTheme() == ApplicationTheme::Dark);
+                setShapeFill(icon, isDark ? winrt::Windows::UI::Color{255, 255, 255, 255}
+                                          : winrt::Windows::UI::Color{255,  30,  30,  30});
+            }
         }
 
-        SetGlowActive(glow, emphasizedActivity && g_settings.glowEnabled);
-        if (slash)
+        if (glow) {
+            glow.Visibility((effectiveActive && g_settings.glowEnabled) ? Visibility::Visible : Visibility::Collapsed);
+        }
+
+        if (slash) {
             slash.Visibility(disabled ? Visibility::Visible : Visibility::Collapsed);
+        }
     };
 
     applySlot(g_locIcon, g_locGlowIcon, g_locSlashIcon,
@@ -1310,8 +1109,6 @@ static void SetIconTooltip(FrameworkElement const& fe, PCWSTR label, bool active
                 L"Evidence: reported while Windows shows the camera in use";
     } else if (reason != PrivacyBlockReason::None) {
         state = DescribeBlockReason(reason);
-        if (active)
-            state += L"\nActivity: Windows also reports this feature in use";
     } else {
         state = active ? L"In use" : idleLabel;
     }
@@ -1491,6 +1288,8 @@ static PrivacyBlockReason CheckMicBlockReason() {
 class MicPrivacyMonitor final : public IMMNotificationClient,
                                 public IAudioEndpointVolumeCallback {
 public:
+    explicit MicPrivacyMonitor(HANDLE refreshEvent) : m_refreshEvent(refreshEvent) {}
+
     HRESULT Init() {
         HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
                                       IID_PPV_ARGS(&m_enum));
@@ -1593,7 +1392,7 @@ public:
 private:
     void SignalRefresh(PCWSTR reason) {
         Wh_Log(L"[MicMon] Refresh requested: %s", reason);
-        RequestStateRefresh(RefreshMicrophoneState);
+        if (m_refreshEvent) SetEvent(m_refreshEvent);
     }
 
     void DetachEndpointVolume() {
@@ -1634,6 +1433,7 @@ private:
     }
 
     volatile LONG m_refCount = 1;
+    HANDLE m_refreshEvent = nullptr;
     IMMDeviceEnumerator* m_enum = nullptr;
     IMMDevice* m_device = nullptr;
     IAudioEndpointVolume* m_volume = nullptr;
@@ -1649,6 +1449,9 @@ private:
 // controller without returning to the legacy three-second camera polling.
 class CameraPrivacyMonitor {
 public:
+    explicit CameraPrivacyMonitor(HANDLE refreshEvent)
+        : m_refreshEvent(refreshEvent) {}
+
     HRESULT Init() {
         if (!IsRequested()) {
             Wh_Log(L"[CamMon] Hardware detection not requested");
@@ -1698,37 +1501,17 @@ public:
         // only verifies that the long-lived controller is still responsive.
         m_lastStateCheck = now;
         try {
-            UpdateState(m_occlusion.GetState(), L"watchdog");
+            UpdateState(m_occlusion.GetState(), L"watchdog", m_refreshEvent);
         } catch (winrt::hresult_error const& e) {
             Wh_Log(L"[CamMon] Watchdog failed hr=0x%08X; scheduling retry",
                    static_cast<unsigned>(e.code().value));
             Cleanup();
             ScheduleRetry();
-            RequestStateRefresh(RefreshCameraState);
         } catch (...) {
             Wh_Log(L"[CamMon] Watchdog failed; scheduling retry");
             Cleanup();
             ScheduleRetry();
-            RequestStateRefresh(RefreshCameraState);
         }
-    }
-
-    DWORD NextActionDelayMs() const {
-        if (!IsRequested())
-            return INFINITE;
-        if (!m_wasRequested)
-            return 0;
-        if (!m_occlusion) {
-            if (m_apiUnsupported)
-                return INFINITE;
-            return DelayUntil(m_nextInitAttempt);
-        }
-        return DelayUntil(m_lastStateCheck + kWatchdogIntervalMs);
-    }
-
-    void ResetFailedRetry() {
-        if (!m_occlusion && !m_apiUnsupported)
-            ResetRetrySchedule();
     }
 
     void Cleanup() {
@@ -1753,16 +1536,6 @@ public:
 private:
     static constexpr ULONGLONG kWatchdogIntervalMs = 5 * 60 * 1000;
 
-    static DWORD DelayUntil(ULONGLONG deadline) {
-        if (!deadline)
-            return 0;
-        ULONGLONG now = GetTickCount64();
-        if (now >= deadline)
-            return 0;
-        return static_cast<DWORD>(std::min<ULONGLONG>(
-            deadline - now, static_cast<ULONGLONG>(INFINITE - 1)));
-    }
-
     static bool IsRequested() {
         return g_cameraHardwareDetectionEnabled.load() &&
                g_cameraItemEnabled.load();
@@ -1779,7 +1552,6 @@ private:
             30 * 1000,
             2 * 60 * 1000,
             10 * 60 * 1000,
-            30 * 60 * 1000,
         };
         size_t index = std::min(
             m_retryIndex, ARRAYSIZE(kRetryDelaysMs) - 1);
@@ -1817,13 +1589,14 @@ private:
             m_apiUnsupported = false;
             m_capture = std::move(capture);
             m_occlusion = std::move(occlusion);
+            HANDLE refreshEvent = m_refreshEvent;
             m_stateChangedToken = m_occlusion.StateChanged(
-                [](CameraOcclusionInfo const&,
-                   CameraOcclusionStateChangedEventArgs const& args) {
-                    UpdateState(args.State(), L"event");
+                [refreshEvent](CameraOcclusionInfo const&,
+                               CameraOcclusionStateChangedEventArgs const& args) {
+                    UpdateState(args.State(), L"event", refreshEvent);
                 });
             m_hasStateChangedToken = true;
-            UpdateState(m_occlusion.GetState(), L"initial");
+            UpdateState(m_occlusion.GetState(), L"initial", m_refreshEvent);
             m_lastStateCheck = GetTickCount64();
             ResetRetrySchedule();
             Wh_Log(L"[CamMon] Watching CameraHardware occlusion state");
@@ -1844,7 +1617,8 @@ private:
 
     static void UpdateState(
         winrt::Windows::Media::Devices::CameraOcclusionState const& state,
-        PCWSTR reason) {
+        PCWSTR reason,
+        HANDLE refreshEvent) {
         using winrt::Windows::Media::Devices::CameraOcclusionKind;
         bool occluded = state.IsOccluded() &&
             state.IsOcclusionKind(CameraOcclusionKind::CameraHardware);
@@ -1852,10 +1626,11 @@ private:
         g_cameraOcclusionSupported.store(true);
         Wh_Log(L"[CamMon] %s: hardwareOccluded=%d",
                reason, occluded ? 1 : 0);
-        if (previous != occluded)
-            RequestStateRefresh(RefreshCameraState);
+        if (previous != occluded && refreshEvent)
+            SetEvent(refreshEvent);
     }
 
+    HANDLE m_refreshEvent = nullptr;
     ULONGLONG m_lastStateCheck = 0;
     ULONGLONG m_nextInitAttempt = 0;
     size_t m_retryIndex = 0;
@@ -1865,314 +1640,6 @@ private:
     bool m_hasStateChangedToken = false;
     bool m_apiUnsupported = false;
     bool m_wasRequested = false;
-};
-
-class RegistryChangeMonitor {
-public:
-    void AddWatch(HKEY hive, PCWSTR path, DWORD refreshFlags, PCWSTR label) {
-        Entry entry;
-        entry.hive = hive;
-        entry.path = path;
-        entry.refreshFlags = refreshFlags;
-        entry.label = label;
-        m_entries.push_back(std::move(entry));
-    }
-
-    DWORD RefreshRegistrations() {
-        DWORD refreshFlags = RefreshNone;
-        for (auto& entry : m_entries) {
-            bool wasArmed = entry.armed;
-            TryRegister(entry);
-            if (!wasArmed && entry.armed)
-                refreshFlags |= entry.refreshFlags;
-        }
-        return refreshFlags;
-    }
-
-    void ResetFailedRetries() {
-        for (auto& entry : m_entries) {
-            if (!entry.armed && !entry.permanentFailure)
-                entry.nextAttempt = 0;
-        }
-    }
-
-    void AppendWaitHandles(std::vector<HANDLE>& handles) const {
-        for (auto const& entry : m_entries) {
-            if (entry.armed && entry.event)
-                handles.push_back(entry.event);
-        }
-    }
-
-    DWORD HandleSignaled(HANDLE event) {
-        for (auto& entry : m_entries) {
-            if (!entry.armed || entry.event != event)
-                continue;
-            ResetEvent(entry.event);
-            Wh_Log(L"[RegMon] Change: %s", entry.label.c_str());
-            // Reopen after every notification. This lets a parent fallback
-            // move onto the exact key as soon as that key is created, and it
-            // also recovers cleanly when the watched key was deleted.
-            CloseKey(entry);
-            TryRegister(entry);
-            return entry.refreshFlags;
-        }
-        return RefreshNone;
-    }
-
-    DWORD NextActionDelayMs() const {
-        DWORD result = INFINITE;
-        ULONGLONG now = GetTickCount64();
-        for (auto const& entry : m_entries) {
-            if (entry.armed || entry.permanentFailure)
-                continue;
-            if (!entry.nextAttempt || now >= entry.nextAttempt)
-                return 0;
-            result = std::min(result, static_cast<DWORD>(
-                std::min<ULONGLONG>(entry.nextAttempt - now,
-                                    static_cast<ULONGLONG>(INFINITE - 1))));
-        }
-        return result;
-    }
-
-    void Cleanup() {
-        for (auto& entry : m_entries) {
-            entry.armed = false;
-            if (entry.key) {
-                RegCloseKey(entry.key);
-                entry.key = nullptr;
-            }
-            if (entry.event) {
-                CloseHandle(entry.event);
-                entry.event = nullptr;
-            }
-        }
-        m_entries.clear();
-    }
-
-private:
-    struct Entry {
-        HKEY hive = nullptr;
-        std::wstring path;
-        std::wstring label;
-        DWORD refreshFlags = RefreshNone;
-        HKEY key = nullptr;
-        HANDLE event = nullptr;
-        ULONGLONG nextAttempt = 0;
-        size_t retryIndex = 0;
-        bool armed = false;
-        bool permanentFailure = false;
-        bool usingParent = false;
-    };
-
-    static void CloseKey(Entry& entry) {
-        if (entry.key) {
-            RegCloseKey(entry.key);
-            entry.key = nullptr;
-        }
-        entry.armed = false;
-        entry.usingParent = false;
-    }
-
-    static void ScheduleRetry(Entry& entry, LONG error) {
-        CloseKey(entry);
-        if (error == ERROR_ACCESS_DENIED) {
-            entry.permanentFailure = true;
-            Wh_Log(L"[RegMon] Disabled for session: %s error=%d",
-                   entry.label.c_str(), error);
-            return;
-        }
-
-        static constexpr ULONGLONG kRetryDelaysMs[] = {
-            10 * 1000,
-            30 * 1000,
-            2 * 60 * 1000,
-            10 * 60 * 1000,
-            30 * 60 * 1000,
-        };
-        size_t index = std::min(
-            entry.retryIndex, ARRAYSIZE(kRetryDelaysMs) - 1);
-        ULONGLONG delay = kRetryDelaysMs[index];
-        if (entry.retryIndex < ARRAYSIZE(kRetryDelaysMs) - 1)
-            ++entry.retryIndex;
-        entry.nextAttempt = GetTickCount64() + delay;
-        Wh_Log(L"[RegMon] Registration failed: %s error=%d retry=%llu ms",
-               entry.label.c_str(), error, delay);
-    }
-
-    static void TryRegister(Entry& entry) {
-        if (entry.armed || entry.permanentFailure)
-            return;
-        ULONGLONG now = GetTickCount64();
-        if (entry.nextAttempt && now < entry.nextAttempt)
-            return;
-
-        if (!entry.event) {
-            entry.event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-            if (!entry.event) {
-                ScheduleRetry(entry, static_cast<LONG>(GetLastError()));
-                return;
-            }
-        }
-
-        if (!entry.key) {
-            LONG openResult = RegOpenKeyExW(
-                entry.hive, entry.path.c_str(), 0, KEY_NOTIFY, &entry.key);
-            if (openResult == ERROR_FILE_NOT_FOUND ||
-                openResult == ERROR_PATH_NOT_FOUND) {
-                std::wstring parent = entry.path;
-                size_t separator = parent.find_last_of(L'\\');
-                if (separator != std::wstring::npos) {
-                    parent.resize(separator);
-                    openResult = RegOpenKeyExW(
-                        entry.hive, parent.c_str(), 0, KEY_NOTIFY, &entry.key);
-                    entry.usingParent = openResult == ERROR_SUCCESS;
-                }
-            }
-            if (openResult != ERROR_SUCCESS) {
-                ScheduleRetry(entry, openResult);
-                return;
-            }
-        }
-
-        ResetEvent(entry.event);
-        constexpr DWORD kThreadAgnostic = 0x10000000;
-        LONG notifyResult = RegNotifyChangeKeyValue(
-            entry.key, TRUE,
-            REG_NOTIFY_CHANGE_NAME | REG_NOTIFY_CHANGE_LAST_SET |
-                kThreadAgnostic,
-            entry.event, TRUE);
-        if (notifyResult != ERROR_SUCCESS) {
-            ScheduleRetry(entry, notifyResult);
-            return;
-        }
-
-        entry.armed = true;
-        entry.nextAttempt = 0;
-        entry.retryIndex = 0;
-        Wh_Log(L"[RegMon] Watching %s%s", entry.label.c_str(),
-               entry.usingParent ? L" (parent until key exists)" : L"");
-    }
-
-    std::vector<Entry> m_entries;
-};
-
-class DeviceStateMonitor {
-public:
-    void Init() {
-        using namespace winrt::Windows::Devices::Enumeration;
-
-        try {
-            m_micAccess = DeviceAccessInformation::CreateFromDeviceClass(
-                DeviceClass::AudioCapture);
-            m_micAccessToken = m_micAccess.AccessChanged(
-                [](DeviceAccessInformation const&,
-                   DeviceAccessChangedEventArgs const&) {
-                    if (!g_unloading)
-                        RequestStateRefresh(RefreshMicrophoneState);
-                });
-            m_hasMicAccessToken = true;
-            Wh_Log(L"[DeviceMon] Watching microphone access");
-        } catch (winrt::hresult_error const& e) {
-            Wh_Log(L"[DeviceMon] Microphone access subscription failed hr=0x%08X",
-                   static_cast<unsigned>(e.code().value));
-        } catch (...) {
-            Wh_Log(L"[DeviceMon] Microphone access subscription failed");
-        }
-
-        try {
-            static const winrt::guid kCameraClass{
-                0xca3e7ab9, 0xb4c3, 0x4ae6,
-                {0x82, 0x51, 0x57, 0x9e, 0xf9, 0x33, 0x89, 0x0f}};
-            m_cameraAccess = DeviceAccessInformation::CreateFromDeviceClassId(
-                kCameraClass);
-            m_cameraAccessToken = m_cameraAccess.AccessChanged(
-                [](DeviceAccessInformation const&,
-                   DeviceAccessChangedEventArgs const&) {
-                    if (!g_unloading)
-                        RequestStateRefresh(RefreshCameraState);
-                });
-            m_hasCameraAccessToken = true;
-            Wh_Log(L"[DeviceMon] Watching camera access");
-        } catch (winrt::hresult_error const& e) {
-            Wh_Log(L"[DeviceMon] Camera access subscription failed hr=0x%08X",
-                   static_cast<unsigned>(e.code().value));
-        } catch (...) {
-            Wh_Log(L"[DeviceMon] Camera access subscription failed");
-        }
-
-        try {
-            m_cameraWatcher = DeviceInformation::CreateWatcher(
-                DeviceClass::VideoCapture);
-            m_cameraAddedToken = m_cameraWatcher.Added(
-                [](DeviceWatcher const&, DeviceInformation const&) {
-                    if (!g_unloading)
-                        RequestStateRefresh(RefreshCameraState);
-                });
-            m_cameraRemovedToken = m_cameraWatcher.Removed(
-                [](DeviceWatcher const&, DeviceInformationUpdate const&) {
-                    if (!g_unloading)
-                        RequestStateRefresh(RefreshCameraState);
-                });
-            m_cameraUpdatedToken = m_cameraWatcher.Updated(
-                [](DeviceWatcher const&, DeviceInformationUpdate const&) {
-                    if (!g_unloading)
-                        RequestStateRefresh(RefreshCameraState);
-                });
-            m_hasCameraWatcherTokens = true;
-            m_cameraWatcher.Start();
-            Wh_Log(L"[DeviceMon] Watching camera device topology");
-        } catch (winrt::hresult_error const& e) {
-            Wh_Log(L"[DeviceMon] Camera watcher failed hr=0x%08X",
-                   static_cast<unsigned>(e.code().value));
-            CleanupCameraWatcher();
-        } catch (...) {
-            Wh_Log(L"[DeviceMon] Camera watcher failed");
-            CleanupCameraWatcher();
-        }
-    }
-
-    void Cleanup() {
-        CleanupCameraWatcher();
-        if (m_micAccess && m_hasMicAccessToken) {
-            try { m_micAccess.AccessChanged(m_micAccessToken); } catch (...) {}
-        }
-        if (m_cameraAccess && m_hasCameraAccessToken) {
-            try { m_cameraAccess.AccessChanged(m_cameraAccessToken); } catch (...) {}
-        }
-        m_hasMicAccessToken = false;
-        m_hasCameraAccessToken = false;
-        m_micAccess = nullptr;
-        m_cameraAccess = nullptr;
-    }
-
-private:
-    void CleanupCameraWatcher() {
-        if (!m_cameraWatcher)
-            return;
-        if (m_hasCameraWatcherTokens) {
-            try { m_cameraWatcher.Added(m_cameraAddedToken); } catch (...) {}
-            try { m_cameraWatcher.Removed(m_cameraRemovedToken); } catch (...) {}
-            try { m_cameraWatcher.Updated(m_cameraUpdatedToken); } catch (...) {}
-        }
-        m_hasCameraWatcherTokens = false;
-        try { m_cameraWatcher.Stop(); } catch (...) {}
-        m_cameraWatcher = nullptr;
-    }
-
-    winrt::Windows::Devices::Enumeration::DeviceAccessInformation
-        m_micAccess{nullptr};
-    winrt::Windows::Devices::Enumeration::DeviceAccessInformation
-        m_cameraAccess{nullptr};
-    winrt::Windows::Devices::Enumeration::DeviceWatcher
-        m_cameraWatcher{nullptr};
-    winrt::event_token m_micAccessToken{};
-    winrt::event_token m_cameraAccessToken{};
-    winrt::event_token m_cameraAddedToken{};
-    winrt::event_token m_cameraRemovedToken{};
-    winrt::event_token m_cameraUpdatedToken{};
-    bool m_hasMicAccessToken = false;
-    bool m_hasCameraAccessToken = false;
-    bool m_hasCameraWatcherTokens = false;
 };
 
 // Returns the strongest observed camera block reason. CameraHardware occlusion
@@ -2568,64 +2035,48 @@ static bool CheckCapabilityInUse(PCWSTR capability) {
            ScanConsentUsage(HKEY_LOCAL_MACHINE, base + capability);
 }
 
-// Refresh only the domains whose native notification or sparse watchdog fired.
+// Poll all privacy states and push UI update if anything changed.
 // Must be called from a thread with COM initialized (COINIT_MULTITHREADED).
-static void UpdatePrivacyStates(DWORD flags) {
-    if (g_unloading || !flags)
-        return;
-
+static void UpdateDisabledStates() {
+    if (g_unloading) return;
+    PrivacyBlockReason locReason = CheckLocationBlockReason();
+    PrivacyBlockReason micReason = CheckMicBlockReason();
+    PrivacyBlockReason camReason = CheckCameraBlockReason();
+    bool locDis  = locReason != PrivacyBlockReason::None;
+    bool micDis  = micReason != PrivacyBlockReason::None;
+    bool camDis  = camReason != PrivacyBlockReason::None;
+    bool locUse  = CheckCapabilityInUse(L"location");
+    bool micUse  = CheckCapabilityInUse(L"microphone");
+    bool camUse  = CheckCapabilityInUse(L"webcam");
+    bool copInst = CheckCopilotInstalled();
+    bool copAct  = CheckCopilotActive();
+    // Update installed first so CheckCopilotBlockReason can read it.
+    bool prevCopI = g_copilotInstalled.exchange(copInst);
+    PrivacyBlockReason copReason = CheckCopilotBlockReason();
+    bool copDis  = copReason != PrivacyBlockReason::None;
+    bool prevLoc  = g_locDisabled.load();
+    bool prevMic  = g_micDisabled.load(),  prevCam  = g_camDisabled.load();
+    bool prevCopA = g_copilotActive.load();
+    bool prevCopD = g_copilotDisabled.load();
+    // Do not combine these exchanges with short-circuit ||: every state must
+    // be committed during the same refresh even when an earlier field changed.
     bool changed = false;
-    if (flags & RefreshLocationState) {
-        PrivacyBlockReason reason = CheckLocationBlockReason();
-        bool disabled = reason != PrivacyBlockReason::None;
-        changed |= g_locBlockReason.exchange(reason) != reason;
-        changed |= g_locDisabled.exchange(disabled) != disabled;
-    }
-    if (flags & RefreshMicrophoneState) {
-        PrivacyBlockReason reason = CheckMicBlockReason();
-        bool disabled = reason != PrivacyBlockReason::None;
-        changed |= g_micBlockReason.exchange(reason) != reason;
-        changed |= g_micDisabled.exchange(disabled) != disabled;
-    }
-    if (flags & RefreshCameraState) {
-        PrivacyBlockReason reason = CheckCameraBlockReason();
-        bool disabled = reason != PrivacyBlockReason::None;
-        changed |= g_camBlockReason.exchange(reason) != reason;
-        changed |= g_camDisabled.exchange(disabled) != disabled;
-    }
-    if (flags & RefreshLocationUsage) {
-        bool inUse = CheckCapabilityInUse(L"location");
-        changed |= g_locUsage.exchange(inUse) != inUse;
-    }
-    if (flags & RefreshMicrophoneUsage) {
-        bool inUse = CheckCapabilityInUse(L"microphone");
-        changed |= g_micUsage.exchange(inUse) != inUse;
-    }
-    if (flags & RefreshCameraUsage) {
-        bool inUse = CheckCapabilityInUse(L"webcam");
-        changed |= g_camUsage.exchange(inUse) != inUse;
-    }
-    if (flags & RefreshCopilotState) {
-        bool installed = g_copilotItemEnabled.load() &&
-                         CheckCopilotInstalled();
-        changed |= g_copilotInstalled.exchange(installed) != installed;
-        PrivacyBlockReason reason = g_copilotItemEnabled.load()
-            ? CheckCopilotBlockReason()
-            : PrivacyBlockReason::NotInstalled;
-        bool disabled = reason != PrivacyBlockReason::None;
-        changed |= g_copilotBlockReason.exchange(reason) != reason;
-        changed |= g_copilotDisabled.exchange(disabled) != disabled;
-    }
-    if (flags & RefreshCopilotActivity) {
-        bool active = g_copilotItemEnabled.load() && CheckCopilotActive();
-        changed |= g_copilotActive.exchange(active) != active;
-    }
-
-    Wh_Log(L"[Refresh] flags=0x%08X changed=%d loc=%d mic=%d cam=%d copInst=%d copAct=%d copDis=%d",
-           flags, changed ? 1 : 0,
-           g_locDisabled.load(), g_micDisabled.load(), g_camDisabled.load(),
-           g_copilotInstalled.load(), g_copilotActive.load(),
-           g_copilotDisabled.load());
+    changed |= g_locBlockReason.exchange(locReason) != locReason;
+    changed |= g_micBlockReason.exchange(micReason) != micReason;
+    changed |= g_camBlockReason.exchange(camReason) != camReason;
+    changed |= g_copilotBlockReason.exchange(copReason) != copReason;
+    changed |= g_locDisabled.exchange(locDis) != locDis;
+    changed |= g_micDisabled.exchange(micDis) != micDis;
+    changed |= g_camDisabled.exchange(camDis) != camDis;
+    changed |= g_locUsage.exchange(locUse) != locUse;
+    changed |= g_micUsage.exchange(micUse) != micUse;
+    changed |= g_camUsage.exchange(camUse) != camUse;
+    changed |= prevCopI != copInst;
+    changed |= g_copilotActive.exchange(copAct) != copAct;
+    changed |= g_copilotDisabled.exchange(copDis) != copDis;
+    Wh_Log(L"[Poll] loc %d->%d  mic %d->%d  cam %d->%d  copInst %d->%d  copAct %d->%d  copDis %d->%d  changed=%d",
+           prevLoc, locDis, prevMic, micDis, prevCam, camDis,
+           prevCopI, copInst, prevCopA, copAct, prevCopD, copDis, changed ? 1 : 0);
     if (changed && !g_unloading && g_taskbarWnd) {
         RunFromWindowThread(g_taskbarWnd, [](void*) {
             if (!g_unloading) UpdateSyntheticState();
@@ -2642,115 +2093,6 @@ static TextBlock MakeIconTextBlock(const wchar_t* glyph) {
     tb.HorizontalAlignment(HorizontalAlignment::Center);
     tb.TextWrapping(TextWrapping::NoWrap);
     return tb;
-}
-
-// A real emphasis layer: concentric translucent halos plus optional animation.
-// The host keeps the icon's exact layout size; larger children render outside
-// that box without participating in taskbar measurement.
-static FrameworkElement MakeGlowVisual(winrt::Windows::UI::Color color) {
-    using namespace winrt::Windows::UI::Xaml::Media::Animation;
-    using winrt::Windows::Foundation::IReference;
-    using winrt::Windows::Foundation::TimeSpan;
-    using winrt::Windows::UI::Xaml::Shapes::Ellipse;
-
-    Grid host;
-    double iconSize = static_cast<double>(g_settings.iconSize);
-    double reach = g_settings.glowSize / 100.0;
-    double strength = g_settings.glowOpacity / 100.0;
-    host.Width(iconSize);
-    host.Height(iconSize);
-    host.HorizontalAlignment(HorizontalAlignment::Center);
-    host.VerticalAlignment(VerticalAlignment::Center);
-    host.IsHitTestVisible(false);
-    host.Visibility(Visibility::Collapsed);
-
-    auto makeBrush = [color]() {
-        SolidColorBrush brush;
-        brush.Color(color);
-        return brush;
-    };
-    auto addHalo = [&](double diameter, double opacity) {
-        Ellipse halo;
-        halo.Width(diameter);
-        halo.Height(diameter);
-        halo.HorizontalAlignment(HorizontalAlignment::Center);
-        halo.VerticalAlignment(VerticalAlignment::Center);
-        halo.IsHitTestVisible(false);
-        halo.Fill(makeBrush());
-        halo.Opacity(std::clamp(opacity, 0.0, 1.0));
-        host.Children().Append(halo);
-    };
-
-    // Several low-alpha layers read as a bloom without relying on a compositor
-    // effect that may be unavailable inside Explorer's taskbar XAML island.
-    addHalo(iconSize * reach, strength * 0.08);
-    addHalo(iconSize * (1.0 + (reach - 1.0) * 0.55), strength * 0.14);
-    addHalo(iconSize * 1.20, strength * 0.24);
-
-    GlowAnimationState animationState;
-    animationState.element = host;
-
-    auto makeAnimation = [&](DependencyObject const& target, PCWSTR property,
-                             double from, double to, int durationMs,
-                             int beginMs = 0) {
-        DoubleAnimation animation;
-        animation.From(winrt::box_value(from).as<IReference<double>>());
-        animation.To(winrt::box_value(to).as<IReference<double>>());
-        animation.Duration(DurationHelper::FromTimeSpan(
-            TimeSpan{static_cast<int64_t>(durationMs) * 10000}));
-        if (beginMs > 0) {
-            animation.BeginTime(winrt::box_value(TimeSpan{
-                static_cast<int64_t>(beginMs) * 10000}).as<IReference<TimeSpan>>());
-        }
-        animation.RepeatBehavior(RepeatBehaviorHelper::Forever());
-        animation.EnableDependentAnimation(true);
-        Storyboard::SetTarget(animation, target);
-        Storyboard::SetTargetProperty(animation, property);
-        return animation;
-    };
-
-    if (g_settings.glowStyle == L"pulse") {
-        Storyboard storyboard;
-        auto opacity = makeAnimation(host, L"Opacity", 0.28, 1.0,
-                                     g_settings.glowSpeed);
-        opacity.AutoReverse(true);
-        storyboard.Children().Append(opacity);
-        animationState.storyboards.push_back(storyboard);
-    } else if (g_settings.glowStyle == L"radiate") {
-        constexpr int kRingCount = 3;
-        for (int i = 0; i < kRingCount; ++i) {
-            Ellipse ring;
-            ring.Width(iconSize);
-            ring.Height(iconSize);
-            ring.HorizontalAlignment(HorizontalAlignment::Center);
-            ring.VerticalAlignment(VerticalAlignment::Center);
-            ring.IsHitTestVisible(false);
-            ring.Fill(nullptr);
-            ring.Stroke(makeBrush());
-            ring.StrokeThickness(std::max(1.0, iconSize * 0.075));
-            ring.Opacity(0.0);
-            ring.RenderTransformOrigin({0.5f, 0.5f});
-            ScaleTransform scale;
-            scale.ScaleX(0.72);
-            scale.ScaleY(0.72);
-            ring.RenderTransform(scale);
-            host.Children().Append(ring);
-
-            int phaseMs = g_settings.glowSpeed * i / kRingCount;
-            Storyboard storyboard;
-            storyboard.Children().Append(makeAnimation(
-                scale, L"ScaleX", 0.72, reach, g_settings.glowSpeed, phaseMs));
-            storyboard.Children().Append(makeAnimation(
-                scale, L"ScaleY", 0.72, reach, g_settings.glowSpeed, phaseMs));
-            storyboard.Children().Append(makeAnimation(
-                ring, L"Opacity", strength, 0.0,
-                g_settings.glowSpeed, phaseMs));
-            animationState.storyboards.push_back(storyboard);
-        }
-    }
-
-    g_glowAnimationStates.push_back(std::move(animationState));
-    return host;
 }
 
 static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
@@ -2945,9 +2287,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         slot.VerticalAlignment(VerticalAlignment::Center);
 
         winrt::Windows::UI::Color glowColor;
-        if (g_settings.glowColorSet) {
-            glowColor = g_settings.glowColorValue;
-        } else if (g_settings.activeColorSet) {
+        if (g_settings.activeColorSet) {
             glowColor = g_settings.activeColorValue;
         } else {
             try {
@@ -2960,8 +2300,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         }
 
         FrameworkElement iconFe = nullptr;
-        FrameworkElement glowFe = MakeGlowVisual(glowColor);
-        slot.Children().Append(glowFe);
+        FrameworkElement glowFe = nullptr;
 
         if (token == L"copilot") {
             bool isDark = (Application::Current().RequestedTheme() == ApplicationTheme::Dark);
@@ -2993,10 +2332,11 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                 return std::wstring(buf);
             };
 
-            auto tryMakePath = [&](double sz) -> FrameworkElement {
+            auto tryMakePath = [&](double sz, bool isGlow) -> FrameworkElement {
                 try {
-                    std::wstring sizeStr = std::to_wstring((int)std::round(sz));
-                    std::wstring fillHex = toHexColor(neutralColor);
+                    double szN = isGlow ? sz * 1.5 : sz;
+                    std::wstring sizeStr = std::to_wstring((int)std::round(szN));
+                    std::wstring fillHex = toHexColor(isGlow ? glowColor : neutralColor);
                     std::wstring xaml =
                         std::wstring(
                             L"<Viewbox"
@@ -3013,20 +2353,21 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                         L"</Viewbox>";
                     auto elem = winrt::Windows::UI::Xaml::Markup::XamlReader::Load(xaml);
                     auto vb = elem.try_as<winrt::Windows::UI::Xaml::Controls::Viewbox>();
-                    if (!vb) {
-                        Wh_Log(L"[Copilot] XamlReader returned a non-Viewbox");
-                        return nullptr;
+                    if (!vb) { Wh_Log(L"[Copilot] XamlReader returned null or non-Viewbox (isGlow=%d)", isGlow); return nullptr; }
+                    if (isGlow) {
+                        vb.Opacity(g_settings.glowOpacity / 100.0);
+                        vb.Visibility(Visibility::Collapsed);
                     }
-                    Wh_Log(L"[Copilot] XamlReader OK");
+                    Wh_Log(L"[Copilot] XamlReader OK (isGlow=%d)", isGlow);
                     return vb.try_as<FrameworkElement>();
                 } catch (...) {
-                    Wh_Log(L"[Copilot] XamlReader threw");
+                    Wh_Log(L"[Copilot] XamlReader threw (isGlow=%d)", isGlow);
                     return nullptr;
                 }
             };
 
             // Fallback: 4-pointed sparkle Polygon when XamlReader fails
-            auto makeStar = [&](double sz) {
+            auto makeStar = [&](double sz, bool isGlow) {
                 winrt::Windows::UI::Xaml::Shapes::Polygon p;
                 double cx = sz / 2.0, w = sz * 0.14;
                 p.Points().Append({(float)cx,       0.0f});
@@ -3043,15 +2384,41 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                 p.VerticalAlignment(VerticalAlignment::Center);
                 p.IsHitTestVisible(false);
                 SolidColorBrush br;
-                br.Color(neutralColor);
+                br.Color(isGlow ? glowColor : neutralColor);
                 p.Fill(br);
+                if (isGlow) {
+                    p.Opacity(g_settings.glowOpacity / 100.0);
+                    p.Visibility(Visibility::Collapsed);
+                }
                 return p.try_as<FrameworkElement>();
             };
 
-            auto ip = tryMakePath((double)g_settings.iconSize);
-            if (!ip) ip = makeStar((double)g_settings.iconSize);
+            auto gp = tryMakePath((double)g_settings.iconSize, true);
+            if (!gp) gp = makeStar((double)g_settings.iconSize * 1.5, true);
+            glowFe = gp; slot.Children().Append(gp);
+
+            auto ip = tryMakePath((double)g_settings.iconSize, false);
+            if (!ip) ip = makeStar((double)g_settings.iconSize, false);
             iconFe = ip; slot.Children().Append(ip);
         } else {
+            // Glow layer — same glyph at 1.5× size, active color; behind the main icon
+            TextBlock glowTb;
+            glowTb.Text(glyph);
+            glowTb.FontFamily(FontFamily(iconFont));
+            glowTb.FontSize((double)g_settings.iconSize * 1.5);
+            glowTb.HorizontalAlignment(HorizontalAlignment::Center);
+            glowTb.VerticalAlignment(VerticalAlignment::Center);
+            glowTb.IsHitTestVisible(false);
+            glowTb.Opacity(g_settings.glowOpacity / 100.0);
+            {
+                SolidColorBrush glowBrush;
+                glowBrush.Color(glowColor);
+                glowTb.Foreground(glowBrush);
+            }
+            glowTb.Visibility(Visibility::Collapsed);
+            glowFe = glowTb;
+            slot.Children().Append(glowTb);
+
             auto tb = MakeIconTextBlock(glyph);
             tb.FontFamily(FontFamily(iconFont));
             iconFe = tb;
@@ -3156,18 +2523,6 @@ static void RemoveSyntheticIcons() {
         try { state.element.Tapped(state.tappedToken); } catch (...) {}
     }
     g_slotEventStates.clear();
-
-    // Storyboards retain their animation targets. Stop and release them before
-    // removing the XAML subtree so no callback can outlive the mod DLL.
-    for (auto& state : g_glowAnimationStates) {
-        for (auto const& storyboard : state.storyboards) {
-            try { storyboard.Stop(); } catch (...) {}
-        }
-        state.storyboards.clear();
-        state.element = nullptr;
-        state.running = false;
-    }
-    g_glowAnimationStates.clear();
 
     auto clearIconState = [](FrameworkElement const& fe) {
         if (!fe) return;
@@ -3593,166 +2948,30 @@ void Wh_ModAfterInit() {
             Wh_Log(L"[AfterInit] Retry %d", i + 1);
             ApplyStyleOnWindowThread();
         }
-        // Phase 2: event-driven privacy state. Registry, access, device,
-        // microphone, and camera notifications wake this thread with a domain
-        // bitmask. Timers are only used for Copilot process activity, a
-        // five-minute health reconciliation, and backed-off setup retries.
+        // Phase 2: monitor native hardware events and retain the existing
+        // 3-second sweep only for registry/ConsentStore state. Camera Refresh
+        // is normally a no-op; it reads the controller every five minutes as a
+        // watchdog and handles exponentially backed-off initialization retries.
         if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return 0;
-        MicPrivacyMonitor micMonitor;
-        CameraPrivacyMonitor cameraMonitor;
-        DeviceStateMonitor deviceMonitor;
-        RegistryChangeMonitor registryMonitor;
-
-        registryMonitor.AddWatch(
-            HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion"
-            L"\\CapabilityAccessManager\\ConsentStore\\location",
-            RefreshLocationState | RefreshLocationUsage,
-            L"HKCU location ConsentStore");
-        registryMonitor.AddWatch(
-            HKEY_LOCAL_MACHINE,
-            L"Software\\Microsoft\\Windows\\CurrentVersion"
-            L"\\CapabilityAccessManager\\ConsentStore\\location",
-            RefreshLocationState | RefreshLocationUsage,
-            L"HKLM location ConsentStore");
-        registryMonitor.AddWatch(
-            HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion"
-            L"\\CapabilityAccessManager\\ConsentStore\\microphone",
-            RefreshMicrophoneState | RefreshMicrophoneUsage,
-            L"HKCU microphone ConsentStore");
-        registryMonitor.AddWatch(
-            HKEY_LOCAL_MACHINE,
-            L"Software\\Microsoft\\Windows\\CurrentVersion"
-            L"\\CapabilityAccessManager\\ConsentStore\\microphone",
-            RefreshMicrophoneState | RefreshMicrophoneUsage,
-            L"HKLM microphone ConsentStore");
-        registryMonitor.AddWatch(
-            HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion"
-            L"\\CapabilityAccessManager\\ConsentStore\\webcam",
-            RefreshCameraState | RefreshCameraUsage,
-            L"HKCU webcam ConsentStore");
-        registryMonitor.AddWatch(
-            HKEY_LOCAL_MACHINE,
-            L"Software\\Microsoft\\Windows\\CurrentVersion"
-            L"\\CapabilityAccessManager\\ConsentStore\\webcam",
-            RefreshCameraState | RefreshCameraUsage,
-            L"HKLM webcam ConsentStore");
-        registryMonitor.AddWatch(
-            HKEY_CURRENT_USER, L"Software\\Policies\\Microsoft",
-            RefreshLocationState | RefreshCopilotState,
-            L"HKCU Microsoft policies");
-        registryMonitor.AddWatch(
-            HKEY_LOCAL_MACHINE, L"SOFTWARE\\Policies\\Microsoft",
-            RefreshLocationState | RefreshCopilotState,
-            L"HKLM Microsoft policies");
-        registryMonitor.AddWatch(
-            HKEY_LOCAL_MACHINE,
-            L"SYSTEM\\CurrentControlSet\\Services\\lfsvc",
-            RefreshLocationState, L"location service configuration");
-        registryMonitor.AddWatch(
-            HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
-            RefreshCopilotState, L"Explorer taskbar settings");
-        registryMonitor.AddWatch(
-            HKEY_CURRENT_USER,
-            L"Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows"
-            L"\\CurrentVersion\\AppModel\\Repository",
-            RefreshCopilotState, L"HKCU AppModel repository");
-        registryMonitor.AddWatch(
-            HKEY_LOCAL_MACHINE,
-            L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel",
-            RefreshCopilotState, L"HKLM AppModel repository");
-
+        MicPrivacyMonitor micMonitor(refresh);
+        CameraPrivacyMonitor cameraMonitor(refresh);
         micMonitor.Init();
         cameraMonitor.Init();
-        deviceMonitor.Init();
-        DWORD initialRegistrationFlags = registryMonitor.RefreshRegistrations();
-        DWORD initialFlags = g_pendingRefreshFlags.exchange(RefreshNone) |
-                             RefreshAll | initialRegistrationFlags;
-        Wh_Log(L"[Refresh] Phase 2 starting — initial state reconciliation");
-        UpdatePrivacyStates(initialFlags);
-        Wh_Log(L"[Refresh] Baseline: loc=%d mic=%d cam=%d copInst=%d copAct=%d copDis=%d",
+        Wh_Log(L"[Poll] Phase 2 starting — initial hardware state check");
+        UpdateDisabledStates();
+        Wh_Log(L"[Poll] Baseline: loc=%d mic=%d cam=%d copInst=%d copAct=%d copDis=%d",
                g_locDisabled.load(), g_micDisabled.load(), g_camDisabled.load(),
                g_copilotInstalled.load(), g_copilotActive.load(), g_copilotDisabled.load());
-
-        static constexpr ULONGLONG kCopilotIntervalMs = 60 * 1000;
-        static constexpr ULONGLONG kHealthIntervalMs = 5 * 60 * 1000;
-        ULONGLONG nextCopilotCheck = GetTickCount64() + kCopilotIntervalMs;
-        ULONGLONG nextHealthCheck = GetTickCount64() + kHealthIntervalMs;
-
-        auto delayUntil = [](ULONGLONG deadline) -> DWORD {
-            ULONGLONG now = GetTickCount64();
-            if (now >= deadline)
-                return 0;
-            return static_cast<DWORD>(std::min<ULONGLONG>(
-                deadline - now, static_cast<ULONGLONG>(INFINITE - 1)));
-        };
-
+        HANDLE waitEvents[] = { stop, refresh };
         while (!g_unloading) {
-            std::vector<HANDLE> waitEvents{stop, refresh};
-            registryMonitor.AppendWaitHandles(waitEvents);
-
-            DWORD timeout = delayUntil(nextHealthCheck);
-            if (g_copilotItemEnabled.load())
-                timeout = std::min(timeout, delayUntil(nextCopilotCheck));
-            timeout = std::min(timeout, cameraMonitor.NextActionDelayMs());
-            timeout = std::min(timeout, registryMonitor.NextActionDelayMs());
-
-            DWORD wait = WaitForMultipleObjects(
-                static_cast<DWORD>(waitEvents.size()), waitEvents.data(),
-                FALSE, timeout);
+            DWORD wait = WaitForMultipleObjects(ARRAYSIZE(waitEvents), waitEvents, FALSE, 3000);
             if (wait == WAIT_OBJECT_0) break;
-            if (wait == WAIT_FAILED) {
-                Wh_Log(L"[Refresh] WaitForMultipleObjects failed error=%u",
-                       GetLastError());
-                break;
-            }
-
-            DWORD flags = RefreshNone;
-            if (wait == WAIT_OBJECT_0 + 1) {
-                flags |= g_pendingRefreshFlags.exchange(RefreshNone);
-            } else if (wait >= WAIT_OBJECT_0 + 2 &&
-                       wait < WAIT_OBJECT_0 + waitEvents.size()) {
-                HANDLE signaled = waitEvents[wait - WAIT_OBJECT_0];
-                flags |= registryMonitor.HandleSignaled(signaled);
-            }
-
-            if (flags & RefreshMonitorSetup) {
-                registryMonitor.ResetFailedRetries();
-                cameraMonitor.ResetFailedRetry();
-                flags &= ~RefreshMonitorSetup;
-            }
+            if (wait == WAIT_OBJECT_0 + 1) Wh_Log(L"[Poll] Native refresh event");
             cameraMonitor.Refresh();
-            flags |= g_pendingRefreshFlags.exchange(RefreshNone);
-
-            if (flags & RefreshMonitorSetup) {
-                registryMonitor.ResetFailedRetries();
-                cameraMonitor.ResetFailedRetry();
-                flags &= ~RefreshMonitorSetup;
-            }
-            flags |= registryMonitor.RefreshRegistrations();
-
-            ULONGLONG now = GetTickCount64();
-            if (g_copilotItemEnabled.load() && now >= nextCopilotCheck) {
-                flags |= RefreshCopilotActivity;
-                nextCopilotCheck = now + kCopilotIntervalMs;
-            } else if (!g_copilotItemEnabled.load()) {
-                nextCopilotCheck = now + kCopilotIntervalMs;
-            }
-            if (now >= nextHealthCheck) {
-                flags |= RefreshAll;
-                nextHealthCheck = now + kHealthIntervalMs;
-                Wh_Log(L"[Refresh] Five-minute health reconciliation");
-            }
-
-            UpdatePrivacyStates(flags & RefreshAll);
+            UpdateDisabledStates();
         }
-        deviceMonitor.Cleanup();
         cameraMonitor.Cleanup();
         micMonitor.Cleanup();
-        registryMonitor.Cleanup();
         CoUninitialize();
         return 0;
     }, nullptr, 0, nullptr);
@@ -3784,17 +3003,14 @@ void Wh_ModUninit() {
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
-    Wh_Log(L"[Settings] order=%s rows=%d cols=%d suppressNative=%d cameraHardware=%d cameraItem=%d copilotItem=%d glow=%d/%s opacity=%d reach=%d speed=%d",
+    Wh_Log(L"[Settings] order=%s rows=%d cols=%d suppressNative=%d cameraHardware=%d cameraItem=%d",
            g_settings.itemOrder.c_str(), g_settings.gridRows,
            g_settings.gridColumns, g_settings.suppressNativeIndicators ? 1 : 0,
            g_cameraHardwareDetectionEnabled.load() ? 1 : 0,
-           g_cameraItemEnabled.load() ? 1 : 0,
-           g_copilotItemEnabled.load() ? 1 : 0,
-           g_settings.glowEnabled ? 1 : 0, g_settings.glowStyle.c_str(),
-           g_settings.glowOpacity, g_settings.glowSize,
-           g_settings.glowSpeed);
+           g_cameraItemEnabled.load() ? 1 : 0);
 
-    RequestStateRefresh(RefreshAll | RefreshMonitorSetup);
+    if (g_stateRefreshEvent)
+        SetEvent(g_stateRefreshEvent);
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return;

@@ -15,8 +15,9 @@ toolbar workflow. Windows 10 is not supported.
 
 Click a small button to browse a folder, drive, Desktop, or Control Panel
 directly from the taskbar — no minimizing required. Subfolders expand on
-hover. Right-click any item for the full Windows Shell context menu. Folders
-include an "Open in Explorer" shortcut at the top of their submenu.
+hover. Right-click any item for the full classic Windows Shell context menu.
+Every folder popup includes an "Open in Explorer" shortcut at the top,
+including the configured root folder.
 
 ## Example folder entries
 
@@ -50,14 +51,14 @@ drag-to-reorder control.
 |---------|---------|-------------|
 | Position | Before notification icons | Where to inject the button group in the tray |
 | Folders | Desktop and Control Panel | Add/remove records in the form; reorder complete records in Textual mode |
-| Layout mode | Single row | Single row, single column, fixed grid, or smart automatic |
+| Layout mode | Smart automatic | Single row, single column, fixed grid, or smart automatic |
 | Smart layout | Balanced | Balanced, pack vertical, or pack horizontal in smart mode |
-| Grid columns | 2 | Columns in fixed-grid mode; maximum columns in smart mode |
+| Grid columns | 0 (auto) | Columns in fixed-grid mode (minimum 1); maximum columns in smart mode (0 = automatic) |
 | Grid rows | 0 (auto) | Rows in fixed-grid mode; maximum rows in smart mode (0 = taskbar height) |
 | Fill order | Row-first | Row-first or column-first |
 | Short row/column position | Last | Put an incomplete row or column first or last |
 | Short row/column alignment | Start | Align an incomplete final row or column |
-| Button width | 32 px | Width of each folder button |
+| Button width | 24 px | Width of each folder button |
 | Button height | 22 px | Height of each folder button |
 | Button spacing | 4 px | Gap between buttons |
 | Default button text | 📁 | Fallback icon for entries with long labels |

@@ -271,3 +271,251 @@ User test round 4 results and the probe chain that settled the camera question:
 - Probe tooling kept at `.agents/tools/camera-probe.ps1`.
 - User directive recorded: replace the 3-second polling with event-driven
   detection (RegNotifyChangeKeyValue + WMI events) once detection stabilizes.
+
+## 2026-07-18 — Taskbar Folder Menus PR #4485 revision pass
+
+Implemented the requested PR corrections and the first repair for the user's
+post-resume hidden-icons overlap in the lab checkout (not yet copied to the PR
+branch):
+
+- Replaced the invalid private menu-message constant with the documented
+  `WM_MENURBUTTONUP` path and made nested Shell context menus use
+  `TPM_RECURSE`.
+- Added `IContextMenu3`/`IContextMenu2` message forwarding for dynamic,
+  owner-drawn, and keyboard-driven classic Shell menu extensions, with
+  `CMINVOKECOMMANDINFOEX` invocation and Shift extended verbs.
+- Added `Open in Explorer` to the configured root popup as well as lazy folder
+  submenus.
+- Applied `[[clang::no_destroy]]` to the namespace-scope strong XAML holders,
+  removed the unused strong parent reference, removed the unused version
+  include/library, rejected off-thread menu subclassing, and made automatic row
+  capacity DPI-correct.
+- Reworked taskbar-start retries to validate the live `SystemTrayFrameGrid`
+  instead of trusting a non-null cached Grid. Detached grids are released on
+  the UI thread, native children recreated into the reserved folder column are
+  shifted back out, and named placement anchors no longer fall back to column
+  zero while the tray is still loading.
+- Updated both detailed README copies and the root catalog. Windhawk syntax
+  compile, embedded/folder README parity, and `git diff --check` all pass.
+  Live right-click, unload, and overnight sleep/wake tests remain required.
+- First live right-click test then produced no action at all. Re-reading the
+  archived working prototype exposed the regression: it monitored the popup
+  menu's modal input loop with a thread-local `WH_MSGFILTER`, while the Shell
+  rewrite had replaced that path with only a subclass on `Shell_TrayWnd`.
+  Restored the message-filter hook, added recursive `MenuItemFromPoint` hit
+  testing for root and nested popups, and kept the window subclass for
+  `IContextMenu2`/`IContextMenu3` extension-message forwarding. Added explicit
+  logs for right-button capture, menu-item lookup, PIDL binding, context-menu
+  creation, and command invocation. Compile/readme/diff checks still pass;
+  this second right-click path awaits live retest.
+- Second live test confirmed the classic context menu and ordinary commands,
+  but exposed modal-loop reentrancy: Properties could be delayed or batched,
+  while the taskbar button remained highlighted. The Shell context menu was
+  still being tracked and invoked from inside the original folder popup's
+  `WH_MSGFILTER` callback. Changed right-click to clone/queue the selected PIDL,
+  call `EndMenu`, let `TrackPopupMenu` fully unwind, destroy/free the folder
+  popup, and only then create the Shell context menu. Kept the owner subclass
+  through that second menu for extension forwarding, stopped forcing either
+  asynchronous or synchronous invocation semantics, and posted `WM_NULL` after
+  each tracked popup to complete menu dismissal. Static validation still
+  passes; Properties/modal-verb behavior awaits the next live test.
+- Third live test confirmed that fully unwinding the folder popup fixed
+  Properties invocation, but also confirmed the usability cost: the original
+  folder popup vanished as soon as an item was right-clicked. Reworked this
+  into a hybrid nested flow. Dismissing the Shell context menu now resumes the
+  still-active folder popup, allowing a mistaken target to be retried. A
+  positive Shell command retains its `IContextMenu`, calls `EndMenu`, waits for
+  the folder popup to unwind and be destroyed, then invokes the queued verb
+  outside the modal menu loop. Compile, README parity, and diff checks pass;
+  the cancel/retry and positive-command branches await live testing.
+- Fourth live test showed the nested attempt still collapsed the original
+  popup immediately. The nesting call was being made too early, from the raw
+  `WH_MSGFILTER` `WM_RBUTTONUP` callback. Corrected the event sequence to match
+  the Win32 menu contract: the filter now hit-tests and posts
+  `WM_MENURBUTTONUP` to the menu owner, returns from the raw input callback,
+  and only then enters the Shell `TrackPopupMenuEx(..., TPM_RECURSE)` call from
+  the owner subclass. Static validation passes; whether this preserves the
+  original popup on Shell-menu dismissal awaits live testing.
+- Fifth live test confirmed the corrected owner-message sequence: the original
+  folder cascade stays available, context-sensitive Shell menus are correct,
+  and Properties/other commands behave normally. One cancellation edge
+  remained: a click outside the nested Shell menu was consumed by that menu,
+  so the resumed outer popup kept the XAML button highlighted. Added nested
+  menu hit-testing that distinguishes Escape or a click back into the folder
+  cascade from a click outside both menu trees; only the latter now calls
+  `EndMenu` to close the outer popup and release the button state. Static
+  validation passes; this final click-away branch awaits live confirmation.
+- Sixth live test screenshot showed that the remaining highlight occurred on
+  the positive Properties path, not ordinary context-menu cancellation. The
+  Properties handler blocks inside `IContextMenu::InvokeCommand`, which was
+  still called before the original XAML `Button.Click` callback returned.
+  Changed queued Shell verbs to be dispatched through a registered message on
+  the taskbar owner after `ShowFolderMenu` has destroyed the popup and returned;
+  the temporary owner subclass removes itself before invoking the verb. This
+  lets the XAML pressed visual clear before a modal Properties dialog begins.
+  Static validation passes; the modal-verb highlight fix awaits live testing.
+- Seventh live clarification established that Properties was incidental: any
+  folder popup dismissed by clicking away left the button highlighted until
+  the pointer returned to the taskbar. The native `TrackPopupMenu` input loop
+  can prevent XAML from receiving its pointer-exit transition, leaving the
+  Button in a stale `PointerOver` state. The click handler now weak-captures its
+  Button and explicitly returns it to the `Normal` visual state after the menu
+  loop exits. Compile, README-sync, and diff checks pass; live confirmation is
+  pending.
+- Eighth live test showed that selecting `Normal` alone was insufficient: the
+  Button immediately restored `PointerOver` from its stale internal input
+  state, and even the Windows key did not clear it. The reset now releases any
+  pointer captures, removes the Button from hit testing, collapses it through a
+  synchronous layout pass, restores it, and only then selects `Normal`. This
+  invalidates the stale pointer target rather than changing only its appearance.
+  Compile, README-sync, and diff checks pass; live confirmation is pending.
+- Ninth live test confirmed the input-state reset: folder menus, context menus,
+  Properties, click-away dismissal, and button highlight recovery all look
+  correct. Final defaults were changed to Smart automatic layout,
+  `gridColumns: 0` (automatic Smart column cap), and 24 px button width. The
+  loader now preserves zero for the Smart-layout sentinel while Fixed grid
+  still enforces at least one column. Source compilation, embedded/folder
+  README parity, and `git diff --check` pass. The mod is ready for fresh
+  screenshots.
+
+## 2026-07-18 — Privacy Indicator Anchor camera-switch reorientation
+
+Revisited the prior "impossible" camera-switch conclusion against Microsoft's
+camera privacy-control contract. The earlier live probes remain valid evidence
+that this Legion exposes no useful PnP, ConsentStore, Lenovo registry, or
+Lenovo WMI state change, but they did not test the Windows 11
+`CameraOcclusionInfo` API or the contents of the still-running camera stream.
+
+- Microsoft's supported kill-switch design keeps the camera present and apps
+  streaming while the ISP substitutes blank frames, which matches the user's
+  observation and makes stream-based inference technically plausible.
+- The new detector order is deterministic first: test
+  `CameraOcclusionKind::CameraHardware` and `CameraOcclusionInfo.StateChanged`
+  while streaming. Only if the driver does not expose that state should a
+  separate `SharedReadOnly` frame-reader probe compare open/closed luminance,
+  spatial variance, temporal variance, and fixed-frame characteristics.
+- Expanded `.agents/tools/camera-probe.ps1` to initialize in
+  `SharedReadOnly` mode and report camera-hardware occlusion support/state. The
+  script passed a parser check, and Windows PowerShell 5.1 resolved both the
+  existing MediaCapture type and the newer CameraOcclusion type. PowerShell 7
+  cannot project that newer WinRT type here, so the script now exits with a
+  clear host requirement. It was deliberately not run because doing so opens
+  the camera; the next live step requires the user's opt-in and two runs,
+  switch open and switch closed.
+- Recorded the architecture and false-positive limits in
+  `.agents/knowledge/privacy-anchor-design-notes.md`. No privacy mod source was
+  changed in this reorientation pass.
+
+## 2026-07-18 — Standard camera hardware-occlusion detector
+
+The user ran the `SharedReadOnly` camera probe in both physical switch states.
+The camera reported `CameraHardware` support in both runs. With the switch
+blocked, `IsOccluded=True` and `IsOcclusionKind(CameraHardware)=True`; with the
+switch enabled, both state values were false. This proves a direct standard
+Windows signal on this camera without requiring black-frame inference.
+
+- Replaced the speculative Lenovo `LENOVO_GAMEZONE_DATA` WMI check with a
+  thread-owned `CameraPrivacyMonitor` using Windows 11
+  `VideoDeviceController.CameraOcclusionInfo`.
+- The monitor opens the default video device in `SharedReadOnly` mode without
+  starting preview or frame capture, reads the initial state, subscribes to
+  `StateChanged`, and wakes the existing state-refresh loop on transitions.
+- Cleanup removes the event handler and closes `MediaCapture` before the state
+  thread exits. Temporary initialization failures retry; a driver that reports
+  no `CameraHardware` support falls back to existing software-policy, device,
+  PnP, and ConsentStore checks without repeated camera opens.
+- Updated the embedded and folder documentation to describe the portable
+  driver-support boundary. The persistent event path still needs a live
+  Windhawk switch test. The camera probe does not establish microphone state;
+  microphone hardware/software characterization remains separate.
+- Windhawk syntax compilation, PowerShell probe parsing, stale Lenovo/WMI
+  source search, and `git diff --check` pass. The privacy folder README remains
+  intentionally richer than the embedded README, so the existing planned
+  README-unification check still reports a mismatch.
+
+## 2026-07-18 — Privacy evidence tooltips and Settings actions
+
+The user live-confirmed the first working camera slash: it responds immediately
+to the Legion's physical camera switch. Follow-up review corrected the UI
+semantics against Microsoft's API contract: an idle-camera
+`CameraHardware` occlusion report is strong device evidence but is advisory,
+not an absolute security guarantee.
+
+- Replaced the single "Hardware disabled" tooltip label with reason-specific
+  states for user/system access denial, policy, location service, endpoint
+  mute, device disabled/unavailable, advisory camera occlusion, Copilot not
+  installed, and the Copilot taskbar setting.
+- Microphone privacy policy/ConsentStore checks are now distinct from default
+  endpoint mute. A keyboard Fn mute therefore reports software/firmware-visible
+  endpoint mute rather than claiming a physical hardware cutoff.
+- Moved tooltips to transparent full-slot hit targets, fixing the Copilot
+  Viewbox tooltip. Added click actions that choose documented `ms-settings:`
+  pages according to the item and current reason.
+- Added `cameraHardwareDetection` so users can disable the persistent
+  `SharedReadOnly` controller monitor if their camera powers an LED, surfaces
+  an indicator, or has compatibility trouble. No preview or frame capture is
+  started.
+- Fixed a pre-existing short-circuit state-update bug: all atomic state and
+  reason exchanges now run on every refresh instead of stopping after the first
+  changed field. Windhawk syntax compilation and `git diff --check` pass; the
+  refined tooltips, clicks, and monitor toggle await live testing.
+
+## 2026-07-18 — Event-driven camera monitor hardening
+
+- Removed the camera controller's three-second `GetState` read. The existing
+  `CameraOcclusionInfo.StateChanged` subscription is now the primary path, with
+  a five-minute liveness read handled by the existing state worker rather than
+  a second watchdog thread.
+- Temporary camera initialization failures now back off through 10 seconds,
+  30 seconds, 2 minutes, and 10 minutes. A definitive unsupported result is
+  cached for the current enabled session instead of reopening the controller.
+- Camera monitoring now requires both `cameraHardwareDetection` and the
+  `camera` token in `itemOrder`; disabling either releases the event handler and
+  `MediaCapture`, while re-enabling triggers a fresh initialization.
+- Updated both camera-monitor documentation surfaces and settings diagnostics.
+  The installed Windhawk Clang toolchain reports syntax success and
+  `git diff --check` passes. Release/reopen and single-monitor behavior still
+  require a live settings test.
+
+## 2026-07-18 — Removed Privacy Anchor's three-second global sweep
+
+- Split the monolithic privacy refresh into domain flags for location, mic,
+  camera, each ConsentStore usage surface, Copilot installation/policy, and
+  Copilot process activity. Native events now refresh only the affected domain.
+- Added asynchronous `RegNotifyChangeKeyValue` subscriptions for each
+  location/microphone/webcam ConsentStore tree plus location policy/service,
+  Copilot policy/taskbar, and AppModel package state. Notifications re-arm
+  after each signal; missing keys temporarily watch their parent, transient
+  failures back off through 10 seconds, 30 seconds, 2 minutes, 10 minutes, and
+  30 minutes, and access-denied watches remain disabled for the mod session.
+- Added `DeviceAccessInformation.AccessChanged` subscriptions for microphone
+  and camera access plus a video-capture `DeviceWatcher` for camera topology.
+  Existing endpoint-volume and camera-occlusion subscriptions remain intact.
+- Replaced the fixed 3000 ms worker timeout with a dynamic wait over stop,
+  manual, registry, device, and hardware events. Only a targeted one-minute
+  Copilot process check, five-minute full health reconciliation, camera
+  watchdog, and failed-monitor retry deadlines remain timer-driven.
+- Updated both user-facing monitoring descriptions. Windhawk syntax compilation
+  and targeted `git diff --check` pass; live event, settings, teardown, and
+  sparse-timer behavior still require testing in Explorer.
+
+## 2026-07-18 — Privacy Anchor four-state visual emphasis
+
+The user live-confirmed that the event-driven location, microphone, camera,
+permission, and hardware-shutter paths now produce the expected states, with
+occasional Windows/driver latency but no missing behavior observed.
+
+- Made the four presentation states explicit: idle/available, active,
+  disabled/unavailable, and active while disabled. The combined state now keeps
+  active color/emphasis beneath the slash by default instead of collapsing into
+  ordinary disabled styling; `alertWhenBlockedAndActive` can opt out.
+- Replaced the enlarged duplicate-glyph “glow” with fixed-footprint concentric
+  halos and three selectable treatments: steady, breathing pulse, or expanding
+  radiation rings. Added independent glow color, opacity, reach, and cycle-time
+  controls; Storyboards are stopped and released before XAML subtree teardown.
+- Added independent idle and disabled colors plus disabled opacity. Existing
+  active/slash colors remain composable, including alpha-bearing hex values.
+- Unified the embedded and folder READMEs and documented the four states, visual
+  controls, width-preserving effect, and a deliberately high-impact preset.
+- Windhawk Clang syntax compilation, README parity, and targeted
+  `git diff --check` pass. Live visual tuning and final screenshots remain.

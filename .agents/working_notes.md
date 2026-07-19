@@ -19,9 +19,15 @@ current docs/screenshots (standing directives in README.md).
    - [ ] Refresh screenshots (accent default changed visuals)
    - [ ] Sync folder README settings table
 
-3. **Taskbar Folder Menus** — v0.6 on PR #4485, CI green, awaiting m417z
-   review. Retest rule: Windhawk log window CLOSED (open log masks the
-   teardown race).
+3. **Taskbar Folder Menus** — READY FOR SCREENSHOTS. The v0.6 reviewer
+   revision is compile-checked and live-confirmed: native Shell context menus,
+   modal verbs, nested-cascade retention, click-away dismissal, and button
+   visual reset are working. Defaults are now Smart automatic, automatic
+   column cap (`gridColumns: 0`), and 24 px button width.
+   - [ ] Capture current screenshots: one ordinary single-height taskbar and
+         one useful double-height/elaborate configuration
+   - [ ] After screenshots, perform the final three-layer docs check before
+         discussing any PR #4485 sync (no submission yet)
 
 4. **OmniButton Customizer** — BROKEN. Test round 3 failed 2026-07-17 (work
    log): battery percent still wrong; independent mode hides the battery glyph
@@ -35,31 +41,50 @@ current docs/screenshots (standing directives in README.md).
      favor of the customizer; if refused, the 5 review comments need a response
      commit (archive: knowledge/pr-review-comments.md)
 
-5. **Privacy Indicator Anchor** — mostly working as of 2026-07-18 user tests:
+5. **Privacy Indicator Anchor** — ACTIVE TOOLTIP/ACTION TEST. Mostly
+   working as of 2026-07-18 user tests:
    copilot slash now sticks (WebExperience false-positive fixed), slash default
    flipped to falling (`\`), native active-mic suppression CONFIRMED working
    with correct mirrored state, in-use lighting confirmed (fires on actual
    streaming only — ConsentStore records are written on stream, not open).
-   **Camera kill-switch verdict (full probe history in work log 2026-07-18):
-   invisible to software at every level on this Legion — hardware-disabled
-   detection is IMPOSSIBLE on this machine.** Camera icon contract: bright =
-   actively streaming; no disabled-slash here.
-   - [ ] Remove or gate the Lenovo `LENOVO_GAMEZONE_DATA` WMI check (this
-     machine's firmware has no camera methods — it permanently no-ops); update
-     both readmes to document the camera limitation honestly
-   - [ ] Optional last stone: elevated `LENOVO_OTHER_METHOD` method list (low odds)
-   - [ ] Replace 3s polling with event-driven (USER DIRECTIVE — dislikes
-     polling): RegNotifyChangeKeyValue on ConsentStore keys + WMI event
-     subscription for Lenovo Fn keys (`LENOVO_UTILITY_EVENT`); mic monitor
-     already event-driven
+   The camera slash is now LIVE-CONFIRMED: it responds to the physical switch.
+   Microsoft treats idle-camera occlusion as advisory, so the refined tooltip
+   says "likely blocked" until Windows also reports active camera use.
+   - [ ] Live-test the evidence-specific tooltip text for all four icons,
+         especially Copilot's new transparent slot hit target
+   - [ ] Click each icon and confirm the reason-aware Settings destination:
+         location privacy; mic privacy/default input; camera privacy/device;
+         Copilot taskbar/installed apps
+   - [ ] Toggle `cameraHardwareDetection` off/on and remove/re-add `camera` in
+         `itemOrder`; confirm the controller releases/reopens without an
+         Explorer restart and only one monitor remains active
+   - [ ] Confirm the persistent `SharedReadOnly` monitor does not turn on the
+         webcam LED or create a permanent webcam-usage record by itself.
+   - [ ] Confirm the Fn-key mic state is labeled "Endpoint muted" rather than
+         "Hardware disabled" and that Windows privacy denial gets a distinct
+         access-denied reason
+   - [ ] Keep frame-signature inference only as an opt-in fallback experiment
+         for cameras whose drivers do not support `CameraHardware` occlusion.
+   - [x] Live-test the new event-driven state worker: location, mic, camera,
+         permission, and hardware-shutter states all produced the expected UI.
+         Some camera/location/mic responses remain naturally delayed, but the
+         removed three-second global sweep has not been needed for correctness.
+   - [ ] Live-test the four-state visual polish: idle, active, unavailable, and
+         active-while-unavailable. Compare steady/pulse/radiate at low and high
+         intensity, and confirm radiation never changes tray width.
    - [ ] If user's saved `slashDirection` is still "rising" from the old
      default, one dropdown click to Falling fixes it
-   - [ ] Embedded↔folder readme unification + screenshots before submission
+   - [x] Embedded↔folder readme unification
+   - [ ] Capture submission screenshots, including an intentionally striking
+         radiating-active example and a blocked/active slash combination
    - Design/reference: knowledge/privacy-anchor-design-notes.md,
      `_research/privacy-indicator-anchor-design.md`
 
 ## Lab-level todos
 
+- [ ] Taskbar Clock Customization Spacer: investigate the repeating
+      `PDH_INVALID_DATA` counter failures captured during privacy testing; see
+      `knowledge/taskbar-clock-spacer-pdh-invalid-data.md`.
 - [ ] taskmanager-tail README: user decision needed on unification direction
       (published mod; folder README is standalone-repo style)
 - [ ] tray-utility-customizer: dedicated settings/readme pass (folder README

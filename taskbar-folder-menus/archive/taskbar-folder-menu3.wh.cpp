@@ -65,14 +65,14 @@ drag-to-reorder control.
 |---------|---------|-------------|
 | Position | Before notification icons | Where to inject the button group in the tray |
 | Folders | Desktop and Control Panel | Add/remove records in the form; reorder complete records in Textual mode |
-| Layout mode | Smart automatic | Single row, single column, fixed grid, or smart automatic |
+| Layout mode | Single row | Single row, single column, fixed grid, or smart automatic |
 | Smart layout | Balanced | Balanced, pack vertical, or pack horizontal in smart mode |
-| Grid columns | 0 (auto) | Columns in fixed-grid mode (minimum 1); maximum columns in smart mode (0 = automatic) |
+| Grid columns | 2 | Columns in fixed-grid mode; maximum columns in smart mode |
 | Grid rows | 0 (auto) | Rows in fixed-grid mode; maximum rows in smart mode (0 = taskbar height) |
 | Fill order | Row-first | Row-first or column-first |
 | Short row/column position | Last | Put an incomplete row or column first or last |
 | Short row/column alignment | Start | Align an incomplete final row or column |
-| Button width | 24 px | Width of each folder button |
+| Button width | 32 px | Width of each folder button |
 | Button height | 22 px | Height of each folder button |
 | Button spacing | 4 px | Gap between buttons |
 | Default button text | 📁 | Fallback icon for entries with long labels |
@@ -137,7 +137,7 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
     shell:ControlPanelFolder. Environment variables such as %USERPROFILE% are
     expanded. Emoji labels work well on narrow buttons.
 
-- layoutMode: smart
+- layoutMode: row
   $name: Layout mode
   $description: How to arrange multiple folder buttons.
   $options:
@@ -154,11 +154,11 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
   - packVertical: Pack vertical
   - packHorizontal: Pack horizontal
 
-- gridColumns: 0
-  $name: Grid columns (0 = auto)
+- gridColumns: 2
+  $name: Grid columns
   $description: >-
-    Number of columns in Fixed grid mode (minimum 1). In Smart automatic mode,
-    this is the maximum column count; 0 chooses automatically.
+    Number of columns in Fixed grid mode. In Smart automatic mode, this is the
+    maximum column count.
 
 - gridRows: 0
   $name: Grid rows (0 = auto)
@@ -188,7 +188,7 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
   - center: Center
   - end: End
 
-- buttonWidth: 24
+- buttonWidth: 32
   $name: Button width (px)
 
 - buttonHeight: 22
@@ -315,16 +315,16 @@ struct FolderEntry {
 
 struct ModSettings {
     std::wstring position = L"beforeIcons";
-    std::wstring layoutMode = L"smart";
+    std::wstring layoutMode = L"row";
     std::wstring smartLayout = L"balanced";
     std::wstring buttonText = L"📁";
     std::vector<FolderEntry> folders;
-    int gridColumns = 0;
+    int gridColumns = 2;
     int gridRows = 0;
     std::wstring fillOrder = L"rowFirst";
     std::wstring shortGroupPosition = L"last";
     std::wstring shortGroupAlign = L"start";
-    int buttonWidth = 24;
+    int buttonWidth = 32;
     int buttonHeight = 22;
     int buttonSpacing = 4;
     int maxMenuItems = 0;
@@ -437,7 +437,7 @@ static void LoadSettings() {
     g_settings.smartLayout = GetStringSetting(L"smartLayout");
     g_settings.buttonText = GetStringSetting(L"buttonText");
     g_settings.folders = LoadFolders();
-    g_settings.gridColumns = std::max(0, Wh_GetIntSetting(L"gridColumns"));
+    g_settings.gridColumns = std::max(1, Wh_GetIntSetting(L"gridColumns"));
     g_settings.gridRows = std::max(0, Wh_GetIntSetting(L"gridRows"));
     g_settings.fillOrder = GetStringSetting(L"fillOrder");
     g_settings.shortGroupPosition = GetStringSetting(L"shortGroupPosition");
@@ -501,22 +501,7 @@ static std::vector<PendingSubmenu> g_pendingSubmenus;
 static IContextMenu2* g_activeContextMenu2 = nullptr;
 static IContextMenu3* g_activeContextMenu3 = nullptr;
 static HMENU g_activeFolderMenu = nullptr;
-static HMENU g_suspendedFolderMenu = nullptr;
-static HMENU g_activeShellContextMenu = nullptr;
-static bool g_shellContextDismissedByOutsideClick = false;
-
-struct PendingShellCommand {
-    IContextMenu* contextMenu = nullptr;
-    int commandOffset = -1;
-    POINT invokePoint{};
-};
-static PendingShellCommand g_pendingShellCommand;
-
-static UINT GetInvokeShellCommandMessage() {
-    static const UINT message = RegisterWindowMessageW(
-        L"Windhawk_InvokeFolderMenuShellCommand_" WH_MOD_ID);
-    return message;
-}
+static PIDLIST_ABSOLUTE g_pendingContextMenuPidl = nullptr;
 
 // Forward declarations
 static void ApplyAllSettings();
@@ -990,51 +975,14 @@ static void InvokePidl(HWND owner, PCIDLIST_ABSOLUTE pidl) {
     ShellExecuteExW(&sei);
 }
 
-static void ClearPendingShellCommand() {
-    if (g_pendingShellCommand.contextMenu)
-        g_pendingShellCommand.contextMenu->Release();
-    g_pendingShellCommand = {};
-}
-
-static void InvokePendingShellCommand(HWND owner) {
-    IContextMenu* contextMenu = g_pendingShellCommand.contextMenu;
-    int commandOffset = g_pendingShellCommand.commandOffset;
-    POINT invokePoint = g_pendingShellCommand.invokePoint;
-    g_pendingShellCommand = {};
-    if (!contextMenu || commandOffset < 0) {
-        if (contextMenu) contextMenu->Release();
-        return;
-    }
-
-    CMINVOKECOMMANDINFOEX ici{};
-    ici.cbSize = sizeof(ici);
-    // Let the selected Shell handler choose its normal execution model.
-    ici.fMask = CMIC_MASK_UNICODE | CMIC_MASK_PTINVOKE;
-    ici.hwnd = owner;
-    ici.lpVerb = MAKEINTRESOURCEA(commandOffset);
-    ici.lpVerbW = MAKEINTRESOURCEW(commandOffset);
-    ici.nShow = SW_SHOWNORMAL;
-    ici.ptInvoke = invokePoint;
-
-    Wh_Log(L"[ContextMenu] Invoking queued Shell command offset=%d",
-           commandOffset);
-    HRESULT hr = contextMenu->InvokeCommand(
-        reinterpret_cast<LPCMINVOKECOMMANDINFO>(&ici));
-    if (FAILED(hr))
-        Wh_Log(L"[ContextMenu] InvokeCommand failed hr=0x%08X", hr);
-    else
-        Wh_Log(L"[ContextMenu] InvokeCommand returned hr=0x%08X", hr);
-    contextMenu->Release();
-}
-
-static bool ShowShellContextMenu(HWND owner, PCIDLIST_ABSOLUTE pidl) {
+static void ShowShellContextMenu(HWND owner, PCIDLIST_ABSOLUTE pidl) {
     IShellFolder* parent = nullptr;
     PCUITEMID_CHILD child = nullptr;
     HRESULT hr = SHBindToParent(
         pidl, IID_IShellFolder, (void**)&parent, &child);
     if (FAILED(hr) || !parent) {
         Wh_Log(L"[ContextMenu] SHBindToParent failed hr=0x%08X", hr);
-        return false;
+        return;
     }
 
     IContextMenu* ctxMenu = nullptr;
@@ -1043,13 +991,13 @@ static bool ShowShellContextMenu(HWND owner, PCIDLIST_ABSOLUTE pidl) {
     parent->Release();
     if (FAILED(hr) || !ctxMenu) {
         Wh_Log(L"[ContextMenu] GetUIObjectOf failed hr=0x%08X", hr);
-        return false;
+        return;
     }
 
     HMENU hPopup = CreatePopupMenu();
     if (!hPopup) {
         ctxMenu->Release();
-        return false;
+        return;
     }
 
     UINT queryFlags = CMF_NORMAL;
@@ -1060,7 +1008,7 @@ static bool ShowShellContextMenu(HWND owner, PCIDLIST_ABSOLUTE pidl) {
         Wh_Log(L"[ContextMenu] QueryContextMenu failed hr=0x%08X", hr);
         DestroyMenu(hPopup);
         ctxMenu->Release();
-        return false;
+        return;
     }
 
     IContextMenu3* ctxMenu3 = nullptr;
@@ -1077,57 +1025,43 @@ static bool ShowShellContextMenu(HWND owner, PCIDLIST_ABSOLUTE pidl) {
     // context menu is active. Otherwise a right-click inside an overlapping
     // Shell submenu can be mistaken for another click on the original item.
     HMENU suspendedFolderMenu = g_activeFolderMenu;
-    g_suspendedFolderMenu = suspendedFolderMenu;
-    g_activeShellContextMenu = hPopup;
-    g_shellContextDismissedByOutsideClick = false;
     g_activeFolderMenu = nullptr;
     int cmd = (int)TrackPopupMenuEx(
         hPopup,
         TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_RECURSE,
         pt.x, pt.y, owner, nullptr);
     PostMessageW(owner, WM_NULL, 0, 0);
-    bool dismissedByOutsideClick =
-        g_shellContextDismissedByOutsideClick;
-    g_shellContextDismissedByOutsideClick = false;
-    g_activeShellContextMenu = nullptr;
-    g_suspendedFolderMenu = nullptr;
     g_activeFolderMenu = suspendedFolderMenu;
     g_activeContextMenu3 = nullptr;
     g_activeContextMenu2 = nullptr;
 
+    if (cmd > 0) {
+        CMINVOKECOMMANDINFOEX ici{};
+        ici.cbSize = sizeof(ici);
+        // Let the selected Shell handler choose its normal execution model.
+        // Forcing synchronous invocation can keep the XAML Click callback (and
+        // therefore the taskbar button's pressed visual) alive for modal verbs
+        // such as Properties.
+        ici.fMask = CMIC_MASK_UNICODE | CMIC_MASK_PTINVOKE;
+        ici.hwnd = owner;
+        ici.lpVerb = MAKEINTRESOURCEA(cmd - 1);
+        ici.lpVerbW = MAKEINTRESOURCEW(cmd - 1);
+        ici.nShow = SW_SHOWNORMAL;
+        ici.ptInvoke = pt;
+        Wh_Log(L"[ContextMenu] Invoking Shell command offset=%d", cmd - 1);
+        hr = ctxMenu->InvokeCommand(
+            reinterpret_cast<LPCMINVOKECOMMANDINFO>(&ici));
+        if (FAILED(hr)) {
+            Wh_Log(L"[ContextMenu] InvokeCommand failed hr=0x%08X", hr);
+        } else {
+            Wh_Log(L"[ContextMenu] InvokeCommand returned hr=0x%08X", hr);
+        }
+    }
+
     if (ctxMenu3) ctxMenu3->Release();
     if (ctxMenu2) ctxMenu2->Release();
     DestroyMenu(hPopup);
-
-    if (cmd <= 0) {
-        if (dismissedByOutsideClick) {
-            Wh_Log(L"[ContextMenu] Shell menu dismissed by outside click; closing folder popup");
-            if (!EndMenu()) {
-                Wh_Log(L"[ContextMenu] EndMenu failed error=%u; sending WM_CANCELMODE",
-                       GetLastError());
-                SendMessageW(owner, WM_CANCELMODE, 0, 0);
-            }
-        } else {
-            Wh_Log(L"[ContextMenu] Shell menu dismissed; folder popup remains");
-        }
-        ctxMenu->Release();
-        return true;
-    }
-
-    // A positive selection closes the original folder popup, but invocation is
-    // deferred until that outer TrackPopupMenu call has completely unwound.
-    ClearPendingShellCommand();
-    g_pendingShellCommand.contextMenu = ctxMenu;
-    g_pendingShellCommand.commandOffset = cmd - 1;
-    g_pendingShellCommand.invokePoint = pt;
-    Wh_Log(L"[ContextMenu] Queued Shell command offset=%d; closing folder popup",
-           cmd - 1);
-    if (!EndMenu()) {
-        Wh_Log(L"[ContextMenu] EndMenu failed error=%u; sending WM_CANCELMODE",
-               GetLastError());
-        SendMessageW(owner, WM_CANCELMODE, 0, 0);
-    }
-    return true;
+    ctxMenu->Release();
 }
 
 static bool PopulatePendingSubmenu(HMENU hMenu) {
@@ -1171,7 +1105,7 @@ static bool FindMenuItemAtPoint(HMENU menu, POINT point,
     return false;
 }
 
-static bool ShowMenuItemContextMenu(HWND owner, HMENU menu, UINT position) {
+static bool QueueMenuItemContextMenu(HMENU menu, UINT position) {
     MENUITEMINFOW mii{};
     mii.cbSize = sizeof(mii);
     mii.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STATE;
@@ -1188,35 +1122,29 @@ static bool ShowMenuItemContextMenu(HWND owner, HMENU menu, UINT position) {
         return false;
     }
 
-    Wh_Log(L"[ContextMenu] Opening for menu id=%u", mii.wID);
-    return ShowShellContextMenu(owner, g_menuIdToPidl[index]);
+    PIDLIST_ABSOLUTE clonedPidl = ILCloneFull(g_menuIdToPidl[index]);
+    if (!clonedPidl) {
+        Wh_Log(L"[ContextMenu] Failed to clone PIDL for menu id=%u", mii.wID);
+        return false;
+    }
+
+    if (g_pendingContextMenuPidl)
+        CoTaskMemFree(g_pendingContextMenuPidl);
+    g_pendingContextMenuPidl = clonedPidl;
+    Wh_Log(L"[ContextMenu] Queued menu id=%u; closing folder popup", mii.wID);
+    if (!EndMenu()) {
+        Wh_Log(L"[ContextMenu] EndMenu failed error=%u", GetLastError());
+        CoTaskMemFree(g_pendingContextMenuPidl);
+        g_pendingContextMenuPidl = nullptr;
+        return false;
+    }
+    return true;
 }
 
 static LRESULT CALLBACK FolderMenuMsgFilterProc(
     int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == MSGF_MENU && lParam) {
         auto message = reinterpret_cast<MSG const*>(lParam);
-        if (g_activeShellContextMenu &&
-            (message->message == WM_LBUTTONDOWN ||
-             message->message == WM_RBUTTONDOWN ||
-             message->message == WM_MBUTTONDOWN ||
-             message->message == WM_NCLBUTTONDOWN ||
-             message->message == WM_NCRBUTTONDOWN ||
-             message->message == WM_NCMBUTTONDOWN)) {
-            HMENU hitMenu = nullptr;
-            UINT hitPosition = 0;
-            bool inShellMenu = FindMenuItemAtPoint(
-                g_activeShellContextMenu, message->pt,
-                &hitMenu, &hitPosition);
-            bool inFolderMenu = g_suspendedFolderMenu &&
-                FindMenuItemAtPoint(
-                    g_suspendedFolderMenu, message->pt,
-                    &hitMenu, &hitPosition);
-            if (!inShellMenu && !inFolderMenu) {
-                g_shellContextDismissedByOutsideClick = true;
-                Wh_Log(L"[ContextMenu] Outside click will dismiss both menus");
-            }
-        }
         if (message->message == WM_INITMENUPOPUP) {
             PopulatePendingSubmenu(reinterpret_cast<HMENU>(message->wParam));
         } else if (message->message == WM_RBUTTONUP && g_activeFolderMenu) {
@@ -1226,20 +1154,11 @@ static LRESULT CALLBACK FolderMenuMsgFilterProc(
             HMENU itemMenu = nullptr;
             UINT itemPosition = 0;
             if (FindMenuItemAtPoint(g_activeFolderMenu, point,
-                                    &itemMenu, &itemPosition)) {
-                // Don't enter another TrackPopupMenuEx while still inside this
-                // raw menu-input filter callback. Defer to the documented
-                // WM_MENURBUTTONUP owner-message path; TPM_RECURSE can then
-                // suspend and resume the outer popup correctly.
-                if (PostMessageW(g_taskbarWnd, WM_MENURBUTTONUP,
-                                 itemPosition,
-                                 reinterpret_cast<LPARAM>(itemMenu))) {
-                    Wh_Log(L"[ContextMenu] Deferred menu id position=%u to owner",
-                           itemPosition);
-                    return 1;
-                }
-                Wh_Log(L"[ContextMenu] Failed to defer right-click error=%u",
-                       GetLastError());
+                                    &itemMenu, &itemPosition) &&
+                QueueMenuItemContextMenu(itemMenu, itemPosition)) {
+                // EndMenu is unwinding the folder popup. The Shell context menu
+                // is opened afterward, outside this modal menu input hook.
+                return 1;
             }
             Wh_Log(L"[ContextMenu] Menu item hit test produced no actionable item");
         }
@@ -1272,29 +1191,13 @@ static bool ForwardActiveContextMenuMessage(UINT msg, WPARAM wParam,
 
 static LRESULT CALLBACK MenuOwnerSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
     UINT_PTR /*subclassId*/, DWORD_PTR /*data*/) {
-    if (msg == GetInvokeShellCommandMessage()) {
-        // The posted message runs only after the XAML Button.Click callback
-        // has returned, allowing the pressed visual to clear before a modal
-        // Shell verb such as Properties blocks this UI thread.
-        RemoveWindowSubclass(hwnd, MenuOwnerSubclassProc, 1);
-        if (g_unloading)
-            ClearPendingShellCommand();
-        else
-            InvokePendingShellCommand(hwnd);
-        return 0;
-    }
-
     if (msg == WM_INITMENUPOPUP) {
         PopulatePendingSubmenu(reinterpret_cast<HMENU>(wParam));
     }
 
     if (msg == WM_MENURBUTTONUP) {
-        Wh_Log(L"[ContextMenu] Owner received WM_MENURBUTTONUP position=%u",
-               (UINT)wParam);
-        if (!ShowMenuItemContextMenu(
-                hwnd, reinterpret_cast<HMENU>(lParam), (UINT)wParam)) {
-            Wh_Log(L"[ContextMenu] Owner message had no actionable item");
-        }
+        QueueMenuItemContextMenu(
+            reinterpret_cast<HMENU>(lParam), (UINT)wParam);
         return 0;
     }
 
@@ -1315,7 +1218,10 @@ static void ShowFolderMenu(FolderEntry folder) {
 
     g_menuNextId = 1000;
     FreeMenuState();
-    ClearPendingShellCommand();
+    if (g_pendingContextMenuPidl) {
+        CoTaskMemFree(g_pendingContextMenuPidl);
+        g_pendingContextMenuPidl = nullptr;
+    }
 
     HMENU menu = CreatePopupMenu();
     PIDLIST_ABSOLUTE rootPidl = ParseShellTarget(folder.target);
@@ -1367,14 +1273,28 @@ static void ShowFolderMenu(FolderEntry folder) {
         UnhookWindowsHookEx(menuHook);
     g_activeFolderMenu = nullptr;
 
-    bool hasPendingShellCommand =
-        g_pendingShellCommand.contextMenu &&
-        g_pendingShellCommand.commandOffset >= 0;
+    PIDLIST_ABSOLUTE contextMenuPidl = g_pendingContextMenuPidl;
+    g_pendingContextMenuPidl = nullptr;
 
-    if (!hasPendingShellCommand)
+    if (contextMenuPidl) {
+        // Tear down the first popup completely before asking a Shell extension
+        // to show UI or execute a command. Keeping the taskbar subclass until
+        // ShowShellContextMenu returns preserves IContextMenu2/3 forwarding.
+        DestroyMenu(menu);
+        if (rootPidl)
+            CoTaskMemFree(rootPidl);
+        FreeMenuState();
+
+        Wh_Log(L"[ContextMenu] Folder popup closed; opening Shell menu");
+        ShowShellContextMenu(owner, contextMenuPidl);
+        CoTaskMemFree(contextMenuPidl);
         RemoveWindowSubclass(owner, MenuOwnerSubclassProc, 1);
+        return;
+    }
 
-    if (!hasPendingShellCommand && cmd >= 1000) {
+    RemoveWindowSubclass(owner, MenuOwnerSubclassProc, 1);
+
+    if (cmd >= 1000) {
         size_t idx = cmd - 1000;
         if (idx < g_menuIdToPidl.size() && g_menuIdToPidl[idx])
             InvokePidl(owner, g_menuIdToPidl[idx]);
@@ -1384,18 +1304,6 @@ static void ShowFolderMenu(FolderEntry folder) {
     if (rootPidl)
         CoTaskMemFree(rootPidl);
     FreeMenuState();
-
-    if (hasPendingShellCommand) {
-        Wh_Log(L"[ContextMenu] Folder popup closed; posting queued Shell command");
-        if (!PostMessageW(owner, GetInvokeShellCommandMessage(), 0, 0)) {
-            Wh_Log(L"[ContextMenu] Failed to post Shell command error=%u; invoking inline",
-                   GetLastError());
-            RemoveWindowSubclass(owner, MenuOwnerSubclassProc, 1);
-            InvokePendingShellCommand(owner);
-        }
-    } else {
-        ClearPendingShellCommand();
-    }
 
 }
 
@@ -1809,30 +1717,9 @@ static Grid BuildFolderButtonGrid() {
         ToolTipService::SetToolTip(btn,
             winrt::box_value(winrt::hstring(entry.label + L"\n" + entry.target)));
 
-        auto weakButton = winrt::make_weak(btn);
-        auto clickToken = btn.Click([entry, weakButton](auto const&, auto const&) {
+        auto clickToken = btn.Click([entry](auto const&, auto const&) {
             if (!g_unloading)
                 ShowFolderMenu(entry);
-
-            // TrackPopupMenu runs a native modal input loop, so XAML can miss
-            // the pointer-exit transition when the user dismisses the menu by
-            // clicking elsewhere. Merely selecting the Normal visual state is
-            // temporary: Button can immediately restore PointerOver from its
-            // stale internal input state. Briefly remove the Button from hit
-            // testing and layout to invalidate that state, then restore it.
-            if (auto button = weakButton.get()) {
-                button.ReleasePointerCaptures();
-                button.IsHitTestVisible(false);
-                button.Visibility(Visibility::Collapsed);
-                button.UpdateLayout();
-                button.Visibility(Visibility::Visible);
-                button.UpdateLayout();
-                button.IsHitTestVisible(true);
-                bool reset = VisualStateManager::GoToState(
-                    button, L"Normal", false);
-                Wh_Log(L"[Button] Reset input/visual state after menu, success=%d",
-                       reset ? 1 : 0);
-            }
         });
         g_buttonEventStates.push_back({btn, clickToken});
 
