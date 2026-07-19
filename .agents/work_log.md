@@ -644,3 +644,20 @@ Windhawk 1.6.1 / 1.7.3 / 2.0.0-alpha.1 compile matrix. PR #4841 now awaits
 maintainer review. A 250 ms tick-count throttle was also added to the tray
 LayoutUpdated intactness check before submission so layout bursts collapse to
 at most four checks per second.
+
+## 2026-07-19 — Folder Menus restart and Smart Grid live-confirmed
+
+- Replaced the older inline folder-grid implementation with the verbatim
+  `_templates/smart-grid-layout.h` block and canonical six-mode `gridMode`
+  profile. Automatic row capacity now uses the live `SystemTrayFrameGrid` DIP
+  height and the correct item-plus-spacing formula.
+- Hardened startup with the standard three-module `IconView.Loaded` trigger,
+  `TrayUI::StartTaskbar`, and a slow-sign-in retry fallback. The user
+  live-confirmed that the layout looks correct and survives a restart.
+- Updated the README gallery to use all six screenshots under
+  `taskbar-folder-menus/assets/`: minimal two-button, destination tooltip,
+  four-button horizontal and vertical layouts, Control Panel namespace, and
+  whole-drive native-menu examples.
+  Windhawk syntax compilation, embedded/folder README parity, local image-path
+  checks, root catalog status, and `git diff --check` pass. PR #4485 was not
+  changed.

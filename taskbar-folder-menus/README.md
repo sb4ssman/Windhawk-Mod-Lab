@@ -4,14 +4,23 @@ A Windows 11-only mod that adds compact taskbar buttons which open Shell targets
 as native popup menus, recreating the most useful part of the classic taskbar
 toolbar workflow. Windows 10 is not supported.
 
-![Two folder buttons in the system tray](desktop-controlpanel.png)
-*Two folder buttons — Desktop and Control Panel — injected into the system tray.*
+![Two folder buttons in the system tray](assets/desktop-controlpanel.png)
+*A minimal two-button setup for Desktop and Control Panel.*
 
-![Control Panel open as a native Shell popup menu](controlpanel-menu-open.png)
-*Control Panel open as a native Shell popup menu with full icons.*
+![Folder button destination tooltip](assets/tooltip-shows-destination.png)
+*Hovering a compact button shows its configured Shell target.*
 
-![Four buttons on a denser taskbar](c-github-desktop-controlpanel-v.png)
-*Four-button layout on a taller taskbar alongside a stats panel.*
+![Four folder buttons on a standard taskbar](assets/c-github-desktop-controlpanel.png)
+*Drive, GitHub, Desktop, and Control Panel shortcuts arranged in one row.*
+
+![Four folder buttons on a taller taskbar](assets/c-github-desktop-controlpanel-v.png)
+*The same four shortcuts arranged vertically by the grid layout on a taller taskbar.*
+
+![Control Panel opened as a native Shell menu](assets/controlpanel-menu-open.png)
+*The Control Panel namespace opens directly as a native Shell menu with full icons.*
+
+![Whole drive opened from a taskbar folder button](assets/whole-drive-on-taskbar.png)
+*A drive-root button opens the whole drive as a native cascading Shell menu.*
 
 Click a small button to browse a folder, drive, Desktop, or Control Panel
 directly from the taskbar — no minimizing required. Subfolders expand on

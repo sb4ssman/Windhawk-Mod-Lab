@@ -7,10 +7,10 @@ Living todo list — current state only, pruned every session. Completed work
 ## Current focus
 
 Five mods to prepare. Immediate execution order from the user (2026-07-19):
-Folder Menus → OmniButton → Privacy Anchor. Clock Spacer is deferred behind
-those active fixes; VD Switcher is follow-up feature work. No submissions until
-each works as described with current docs/screenshots (standing directives in
-README.md).
+OmniButton → Privacy Anchor. Folder Menus is ready for an explicitly authorized
+PR sync; Clock Spacer is deferred behind the active fixes; VD Switcher is
+follow-up feature work. No submissions until each works as described with
+current docs/screenshots (standing directives in README.md).
 
 1. **Taskbar Clock Spacer** — DEFERRED behind Folder Menus/OmniButton/Privacy.
    v1.1 FAILED first live round (2026-07-19,
@@ -57,37 +57,14 @@ README.md).
    - [ ] Refresh screenshots (accent default changed visuals)
    - [ ] Sync folder README settings table
 
-3. **Taskbar Folder Menus** — ACTIVE / MOST CRITICAL. Fix, live-test, and take
-   screenshots before the user restores the desktop/taskbar. REVIEWED
-   2026-07-18 on PR #4485; both required
-   items are ALREADY FIXED in the local working tree (`WM_MENURBUTTONUP` and
-   `[[clang::no_destroy]]`). The version dependency removed as unused during
-   review is now intentionally restored for startup module selection.
-   The PR branch is stale by ~631 lines — this is a push-and-reply job, not a
-   fix job. The candidate Smart Grid replacement also removes the old
-   taskbar-window DPI capacity calculation implicated in chevron overlap.
-   NEW REGRESSIONS (2026-07-19, user report — screenshots BLOCKED until fixed):
-   - [ ] Live-test reboot persistence (buttons/layout previously disappeared;
-         candidate retry-lifecycle fix is in the working tree)
-   - [ ] Live-test the replacement Smart Grid against single- and double-height
-         taskbars; the old implementation "doesn't work correctly at all"
-         (user, 2026-07-19)
-   Candidate working-tree fix awaiting live test: canonical `gridMode` profile
-   plus the verbatim Smart Grid template; capacity now comes from the live
-   `SystemTrayFrameGrid` DIP height with correct inter-row spacing math. Startup
-   now has a deterministic `IconView.Loaded` trigger plus retry coverage that
-   spans slow sign-in instead of ending after ~8 seconds.
-   Previously: READY FOR SCREENSHOTS — now blocked on the two items above. The v0.6 reviewer
-   revision is compile-checked and live-confirmed: native Shell context menus,
-   modal verbs, nested-cascade retention, click-away dismissal, and button
-   visual reset are working. Defaults are now Smart automatic, automatic
-   column cap (`gridColumns: 0`), and 24 px button width.
-   - [ ] Capture current screenshots: one ordinary single-height taskbar and
-         one useful double-height/elaborate configuration
-   - [ ] After screenshots, perform the final three-layer docs check before
-         discussing any PR #4485 sync (no submission yet)
+3. **Taskbar Folder Menus** — READY FOR PR #4485 SYNC DISCUSSION. User
+   live-confirmed the replacement Smart Grid looks correct and the mod survives
+   a restart. Current screenshots are in `assets/` and both README layers use
+   them. Source compile, screenshot paths, embedded/folder README parity, and
+   root catalog status are verified. The PR branch remains stale and must not be
+   changed without explicit submission/update approval.
 
-4. **OmniButton Customizer** — NEXT AFTER FOLDER MENUS. BROKEN. Test round 3 failed 2026-07-17 (work
+4. **OmniButton Customizer** — ACTIVE. BROKEN. Test round 3 failed 2026-07-17 (work
    log): battery percent still wrong; independent mode hides the battery glyph
    entirely. Grid template not implicated per user.
    - [ ] FIRST: get Windhawk logs from the user's machine (`[Battery]`,
