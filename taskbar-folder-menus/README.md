@@ -51,10 +51,10 @@ drag-to-reorder control.
 |---------|---------|-------------|
 | Position | Before notification icons | Where to inject the button group in the tray |
 | Folders | Desktop and Control Panel | Add/remove records in the form; reorder complete records in Textual mode |
-| Layout mode | Smart automatic | Single row, single column, fixed grid, or smart automatic |
+| Grid mode | Smart automatic | Smart automatic, single row/column, fixed rows/columns, or fixed grid |
 | Smart layout | Balanced | Balanced, pack vertical, or pack horizontal in smart mode |
-| Grid columns | 0 (auto) | Columns in fixed-grid mode (minimum 1); maximum columns in smart mode (0 = automatic) |
-| Grid rows | 0 (auto) | Rows in fixed-grid mode; maximum rows in smart mode (0 = taskbar height) |
+| Grid columns | 0 (auto) | Exact columns in fixed-column modes; maximum columns in smart mode (0 = automatic) |
+| Grid rows | 0 (auto) | Exact rows in fixed-row modes; maximum rows in smart mode (0 = tray height) |
 | Fill order | Row-first | Row-first or column-first |
 | Short row/column position | Last | Put an incomplete row or column first or last |
 | Short row/column alignment | Start | Align an incomplete final row or column |

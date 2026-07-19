@@ -7,7 +7,7 @@
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lshell32 -luuid -lgdi32 -lcomctl32
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lshell32 -luuid -lgdi32 -lcomctl32 -lversion
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
@@ -65,10 +65,10 @@ drag-to-reorder control.
 |---------|---------|-------------|
 | Position | Before notification icons | Where to inject the button group in the tray |
 | Folders | Desktop and Control Panel | Add/remove records in the form; reorder complete records in Textual mode |
-| Layout mode | Smart automatic | Single row, single column, fixed grid, or smart automatic |
+| Grid mode | Smart automatic | Smart automatic, single row/column, fixed rows/columns, or fixed grid |
 | Smart layout | Balanced | Balanced, pack vertical, or pack horizontal in smart mode |
-| Grid columns | 0 (auto) | Columns in fixed-grid mode (minimum 1); maximum columns in smart mode (0 = automatic) |
-| Grid rows | 0 (auto) | Rows in fixed-grid mode; maximum rows in smart mode (0 = taskbar height) |
+| Grid columns | 0 (auto) | Exact columns in fixed-column modes; maximum columns in smart mode (0 = automatic) |
+| Grid rows | 0 (auto) | Exact rows in fixed-row modes; maximum rows in smart mode (0 = tray height) |
 | Fill order | Row-first | Row-first or column-first |
 | Short row/column position | Last | Put an incomplete row or column first or last |
 | Short row/column alignment | Start | Align an incomplete final row or column |
@@ -137,14 +137,16 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
     shell:ControlPanelFolder. Environment variables such as %USERPROFILE% are
     expanded. Emoji labels work well on narrow buttons.
 
-- layoutMode: smart
-  $name: Layout mode
+- gridMode: autoSmart
+  $name: Grid mode
   $description: How to arrange multiple folder buttons.
   $options:
-  - "row": "Single row"
-  - "column": "Single column"
-  - "grid": "Fixed grid"
-  - "smart": "Smart automatic"
+  - "autoSmart": "Smart automatic"
+  - "singleRow": "Single row"
+  - "singleColumn": "Single column"
+  - "fixedRows": "Fixed rows"
+  - "fixedColumns": "Fixed columns"
+  - "fixedGrid": "Fixed rows and columns"
 
 - smartLayout: balanced
   $name: Smart layout
@@ -157,14 +159,14 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
 - gridColumns: 0
   $name: Grid columns (0 = auto)
   $description: >-
-    Number of columns in Fixed grid mode (minimum 1). In Smart automatic mode,
-    this is the maximum column count; 0 chooses automatically.
+    Exact column count in Fixed columns and Fixed rows and columns modes. In
+    Smart automatic mode, this is the maximum column count; 0 chooses automatically.
 
 - gridRows: 0
   $name: Grid rows (0 = auto)
   $description: >-
-    Number of rows in Fixed grid mode. In Smart automatic mode, this is the
-    maximum row count; 0 uses the available taskbar height.
+    Exact row count in Fixed rows and Fixed rows and columns modes. In Smart
+    automatic mode, this is the maximum row count; 0 uses the tray height.
 
 - fillOrder: rowFirst
   $name: Fill order
@@ -291,6 +293,7 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
 #include <climits>
 #include <cwctype>
 #include <functional>
+#include <list>
 #include <string>
 #include <vector>
 
@@ -298,11 +301,234 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
 #include <shellapi.h>
 #include <shlobj.h>
 #include <windhawk_utils.h>
+#include <winver.h>
 
 using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Input;
 using namespace winrt::Windows::UI::Xaml::Media;
+
+// Smart-grid template: _templates/smart-grid-layout.h v1.0 (verbatim copy;
+// Windhawk mods are single-file, so keep this block in sync with the template).
+// Copy-source template v1.0: pure layout math for repeated taskbar items.
+// This file intentionally has no WinRT dependency.
+
+#include <algorithm>
+#include <climits>
+
+namespace windhawk_mod_templates::smart_grid {
+
+enum class GridMode {
+    AutoSmart,
+    SingleRow,
+    SingleColumn,
+    FixedRows,
+    FixedColumns,
+    FixedGrid,
+};
+
+enum class SmartLayout { Balanced, PackVertical, PackHorizontal };
+enum class FillOrder { RowFirst, ColumnFirst };
+enum class ShortGroupPosition { First, Last };
+enum class ShortGroupAlign { Start, Center, End };
+
+struct Config {
+    GridMode mode = GridMode::AutoSmart;
+    SmartLayout smartLayout = SmartLayout::Balanced;
+    FillOrder fillOrder = FillOrder::RowFirst;
+    ShortGroupPosition shortGroupPosition = ShortGroupPosition::Last;
+    ShortGroupAlign shortGroupAlign = ShortGroupAlign::Center;
+    int rows = 0;          // exact in fixed modes; maximum in AutoSmart
+    int columns = 0;       // exact in fixed modes; maximum in AutoSmart
+    int availableRows = 1; // derive from host height / item pitch
+};
+
+struct Layout {
+    int rows = 1;
+    int columns = 1;
+};
+
+// A short group may need to span its complete axis so a half-cell offset can
+// be expressed with Margin. Multiply offsetUnits by item-size-plus-spacing.
+struct Cell {
+    int row = 0;
+    int column = 0;
+    int rowSpan = 1;
+    int columnSpan = 1;
+    double topOffsetUnits = 0.0;
+    double leftOffsetUnits = 0.0;
+};
+
+inline int ScoreCandidate(int rows, int columns, int count,
+                          SmartLayout preference) {
+    int waste = rows * columns - count;
+    int widePenalty = columns > rows ? (columns - rows) * 2 : 0;
+    int score = waste * 10 + widePenalty;
+
+    if (preference == SmartLayout::PackVertical)
+        score -= rows * 20;
+    else if (preference == SmartLayout::PackHorizontal)
+        score += rows * 20;
+    else
+        score -= rows * 3;
+
+    return score;
+}
+
+inline Layout ComputeLayout(int count, Config const& config) {
+    count = std::max(1, count);
+    Layout result;
+    int availableRows = std::clamp(config.availableRows, 1, count);
+    if (config.rows > 0 && config.mode == GridMode::AutoSmart)
+        availableRows = std::min(availableRows, config.rows);
+
+    switch (config.mode) {
+        case GridMode::SingleRow:
+            result = {1, count};
+            break;
+        case GridMode::SingleColumn:
+            result = {count, 1};
+            break;
+        case GridMode::FixedRows:
+            result.rows = std::clamp(config.rows, 1, count);
+            result.columns = (count + result.rows - 1) / result.rows;
+            break;
+        case GridMode::FixedColumns:
+            result.columns = std::clamp(config.columns, 1, count);
+            result.rows = (count + result.columns - 1) / result.columns;
+            break;
+        case GridMode::FixedGrid:
+            result.rows = std::clamp(config.rows, 1, count);
+            result.columns = config.columns > 0
+                ? std::clamp(config.columns, 1, count)
+                : (count + result.rows - 1) / result.rows;
+            if (result.rows * result.columns < count)
+                result.rows = (count + result.columns - 1) / result.columns;
+            break;
+        case GridMode::AutoSmart: {
+            int bestScore = INT_MAX;
+            int firstRows = availableRows > 1 && count > 1 &&
+                            config.smartLayout != SmartLayout::PackHorizontal
+                ? 2 : 1;
+            for (int rows = firstRows; rows <= availableRows; ++rows) {
+                int columns = (count + rows - 1) / rows;
+                if (config.columns > 0 && columns > config.columns)
+                    continue;
+                int score = ScoreCandidate(rows, columns, count,
+                                           config.smartLayout);
+                if (score < bestScore) {
+                    bestScore = score;
+                    result = {rows, columns};
+                }
+            }
+            if (bestScore == INT_MAX) {
+                result.columns = std::clamp(config.columns, 1, count);
+                result.rows = (count + result.columns - 1) / result.columns;
+            }
+            break;
+        }
+    }
+
+    result.rows = std::clamp(result.rows, 1, count);
+    result.columns = std::max(1, result.columns);
+    while (result.rows * result.columns < count) {
+        if (config.mode == GridMode::FixedColumns)
+            ++result.rows;
+        else
+            ++result.columns;
+    }
+    return result;
+}
+
+inline double AlignOffset(int capacity, int itemCount,
+                          ShortGroupAlign alignment) {
+    int unused = std::max(0, capacity - itemCount);
+    if (alignment == ShortGroupAlign::Center)
+        return unused / 2.0;
+    if (alignment == ShortGroupAlign::End)
+        return static_cast<double>(unused);
+    return 0.0;
+}
+
+inline Cell GetCell(int index, int count, Layout const& layout,
+                    Config const& config) {
+    Cell cell;
+    index = std::clamp(index, 0, std::max(0, count - 1));
+
+    if (config.fillOrder == FillOrder::RowFirst) {
+        int groupCount = (count + layout.columns - 1) / layout.columns;
+        int shortCount = count % layout.columns;
+        if (!shortCount) shortCount = layout.columns;
+        int group;
+        int itemInGroup;
+        if (shortCount < layout.columns &&
+            config.shortGroupPosition == ShortGroupPosition::First) {
+            if (index < shortCount) {
+                group = 0;
+                itemInGroup = index;
+            } else {
+                int adjusted = index - shortCount;
+                group = 1 + adjusted / layout.columns;
+                itemInGroup = adjusted % layout.columns;
+            }
+        } else {
+            group = index / layout.columns;
+            itemInGroup = index % layout.columns;
+        }
+        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
+            ? 0 : groupCount - 1;
+        bool isShort = shortCount < layout.columns && group == shortGroup;
+
+        cell.row = group;
+        cell.column = itemInGroup;
+        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
+            cell.column = 0;
+            cell.columnSpan = layout.columns;
+            cell.leftOffsetUnits = AlignOffset(layout.columns, shortCount,
+                                               config.shortGroupAlign) +
+                                   itemInGroup;
+        }
+    } else {
+        int groupCount = (count + layout.rows - 1) / layout.rows;
+        int shortCount = count % layout.rows;
+        if (!shortCount) shortCount = layout.rows;
+        int group;
+        int itemInGroup;
+        if (shortCount < layout.rows &&
+            config.shortGroupPosition == ShortGroupPosition::First) {
+            if (index < shortCount) {
+                group = 0;
+                itemInGroup = index;
+            } else {
+                int adjusted = index - shortCount;
+                group = 1 + adjusted / layout.rows;
+                itemInGroup = adjusted % layout.rows;
+            }
+        } else {
+            group = index / layout.rows;
+            itemInGroup = index % layout.rows;
+        }
+        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
+            ? 0 : groupCount - 1;
+        bool isShort = shortCount < layout.rows && group == shortGroup;
+
+        cell.row = itemInGroup;
+        cell.column = group;
+        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
+            cell.row = 0;
+            cell.rowSpan = layout.rows;
+            cell.topOffsetUnits = AlignOffset(layout.rows, shortCount,
+                                              config.shortGroupAlign) +
+                                  itemInGroup;
+        }
+    }
+    return cell;
+}
+
+} // namespace windhawk_mod_templates::smart_grid
+
+
+namespace grid = windhawk_mod_templates::smart_grid;
 
 // ============================================================
 // Settings
@@ -315,15 +541,16 @@ struct FolderEntry {
 
 struct ModSettings {
     std::wstring position = L"beforeIcons";
-    std::wstring layoutMode = L"smart";
-    std::wstring smartLayout = L"balanced";
+    grid::GridMode gridMode = grid::GridMode::AutoSmart;
+    grid::SmartLayout smartLayout = grid::SmartLayout::Balanced;
     std::wstring buttonText = L"📁";
     std::vector<FolderEntry> folders;
     int gridColumns = 0;
     int gridRows = 0;
-    std::wstring fillOrder = L"rowFirst";
-    std::wstring shortGroupPosition = L"last";
-    std::wstring shortGroupAlign = L"start";
+    grid::FillOrder fillOrder = grid::FillOrder::RowFirst;
+    grid::ShortGroupPosition shortGroupPosition =
+        grid::ShortGroupPosition::Last;
+    grid::ShortGroupAlign shortGroupAlign = grid::ShortGroupAlign::Start;
     int buttonWidth = 24;
     int buttonHeight = 22;
     int buttonSpacing = 4;
@@ -433,15 +660,44 @@ static void LoadSettings() {
     };
 
     g_settings.position = GetStringSetting(L"position");
-    g_settings.layoutMode = GetStringSetting(L"layoutMode");
-    g_settings.smartLayout = GetStringSetting(L"smartLayout");
+    std::wstring gridMode = GetStringSetting(L"gridMode");
+    if (gridMode == L"singleRow")
+        g_settings.gridMode = grid::GridMode::SingleRow;
+    else if (gridMode == L"singleColumn")
+        g_settings.gridMode = grid::GridMode::SingleColumn;
+    else if (gridMode == L"fixedRows")
+        g_settings.gridMode = grid::GridMode::FixedRows;
+    else if (gridMode == L"fixedColumns")
+        g_settings.gridMode = grid::GridMode::FixedColumns;
+    else if (gridMode == L"fixedGrid")
+        g_settings.gridMode = grid::GridMode::FixedGrid;
+    else
+        g_settings.gridMode = grid::GridMode::AutoSmart;
+
+    std::wstring smartLayout = GetStringSetting(L"smartLayout");
+    if (smartLayout == L"packVertical")
+        g_settings.smartLayout = grid::SmartLayout::PackVertical;
+    else if (smartLayout == L"packHorizontal")
+        g_settings.smartLayout = grid::SmartLayout::PackHorizontal;
+    else
+        g_settings.smartLayout = grid::SmartLayout::Balanced;
     g_settings.buttonText = GetStringSetting(L"buttonText");
     g_settings.folders = LoadFolders();
     g_settings.gridColumns = std::max(0, Wh_GetIntSetting(L"gridColumns"));
     g_settings.gridRows = std::max(0, Wh_GetIntSetting(L"gridRows"));
-    g_settings.fillOrder = GetStringSetting(L"fillOrder");
-    g_settings.shortGroupPosition = GetStringSetting(L"shortGroupPosition");
-    g_settings.shortGroupAlign = GetStringSetting(L"shortGroupAlign");
+    g_settings.fillOrder = GetStringSetting(L"fillOrder") == L"columnFirst"
+        ? grid::FillOrder::ColumnFirst : grid::FillOrder::RowFirst;
+    g_settings.shortGroupPosition =
+        GetStringSetting(L"shortGroupPosition") == L"first"
+            ? grid::ShortGroupPosition::First
+            : grid::ShortGroupPosition::Last;
+    std::wstring shortGroupAlign = GetStringSetting(L"shortGroupAlign");
+    if (shortGroupAlign == L"center")
+        g_settings.shortGroupAlign = grid::ShortGroupAlign::Center;
+    else if (shortGroupAlign == L"end")
+        g_settings.shortGroupAlign = grid::ShortGroupAlign::End;
+    else
+        g_settings.shortGroupAlign = grid::ShortGroupAlign::Start;
     g_settings.buttonWidth = std::max(10, Wh_GetIntSetting(L"buttonWidth"));
     g_settings.buttonHeight = std::max(10, Wh_GetIntSetting(L"buttonHeight"));
     g_settings.buttonSpacing = std::max(0, Wh_GetIntSetting(L"buttonSpacing"));
@@ -482,6 +738,9 @@ struct ButtonEventState {
 
 static HANDLE g_retryThread = nullptr;
 static HANDLE g_retryStopEvent = nullptr;
+static std::atomic<bool> g_systemTrayModuleHooked{false};
+[[clang::no_destroy]] static std::list<FrameworkElement::Loaded_revoker>
+    g_loadedRevokers;
 
 // Lazy Shell menu loading state (per-ShowFolderMenu call, single-threaded UI).
 static UINT g_menuNextId = 1000;
@@ -1573,186 +1832,29 @@ static void ApplyButtonStyle(Button btn,
     }
 }
 
-struct FolderGridLayout {
-    int rows = 1;
-    int cols = 1;
-    bool columnFirst = false;
-};
+static grid::Config MakeFolderGridConfig(double trayHeight) {
+    grid::Config config;
+    config.mode = g_settings.gridMode;
+    config.smartLayout = g_settings.smartLayout;
+    config.fillOrder = g_settings.fillOrder;
+    config.shortGroupPosition = g_settings.shortGroupPosition;
+    config.shortGroupAlign = g_settings.shortGroupAlign;
+    config.rows = g_settings.gridRows;
+    config.columns = g_settings.gridColumns;
 
-struct FolderGridCell {
-    int row = 0;
-    int col = 0;
-    int rowSpan = 1;
-    int colSpan = 1;
-    double topOffsetUnits = 0.0;
-    double leftOffsetUnits = 0.0;
-};
-
-static int GetAvailableFolderRows(int count) {
-    int available = count;
-    HWND taskbar = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    RECT rect{};
-    if (taskbar && GetWindowRect(taskbar, &rect)) {
-        using GetDpiForWindow_t = UINT(WINAPI*)(HWND);
-        static auto getDpiForWindow = reinterpret_cast<GetDpiForWindow_t>(
-            GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
-        UINT dpi = getDpiForWindow ? getDpiForWindow(taskbar) : 96;
-        if (!dpi) dpi = 96;
-        double height = (rect.bottom - rect.top) * 96.0 / dpi;
-        int pitch = std::max(1, g_settings.buttonHeight +
-                                std::max(0, g_settings.buttonSpacing));
-        available = std::max(1, static_cast<int>(height / pitch));
-    }
-    if (g_settings.gridRows > 0)
-        available = std::min(available, g_settings.gridRows);
-    return std::clamp(available, 1, count);
+    int spacing = std::max(0, g_settings.buttonSpacing);
+    int pitch = std::max(1, g_settings.buttonHeight + spacing);
+    config.availableRows = std::max(
+        1, static_cast<int>((trayHeight + spacing) / pitch));
+    return config;
 }
 
-static int ScoreFolderLayout(int rows, int cols, int count) {
-    int waste = rows * cols - count;
-    int widePenalty = cols > rows ? (cols - rows) * 2 : 0;
-    int score = waste * 10 + widePenalty;
-    if (g_settings.smartLayout == L"packVertical")
-        score -= rows * 20;
-    else if (g_settings.smartLayout == L"packHorizontal")
-        score += rows * 20;
-    else
-        score -= rows * 3;
-    return score;
-}
-
-static FolderGridLayout ComputeFolderGridLayout(int count) {
-    FolderGridLayout layout;
-    layout.columnFirst = g_settings.fillOrder == L"columnFirst";
-
-    if (g_settings.layoutMode == L"column") {
-        layout.rows = count;
-        layout.cols = 1;
-        return layout;
-    }
-
-    if (g_settings.layoutMode == L"row") {
-        layout.rows = 1;
-        layout.cols = count;
-        return layout;
-    }
-
-    if (g_settings.layoutMode == L"smart") {
-        int maxRows = GetAvailableFolderRows(count);
-        int firstRows = maxRows > 1 && count > 1 &&
-                        g_settings.smartLayout != L"packHorizontal"
-            ? 2 : 1;
-        int bestScore = INT_MAX;
-        for (int rows = firstRows; rows <= maxRows; ++rows) {
-            int cols = (count + rows - 1) / rows;
-            if (g_settings.gridColumns > 0 && cols > g_settings.gridColumns)
-                continue;
-            int score = ScoreFolderLayout(rows, cols, count);
-            if (score < bestScore) {
-                bestScore = score;
-                layout.rows = rows;
-                layout.cols = cols;
-            }
-        }
-        if (bestScore == INT_MAX) {
-            layout.cols = std::clamp(g_settings.gridColumns, 1, count);
-            layout.rows = (count + layout.cols - 1) / layout.cols;
-        }
-        return layout;
-    }
-
-    layout.cols = std::max(1, g_settings.gridColumns);
-    layout.rows = g_settings.gridRows > 0 ? g_settings.gridRows
-                                          : (count + layout.cols - 1) / layout.cols;
-
-    if (layout.rows * layout.cols < count) {
-        if (layout.columnFirst) {
-            layout.cols = (count + layout.rows - 1) / layout.rows;
-        } else {
-            layout.rows = (count + layout.cols - 1) / layout.cols;
-        }
-    }
-
-    return layout;
-}
-
-static double GetShortGroupOffset(int capacity, int countInGroup) {
-    int leftover = std::max(0, capacity - countInGroup);
-    if (g_settings.shortGroupAlign == L"center")
-        return leftover / 2.0;
-    if (g_settings.shortGroupAlign == L"end")
-        return static_cast<double>(leftover);
-    return 0;
-}
-
-static FolderGridCell GetFolderGridCell(int index, int count,
-                                        FolderGridLayout const& layout) {
-    FolderGridCell cell;
-    bool shortFirst = g_settings.shortGroupPosition == L"first";
-
-    if (!layout.columnFirst) {
-        int groupCount = (count + layout.cols - 1) / layout.cols;
-        int shortCount = count % layout.cols;
-        if (!shortCount) shortCount = layout.cols;
-        int group;
-        int item;
-        if (shortFirst && shortCount < layout.cols) {
-            if (index < shortCount) {
-                group = 0;
-                item = index;
-            } else {
-                int adjusted = index - shortCount;
-                group = 1 + adjusted / layout.cols;
-                item = adjusted % layout.cols;
-            }
-        } else {
-            group = index / layout.cols;
-            item = index % layout.cols;
-        }
-        int shortGroup = shortFirst ? 0 : groupCount - 1;
-        bool isShort = shortCount < layout.cols && group == shortGroup;
-        cell.row = group;
-        cell.col = item;
-        if (isShort && g_settings.shortGroupAlign != L"start") {
-            cell.col = 0;
-            cell.colSpan = layout.cols;
-            cell.leftOffsetUnits = GetShortGroupOffset(layout.cols, shortCount) + item;
-        }
-    } else {
-        int groupCount = (count + layout.rows - 1) / layout.rows;
-        int shortCount = count % layout.rows;
-        if (!shortCount) shortCount = layout.rows;
-        int group;
-        int item;
-        if (shortFirst && shortCount < layout.rows) {
-            if (index < shortCount) {
-                group = 0;
-                item = index;
-            } else {
-                int adjusted = index - shortCount;
-                group = 1 + adjusted / layout.rows;
-                item = adjusted % layout.rows;
-            }
-        } else {
-            group = index / layout.rows;
-            item = index % layout.rows;
-        }
-        int shortGroup = shortFirst ? 0 : groupCount - 1;
-        bool isShort = shortCount < layout.rows && group == shortGroup;
-        cell.row = item;
-        cell.col = group;
-        if (isShort && g_settings.shortGroupAlign != L"start") {
-            cell.row = 0;
-            cell.rowSpan = layout.rows;
-            cell.topOffsetUnits = GetShortGroupOffset(layout.rows, shortCount) + item;
-        }
-    }
-    return cell;
-}
-
-static Grid BuildFolderButtonGrid() {
+static Grid BuildFolderButtonGrid(double trayHeight) {
     int count = (int)g_settings.folders.size();
-    auto layout = ComputeFolderGridLayout(count);
+    auto config = MakeFolderGridConfig(trayHeight);
+    auto layout = grid::ComputeLayout(count, config);
+    Wh_Log(L"[Layout] trayHeight=%.1f availableRows=%d result=%dx%d",
+           trayHeight, config.availableRows, layout.rows, layout.columns);
 
     Grid grid;
     grid.Name(L"TaskbarFolderMenuBar");
@@ -1775,7 +1877,7 @@ static Grid BuildFolderButtonGrid() {
         rd.Height({ (double)g_settings.buttonHeight, GridUnitType::Pixel });
         grid.RowDefinitions().Append(rd);
     }
-    for (int c = 0; c < layout.cols; c++) {
+    for (int c = 0; c < layout.columns; c++) {
         ColumnDefinition cd;
         cd.Width({ (double)g_settings.buttonWidth, GridUnitType::Pixel });
         grid.ColumnDefinitions().Append(cd);
@@ -1836,15 +1938,15 @@ static Grid BuildFolderButtonGrid() {
         });
         g_buttonEventStates.push_back({btn, clickToken});
 
-        auto cell = GetFolderGridCell(i, count, layout);
+        auto cell = grid::GetCell(i, count, layout, config);
         Grid::SetRow(btn, cell.row);
-        Grid::SetColumn(btn, cell.col);
+        Grid::SetColumn(btn, cell.column);
         if (cell.rowSpan > 1) {
             Grid::SetRowSpan(btn, cell.rowSpan);
             btn.VerticalAlignment(VerticalAlignment::Top);
         }
-        if (cell.colSpan > 1) {
-            Grid::SetColumnSpan(btn, cell.colSpan);
+        if (cell.columnSpan > 1) {
+            Grid::SetColumnSpan(btn, cell.columnSpan);
             btn.HorizontalAlignment(HorizontalAlignment::Left);
         }
         if (cell.topOffsetUnits || cell.leftOffsetUnits) {
@@ -1980,6 +2082,12 @@ static bool InjectButtonGrid(FrameworkElement root) {
         return false;
     }
 
+    double trayHeight = gridParent.ActualHeight();
+    if (trayHeight <= 0.0) {
+        Wh_Log(L"[Inject] SystemTrayFrameGrid layout is not ready");
+        return false;
+    }
+
     for (auto child : gridParent.Children()) {
         if (auto fe = child.try_as<FrameworkElement>();
             fe && fe.Name() == L"TaskbarFolderMenuBar") {
@@ -2047,7 +2155,7 @@ static bool InjectButtonGrid(FrameworkElement root) {
             Grid::SetColumnSpan(fe, span + 1);
     }
 
-    auto grid = BuildFolderButtonGrid();
+    auto grid = BuildFolderButtonGrid(trayHeight);
     Grid::SetColumn(grid, insertCol);
     gridParent.Children().Append(grid);
 
@@ -2068,59 +2176,63 @@ static void ApplyAllSettings() {
     }
     g_taskbarWnd = hWnd;
 
-    auto xamlRoot = GetTaskbarXamlRoot(hWnd);
-    if (!xamlRoot) {
-        Wh_Log(L"[Apply] GetTaskbarXamlRoot failed");
-        return;
-    }
-    auto root = xamlRoot.Content().try_as<FrameworkElement>();
-    if (!root) {
-        Wh_Log(L"[Apply] No XAML root content");
-        return;
-    }
-
-    auto gridParent = FindChildRecursive(root, [](FrameworkElement fe) {
-        return fe.Name() == L"SystemTrayFrameGrid";
-    }).try_as<Grid>();
-    if (!gridParent) {
-        Wh_Log(L"[Apply] SystemTrayFrameGrid unavailable");
-        return;
-    }
-
-    auto liveButtonGrid = FindButtonGridInParent(gridParent);
-    bool rebuild = false;
-    if (liveButtonGrid) {
-        if (!g_buttonGrid || g_buttonGrid != liveButtonGrid) {
-            Wh_Log(L"[Apply] Rebuilding orphaned folder grid");
-            rebuild = true;
-        } else if (HasButtonGridColumnCollision(gridParent, liveButtonGrid)) {
-            int moved = RepairButtonGridColumnCollision(
-                gridParent, liveButtonGrid);
-            Wh_Log(L"[Apply] Repaired %d tray child column collision(s)", moved);
-            rebuild = HasButtonGridColumnCollision(gridParent, liveButtonGrid);
-            if (rebuild)
-                Wh_Log(L"[Apply] Targeted tray column repair failed; rebuilding");
+    try {
+        auto xamlRoot = GetTaskbarXamlRoot(hWnd);
+        if (!xamlRoot) {
+            Wh_Log(L"[Apply] GetTaskbarXamlRoot failed");
+            return;
         }
-    } else if (g_buttonGrid) {
-        Wh_Log(L"[Apply] Releasing stale folder grid after tray recreation");
-        ClearButtonEventState();
-        g_buttonGrid = nullptr;
-        g_injectedColumn = -1;
-    }
+        auto root = xamlRoot.Content().try_as<FrameworkElement>();
+        if (!root) {
+            Wh_Log(L"[Apply] No XAML root content");
+            return;
+        }
 
-    if (rebuild) {
-        int liveColumn = Grid::GetColumn(liveButtonGrid);
-        ClearButtonEventState();
-        RemoveButtonGridFrom(gridParent, liveColumn);
-        g_buttonGrid = nullptr;
-        g_injectedColumn = -1;
-    }
+        auto gridParent = FindChildRecursive(root, [](FrameworkElement fe) {
+            return fe.Name() == L"SystemTrayFrameGrid";
+        }).try_as<Grid>();
+        if (!gridParent) {
+            Wh_Log(L"[Apply] SystemTrayFrameGrid unavailable");
+            return;
+        }
 
-    if (!InjectButtonGrid(root)) {
-        Wh_Log(L"[Apply] Injection failed");
-        return;
+        auto liveButtonGrid = FindButtonGridInParent(gridParent);
+        bool rebuild = false;
+        if (liveButtonGrid) {
+            if (!g_buttonGrid || g_buttonGrid != liveButtonGrid) {
+                Wh_Log(L"[Apply] Rebuilding orphaned folder grid");
+                rebuild = true;
+            } else if (HasButtonGridColumnCollision(gridParent, liveButtonGrid)) {
+                int moved = RepairButtonGridColumnCollision(
+                    gridParent, liveButtonGrid);
+                Wh_Log(L"[Apply] Repaired %d tray child column collision(s)", moved);
+                rebuild = HasButtonGridColumnCollision(gridParent, liveButtonGrid);
+                if (rebuild)
+                    Wh_Log(L"[Apply] Targeted tray column repair failed; rebuilding");
+            }
+        } else if (g_buttonGrid) {
+            Wh_Log(L"[Apply] Releasing stale folder grid after tray recreation");
+            ClearButtonEventState();
+            g_buttonGrid = nullptr;
+            g_injectedColumn = -1;
+        }
+
+        if (rebuild) {
+            int liveColumn = Grid::GetColumn(liveButtonGrid);
+            ClearButtonEventState();
+            RemoveButtonGridFrom(gridParent, liveColumn);
+            g_buttonGrid = nullptr;
+            g_injectedColumn = -1;
+        }
+
+        if (!InjectButtonGrid(root)) {
+            Wh_Log(L"[Apply] Injection failed");
+            return;
+        }
+        g_injectionLive.store(true);
+    } catch (...) {
+        Wh_Log(L"[Apply] XAML tree is not ready");
     }
-    g_injectionLive.store(true);
 }
 
 static void ApplyAllSettingsOnWindowThread() {
@@ -2133,6 +2245,95 @@ static void ApplyAllSettingsOnWindowThread() {
 // ============================================================
 // Hooks
 // ============================================================
+
+static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE module) {
+    void* info = nullptr;
+    UINT length = 0;
+    HRSRC resource =
+        FindResourceW(module, MAKEINTRESOURCEW(VS_VERSION_INFO), RT_VERSION);
+    if (resource) {
+        HGLOBAL loaded = LoadResource(module, resource);
+        if (loaded) {
+            void* data = LockResource(loaded);
+            if (data &&
+                (!VerQueryValueW(data, L"\\", &info, &length) || !length)) {
+                info = nullptr;
+            }
+        }
+    }
+    return static_cast<VS_FIXEDFILEINFO*>(info);
+}
+
+static HMODULE GetSystemTrayModuleHandle() {
+    HMODULE module = GetModuleHandleW(L"SystemTray.dll");
+    if (!module) {
+        module = GetModuleHandleW(L"Taskbar.View.dll");
+        if (module) {
+            auto version = GetModuleVersionInfo(module);
+            WORD major = version ? HIWORD(version->dwFileVersionMS) : 0;
+            if (!major || major >= 2604)
+                module = nullptr;
+        }
+    }
+    if (!module)
+        module = GetModuleHandleW(L"ExplorerExtensions.dll");
+    return module;
+}
+
+using IconView_IconView_t = void* (WINAPI*)(void* pThis);
+static IconView_IconView_t IconView_IconView_Original;
+
+static void* WINAPI IconView_IconView_Hook(void* pThis) {
+    void* result = IconView_IconView_Original(pThis);
+    if (g_unloading)
+        return result;
+
+    FrameworkElement iconView = nullptr;
+    reinterpret_cast<IUnknown**>(pThis)[1]->QueryInterface(
+        winrt::guid_of<FrameworkElement>(), winrt::put_abi(iconView));
+    if (!iconView)
+        return result;
+
+    g_loadedRevokers.emplace_back();
+    auto revoker = std::prev(g_loadedRevokers.end());
+    *revoker = iconView.Loaded(
+        winrt::auto_revoke_t{},
+        [revoker](auto const&, auto const&) {
+            g_loadedRevokers.erase(revoker);
+            if (!g_unloading)
+                ApplyAllSettings();
+        });
+    return result;
+}
+
+static bool HookSystemTraySymbols(HMODULE module) {
+    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+        {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
+        &IconView_IconView_Original,
+        IconView_IconView_Hook,
+    }};
+    return WindhawkUtils::HookSymbols(module, hooks, ARRAYSIZE(hooks));
+}
+
+using LoadLibraryExW_t = HMODULE (WINAPI*)(LPCWSTR, HANDLE, DWORD);
+static LoadLibraryExW_t LoadLibraryExW_Original;
+
+static HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR fileName, HANDLE file,
+                                          DWORD flags) {
+    HMODULE module = LoadLibraryExW_Original(fileName, file, flags);
+    if (module && fileName && !g_systemTrayModuleHooked &&
+        GetSystemTrayModuleHandle() == module &&
+        !g_systemTrayModuleHooked.exchange(true)) {
+        Wh_Log(L"[Hooks] System tray module loaded: %s", fileName);
+        if (HookSystemTraySymbols(module)) {
+            Wh_ApplyHookOperations();
+        } else {
+            g_systemTrayModuleHooked = false;
+            Wh_Log(L"[Hooks] System tray symbol hooks failed");
+        }
+    }
+    return module;
+}
 
 using TrayUI_StartTaskbar_t = void (WINAPI*)(void* pThis);
 TrayUI_StartTaskbar_t TrayUI_StartTaskbar_Original;
@@ -2193,6 +2394,7 @@ static void StartRetryThread() {
 
     // A non-null cached Grid isn't proof that it still belongs to the current
     // tray. StartTaskbar can recreate/reindex the XAML tree after resume.
+    // Sign-in can also take much longer than the old eight-second retry window.
     g_injectionLive.store(false);
 
     g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
@@ -2202,8 +2404,14 @@ static void StartRetryThread() {
     HANDLE stopEvent = g_retryStopEvent;
     g_retryThread = CreateThread(nullptr, 0, [](void* param) -> DWORD {
         HANDLE stopEvent = static_cast<HANDLE>(param);
-        for (int i = 0; i < 5 && !g_unloading; i++) {
-            if (i > 0 && WaitForSingleObject(stopEvent, 2000) != WAIT_TIMEOUT)
+        static constexpr DWORD kRetryDelaysMs[] = {
+            0, 500, 1000, 2000, 4000, 8000, 15000, 30000,
+        };
+        for (int i = 0;
+             i < static_cast<int>(ARRAYSIZE(kRetryDelaysMs)) && !g_unloading;
+             i++) {
+            if (kRetryDelaysMs[i] &&
+                WaitForSingleObject(stopEvent, kRetryDelaysMs[i]) != WAIT_TIMEOUT)
                 break;
             Wh_Log(L"[Inject] Reconcile attempt %d", i + 1);
             ApplyAllSettingsOnWindowThread();
@@ -2232,10 +2440,43 @@ BOOL Wh_ModInit() {
         return FALSE;
     }
 
+    if (HMODULE systemTray = GetSystemTrayModuleHandle()) {
+        if (HookSystemTraySymbols(systemTray)) {
+            g_systemTrayModuleHooked = true;
+        } else {
+            Wh_Log(L"[Init] system tray symbol hooks failed");
+        }
+    } else {
+        HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
+        auto loadLibraryExW = kernelbase
+            ? reinterpret_cast<LoadLibraryExW_t>(
+                  GetProcAddress(kernelbase, "LoadLibraryExW"))
+            : nullptr;
+        if (loadLibraryExW) {
+            WindhawkUtils::SetFunctionHook(
+                loadLibraryExW, LoadLibraryExW_Hook,
+                &LoadLibraryExW_Original);
+        } else {
+            Wh_Log(L"[Init] LoadLibraryExW hook unavailable; using retry fallback");
+        }
+    }
+
     return TRUE;
 }
 
 void Wh_ModAfterInit() {
+    if (!g_systemTrayModuleHooked) {
+        if (HMODULE systemTray = GetSystemTrayModuleHandle()) {
+            if (!g_systemTrayModuleHooked.exchange(true)) {
+                if (HookSystemTraySymbols(systemTray)) {
+                    Wh_ApplyHookOperations();
+                } else {
+                    g_systemTrayModuleHooked = false;
+                    Wh_Log(L"[AfterInit] system tray symbol hooks failed");
+                }
+            }
+        }
+    }
     StartRetryThread();
 }
 
@@ -2247,9 +2488,14 @@ void Wh_ModUninit() {
 
     HWND hWnd = FindCurrentProcessTaskbarWnd();
     if (hWnd)
-        RunFromWindowThread(hWnd, [](void*) { RemoveButtonGrid(); }, nullptr);
-    else
+        RunFromWindowThread(hWnd, [](void*) {
+            g_loadedRevokers.clear();
+            RemoveButtonGrid();
+        }, nullptr);
+    else {
+        g_loadedRevokers.clear();
         RemoveButtonGrid();
+    }
 }
 
 void Wh_ModSettingsChanged() {
@@ -2258,11 +2504,16 @@ void Wh_ModSettingsChanged() {
     Wh_Log(L"[Settings] Changed");
 
     HWND hWnd = FindCurrentProcessTaskbarWnd();
-    if (!hWnd) return;
+    if (!hWnd) {
+        StartRetryThread();
+        return;
+    }
     g_taskbarWnd = hWnd;
 
     RunFromWindowThread(hWnd, [](void*) {
         RemoveButtonGrid();
         ApplyAllSettings();
     }, nullptr);
+    if (!g_injectionLive)
+        StartRetryThread();
 }

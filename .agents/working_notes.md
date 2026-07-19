@@ -6,10 +6,14 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-Five mods to prepare. No submissions until each works as described with
-current docs/screenshots (standing directives in README.md).
+Five mods to prepare. Immediate execution order from the user (2026-07-19):
+Folder Menus → OmniButton → Privacy Anchor. Clock Spacer is deferred behind
+those active fixes; VD Switcher is follow-up feature work. No submissions until
+each works as described with current docs/screenshots (standing directives in
+README.md).
 
-1. **Taskbar Clock Spacer** — ACTIVE. v1.1 FAILED first live round (2026-07-19,
+1. **Taskbar Clock Spacer** — DEFERRED behind Folder Menus/OmniButton/Privacy.
+   v1.1 FAILED first live round (2026-07-19,
    user report): the spacer effect does not work as expected ("something is
    funny" — behavior unspecified, needs diagnosis with logs/UWPSpy), and the
    WEATHER-COMPONENT SPACER feature is MISSING entirely (a spacer slot for the
@@ -43,27 +47,36 @@ current docs/screenshots (standing directives in README.md).
 
 2. **Taskbar VD Switcher** — v1.7 MERGED 2026-07-18 (PR #4516). Remaining work
    is follow-up, not release-blocking.
+   - [ ] Issue #4830 feature set: custom user-defined indicator symbols/letters
+         (example active/inactive dot strings), separate master-button and
+         indicator fonts, and Styler-friendly Checked/CheckedPointerOver/
+         CheckedPressed visual states
    - [ ] Verify the full-rebuild change also fixes issue #4784 (hover/hit-test)
    - [ ] Test the experimental `multiMonitor` toggle (deferred: Explorer
          restarts disrupt the user's desktop order)
    - [ ] Refresh screenshots (accent default changed visuals)
    - [ ] Sync folder README settings table
 
-3. **Taskbar Folder Menus** — REVIEWED 2026-07-18 on PR #4485; both required
-   items are ALREADY FIXED in the local working tree (`WM_MENURBUTTONUP`,
-   `[[clang::no_destroy]]`, and the optional `-lversion`/`winver.h` removal).
+3. **Taskbar Folder Menus** — ACTIVE / MOST CRITICAL. Fix, live-test, and take
+   screenshots before the user restores the desktop/taskbar. REVIEWED
+   2026-07-18 on PR #4485; both required
+   items are ALREADY FIXED in the local working tree (`WM_MENURBUTTONUP` and
+   `[[clang::no_destroy]]`). The version dependency removed as unused during
+   review is now intentionally restored for startup module selection.
    The PR branch is stale by ~631 lines — this is a push-and-reply job, not a
-   fix job. Still open from that review: the DPI-units bug in
-   `GetAvailableFolderRows` (physical px ÷ DIP pitch), a likely cause of the
-   chevron-area overlap.
+   fix job. The candidate Smart Grid replacement also removes the old
+   taskbar-window DPI capacity calculation implicated in chevron overlap.
    NEW REGRESSIONS (2026-07-19, user report — screenshots BLOCKED until fixed):
-   - [ ] Mod does NOT survive a reboot (buttons/layout gone after restart —
-         likely the startup path never re-applies; investigate init/retry
-         lifecycle vs `TrayUI::StartTaskbar`)
-   - [ ] Smart grid "fucking SUCKS and doesn't work correctly at all" (user,
-         2026-07-19). Likely related to the known DPI-units bug in
-         `GetAvailableFolderRows`. Fix against `_templates/smart-grid-layout.h`,
-         don't re-derive inline math.
+   - [ ] Live-test reboot persistence (buttons/layout previously disappeared;
+         candidate retry-lifecycle fix is in the working tree)
+   - [ ] Live-test the replacement Smart Grid against single- and double-height
+         taskbars; the old implementation "doesn't work correctly at all"
+         (user, 2026-07-19)
+   Candidate working-tree fix awaiting live test: canonical `gridMode` profile
+   plus the verbatim Smart Grid template; capacity now comes from the live
+   `SystemTrayFrameGrid` DIP height with correct inter-row spacing math. Startup
+   now has a deterministic `IconView.Loaded` trigger plus retry coverage that
+   spans slow sign-in instead of ending after ~8 seconds.
    Previously: READY FOR SCREENSHOTS — now blocked on the two items above. The v0.6 reviewer
    revision is compile-checked and live-confirmed: native Shell context menus,
    modal verbs, nested-cascade retention, click-away dismissal, and button
@@ -74,7 +87,7 @@ current docs/screenshots (standing directives in README.md).
    - [ ] After screenshots, perform the final three-layer docs check before
          discussing any PR #4485 sync (no submission yet)
 
-4. **OmniButton Customizer** — BROKEN. Test round 3 failed 2026-07-17 (work
+4. **OmniButton Customizer** — NEXT AFTER FOLDER MENUS. BROKEN. Test round 3 failed 2026-07-17 (work
    log): battery percent still wrong; independent mode hides the battery glyph
    entirely. Grid template not implicated per user.
    - [ ] FIRST: get Windhawk logs from the user's machine (`[Battery]`,
@@ -86,7 +99,7 @@ current docs/screenshots (standing directives in README.md).
      favor of the customizer; if refused, the 5 review comments need a response
      commit (archive: knowledge/pr-review-comments.md)
 
-5. **Privacy Indicator Anchor** — WIP, PAUSED FOR CLOCK-SPACER DEBUGGING.
+5. **Privacy Indicator Anchor** — THIRD IN ACTIVE QUEUE.
    Do not treat the visual-state implementation or the 2026-07-19 metadata fix
    as completion. Mostly
    working as of 2026-07-18 user tests:
