@@ -1,9 +1,13 @@
 #pragma once
 
-// Copy-source template v1.1: reversible SystemTrayFrameGrid column lease.
+// Copy-source template v1.2: reversible SystemTrayFrameGrid column lease.
 // v1.1: split AcquireAt(column) out of Acquire(anchor) so a mod can lease a
 // dedicated column at a column index it resolved itself (e.g. borrowing the
 // hidden-icons column position). First adopter: tray-utility-customizer.
+// v1.2: "after" anchors resolve past the reference's full column SPAN.
+// ShowDesktopStack can span multiple columns; +1 landed the lease inside the
+// span, widening it and placing the group under the strip at the screen edge
+// (seen as partially off-screen in tray-utility-customizer live testing).
 
 #include <algorithm>
 #include <string>
@@ -70,7 +74,8 @@ inline bool ResolveColumn(Grid const& parent, Anchor anchor, int& column) {
     auto reference = FindDirectChild(parent, referenceName);
     if (!reference)
         return false; // Never silently turn an unavailable anchor into column 0.
-    column = Grid::GetColumn(reference) + (after ? 1 : 0);
+    column = Grid::GetColumn(reference) +
+             (after ? std::max(1, Grid::GetColumnSpan(reference)) : 0);
     return true;
 }
 

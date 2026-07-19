@@ -2,7 +2,7 @@
 // @id              tray-utility-customizer
 // @name            Tray Utility Customizer
 // @description     Arranges Windows tray utility controls such as Show hidden icons, Emoji, touch keyboard, pen menu, and virtual touchpad into a configurable row, column, or smart grid.
-// @version         0.4
+// @version         0.5
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -28,6 +28,15 @@ Only controls detected on the current Windows build are included. The mod keeps
 Windows-owned controls intact and moves their native tray hosts instead of
 drawing replacement buttons or forwarding clicks.
 
+![Native tray before the mod](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/disabled.png)
+*Mod disabled: the chevron and the Emoji button sit in their native positions.*
+
+![Row layout at the hidden-icons position](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/with-extra-icons-carot.png)
+*Enabled: the Emoji button is gathered in next to the chevron.*
+
+![Stacked column on a taller taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/with-carot-stacked.png)
+*Smart automatic stacks the pair into a column once the taskbar is tall enough.*
+
 ## Layout
 
 - **Smart automatic** picks the densest sensible grid for the item count and
@@ -48,6 +57,12 @@ tray column before the notification icons, before Wi-Fi/volume/battery, before
 or after the clock, or after the Show Desktop strip. The lease is
 marker-tracked and fully reversible on unload.
 
+Two **experimental** positions relocate the group out of the tray entirely:
+**Left of Start** and **Right of Start** move the native hosts into a small
+overlay beside the Start button and push the task list right to reserve room.
+The group follows Start as the taskbar re-centers and everything returns to
+the tray on unload. Primary taskbar only.
+
 ## Detection
 
 - **Automatic** uses Windows accessibility metadata and a guarded Emoji
@@ -59,6 +74,10 @@ marker-tracked and fully reversible on unload.
 Use `itemOrder` to select and order utilities. If multiple selected utilities
 belong to one indivisible Windows host, they stay bundled together and the log
 identifies the shared host.
+
+Utilities that Windows currently hides — a control toggled off in taskbar
+settings, or a transient one like the touch keyboard — don't occupy a cell.
+The grid re-adapts and re-centers automatically as they appear and disappear.
 */
 // ==/WindhawkModReadme==
 
@@ -70,8 +89,8 @@ identifies the shared host.
 - position: overflow
   $name: Position
   $description: >-
-    Borrow a native utility column or lease a dedicated column elsewhere in
-    the system tray.
+    Borrow a native utility column, lease a dedicated column elsewhere in the
+    system tray, or experimentally relocate the group beside Start.
   $options:
   - overflow: Hidden-icons column
   - emoji: Emoji column
@@ -80,6 +99,8 @@ identifies the shared host.
   - beforeClock: Before clock
   - afterClock: After clock
   - afterShowDesktop: After Show Desktop
+  - leftOfStart: Left of Start (experimental)
+  - rightOfStart: Right of Start (experimental)
 
 - itemOrder: "overflow,emoji"
   $name: Utility items and order
@@ -452,7 +473,7 @@ inline Cell GetCell(int index, int count, Layout const& layout,
 } // namespace windhawk_mod_templates::smart_grid
 
 // ── Injected grid column ──────────────────────────────────────────────────
-// Template block: _templates/injected-grid-column.h v1.1 (verbatim copy —
+// Template block: _templates/injected-grid-column.h v1.2 (verbatim copy —
 // keep in sync with the template; Windhawk mods are single-file).
 
 namespace windhawk_mod_templates::injected_grid_column {
@@ -514,7 +535,8 @@ inline bool ResolveColumn(Grid const& parent, Anchor anchor, int& column) {
     auto reference = FindDirectChild(parent, referenceName);
     if (!reference)
         return false; // Never silently turn an unavailable anchor into column 0.
-    column = Grid::GetColumn(reference) + (after ? 1 : 0);
+    column = Grid::GetColumn(reference) +
+             (after ? std::max(1, Grid::GetColumnSpan(reference)) : 0);
     return true;
 }
 
@@ -620,6 +642,8 @@ enum class Position {
     BeforeClock,
     AfterClock,
     AfterShowDesktop,
+    LeftOfStart,
+    RightOfStart,
 };
 
 struct Settings {
@@ -680,6 +704,7 @@ struct HostSnapshot {
     HorizontalAlignment horizontalAlignment = HorizontalAlignment::Stretch;
     VerticalAlignment verticalAlignment = VerticalAlignment::Stretch;
     Transform renderTransform{nullptr};
+    bool hadVisibleIconView = false;
 };
 
 struct UtilityHost {
@@ -694,8 +719,99 @@ static bool g_layoutApplied = false;
 static Grid g_layoutGrid{nullptr};
 static lease_column::Lease g_columnLease;
 
+// Start-adjacent overlay state (experimental positions).
+static Grid g_startGroupGrid{nullptr};
+static Grid g_startRootGrid{nullptr};
+static FrameworkElement g_startButton{nullptr};
+static FrameworkElement g_taskItemsPanel{nullptr};
+static Thickness g_taskItemsPanelOriginalMargin{};
+static double g_startButtonOriginalX = -1.0;
+static winrt::event_token g_startLayoutToken{};
+
 static constexpr PCWSTR kLayoutColumnMarkerName =
     L"TrayUtilityCustomizerColumnMarker";
+
+// ── Transient-host reapply plumbing ───────────────────────────────────────
+// Windows hides/shows utility hosts live (taskbar settings toggles, the
+// transient touch keyboard). Watch every candidate's visibility and re-run
+// the whole layout when the visible set changes.
+
+static bool ApplyLayout();
+
+struct HostWatcher {
+    FrameworkElement element{nullptr};
+    int64_t token = 0;
+};
+static std::vector<HostWatcher> g_hostWatchers;
+static winrt::event_token g_trayLayoutToken{};
+static DispatcherTimer g_reapplyTimer{nullptr};
+
+// Coalesces bursts (a settings toggle can flip several properties) and gets
+// the reapply out of the property-changed/layout callback that noticed it.
+static void ScheduleReapply() {
+    if (g_unloading) {
+        return;
+    }
+    try {
+        if (!g_reapplyTimer) {
+            g_reapplyTimer = DispatcherTimer();
+            g_reapplyTimer.Interval(
+                std::chrono::milliseconds{150});
+            g_reapplyTimer.Tick(
+                [](auto const&, auto const&) {
+                    if (g_reapplyTimer) {
+                        g_reapplyTimer.Stop();
+                    }
+                    if (!g_unloading) {
+                        try {
+                            ApplyLayout();
+                        } catch (...) {
+                            Wh_Log(
+                                L"[Apply] Exception in "
+                                L"scheduled reapply");
+                        }
+                    }
+                });
+        }
+        g_reapplyTimer.Stop();
+        g_reapplyTimer.Start();
+    } catch (...) {
+    }
+}
+
+static void ClearHostWatchers() {
+    for (auto& watcher : g_hostWatchers) {
+        try {
+            watcher.element.UnregisterPropertyChangedCallback(
+                UIElement::VisibilityProperty(), watcher.token);
+        } catch (...) {
+        }
+    }
+    g_hostWatchers.clear();
+}
+
+static void WatchHostVisibility(FrameworkElement const& element) {
+    if (!element) {
+        return;
+    }
+    for (auto const& watcher : g_hostWatchers) {
+        if (watcher.element == element) {
+            return;
+        }
+    }
+    try {
+        int64_t token = element.RegisterPropertyChangedCallback(
+            UIElement::VisibilityProperty(),
+            [](DependencyObject const&,
+               DependencyProperty const&) {
+                if (!g_unloading) {
+                    ScheduleReapply();
+                }
+            });
+        g_hostWatchers.push_back({element, token});
+    } catch (...) {
+    }
+}
 
 static int ClampSetting(int value, int low, int high) {
     return value < low ? low : value > high ? high : value;
@@ -730,6 +846,10 @@ static void LoadSettings() {
         g_settings.position = Position::AfterClock;
     } else if (position == L"afterShowDesktop") {
         g_settings.position = Position::AfterShowDesktop;
+    } else if (position == L"leftOfStart") {
+        g_settings.position = Position::LeftOfStart;
+    } else if (position == L"rightOfStart") {
+        g_settings.position = Position::RightOfStart;
     } else {
         g_settings.position = Position::Overflow;
     }
@@ -1118,6 +1238,41 @@ static int CountVisibleIconViews(FrameworkElement const& host) {
     return result;
 }
 
+// Windows disables a utility by gutting the inside of its host — removing
+// or collapsing the IconView, sometimes behind a collapsed mid-level
+// element — while the host itself stays parented and Visible. Effective
+// visibility (self AND every ancestor) is the signal that survives all of
+// those variants.
+static void ScanIconViews(FrameworkElement const& element,
+                          bool ancestorsVisible,
+                          bool& hasAny,
+                          bool& hasVisible,
+                          int depth = 0) {
+    if (!element || depth > 12) {
+        return;
+    }
+    int count = VisualTreeHelper::GetChildrenCount(element);
+    for (int i = 0; i < count; i++) {
+        auto child = VisualTreeHelper::GetChild(element, i)
+                         .try_as<FrameworkElement>();
+        if (!child) {
+            continue;
+        }
+        bool childVisible =
+            ancestorsVisible &&
+            child.Visibility() == Visibility::Visible;
+        if (winrt::get_class_name(child) ==
+            L"SystemTray.IconView") {
+            hasAny = true;
+            if (childVisible) {
+                hasVisible = true;
+            }
+        }
+        ScanIconViews(child, childVisible, hasAny, hasVisible,
+                      depth + 1);
+    }
+}
+
 static FrameworkElement FindUtilityElement(
     Grid const& trayGrid,
     std::wstring const& token) {
@@ -1159,12 +1314,13 @@ static std::vector<UtilityHost> DiscoverUtilityHosts(
 
     for (auto const& token : tokens) {
         FrameworkElement host = nullptr;
+        FrameworkElement inner = nullptr;
         if (token == L"overflow") {
             host = overflowHost;
         } else {
-            auto element = FindUtilityElement(trayGrid, token);
-            if (element) {
-                host = FindDirectTrayHost(trayGrid, element);
+            inner = FindUtilityElement(trayGrid, token);
+            if (inner) {
+                host = FindDirectTrayHost(trayGrid, inner);
             }
 
             if (!host && token == L"emoji" && mainStack) {
@@ -1185,6 +1341,33 @@ static std::vector<UtilityHost> DiscoverUtilityHosts(
         if (!host) {
             Wh_Log(L"[Discover] Utility not found: %s",
                    token.c_str());
+            continue;
+        }
+
+        // Watch even the hosts we skip, so a utility toggled on in
+        // Windows settings (or a transient control appearing) re-runs
+        // the layout and gets gathered in.
+        WatchHostVisibility(host);
+        if (inner) {
+            WatchHostVisibility(inner);
+        }
+        if (host.Visibility() != Visibility::Visible ||
+            (inner &&
+             inner.Visibility() != Visibility::Visible)) {
+            Wh_Log(
+                L"[Discover] %s is hidden; leaving it native",
+                token.c_str());
+            continue;
+        }
+        bool hasAnyIconView = false;
+        bool hasVisibleIconView = false;
+        ScanIconViews(host, true, hasAnyIconView,
+                      hasVisibleIconView);
+        if (hasAnyIconView && !hasVisibleIconView) {
+            Wh_Log(
+                L"[Discover] %s content is hidden; "
+                L"leaving it native",
+                token.c_str());
             continue;
         }
 
@@ -1283,6 +1466,11 @@ static HostSnapshot CaptureHost(FrameworkElement const& element,
     snapshot.verticalAlignment = element.VerticalAlignment();
     snapshot.renderTransform = element.RenderTransform();
 
+    bool hasAnyIconView = false;
+    bool hasVisibleIconView = false;
+    ScanIconViews(element, true, hasAnyIconView, hasVisibleIconView);
+    snapshot.hadVisibleIconView = hasVisibleIconView;
+
     Grid marker;
     marker.Name(
         L"TrayUtilityCustomizerHostMarker_" +
@@ -1341,10 +1529,202 @@ static void RestoreHost(HostSnapshot& snapshot) {
     snapshot = {};
 }
 
+// ── Start-adjacent overlay (experimental) ─────────────────────────────────
+// Ported from taskbar-vd-switcher's Start placement, trimmed to two modes.
+// The native hosts are reparented into a small owned Grid appended to the
+// taskbar RootGrid, positioned beside Start, and the TaskbarFrameRepeater is
+// pushed right to reserve room.
+
+static FrameworkElement FindTaskbarRootGrid(FrameworkElement const& root) {
+    auto taskbarFrame = FindChildRecursive(
+        root,
+        [](FrameworkElement element) {
+            return winrt::get_class_name(element) ==
+                   L"Taskbar.TaskbarFrame";
+        });
+    if (!taskbarFrame) {
+        return nullptr;
+    }
+
+    int count = VisualTreeHelper::GetChildrenCount(taskbarFrame);
+    for (int i = 0; i < count; i++) {
+        auto child = VisualTreeHelper::GetChild(taskbarFrame, i)
+                         .try_as<FrameworkElement>();
+        if (child && child.Name() == L"RootGrid") {
+            return child;
+        }
+    }
+    return nullptr;
+}
+
+static FrameworkElement FindStartButton(FrameworkElement const& root) {
+    return FindChildRecursive(
+        root,
+        [](FrameworkElement element) {
+            return winrt::get_class_name(element) ==
+                       L"Taskbar.ExperienceToggleButton" &&
+                   AutomationProperties::GetAutomationId(element) ==
+                       L"StartButton";
+        });
+}
+
+static void PositionStartGroup() {
+    if (!g_startGroupGrid || !g_startRootGrid || !g_startButton) {
+        return;
+    }
+
+    try {
+        double groupWidth = g_startGroupGrid.Width();
+        double groupHeight = g_startGroupGrid.Height();
+        bool startHidden =
+            g_startButton.Visibility() == Visibility::Collapsed;
+        double startWidth = g_startButton.ActualWidth();
+        double startHeight = g_startButton.ActualHeight();
+        if (startWidth <= 0.0 && !startHidden) {
+            startWidth = 44.0;
+        }
+        if (startHeight <= 0.0) {
+            startHeight = groupHeight;
+        }
+
+        // The reported x includes any counter-shift we applied, so back it
+        // out to get the raw layout position. Whether Start rides the
+        // repeater-margin push varies by build; instead of assuming, shift
+        // Start by exactly the error between where it is and where this
+        // mode wants it. y stays valid for vertical centering throughout.
+        auto transform =
+            g_startButton.TransformToVisual(g_startRootGrid);
+        auto point = transform.TransformPoint({0.0f, 0.0f});
+        auto existingShift =
+            g_startButton.RenderTransform()
+                .try_as<TranslateTransform>();
+        double currentShift =
+            existingShift ? existingShift.X() : 0.0;
+        double rawX = point.X - currentShift;
+        double anchorX = g_startButtonOriginalX >= 0.0
+                             ? g_startButtonOriginalX
+                             : rawX;
+
+        double push =
+            groupWidth + std::max(0, g_settings.buttonSpacing);
+        if (g_taskItemsPanel) {
+            auto margin = g_taskItemsPanel.Margin();
+            double needed =
+                g_taskItemsPanelOriginalMargin.Left + push;
+            if (std::fabs(margin.Left - needed) > 0.5) {
+                margin.Left = needed;
+                g_taskItemsPanel.Margin(margin);
+            }
+        }
+
+        // Left of Start wants Start pushed right of the group; Right of
+        // Start wants it held at its original anchor with the group beside.
+        double left;
+        double desiredStartX;
+        if (g_settings.position == Position::LeftOfStart) {
+            left = 0.0;
+            desiredStartX = anchorX + push;
+        } else {
+            left = anchorX + startWidth;
+            desiredStartX = anchorX;
+        }
+        if (!startHidden) {
+            double neededShift = desiredStartX - rawX;
+            if (std::fabs(neededShift) <= 0.5) {
+                if (existingShift || g_startButton.RenderTransform()) {
+                    g_startButton.ClearValue(
+                        UIElement::RenderTransformProperty());
+                }
+            } else if (std::fabs(currentShift - neededShift) > 0.5) {
+                TranslateTransform startShift;
+                startShift.X(neededShift);
+                g_startButton.RenderTransform(startShift);
+            }
+        }
+
+        double top =
+            point.Y + (startHeight - groupHeight) / 2.0;
+        if (top < 0.0) {
+            top = 0.0;
+        }
+        double rootWidth = g_startRootGrid.ActualWidth();
+        if (rootWidth > 0.0 && left + groupWidth > rootWidth) {
+            left = std::max(0.0, rootWidth - groupWidth);
+        }
+
+        auto current = g_startGroupGrid.Margin();
+        if (std::fabs(current.Left - left) > 0.5 ||
+            std::fabs(current.Top - top) > 0.5) {
+            g_startGroupGrid.Margin({left, top, 0.0, 0.0});
+        }
+    } catch (...) {
+    }
+}
+
+static void RestoreStartOverlay() {
+    if (!g_startGroupGrid) {
+        return;
+    }
+
+    try {
+        if (g_startRootGrid && g_startLayoutToken) {
+            g_startRootGrid.LayoutUpdated(g_startLayoutToken);
+        }
+
+        // Send the native hosts home before tearing down the group;
+        // RestoreHost then puts their properties and columns back.
+        if (g_layoutGrid) {
+            while (g_startGroupGrid.Children().Size() > 0) {
+                auto child = g_startGroupGrid.Children()
+                                 .GetAt(0)
+                                 .try_as<FrameworkElement>();
+                g_startGroupGrid.Children().RemoveAt(0);
+                if (child) {
+                    g_layoutGrid.Children().Append(child);
+                }
+            }
+        }
+
+        if (g_startRootGrid) {
+            uint32_t index = 0;
+            if (g_startRootGrid.Children().IndexOf(
+                    g_startGroupGrid, index)) {
+                g_startRootGrid.Children().RemoveAt(index);
+            }
+        }
+        if (g_taskItemsPanel) {
+            g_taskItemsPanel.Margin(g_taskItemsPanelOriginalMargin);
+        }
+        if (g_startButton) {
+            g_startButton.ClearValue(
+                UIElement::RenderTransformProperty());
+        }
+    } catch (...) {
+        Wh_Log(L"[Restore] Start overlay restore failed");
+    }
+    g_startLayoutToken = {};
+    g_startGroupGrid = nullptr;
+    g_startRootGrid = nullptr;
+    g_startButton = nullptr;
+    g_taskItemsPanel = nullptr;
+    g_taskItemsPanelOriginalMargin = {};
+    g_startButtonOriginalX = -1.0;
+}
+
 static void RestoreLayout() {
     if (!g_layoutApplied) {
         return;
     }
+
+    if (g_trayLayoutToken && g_layoutGrid) {
+        try {
+            g_layoutGrid.LayoutUpdated(g_trayLayoutToken);
+        } catch (...) {
+        }
+    }
+    g_trayLayoutToken = {};
+
+    RestoreStartOverlay();
 
     if (!g_columnLease.markerName.empty() && g_layoutGrid) {
         if (!lease_column::Release(g_layoutGrid, g_columnLease)) {
@@ -1365,12 +1745,13 @@ static void RestoreLayout() {
 
 // ── Layout application ────────────────────────────────────────────────────
 
+// Margin-based placement: unlike a render transform, a margin participates
+// in layout, so Windows anchors the utility's flyout at the host's real
+// on-screen position.
 static void ApplyHostLayout(FrameworkElement const& host,
                             int column,
-                            double horizontalOffset,
-                            double verticalOffset,
-                            int offsetX,
-                            int offsetY) {
+                            double marginLeft,
+                            double marginTop) {
     Grid::SetColumn(host, column);
     Grid::SetColumnSpan(host, 1);
     host.Width(static_cast<double>(g_settings.buttonWidth));
@@ -1379,19 +1760,14 @@ static void ApplyHostLayout(FrameworkElement const& host,
     host.MinHeight(0);
     host.MaxWidth(static_cast<double>(g_settings.buttonWidth));
     host.MaxHeight(static_cast<double>(g_settings.buttonHeight));
-    host.HorizontalAlignment(HorizontalAlignment::Center);
-    host.VerticalAlignment(VerticalAlignment::Center);
-    host.Margin(Thickness{});
-
-    TranslateTransform transform;
-    transform.X(horizontalOffset + static_cast<double>(
-        g_settings.groupOffsetX + offsetX));
-    transform.Y(verticalOffset + static_cast<double>(
-        g_settings.groupOffsetY + offsetY));
-    host.RenderTransform(transform);
+    host.HorizontalAlignment(HorizontalAlignment::Left);
+    host.VerticalAlignment(VerticalAlignment::Top);
+    host.Margin(Thickness{marginLeft, marginTop, 0.0, 0.0});
+    host.RenderTransform(nullptr);
 }
 
 static bool ApplyLayout() {
+    ClearHostWatchers();
     RestoreLayout();
 
     HWND hWnd =
@@ -1538,9 +1914,70 @@ static bool ApplyLayout() {
     bool borrowPosition =
         g_settings.position == Position::Overflow ||
         g_settings.position == Position::Emoji;
+    bool startPosition =
+        g_settings.position == Position::LeftOfStart ||
+        g_settings.position == Position::RightOfStart;
     int sharedColumn = -1;
 
-    if (borrowPosition && layout.columns == 1) {
+    if (startPosition) {
+        auto rootGrid =
+            FindTaskbarRootGrid(root).try_as<Grid>();
+        auto startButton = FindStartButton(root);
+        if (!rootGrid || !startButton) {
+            Wh_Log(
+                L"[Apply] Start anchor unavailable; "
+                L"leaving the native layout unchanged");
+            RestoreLayout();
+            return false;
+        }
+
+        Grid group;
+        group.Width(groupWidth);
+        group.Height(groupHeight);
+        group.HorizontalAlignment(HorizontalAlignment::Left);
+        group.VerticalAlignment(VerticalAlignment::Top);
+        Grid::SetColumn(group, 0);
+        Grid::SetColumnSpan(
+            group,
+            std::max(
+                1,
+                static_cast<int>(
+                    rootGrid.ColumnDefinitions().Size())));
+        Canvas::SetZIndex(group, 1000);
+        rootGrid.Children().Append(group);
+
+        g_startGroupGrid = group;
+        g_startRootGrid = rootGrid;
+        g_startButton = startButton;
+        if (auto repeater = FindChildRecursive(
+                rootGrid,
+                [](FrameworkElement element) {
+                    return element.Name() ==
+                           L"TaskbarFrameRepeater";
+                },
+                1)) {
+            g_taskItemsPanel = repeater;
+            g_taskItemsPanelOriginalMargin = repeater.Margin();
+        }
+        try {
+            auto transform =
+                startButton.TransformToVisual(rootGrid);
+            g_startButtonOriginalX =
+                transform.TransformPoint({0.0f, 0.0f}).X;
+        } catch (...) {
+            g_startButtonOriginalX = -1.0;
+        }
+
+        for (auto const& utility : utilities) {
+            uint32_t index = 0;
+            if (trayGrid.Children().IndexOf(
+                    utility.element, index)) {
+                trayGrid.Children().RemoveAt(index);
+            }
+            group.Children().Append(utility.element);
+        }
+        sharedColumn = 0;
+    } else if (borrowPosition && layout.columns == 1) {
         if (g_settings.position == Position::Emoji &&
             emojiHost) {
             sharedColumn = Grid::GetColumn(emojiHost);
@@ -1605,22 +2042,83 @@ static bool ApplyLayout() {
         sharedColumn = g_columnLease.column;
     }
 
+    // The start-overlay group is exactly group-sized; a tray column is the
+    // full tray height, so the grid gets centered in it vertically.
+    double baseTop =
+        startPosition
+            ? 0.0
+            : std::max(
+                  0.0,
+                  (trayGrid.ActualHeight() - groupHeight) / 2.0);
     for (int index = 0; index < count; index++) {
         auto cell = grid::GetCell(index, count, layout, config);
         double columnUnits = cell.column + cell.leftOffsetUnits;
         double rowUnits = cell.row + cell.topOffsetUnits;
-        double x =
-            (columnUnits - (layout.columns - 1) / 2.0) * pitchX;
-        double y =
-            (rowUnits - (layout.rows - 1) / 2.0) * pitchY;
         ApplyHostLayout(
             utilities[index].element,
             sharedColumn,
-            x,
-            y,
-            utilities[index].offsetX,
-            utilities[index].offsetY);
+            columnUnits * pitchX +
+                g_settings.groupOffsetX +
+                utilities[index].offsetX,
+            baseTop + rowUnits * pitchY +
+                g_settings.groupOffsetY +
+                utilities[index].offsetY);
     }
+
+    if (startPosition) {
+        PositionStartGroup();
+        g_startLayoutToken = g_startRootGrid.LayoutUpdated(
+            [](auto const&, auto const&) {
+                if (!g_unloading) {
+                    PositionStartGroup();
+                }
+            });
+    }
+
+    // Visibility watchers miss a host being removed from the tree
+    // outright, so also verify on tray layout passes that every managed
+    // host is still parented and visible.
+    g_trayLayoutToken = trayGrid.LayoutUpdated(
+        [](auto const&, auto const&) {
+            if (g_unloading || !g_layoutApplied) {
+                return;
+            }
+            // Throttle: layout passes come in bursts (animations, clock
+            // ticks); one intactness check per 250 ms is plenty.
+            static ULONGLONG lastCheckTick = 0;
+            ULONGLONG nowTick = GetTickCount64();
+            if (nowTick - lastCheckTick < 250) {
+                return;
+            }
+            lastCheckTick = nowTick;
+            for (auto const& snapshot : g_hostSnapshots) {
+                if (!snapshot.element) {
+                    continue;
+                }
+                bool gone = false;
+                try {
+                    gone =
+                        !VisualTreeHelper::GetParent(
+                            snapshot.element) ||
+                        snapshot.element.Visibility() !=
+                            Visibility::Visible;
+                    if (!gone && snapshot.hadVisibleIconView) {
+                        bool hasAnyIconView = false;
+                        bool hasVisibleIconView = false;
+                        ScanIconViews(snapshot.element, true,
+                                      hasAnyIconView,
+                                      hasVisibleIconView);
+                        gone = !hasVisibleIconView;
+                    }
+                } catch (...) {
+                    gone = true;
+                }
+                if (gone) {
+                    ScheduleReapply();
+                    return;
+                }
+            }
+        });
 
     Wh_Log(
         L"[Apply] Utility layout applied: items=%d "
@@ -1882,11 +2380,27 @@ void Wh_ModUninit() {
             hWnd,
             [](void*) {
                 g_loadedRevokers.clear();
+                ClearHostWatchers();
+                if (g_reapplyTimer) {
+                    try {
+                        g_reapplyTimer.Stop();
+                    } catch (...) {
+                    }
+                    g_reapplyTimer = nullptr;
+                }
                 RestoreLayout();
             },
             nullptr);
     } else {
         g_loadedRevokers.clear();
+        ClearHostWatchers();
+        if (g_reapplyTimer) {
+            try {
+                g_reapplyTimer.Stop();
+            } catch (...) {
+            }
+            g_reapplyTimer = nullptr;
+        }
         RestoreLayout();
     }
 }

@@ -143,12 +143,50 @@ alias), v0.2 recovery shims, legacy itemOrder aliases, inline grid math.
 `detailedLogging` now defaults false. Compile-checked OK; README sync verified;
 audit matrix updated. NOTE: user's saved `layoutMode`/old settings are ignored —
 reconfigure via the new dropdowns once.
-- [ ] Live test (recommended flow is in the old folder README history; core:
-      overflow+emoji column at hidden-icons anchor → flyouts/tooltips/
-      right-click → autoSmart on double-height → dedicated anchors →
-      settings reload → Explorer restart → disable/unload restore)
-- [ ] Screenshots: one ordinary single-height, one double-height/elaborate
-- [ ] Wire screenshots into both README layers, then submission checklist
+2026-07-19 later: user live-tested and took screenshots (assets/disabled.png,
+with-extra-icons-carot.png, with-carot-stacked.png) — wired into both README
+layers, sync verified. Added experimental `leftOfStart`/`rightOfStart`
+positions (VD-switcher Start-overlay mechanics, trimmed: reparent native hosts
+into an owned overlay Grid in the taskbar RootGrid, push TaskbarFrameRepeater,
+counter-shift Start for rightOfStart, LayoutUpdated tracking). Compile OK.
+Bug round 2026-07-19 evening (user live-test findings → all three fixed,
+compile OK, NEEDS RETEST):
+1. rightOfStart landed wrong → counter-shift now self-correcting: measures
+   Start's raw (untransformed) x each pass and shifts by the exact error, so
+   it works whether or not Start rides the repeater-margin push on this build.
+2. Emoji flyout anchored at the wrong spot → host fan-out switched from
+   RenderTransform to margin-based layout (Left/Top + computed margins), so
+   flyouts anchor at the host's real layout position. README "flyouts may
+   anchor oddly" caveat removed.
+3. afterShowDesktop partially off-screen → template injected-grid-column.h
+   bumped to v1.2: "after" anchors now resolve past the reference's full
+   column SPAN (ShowDesktopStack spans multiple columns; +1 landed inside the
+   span at the screen edge). Mod copy synced.
+Transient round 2 (2026-07-19, compile OK, NEEDS RETEST): round 1's
+visibility watchers did NOT catch the emoji toggle — Windows guts the host's
+CONTENT (removes/collapses the inner IconView, possibly behind a collapsed
+mid-level element) while the host stays parented and Visible. Added
+ScanIconViews (effective-visibility walk: self AND ancestors): discovery now
+skips hosts whose IconView content is all hidden, CaptureHost records whether
+the host had a visible IconView, and the tray LayoutUpdated check treats
+losing that as "gone" → debounced reapply. Watchers kept for the
+host-collapse variant.
+
+Transient round 1 (2026-07-19, superseded above but kept): toggling
+the emoji icon off in taskbar settings left the chevron stuck in a stale
+2-item layout — nothing re-triggered the layout on host visibility changes.
+Now: discovery skips non-Visible hosts (they keep their native spot), every
+candidate host + inner element gets a Visibility property-changed watcher, a
+tray LayoutUpdated check catches hosts removed from the tree outright, and a
+150 ms one-shot DispatcherTimer coalesces the reapply (full restore→reapply,
+so the grid re-adapts down to 1x1 and recenters). Watchers cleared on every
+apply and at uninit.
+- [ ] RETEST: rightOfStart landing, emoji flyout position, afterShowDesktop
+      on-screen, emoji toggle off/on in taskbar settings (chevron should
+      recenter alone, emoji rejoins on re-enable), transient touch keyboard
+      if convenient; then quick pass on leftOfStart + disable/restore
+- [ ] Then submission checklist + user approval to PR (mod is unpublished —
+      new PR, not an update)
 
 ## Lab-level todos
 - [ ] TEMPLATE UNIFORMITY IS A STANDING PRIORITY (user, 2026-07-19): mods keep
