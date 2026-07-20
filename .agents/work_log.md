@@ -661,3 +661,20 @@ at most four checks per second.
   Windhawk syntax compilation, embedded/folder README parity, local image-path
   checks, root catalog status, and `git diff --check` pass. PR #4485 was not
   changed.
+
+## 2026-07-19 — Folder Menus v0.7 submitted to PR #4485
+
+- Bumped the PR-ready version and init log from v0.6 to v0.7 for the canonical
+  Smart Grid modes and startup-recovery behavior. Mirrored the user's final
+  gallery-caption edit into the embedded README and reverified all three
+  documentation layers.
+- Rebuilt the PR head as a clean one-file commit on current upstream/main and
+  safely replaced the stale fork history with force-with-lease. Updated the PR
+  title/body and posted a reviewer-facing response covering both required
+  review fixes, the DPI/layout improvement, and the live evidence for retaining
+  `TrayUI::StartTaskbar` alongside `IconView.Loaded`.
+- Initial PR validation requested a target-specific symbol-hook variable name.
+  Renamed the generic `hooks` array to `systemTrayDllHooks`, amended the clean
+  submission commit to `46f3301`, and retriggered CI. Final status is green:
+  PR validation plus Windhawk 1.6.1, 1.7.3, and 2.0.0-alpha.1 compilation all
+  pass.

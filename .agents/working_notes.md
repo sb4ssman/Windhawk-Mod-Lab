@@ -57,12 +57,12 @@ current docs/screenshots (standing directives in README.md).
    - [ ] Refresh screenshots (accent default changed visuals)
    - [ ] Sync folder README settings table
 
-3. **Taskbar Folder Menus** — v0.7 SUBMISSION UPDATE AUTHORIZED for PR #4485. User
-   live-confirmed the replacement Smart Grid looks correct and the mod survives
-   a restart. Current screenshots are in `assets/` and both README layers use
-   them. Source compile, screenshot paths, embedded/folder README parity, and
-   root catalog status are verified. The PR branch remains stale and must not be
-   changed without explicit submission/update approval.
+3. **Taskbar Folder Menus** — v0.7 SUBMITTED 2026-07-19 in PR #4485, CI GREEN.
+   The PR branch is cleanly based on current upstream/main at commit `46f3301`.
+   PR validation and the Windhawk 1.6.1/1.7.3/2.0.0-alpha.1 compile matrix all
+   pass. User live-confirmed the replacement Smart Grid and restart persistence;
+   both README layers use all six current screenshots. Watch for maintainer
+   follow-up; do not update the PR again without explicit approval.
 
 4. **OmniButton Customizer** — ACTIVE. BROKEN. Test round 3 failed 2026-07-17 (work
    log): battery percent still wrong; independent mode hides the battery glyph
