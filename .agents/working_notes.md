@@ -7,8 +7,7 @@ Living todo list — current state only, pruned every session. Completed work
 ## Current focus
 
 Privacy Anchor was submitted 2026-07-19 with explicit user approval (PR
-#4843). Remaining active work: Clock Spacer (width fix awaiting live test) and
-OmniButton (broken, needs logs). Folder Menus
+#4843). Remaining active work: OmniButton (broken, needs logs); Clock Spacer v1.1 submitted (PR #4443, CI green). Folder Menus
 is submitted and awaiting review; Clock Spacer is deferred; VD Switcher is
 follow-up feature work. No further submissions until each works as described
 with current docs/screenshots (standing directives in README.md).
@@ -26,83 +25,12 @@ with current docs/screenshots (standing directives in README.md).
          a reference shot, not published)
    - [ ] Close m417z/my-windhawk-mods PR #68 explicitly (still open; user
          decided 2026-07-19 the integration attempt is finished)
-   Superseded details (kept for this session only):
-   DIAGNOSED AND FIXED 2026-07-19 (static analysis vs the current TCC source;
-   compiles clean with the local Windhawk clang — see
-   knowledge/lab-local-compile-check.md): the "multiplying spaces" the user saw
-   were a measurement-feedback ratchet — `EffectiveLineWidth` fell back to
-   `parent.ActualWidth()` and hard-set `Width` on the generated rows from that
-   snapshot every tick, so the clock could only ever grow. A second defect
-   compounded it: with the mod's own maxWidth at 0, `ApplyWidthConstraint` on
-   the parent CLEARED the StackPanel MaxWidth that Taskbar Clock Customization
-   itself sets — erasing the user's fixed clock width (TCC only reapplies on
-   style invalidation). Fix: never touch the parent panel at all, collapse the
-   source block to zero width so the panel follows the generated rows, and take
-   the width from our settings or TCC's constant parent MaxWidth — never from
-   ActualWidth. maxWidth setting docs updated in all three layers. Target
-   behavior reference: `taskbar-clock-spacer/target.png` (5-line justified
-   clock from the retired TCC-integration build).
-   ROUND 2 (2026-07-19, after user screenshot comparison vs target.png): two
-   more changes, UNCOMMITTED AND UNPUSHED pending user test (explicit user
-   directive: NO PUSH before their testing).
-   - Weather spacer restored from the archived integration copy's design
-     (`_archive/taskbar-clock-customization-spacer`): `{spacer}` is now a
-     second split token. wttr.in consumes `%s` (sunset), so `%s%` can't ride
-     through the Weather format, but a literal `{spacer}` is echoed verbatim
-     by wttr.in and lands in the clock text where the mod splits on it — no
-     TCC modification needed (the integration used a  marker because it
-     rewrote the format pre-request; standalone doesn't need to).
-   - Edge-inset defect fixed: generated rows had explicit Width, so when a
-     sibling line (the unspaced weather line) was wider, the fixed-width rows
-     floated centered inside the wider panel — the insets in the user's
-     screenshot. Now the panel gets MinWidth (+ MaxWidth cap) and rows
-     stretch, so lines always justify to the panel's true width; explicit
-     Width only with the Line width override setting. Unspaced rows carry no
-     width constraint (no clipping).
-   - Docs updated in both layers (weather {spacer} section + limitations).
-     Compiles clean (-Wall) with the local Windhawk clang.
-   ROUND 3 (2026-07-19, user screenshot: lines justify but exceed TCC's
-   150px Max width): a StackPanel arranges a child at max(slot, desired), so
-   the unspaced weather row's natural width dragged the uncapped generated
-   panel past TCC's cap and every spaced row stretched with it. Fix: the
-   generated panel is now pinned to exactly the effective width (MinWidth AND
-   MaxWidth), and every row gets MaxWidth = width, so an over-long unspaced
-   line clips at the fixed width like the native block. Row caps reapply on
-   the fast path (TCC Max width can change without touching this mod's layout
-   key). Also corrected the readme table's double-spacer example per user.
-   Compiles clean (-Wall).
-   - [ ] USER LIVE TEST: (a) clock width exactly matches TCC's Max width
-         (150), never wider; (b) gaps constant across ticks, no creep;
-         (c) all lines hug both edges matching target.png; (d) `{spacer}` in
-         TCC's Weather format produces gaps inside the weather line (takes
-         effect on the next weather refresh); (e) verify with TCC Max width,
-         with this mod's Max clock width, and with neither (spacer inert)
-   - [ ] After user confirmation: commit, then screenshots, PR #4443 rebase +
-         description reframe
-   DIRECTION SETTLED 2026-07-19: the deliverable is the STANDALONE companion mod
-   (`@id taskbar-clock-spacer`, PR #4443, still open). The integration attempt
-   (PR #68 in m417z/my-windhawk-mods) is finished — the maintainer preferred a
-   Justify-based approach and implemented it himself; the user closed it out in
-   comment on 2026-07-19. PR #68 is still technically OPEN and should be closed
-   explicitly.
-   - PDH `0xC0000BC6` is OUT OF SCOPE: it comes from m417z's performance-metrics
-     code in the integration copy. The standalone mod has zero PDH references.
-     `knowledge/taskbar-clock-spacer-pdh-invalid-data.md` applies only to the
-     archived integration copy.
-   - [ ] Live-test: spacers expand with Max width set; confirm the per-second
-         rebuild is gone (visual tree stable under UWPSpy)
-   - [ ] Live-test the `TrayUI::StartTaskbar` path via an Explorer restart, and
-         mod-disable teardown (clock returns to normal)
-   - [ ] Re-test multiple `%s%` per line, multiline clock content, settings
-         reload, and `minSpacerWidth`
-   - [ ] Fresh screenshots
-   - [ ] Rebase branch `add-taskbar-clock-spacer` — it is ~248k deletions out of
-         date against upstream/main and cannot merge as-is
-   - [ ] Reframe the PR #4443 description as "companion mod, since the token
-         didn't fit the canonical customizer"
-   - Folders: `taskbar-clock-spacer/` is active. `clock-spacer/` (v1.0) and
-     `taskbar-clock-customization-spacer/` (integration copy) are being archived
-     by the user.
+   - [ ] Optional residual live checks: Explorer-restart path and
+         mod-disable teardown; multiple `%s%` per line; `minSpacerWidth`
+   - Fix history and design rationale: work log 2026-07-19 entries.
+     Old experiments live in `_archive/` (clock-spacer v1.0 and the
+     TCC-integration copy; its PDH note is
+     knowledge/taskbar-clock-spacer-pdh-invalid-data.md).
 
 2. **Taskbar VD Switcher** — v1.7 MERGED 2026-07-18 (PR #4516). Remaining work
    is follow-up, not release-blocking.
