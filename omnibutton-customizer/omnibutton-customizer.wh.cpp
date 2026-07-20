@@ -1,7 +1,7 @@
 // ==WindhawkMod==
 // @id              omnibutton-customizer
 // @name            OmniButton Customizer
-// @description     Rearrange the Windows 11 OmniButton (wifi/volume/battery) into any grid — custom order, nudges, independent battery+percent placement, and per-glyph colors
+// @description     Arrange and style each Windows 11 OmniButton item independently with custom grids, visibility, colors, fonts, opacity, and offsets
 // @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
@@ -14,24 +14,26 @@
 /*
 # OmniButton Customizer
 
-Rearranges the Windows 11 system tray OmniButton (wifi, volume/sound, battery, battery
-percentage) into any grid layout. Designed for multi-row taskbars.
+Gives independent layout and appearance control over every native Windows 11
+OmniButton item: wifi, volume/sound, battery, and battery percentage. Arrange
+them into any grid, hide unneeded items, and tune each item's color, size, font,
+opacity, and position. Designed for both standard and multi-row taskbars.
 
 ## Battery / percent modes
 
-**Coupled** (default): battery and percent share a slot, rendered side-by-side inside the
-native inner panel. Works best when both are in adjacent grid cells.
+**Coupled** (default): the selected battery and percentage elements stay in
+their native inner panel and occupy one grid cell as a group. Each still has
+independent appearance and nudge controls.
 
-**Independent**: battery glyph and percent text are each treated as independent grid items
-and can be placed at any grid position, including non-adjacent ones. The battery
-ContentPresenter spans the full grid footprint and both sub-elements are offset absolutely.
+**Independent**: battery glyph and percentage text are separate grid items and
+can be placed in any positions, including non-adjacent cells.
 
 ## Grid settings
 
+- **Grid mode** — Smart automatic, single row/column, or fixed rows/columns/grid.
+- **Smart layout** — balanced, vertical packing, or horizontal packing.
 - **Slot width / height** — size of each grid cell. Height 0 = taskbar height ÷ rows.
-- **Grid rows / columns** — 0 = auto: a single column when all items fit the
-  taskbar height (double-height taskbars), otherwise more columns — 4 items on
-  a single-height taskbar become a 2x2.
+- **Grid rows / columns** — dimensions used by the matching fixed mode.
 - **Fill order** — row-first or column-first.
 - **Short row or column** — when items don't divide evenly, whether the short
   row/column is first or last, and how it's aligned (start/center/end).
@@ -39,33 +41,35 @@ ContentPresenter spans the full grid footprint and both sub-elements are offset 
 ## Item order
 
 `itemOrder` is a space-separated list: `wifi`, `volume`, `battery`, `percent`.
-Rearrange tokens to change which grid cell each item lands in. Items absent from
-Windows (e.g. no battery on a desktop) are silently skipped.
+Rearrange tokens to change grid order; omit a token to hide that item. Items
+absent from Windows (for example, battery on a desktop) are silently skipped.
+In coupled mode, the first `battery` or `percent` token determines the shared
+group's position.
 
-## Per-item glyph colors
+## Per-item appearance
 
-Set `wifiColor`, `volumeColor`, `batteryColor`, `percentColor` to a hex color
-(`#RRGGBB` or `#AARRGGBB`, the alpha byte is honored), the generics `accent`,
-`accentLight`, and `accentDark` for the Windows accent shades, or `transparent`.
-Leave empty to use the default theme color.
+Each item has independent color, size, font family, opacity, and X/Y nudge
+settings. Colors accept `#RRGGBB`, `#AARRGGBB`, `accent`, `accentLight`,
+`accentDark`, or `transparent`. Empty colors/fonts, size 0, and opacity -1
+preserve the native value.
 
 ## Presets
 
 ### Standard 2×2
-`gridColumns: 2` · `fillOrder: rowFirst` · `itemOrder: "wifi volume battery percent"`
+`gridMode: fixedColumns` · `gridColumns: 2` · `fillOrder: rowFirst` · `batteryPercentMode: independent` · `itemOrder: "wifi volume battery percent"`
 (the auto default already picks this shape on a single-height taskbar)
 
 ### Single column — 3 icons (no percent)
-`gridColumns: 1` · `itemOrder: "wifi volume battery"`
+`gridMode: singleColumn` · `itemOrder: "wifi volume battery"`
 
 ### Single column — all 4 icons
-`gridColumns: 1` · `itemOrder: "wifi volume battery percent"`
+`gridMode: singleColumn` · `batteryPercentMode: independent` · `itemOrder: "wifi volume battery percent"`
 
 ### Percent top, battery bottom (independent mode)
-`batteryPercentMode: independent` · `itemOrder: "wifi volume percent battery"`
+`gridMode: fixedColumns` · `gridColumns: 2` · `batteryPercentMode: independent` · `itemOrder: "wifi volume percent battery"`
 
 ### Wide bar (original OmniButton style)
-`gridRows: 1` · `itemOrder: "wifi volume battery"`
+`gridMode: singleRow` · `itemOrder: "wifi volume battery"`
 
 ## Windows 11 Taskbar Styler compatibility
 
@@ -79,7 +83,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
   $name: Item order
   $description: >-
     Space-separated tokens in grid fill order: wifi, volume, battery, percent.
-    Absent items (no battery on desktop) are skipped automatically.
+    Omit a token to hide that item. Items unavailable in Windows are skipped.
 
 - batteryPercentMode: coupled
   $name: Battery / percent mode
@@ -91,18 +95,34 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
   - coupled: Coupled
   - independent: Independent
 
+- gridMode: autoSmart
+  $name: Grid mode
+  $options:
+  - autoSmart: Smart automatic
+  - singleRow: Single row
+  - singleColumn: Single column
+  - fixedRows: Fixed rows
+  - fixedColumns: Fixed columns
+  - fixedGrid: Fixed rows and columns
+
+- smartLayout: balanced
+  $name: Smart layout
+  $description: Shape preference used by Smart automatic mode.
+  $options:
+  - balanced: Balanced
+  - packVertical: Pack vertical
+  - packHorizontal: Pack horizontal
+
 - gridRows: 0
   $name: Rows (0 = auto)
   $description: >-
     Rows in the layout grid. 0 = automatic from the item count and taskbar
-    height (see Columns).
+    height. Used by Fixed rows and Fixed grid modes.
 
 - gridColumns: 0
   $name: Columns (0 = auto)
   $description: >-
-    Columns in the layout grid. 0 (default) picks automatically: a single
-    column when all items fit the taskbar height (double-height taskbars),
-    otherwise more columns — 4 items on a single-height taskbar become a 2x2.
+    Columns in the layout grid. Used by Fixed columns and Fixed grid modes.
 
 - fillOrder: rowFirst
   $name: Fill order
@@ -158,6 +178,37 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
     Hex, "accent" / "accentLight" / "accentDark", or "transparent".
     Empty = theme default.
 
+- wifiSize: 0
+  $name: Wifi glyph size (pt, 0 = native)
+- volumeSize: 0
+  $name: Volume glyph size (pt, 0 = native)
+- batterySize: 0
+  $name: Battery glyph size (pt, 0 = native)
+- percentSize: 0
+  $name: Battery percentage size (pt, 0 = native)
+
+- wifiFontFamily: ""
+  $name: Wifi font family
+  $description: Empty preserves the native font.
+- volumeFontFamily: ""
+  $name: Volume font family
+  $description: Empty preserves the native font.
+- batteryFontFamily: ""
+  $name: Battery font family
+  $description: Empty preserves the native font.
+- percentFontFamily: ""
+  $name: Battery percentage font family
+  $description: Empty preserves the native font.
+
+- wifiOpacity: -1
+  $name: Wifi opacity (-1 = native, 0-100%)
+- volumeOpacity: -1
+  $name: Volume opacity (-1 = native, 0-100%)
+- batteryOpacity: -1
+  $name: Battery opacity (-1 = native, 0-100%)
+- percentOpacity: -1
+  $name: Battery percentage opacity (-1 = native, 0-100%)
+
 - buttonHorizontalPadding: 2
   $name: Button horizontal padding (px)
   $description: Internal horizontal padding on each side of the grid. Default 2.
@@ -189,8 +240,11 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 
 #include <algorithm>
 #include <atomic>
+#include <exception>
 #include <functional>
+#include <limits>
 #include <list>
+#include <vector>
 #include <winrt/base.h>
 #include <windhawk_api.h>
 #include <windhawk_utils.h>
@@ -436,9 +490,11 @@ namespace grid = windhawk_mod_templates::smart_grid;
 
 enum class BattPctMode { Coupled, Independent };
 
-struct {
+struct ModSettings {
     wchar_t    itemOrderStr[128];
     BattPctMode batteryPercentMode;
+    grid::GridMode             gridMode;
+    grid::SmartLayout          smartLayout;
     int        gridRows;
     int        gridColumns;
     grid::FillOrder          fillOrder;
@@ -450,12 +506,20 @@ struct {
     wchar_t    volumeColor[32];
     wchar_t    batteryColor[32];
     wchar_t    percentColor[32];
+    int        wifiSize, volumeSize, batterySize, percentSize;
+    wchar_t    wifiFontFamily[64];
+    wchar_t    volumeFontFamily[64];
+    wchar_t    batteryFontFamily[64];
+    wchar_t    percentFontFamily[64];
+    int        wifiOpacity, volumeOpacity, batteryOpacity, percentOpacity;
     int        buttonHorizontalPadding;
     int        wifiX,    wifiY;
     int        volumeX,  volumeY;
     int        batteryX, batteryY;
     int        percentX, percentY;
-} g_settings;
+};
+
+[[clang::no_destroy]] static ModSettings g_settings{};
 
 std::atomic<bool> g_unloading = false;
 
@@ -466,11 +530,25 @@ static void LoadColorSetting(PCWSTR key, wchar_t (&buf)[32]) {
     if (s) Wh_FreeStringSetting(s);
 }
 
+template <size_t N>
+static void LoadStringSetting(PCWSTR key, wchar_t (&buf)[N]) {
+    auto* value = Wh_GetStringSetting(key);
+    if (value && *value) {
+        wcsncpy(buf, value, N - 1);
+        buf[N - 1] = L'\0';
+    } else {
+        buf[0] = L'\0';
+    }
+    if (value) Wh_FreeStringSetting(value);
+}
+
 static void LoadSettings() {
     auto clampSlot  = [](int v) { return v < 0 ? 0 : v > 80 ? 80 : v; };
     auto clampGrid  = [](int v) { return v < 0 ? 0 : v > 8  ? 8  : v; };
     auto clampPad   = [](int v) { return v < 0 ? 0 : v > 24 ? 24 : v; };
     auto clampNudge = [](int v) { return v < -40 ? -40 : v > 40 ? 40 : v; };
+    auto clampSize  = [](int v) { return v < 0 ? 0 : v > 64 ? 64 : v; };
+    auto clampOpacity = [](int v) { return v < -1 ? -1 : v > 100 ? 100 : v; };
 
     { auto* s = Wh_GetStringSetting(L"itemOrder");
       if (s && *s) {
@@ -484,6 +562,21 @@ static void LoadSettings() {
     { auto* s = Wh_GetStringSetting(L"batteryPercentMode");
       g_settings.batteryPercentMode = (s && wcscmp(s,L"independent")==0)
                                     ? BattPctMode::Independent : BattPctMode::Coupled;
+      if (s) Wh_FreeStringSetting(s); }
+
+    { auto* s = Wh_GetStringSetting(L"gridMode");
+      if      (s && wcscmp(s,L"singleRow")==0)    g_settings.gridMode = grid::GridMode::SingleRow;
+      else if (s && wcscmp(s,L"singleColumn")==0) g_settings.gridMode = grid::GridMode::SingleColumn;
+      else if (s && wcscmp(s,L"fixedRows")==0)    g_settings.gridMode = grid::GridMode::FixedRows;
+      else if (s && wcscmp(s,L"fixedColumns")==0) g_settings.gridMode = grid::GridMode::FixedColumns;
+      else if (s && wcscmp(s,L"fixedGrid")==0)    g_settings.gridMode = grid::GridMode::FixedGrid;
+      else                                           g_settings.gridMode = grid::GridMode::AutoSmart;
+      if (s) Wh_FreeStringSetting(s); }
+
+    { auto* s = Wh_GetStringSetting(L"smartLayout");
+      if      (s && wcscmp(s,L"packVertical")==0)   g_settings.smartLayout = grid::SmartLayout::PackVertical;
+      else if (s && wcscmp(s,L"packHorizontal")==0) g_settings.smartLayout = grid::SmartLayout::PackHorizontal;
+      else                                              g_settings.smartLayout = grid::SmartLayout::Balanced;
       if (s) Wh_FreeStringSetting(s); }
 
     g_settings.gridRows    = clampGrid(Wh_GetIntSetting(L"gridRows"));
@@ -515,6 +608,19 @@ static void LoadSettings() {
     LoadColorSetting(L"batteryColor", g_settings.batteryColor);
     LoadColorSetting(L"percentColor", g_settings.percentColor);
 
+    g_settings.wifiSize    = clampSize(Wh_GetIntSetting(L"wifiSize"));
+    g_settings.volumeSize  = clampSize(Wh_GetIntSetting(L"volumeSize"));
+    g_settings.batterySize = clampSize(Wh_GetIntSetting(L"batterySize"));
+    g_settings.percentSize = clampSize(Wh_GetIntSetting(L"percentSize"));
+    LoadStringSetting(L"wifiFontFamily", g_settings.wifiFontFamily);
+    LoadStringSetting(L"volumeFontFamily", g_settings.volumeFontFamily);
+    LoadStringSetting(L"batteryFontFamily", g_settings.batteryFontFamily);
+    LoadStringSetting(L"percentFontFamily", g_settings.percentFontFamily);
+    g_settings.wifiOpacity    = clampOpacity(Wh_GetIntSetting(L"wifiOpacity"));
+    g_settings.volumeOpacity  = clampOpacity(Wh_GetIntSetting(L"volumeOpacity"));
+    g_settings.batteryOpacity = clampOpacity(Wh_GetIntSetting(L"batteryOpacity"));
+    g_settings.percentOpacity = clampOpacity(Wh_GetIntSetting(L"percentOpacity"));
+
     g_settings.buttonHorizontalPadding = clampPad(Wh_GetIntSetting(L"buttonHorizontalPadding"));
 
     g_settings.wifiX    = clampNudge(Wh_GetIntSetting(L"wifiOffsetX"));
@@ -529,28 +635,66 @@ static void LoadSettings() {
 
 // ── Cached element references ─────────────────────────────────────────────
 
-static StackPanel       g_omniStackPanel{ nullptr };
-static FrameworkElement g_omniButton{ nullptr };
-static FrameworkElement g_wifiPresenter{ nullptr };
-static FrameworkElement g_volumePresenter{ nullptr };
-static FrameworkElement g_batteryPresenter{ nullptr };
-static StackPanel       g_batteryInnerPanel{ nullptr };
-static FrameworkElement g_batteryGlyphFE{ nullptr };
-static FrameworkElement g_batteryPercentFE{ nullptr };
+[[clang::no_destroy]] static StackPanel       g_omniStackPanel{ nullptr };
+[[clang::no_destroy]] static FrameworkElement g_omniButton{ nullptr };
+[[clang::no_destroy]] static FrameworkElement g_wifiPresenter{ nullptr };
+[[clang::no_destroy]] static FrameworkElement g_volumePresenter{ nullptr };
+[[clang::no_destroy]] static FrameworkElement g_batteryPresenter{ nullptr };
+[[clang::no_destroy]] static StackPanel       g_batteryInnerPanel{ nullptr };
+[[clang::no_destroy]] static FrameworkElement g_batteryGlyphFE{ nullptr };
+[[clang::no_destroy]] static FrameworkElement g_batteryPercentFE{ nullptr };
 
-static TextBlock g_wifiGlyphTB{ nullptr };
-static TextBlock g_volumeGlyphTB{ nullptr };
-static TextBlock g_batteryGlyphTB{ nullptr };
-static TextBlock g_percentTB{ nullptr };
+[[clang::no_destroy]] static TextBlock g_wifiGlyphTB{ nullptr };
+[[clang::no_destroy]] static TextBlock g_volumeGlyphTB{ nullptr };
+[[clang::no_destroy]] static TextBlock g_batteryGlyphTB{ nullptr };
+[[clang::no_destroy]] static TextBlock g_percentTB{ nullptr };
 
-static StackPanel         g_layoutUpdatedSP{ nullptr };
+[[clang::no_destroy]] static StackPanel g_layoutUpdatedSP{ nullptr };
 static winrt::event_token g_layoutUpdatedToken{};
 
 static HWND g_taskbarWnd = nullptr;
+static std::atomic<bool> g_applied{false};
+static std::atomic<bool> g_reapplyPending{false};
+static HANDLE g_retryThread = nullptr;
+static HANDLE g_retryStopEvent = nullptr;
 
-static std::list<FrameworkElement::Loaded_revoker> g_autoRevokerList;
+[[clang::no_destroy]] static std::list<FrameworkElement::Loaded_revoker>
+    g_autoRevokerList;
 
-static bool CleanupLiveOmniButton();
+struct PropertySnapshot {
+    DependencyObject object{nullptr};
+    DependencyProperty property{nullptr};
+    IInspectable localValue{nullptr};
+};
+
+[[clang::no_destroy]] static std::vector<PropertySnapshot> g_propertySnapshots;
+
+static void LogCurrentUiException(PCWSTR context) noexcept;
+
+static void TrackProperty(DependencyObject const& object,
+                          DependencyProperty const& property) {
+    if (!object || !property) return;
+    for (auto const& snapshot : g_propertySnapshots) {
+        if (snapshot.object == object && snapshot.property == property) return;
+    }
+    g_propertySnapshots.push_back(
+        {object, property, object.ReadLocalValue(property)});
+}
+
+static void RestorePropertySnapshots() {
+    for (auto it = g_propertySnapshots.rbegin();
+         it != g_propertySnapshots.rend(); ++it) {
+        try {
+            if (it->localValue == DependencyProperty::UnsetValue())
+                it->object.ClearValue(it->property);
+            else
+                it->object.SetValue(it->property, it->localValue);
+        } catch (...) {
+            Wh_Log(L"[Cleanup] Failed to restore a XAML property");
+        }
+    }
+    g_propertySnapshots.clear();
+}
 
 // ── Grid geometry ─────────────────────────────────────────────────────────
 // All layout math comes from the smart-grid template; the mod-specific parts
@@ -571,19 +715,13 @@ static GridGeom ResolveGeometry(int itemCount, HWND hTaskbarWnd) {
     if (itemCount < 1) itemCount = 1;
 
     GridGeom geom;
+    geom.config.mode               = g_settings.gridMode;
+    geom.config.smartLayout        = g_settings.smartLayout;
     geom.config.fillOrder          = g_settings.fillOrder;
     geom.config.shortGroupPosition = g_settings.shortGroupPosition;
     geom.config.shortGroupAlign    = g_settings.shortGroupAlign;
     geom.config.rows               = g_settings.gridRows;
     geom.config.columns            = g_settings.gridColumns;
-    if      (g_settings.gridRows > 0 && g_settings.gridColumns > 0)
-        geom.config.mode = grid::GridMode::FixedGrid;
-    else if (g_settings.gridRows > 0)
-        geom.config.mode = grid::GridMode::FixedRows;
-    else if (g_settings.gridColumns > 0)
-        geom.config.mode = grid::GridMode::FixedColumns;
-    else
-        geom.config.mode = grid::GridMode::AutoSmart;
 
     // Auto row capacity: a 24px pitch keeps auto rows readable; the slotHeight
     // setting overrides it. Balanced AutoSmart then prefers a single column on
@@ -603,42 +741,13 @@ static GridGeom ResolveGeometry(int itemCount, HWND hTaskbarWnd) {
 // ── XAML helpers ──────────────────────────────────────────────────────────
 
 static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
+    if (!fe) return;
+    TrackProperty(fe, UIElement::RenderTransformProperty());
     if (x != 0 || y != 0) {
         TranslateTransform tt; tt.X(double(x)); tt.Y(double(y));
         fe.RenderTransform(tt);
     } else {
         fe.ClearValue(UIElement::RenderTransformProperty());
-    }
-}
-
-static void ClearLayoutProperties(FrameworkElement const& fe) {
-    if (!fe) return;
-    fe.ClearValue(FrameworkElement::WidthProperty());
-    fe.ClearValue(FrameworkElement::MinWidthProperty());
-    fe.ClearValue(FrameworkElement::MaxWidthProperty());
-    fe.ClearValue(FrameworkElement::HeightProperty());
-    fe.ClearValue(FrameworkElement::MinHeightProperty());
-    fe.ClearValue(FrameworkElement::MaxHeightProperty());
-    fe.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
-    fe.ClearValue(FrameworkElement::VerticalAlignmentProperty());
-    fe.ClearValue(FrameworkElement::MarginProperty());
-    fe.ClearValue(UIElement::RenderTransformProperty());
-}
-
-// Clear RenderTransform on every FrameworkElement in a subtree. Cleanup
-// safety net: if Windows re-templated an element between apply and cleanup
-// (observed with the battery percent TextBlock), the cached ref no longer
-// matches the live element and a stale TranslateTransform survives disable.
-static void ClearTransformsRecursive(DependencyObject const& node, int depth = 0) {
-    if (depth > 6) return;
-    int n = VisualTreeHelper::GetChildrenCount(node);
-    for (int i = 0; i < n; i++) {
-        auto child = VisualTreeHelper::GetChild(node, i);
-        if (!child) continue;
-        if (auto fe = child.try_as<FrameworkElement>()) {
-            try { fe.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
-        }
-        ClearTransformsRecursive(child, depth + 1);
     }
 }
 
@@ -663,23 +772,32 @@ static bool WalkSetupBatteryInnerPanel(DependencyObject const& node, int slotW, 
         if (!child) continue;
         auto sp = child.try_as<StackPanel>();
         if (sp && !sp.IsItemsHost()) {
-            if (sp.Orientation() == Orientation::Vertical) sp.Orientation(Orientation::Horizontal);
             g_batteryInnerPanel = sp;
             int spN = VisualTreeHelper::GetChildrenCount(sp);
+            Wh_Log(L"[Battery] inner panel name=%s orientation=%s children=%d size=%.1fx%.1f",
+                   sp.Name().c_str(),
+                   sp.Orientation() == Orientation::Horizontal ? L"horizontal"
+                                                               : L"vertical",
+                   spN, sp.ActualWidth(), sp.ActualHeight());
             if (spN >= 1) {
                 auto glyph = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
                 if (glyph) {
                     g_batteryGlyphFE = glyph;
-                    glyph.Width(double(slotW));
-                    glyph.VerticalAlignment(VerticalAlignment::Center);
+                    Wh_Log(L"[Battery] glyph class=%s name=%s size=%.1fx%.1f",
+                           winrt::get_class_name(glyph).c_str(), glyph.Name().c_str(),
+                           glyph.ActualWidth(), glyph.ActualHeight());
                 }
             }
             if (spN >= 2) {
                 auto pct = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
                 if (pct) {
                     g_batteryPercentFE = pct;
-                    pct.VerticalAlignment(VerticalAlignment::Center);
-                    Wh_Log(L"[Battery] %% element found (children=%d)", spN);
+                    Wh_Log(L"[Battery] percent class=%s name=%s text=%s size=%.1fx%.1f",
+                           winrt::get_class_name(pct).c_str(), pct.Name().c_str(),
+                           pct.try_as<TextBlock>()
+                               ? pct.try_as<TextBlock>().Text().c_str()
+                               : L"<non-TextBlock>",
+                           pct.ActualWidth(), pct.ActualHeight());
                 }
             } else {
                 Wh_Log(L"[Battery] inner SP has %d children — no %% element", spN);
@@ -780,38 +898,56 @@ static TextBlock AcquireGlyphTB(FrameworkElement const& root) {
     return FindFirstTextBlock(root);  // fallback for battery/non-standard templates
 }
 
-static void ClearGlyphColors() {
-    auto clearTB = [](TextBlock const& tb) {
-        if (tb) try { tb.ClearValue(TextBlock::ForegroundProperty()); } catch (...) {}
-    };
-    clearTB(g_wifiGlyphTB);
-    clearTB(g_volumeGlyphTB);
-    clearTB(g_batteryGlyphTB);
-    clearTB(g_percentTB);
-}
-
 static void ApplyGlyphColor(TextBlock const& tb, const wchar_t* colorStr) {
-    if (!tb) return;
+    if (!tb || !colorStr || !*colorStr) return;
     Color color{};
-    if (!ParseHexColor(colorStr, color)) {
-        try { tb.ClearValue(TextBlock::ForegroundProperty()); } catch (...) {}
-        return;
-    }
+    if (!ParseHexColor(colorStr, color)) return;
     SolidColorBrush brush;
     brush.Color(color);
+    TrackProperty(tb, TextBlock::ForegroundProperty());
     try { tb.Foreground(brush); } catch (...) {}
 }
 
-static void ApplyAllColors() {
+static void ApplyItemStyle(FrameworkElement const& element,
+                           TextBlock const& textBlock,
+                           const wchar_t* color, int size,
+                           const wchar_t* fontFamily, int opacity) {
+    if (textBlock) {
+        ApplyGlyphColor(textBlock, color);
+        if (size > 0) {
+            TrackProperty(textBlock, TextBlock::FontSizeProperty());
+            textBlock.FontSize(double(size));
+        }
+        if (fontFamily && *fontFamily) {
+            TrackProperty(textBlock, TextBlock::FontFamilyProperty());
+            textBlock.FontFamily(
+                winrt::Windows::UI::Xaml::Media::FontFamily(fontFamily));
+        }
+    }
+    if (element && opacity >= 0) {
+        TrackProperty(element, UIElement::OpacityProperty());
+        element.Opacity(double(opacity) / 100.0);
+    }
+}
+
+static void ApplyAllItemStyles() {
     if (!g_wifiGlyphTB   && g_wifiPresenter)    g_wifiGlyphTB   = AcquireGlyphTB(g_wifiPresenter);
     if (!g_volumeGlyphTB && g_volumePresenter)   g_volumeGlyphTB = AcquireGlyphTB(g_volumePresenter);
     if (!g_batteryGlyphTB && g_batteryGlyphFE)   g_batteryGlyphTB = AcquireGlyphTB(g_batteryGlyphFE);
     if (!g_percentTB && g_batteryPercentFE)       g_percentTB = g_batteryPercentFE.try_as<TextBlock>();
 
-    ApplyGlyphColor(g_wifiGlyphTB,    g_settings.wifiColor);
-    ApplyGlyphColor(g_volumeGlyphTB,  g_settings.volumeColor);
-    ApplyGlyphColor(g_batteryGlyphTB, g_settings.batteryColor);
-    ApplyGlyphColor(g_percentTB,      g_settings.percentColor);
+    ApplyItemStyle(g_wifiPresenter, g_wifiGlyphTB, g_settings.wifiColor,
+                   g_settings.wifiSize, g_settings.wifiFontFamily,
+                   g_settings.wifiOpacity);
+    ApplyItemStyle(g_volumePresenter, g_volumeGlyphTB, g_settings.volumeColor,
+                   g_settings.volumeSize, g_settings.volumeFontFamily,
+                   g_settings.volumeOpacity);
+    ApplyItemStyle(g_batteryGlyphFE, g_batteryGlyphTB,
+                   g_settings.batteryColor, g_settings.batterySize,
+                   g_settings.batteryFontFamily, g_settings.batteryOpacity);
+    ApplyItemStyle(g_batteryPercentFE, g_percentTB, g_settings.percentColor,
+                   g_settings.percentSize, g_settings.percentFontFamily,
+                   g_settings.percentOpacity);
 }
 
 // ── OmniButton chrome / internal footprint ────────────────────────────────
@@ -821,21 +957,35 @@ static void ApplyOmniButtonChrome() {
     double pad = double(g_settings.buttonHorizontalPadding);
     auto ctrl = g_omniButton.try_as<Control>();
     if (ctrl) {
+        TrackProperty(ctrl, Control::PaddingProperty());
+        TrackProperty(ctrl, Control::HorizontalContentAlignmentProperty());
+        TrackProperty(ctrl, Control::VerticalContentAlignmentProperty());
         ctrl.Padding(Thickness{ pad, 0.0, pad, 0.0 });
         ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
         ctrl.VerticalContentAlignment(VerticalAlignment::Center);
     }
-    g_omniButton.ClearValue(FrameworkElement::WidthProperty());
-    g_omniButton.ClearValue(FrameworkElement::MinWidthProperty());
-    g_omniButton.ClearValue(FrameworkElement::MaxWidthProperty());
-    g_omniButton.ClearValue(FrameworkElement::HeightProperty());
-    g_omniButton.ClearValue(FrameworkElement::MinHeightProperty());
-    g_omniButton.ClearValue(FrameworkElement::MaxHeightProperty());
-    g_omniButton.ClearValue(FrameworkElement::HorizontalAlignmentProperty());
+    TrackProperty(g_omniButton, FrameworkElement::WidthProperty());
+    TrackProperty(g_omniButton, FrameworkElement::MinWidthProperty());
+    TrackProperty(g_omniButton, FrameworkElement::MaxWidthProperty());
+    TrackProperty(g_omniButton, FrameworkElement::HeightProperty());
+    TrackProperty(g_omniButton, FrameworkElement::MinHeightProperty());
+    TrackProperty(g_omniButton, FrameworkElement::MaxHeightProperty());
+    TrackProperty(g_omniButton, FrameworkElement::HorizontalAlignmentProperty());
+    g_omniButton.Width(std::numeric_limits<double>::quiet_NaN());
+    g_omniButton.MinWidth(0);
+    g_omniButton.MaxWidth(std::numeric_limits<double>::infinity());
+    g_omniButton.Height(std::numeric_limits<double>::quiet_NaN());
+    g_omniButton.MinHeight(0);
+    g_omniButton.MaxHeight(std::numeric_limits<double>::infinity());
+    g_omniButton.HorizontalAlignment(HorizontalAlignment::Stretch);
     g_omniButton.InvalidateMeasure();
 }
 
 static void ApplyItemsHostFootprint(StackPanel const& sp, const GridGeom& geom) {
+    TrackProperty(sp, FrameworkElement::WidthProperty());
+    TrackProperty(sp, FrameworkElement::HeightProperty());
+    TrackProperty(sp, FrameworkElement::HorizontalAlignmentProperty());
+    TrackProperty(sp, FrameworkElement::VerticalAlignmentProperty());
     sp.Width(double(geom.layout.columns * g_settings.slotWidth));
     sp.Height(double(geom.layout.rows * geom.slotH));
     sp.HorizontalAlignment(HorizontalAlignment::Center);
@@ -844,92 +994,9 @@ static void ApplyItemsHostFootprint(StackPanel const& sp, const GridGeom& geom) 
 }
 
 // ── XAML cleanup ──────────────────────────────────────────────────────────
-
-static void CleanupXamlElements(
-    StackPanel sp, FrameworkElement btn,
-    FrameworkElement wifi, FrameworkElement vol,
-    FrameworkElement bp, StackPanel bip,
-    FrameworkElement biglyph, FrameworkElement bipct)
-{
-    // Foreground clearing is handled by CleanupAndResetCurrentElements while
-    // refs are still live.
-    try {
-        if (sp) {
-            sp.Orientation(Orientation::Horizontal);
-            sp.ClearValue(StackPanel::SpacingProperty());
-            ClearLayoutProperties(sp);
-            int n = VisualTreeHelper::GetChildrenCount(sp);
-            for (int i = 0; i < n; i++) {
-                auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-                if (child) {
-                    ClearLayoutProperties(child);
-                    if (auto cp = child.try_as<ContentPresenter>()) {
-                        cp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
-                        cp.ClearValue(ContentPresenter::VerticalContentAlignmentProperty());
-                    }
-                }
-            }
-        }
-    } catch (...) {}
-    try {
-        if (btn) {
-            ClearLayoutProperties(btn);
-            if (auto ctrl = btn.try_as<Control>()) {
-                ctrl.ClearValue(Control::PaddingProperty());
-                ctrl.ClearValue(Control::HorizontalContentAlignmentProperty());
-                ctrl.ClearValue(Control::VerticalContentAlignmentProperty());
-            }
-        }
-    } catch (...) {}
-    try { if (wifi) wifi.ClearValue(UIElement::RenderTransformProperty()); } catch (...) {}
-    try { if (vol)  vol.ClearValue(UIElement::RenderTransformProperty());  } catch (...) {}
-    try {
-        if (bp) {
-            ClearLayoutProperties(bp);
-            if (auto bcp = bp.try_as<ContentPresenter>()) {
-                bcp.ClearValue(ContentPresenter::HorizontalContentAlignmentProperty());
-                bcp.ClearValue(ContentPresenter::VerticalContentAlignmentProperty());
-            }
-            // Sweep the whole battery subtree for stale transforms — the
-            // cached glyph/percent refs can go stale if Windows re-templated
-            // the battery content (stranded "80%" after disable).
-            ClearTransformsRecursive(bp);
-        }
-    } catch (...) {}
-    try {
-        if (bip) {
-            bip.Orientation(Orientation::Horizontal); // template default is Vertical; must set explicitly
-            bip.ClearValue(StackPanel::SpacingProperty());
-            int n = VisualTreeHelper::GetChildrenCount(bip);
-            for (int i = 0; i < n; i++) {
-                auto fe = VisualTreeHelper::GetChild(bip, i).try_as<FrameworkElement>();
-                if (fe) {
-                    ClearLayoutProperties(fe);
-                    if (auto tb = fe.try_as<TextBlock>()) tb.ClearValue(TextBlock::TextAlignmentProperty());
-                }
-            }
-        }
-    } catch (...) {}
-    try { if (biglyph) ClearLayoutProperties(biglyph); } catch (...) {}
-    try {
-        if (bipct) {
-            ClearLayoutProperties(bipct);
-            if (auto tb = bipct.try_as<TextBlock>()) tb.ClearValue(TextBlock::TextAlignmentProperty());
-        }
-    } catch (...) {}
-    try {
-        if (btn) {
-            btn.InvalidateMeasure(); btn.InvalidateArrange();
-            if (auto p = VisualTreeHelper::GetParent(btn).try_as<UIElement>()) {
-                p.InvalidateMeasure(); p.InvalidateArrange();
-                if (auto gp = VisualTreeHelper::GetParent(p).try_as<UIElement>()) {
-                    gp.InvalidateMeasure(); gp.InvalidateArrange();
-                }
-            }
-            btn.UpdateLayout();
-        }
-    } catch (...) {}
-}
+// Every mutated dependency property is leased through TrackProperty and
+// restored to its exact prior local value. This is safer than guessing native
+// defaults, which vary across Windows builds and taskbar templates.
 
 static void ResetElementRefs() {
     g_omniStackPanel = nullptr; g_omniButton = nullptr;
@@ -950,27 +1017,39 @@ static void RevokeLayoutUpdated() {
 
 static void CleanupAndResetCurrentElements() {
     RevokeLayoutUpdated();
-    // Clear glyph Foregrounds while refs are still live
-    ClearGlyphColors();
-    auto sp      = g_omniStackPanel; auto btn     = g_omniButton;
-    auto wifi    = g_wifiPresenter;  auto vol     = g_volumePresenter;
-    auto bp      = g_batteryPresenter;
-    auto bip     = g_batteryInnerPanel;
-    auto biglyph = g_batteryGlyphFE;  auto bipct   = g_batteryPercentFE;
+    RestorePropertySnapshots();
     ResetElementRefs();
-    CleanupXamlElements(sp, btn, wifi, vol, bp, bip, biglyph, bipct);
-    CleanupLiveOmniButton();
 }
 
 // ── Layout application ────────────────────────────────────────────────────
 
-static void ResolveItemPositions(const wchar_t* orderStr, bool hasBattery, bool hasPercent,
-                                  int posMap[4])
-{
-    const bool present[4] = { true, true, hasBattery, hasPercent };
+struct ItemPositions {
+    bool visible[4]{};
+    int position[4]{-1, -1, -1, -1};
+    int count = 0;
+};
+
+static bool ItemOrderContains(const wchar_t* orderStr, const wchar_t* name) {
+    size_t nameLength = wcslen(name);
+    const wchar_t* p = orderStr;
+    while (*p) {
+        while (*p == L' ' || *p == L'\t' || *p == L',') ++p;
+        const wchar_t* start = p;
+        while (*p && *p != L' ' && *p != L'\t' && *p != L',') ++p;
+        if (size_t(p - start) == nameLength &&
+            wcsncmp(start, name, nameLength) == 0)
+            return true;
+    }
+    return false;
+}
+
+static ItemPositions ResolveItemPositions(const wchar_t* orderStr,
+                                          bool hasWifi, bool hasVolume,
+                                          bool hasBattery, bool hasPercent) {
+    const bool present[4] = { hasWifi, hasVolume, hasBattery, hasPercent };
     const wchar_t* const names[4] = { L"wifi", L"volume", L"battery", L"percent" };
-    bool assigned[4] = {};
-    int nextPos = 0;
+    ItemPositions result;
+    bool batteryGroupAssigned = false;
     const wchar_t* p = orderStr;
     while (*p) {
         while (*p == L' ' || *p == L'\t' || *p == L',') p++;
@@ -979,21 +1058,60 @@ static void ResolveItemPositions(const wchar_t* orderStr, bool hasBattery, bool 
         while (*p && *p != L' ' && *p != L'\t' && *p != L',') p++;
         size_t len = size_t(p - start);
         for (int i = 0; i < 4; i++) {
-            if (!assigned[i] && present[i] &&
+            if (!result.visible[i] && present[i] &&
                 wcslen(names[i]) == len && wcsncmp(start, names[i], len) == 0)
-            { posMap[i] = nextPos++; assigned[i] = true; break; }
+            {
+                result.visible[i] = true;
+                if (g_settings.batteryPercentMode == BattPctMode::Coupled &&
+                    (i == 2 || i == 3)) {
+                    if (!batteryGroupAssigned) {
+                        result.position[2] = result.position[3] = result.count++;
+                        batteryGroupAssigned = true;
+                    }
+                } else {
+                    result.position[i] = result.count++;
+                }
+                break;
+            }
         }
     }
-    for (int i = 0; i < 4; i++) if (present[i] && !assigned[i]) posMap[i] = nextPos++;
-    for (int i = 0; i < 4; i++) if (!present[i]) posMap[i] = -1;
+    return result;
 }
 
-// Translate an item from its natural StackPanel position (slotIdx rows of
-// vertical stacking) to an absolute pixel position within the grid footprint.
-static void PositionSlot(FrameworkElement const& fe, int slotIdx,
-                         int x, int y, int slotH, int nudgeX, int nudgeY)
+static void SetItemVisibility(FrameworkElement const& element, bool visible) {
+    if (!element) return;
+    TrackProperty(element, UIElement::VisibilityProperty());
+    element.Visibility(visible ? Visibility::Visible : Visibility::Collapsed);
+}
+
+static void PrepareSlot(FrameworkElement const& element, int slotWidth,
+                        int slotHeight) {
+    if (!element) return;
+    TrackProperty(element, FrameworkElement::WidthProperty());
+    TrackProperty(element, FrameworkElement::HeightProperty());
+    TrackProperty(element, FrameworkElement::HorizontalAlignmentProperty());
+    TrackProperty(element, FrameworkElement::VerticalAlignmentProperty());
+    element.Width(double(slotWidth));
+    element.Height(double(slotHeight));
+    element.HorizontalAlignment(HorizontalAlignment::Left);
+    element.VerticalAlignment(VerticalAlignment::Top);
+    if (auto presenter = element.try_as<ContentPresenter>()) {
+        TrackProperty(presenter,
+                      ContentPresenter::HorizontalContentAlignmentProperty());
+        TrackProperty(presenter,
+                      ContentPresenter::VerticalContentAlignmentProperty());
+        presenter.HorizontalContentAlignment(HorizontalAlignment::Center);
+        presenter.VerticalContentAlignment(VerticalAlignment::Center);
+    }
+}
+
+// Translate an item from its current natural StackPanel Y to an absolute pixel
+// position within the grid footprint. Hidden siblings are collapsed and don't
+// contribute to naturalY.
+static void PositionSlot(FrameworkElement const& fe, int naturalY,
+                         int x, int y, int nudgeX, int nudgeY)
 {
-    ApplyOffset(fe, x + nudgeX, -(slotIdx * slotH) + y + nudgeY);
+    ApplyOffset(fe, x + nudgeX, -naturalY + y + nudgeY);
 }
 
 static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
@@ -1001,6 +1119,9 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     if (!sp.IsItemsHost()) return;
 
     g_omniStackPanel = sp;
+    TrackProperty(sp, StackPanel::OrientationProperty());
+    TrackProperty(sp, FrameworkElement::VerticalAlignmentProperty());
+    TrackProperty(sp, StackPanel::SpacingProperty());
     sp.Orientation(Orientation::Vertical);
     sp.VerticalAlignment(VerticalAlignment::Top);
     sp.Spacing(0);
@@ -1011,7 +1132,12 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     int battIdx = -1;
     for (int i = 0; i < n; i++) {
         auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-        if (child && HasBatteryDescendant(child)) { battIdx = i; break; }
+        if (!child) continue;
+        bool battery = HasBatteryDescendant(child);
+        Wh_Log(L"[Layout] native slot=%d class=%s name=%s battery=%d size=%.1fx%.1f",
+               i, winrt::get_class_name(child).c_str(), child.Name().c_str(),
+               battery, child.ActualWidth(), child.ActualHeight());
+        if (battery && battIdx < 0) battIdx = i;
     }
 
     bool hasBattPres = battIdx >= 0;
@@ -1029,14 +1155,19 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
         if (child) Wh_Log(L"[Layout] Unknown slot index %d: %s", i, winrt::get_class_name(child).c_str());
     }
 
-    int itemCount = hasBattPres ? (hasPercent ? 4 : 3) : 2;
+    bool hasWifi = n >= 1;
+    bool hasVolume = n >= 2;
+    ItemPositions items = ResolveItemPositions(
+        g_settings.itemOrderStr, hasWifi, hasVolume,
+        hasBattPres && g_batteryGlyphFE, hasPercent);
+    int itemCount = std::max(1, items.count);
     GridGeom geom = ResolveGeometry(itemCount, hTaskbarWnd);
 
-    int posMap[4];
-    ResolveItemPositions(g_settings.itemOrderStr, hasBattPres, hasPercent, posMap);
-    Wh_Log(L"[Layout] items=%d cols=%d rows=%d slotH=%d order=[%d,%d,%d,%d] mode=%s",
-        itemCount, geom.layout.columns, geom.layout.rows, geom.slotH,
-        posMap[0], posMap[1], posMap[2], posMap[3],
+    Wh_Log(L"[Layout] items=%d cols=%d rows=%d slotH=%d order=[%d,%d,%d,%d] visible=[%d,%d,%d,%d] mode=%s",
+        items.count, geom.layout.columns, geom.layout.rows, geom.slotH,
+        items.position[0], items.position[1], items.position[2],
+        items.position[3], items.visible[0], items.visible[1],
+        items.visible[2], items.visible[3],
         g_settings.batteryPercentMode == BattPctMode::Independent ? L"indep" : L"coupled");
 
     if (g_omniButton) ApplyOmniButtonChrome();
@@ -1056,14 +1187,13 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
         auto wifi = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
         if (wifi) {
             g_wifiPresenter = wifi;
-            wifi.Width(double(g_settings.slotWidth)); wifi.Height(double(geom.slotH));
-            wifi.HorizontalAlignment(HorizontalAlignment::Left);
-            if (auto cp = wifi.try_as<ContentPresenter>()) {
-                cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                cp.VerticalContentAlignment(VerticalAlignment::Center);
+            SetItemVisibility(wifi, items.visible[0]);
+            if (items.visible[0]) {
+                PrepareSlot(wifi, g_settings.slotWidth, geom.slotH);
+                int x, y; resolvePos(items.position[0], x, y);
+                PositionSlot(wifi, 0, x, y,
+                             g_settings.wifiX, g_settings.wifiY);
             }
-            int x, y; resolvePos(posMap[0], x, y);
-            PositionSlot(wifi, 0, x, y, geom.slotH, g_settings.wifiX, g_settings.wifiY);
         }
     }
     // ── Volume (slot 1) ──
@@ -1071,109 +1201,148 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
         auto vol = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
         if (vol) {
             g_volumePresenter = vol;
-            vol.Width(double(g_settings.slotWidth)); vol.Height(double(geom.slotH));
-            vol.HorizontalAlignment(HorizontalAlignment::Left);
-            if (auto cp = vol.try_as<ContentPresenter>()) {
-                cp.HorizontalContentAlignment(HorizontalAlignment::Center);
-                cp.VerticalContentAlignment(VerticalAlignment::Center);
+            SetItemVisibility(vol, items.visible[1]);
+            if (items.visible[1]) {
+                PrepareSlot(vol, g_settings.slotWidth, geom.slotH);
+                int x, y; resolvePos(items.position[1], x, y);
+                int naturalY = items.visible[0] ? geom.slotH : 0;
+                PositionSlot(vol, naturalY, x, y,
+                             g_settings.volumeX, g_settings.volumeY);
             }
-            int x, y; resolvePos(posMap[1], x, y);
-            PositionSlot(vol, 1, x, y, geom.slotH, g_settings.volumeX, g_settings.volumeY);
         }
     }
 
     // ── Battery + percent ──
     if (hasBattPres && g_batteryPresenter) {
-        if (g_settings.batteryPercentMode == BattPctMode::Independent && hasPercent) {
-            // Independent mode: battery CP spans the full grid, positioned at the grid origin.
-            // Inner SP is left at its natural size; glyph and percent are offset absolutely
-            // within the CP's coordinate space via RenderTransform.
-            //
-            //   battery CP transform.Y  = -(battIdx * slotH)   [moves CP to grid top]
-            //   glyph    transform      = (bCol*slotW,  bRow*slotH) + nudge
-            //   percent  transform      = ((pCol-1)*slotW, pRow*slotH) + nudge
-            //     [percent natural X = slotW (glyph width); (pCol-1)*slotW corrects for it]
+        bool showBatteryGroup = items.visible[2] || items.visible[3];
+        SetItemVisibility(g_batteryPresenter, showBatteryGroup);
+        SetItemVisibility(g_batteryGlyphFE, items.visible[2]);
+        SetItemVisibility(g_batteryPercentFE, items.visible[3]);
+        if (!showBatteryGroup) {
+            // Nothing else to do; Visibility participates in the tracked
+            // property lease and is restored during settings changes/unload.
+        } else if (g_settings.batteryPercentMode == BattPctMode::Independent) {
+            // Independent mode: the battery presenter and inner StackPanel
+            // span the full grid at its origin. The selected native children
+            // receive one slot each and are translated to their template cells.
 
-            g_batteryPresenter.Width(double(geom.layout.columns * g_settings.slotWidth));
-            g_batteryPresenter.Height(double(geom.layout.rows * geom.slotH));
+            int footprintWidth = geom.layout.columns * g_settings.slotWidth;
+            int footprintHeight = geom.layout.rows * geom.slotH;
+            TrackProperty(g_batteryPresenter, FrameworkElement::WidthProperty());
+            TrackProperty(g_batteryPresenter, FrameworkElement::HeightProperty());
+            TrackProperty(g_batteryPresenter, FrameworkElement::HorizontalAlignmentProperty());
+            TrackProperty(g_batteryPresenter, FrameworkElement::VerticalAlignmentProperty());
+            g_batteryPresenter.Width(double(footprintWidth));
+            g_batteryPresenter.Height(double(footprintHeight));
             g_batteryPresenter.HorizontalAlignment(HorizontalAlignment::Left);
             g_batteryPresenter.VerticalAlignment(VerticalAlignment::Top);
             if (auto bcp = g_batteryPresenter.try_as<ContentPresenter>()) {
+                TrackProperty(bcp, ContentPresenter::HorizontalContentAlignmentProperty());
+                TrackProperty(bcp, ContentPresenter::VerticalContentAlignmentProperty());
                 bcp.HorizontalContentAlignment(HorizontalAlignment::Left);
                 bcp.VerticalContentAlignment(VerticalAlignment::Top);
             }
-            // Move CP to grid origin (cancel out battIdx rows of natural stacking)
-            ApplyOffset(g_batteryPresenter, 0, -(battIdx * geom.slotH));
+            // Move the presenter to the grid origin, accounting for collapsed
+            // wifi/volume siblings that no longer contribute natural height.
+            int batteryNaturalY =
+                (items.visible[0] ? geom.slotH : 0) +
+                (items.visible[1] ? geom.slotH : 0);
+            ApplyOffset(g_batteryPresenter, 0, -batteryNaturalY);
 
-            // Override inner SP children to Top-aligned so Y is predictable
-            if (g_batteryGlyphFE) g_batteryGlyphFE.VerticalAlignment(VerticalAlignment::Top);
-            if (g_batteryPercentFE) g_batteryPercentFE.VerticalAlignment(VerticalAlignment::Top);
+            if (g_batteryInnerPanel) {
+                TrackProperty(g_batteryInnerPanel, StackPanel::OrientationProperty());
+                TrackProperty(g_batteryInnerPanel, FrameworkElement::WidthProperty());
+                TrackProperty(g_batteryInnerPanel, FrameworkElement::HeightProperty());
+                TrackProperty(g_batteryInnerPanel, FrameworkElement::HorizontalAlignmentProperty());
+                TrackProperty(g_batteryInnerPanel, FrameworkElement::VerticalAlignmentProperty());
+                g_batteryInnerPanel.Orientation(Orientation::Horizontal);
+                g_batteryInnerPanel.Width(double(footprintWidth));
+                g_batteryInnerPanel.Height(double(footprintHeight));
+                g_batteryInnerPanel.HorizontalAlignment(HorizontalAlignment::Left);
+                g_batteryInnerPanel.VerticalAlignment(VerticalAlignment::Top);
+            }
+
+            if (items.visible[2])
+                PrepareSlot(g_batteryGlyphFE, g_settings.slotWidth, geom.slotH);
+            if (items.visible[3])
+                PrepareSlot(g_batteryPercentFE, g_settings.slotWidth, geom.slotH);
 
             // Absolute position of battery glyph within battery CP
-            int bx, by; resolvePos(posMap[2], bx, by);
-            if (g_batteryGlyphFE)
+            int bx = 0, by = 0;
+            if (items.visible[2]) {
+                resolvePos(items.position[2], bx, by);
                 ApplyOffset(g_batteryGlyphFE,
                     bx + g_settings.batteryX, by + g_settings.batteryY);
+            }
 
             // Absolute position of percent within battery CP. The percent's
             // natural X is one glyph-slot in (the glyph is fixed to slotWidth),
             // so subtract it.
-            int px, py; resolvePos(posMap[3], px, py);
-            if (g_batteryPercentFE)
+            int px = 0, py = 0;
+            if (items.visible[3]) {
+                resolvePos(items.position[3], px, py);
+                int percentNaturalX = items.visible[2] ? g_settings.slotWidth : 0;
                 ApplyOffset(g_batteryPercentFE,
-                    px - g_settings.slotWidth + g_settings.percentX,
+                    px - percentNaturalX + g_settings.percentX,
                     py + g_settings.percentY);
+            }
 
             Wh_Log(L"[Layout] Indep batt=(%d,%d)px pct=(%d,%d)px", bx, by, px, py);
         } else {
-            // Coupled mode: battery CP at its grid cell, percent offset relative to battery
-            double battW = double(g_settings.slotWidth * (hasPercent ? 2 : 1));
-            g_batteryPresenter.Width(battW);
-            g_batteryPresenter.Height(double(geom.slotH));
-            g_batteryPresenter.HorizontalAlignment(HorizontalAlignment::Left);
+            // Coupled mode keeps the selected native battery/percent children
+            // together as one grid item. Each child still has its own style
+            // and fine offset.
+            PrepareSlot(g_batteryPresenter, g_settings.slotWidth, geom.slotH);
             if (auto bcp = g_batteryPresenter.try_as<ContentPresenter>()) {
-                // Left-pin the inner panel so the percent's natural X is exactly
-                // one glyph-slot from the cell origin — the relX math below
-                // assumes it; native centering would skew it by half the slack.
-                bcp.HorizontalContentAlignment(HorizontalAlignment::Left);
+                TrackProperty(bcp, ContentPresenter::HorizontalContentAlignmentProperty());
+                TrackProperty(bcp, ContentPresenter::VerticalContentAlignmentProperty());
+                bcp.HorizontalContentAlignment(HorizontalAlignment::Center);
                 bcp.VerticalContentAlignment(VerticalAlignment::Center);
             }
-            int bx, by; resolvePos(posMap[2], bx, by);
-            PositionSlot(g_batteryPresenter, battIdx, bx, by, geom.slotH,
-                         g_settings.batteryX, g_settings.batteryY);
-
-            if (hasPercent && g_batteryPercentFE) {
-                // Percent offset relative to the battery cell; its natural X
-                // is one glyph-slot in, so subtract it.
-                int px, py; resolvePos(posMap[3], px, py);
-                int relX = px - bx - g_settings.slotWidth + g_settings.percentX;
-                int relY = py - by + g_settings.percentY;
-                ApplyOffset(g_batteryPercentFE, relX, relY);
-                Wh_Log(L"[Layout] Coupled pct=(%d,%d)px batt=(%d,%d)px relX=%d relY=%d",
-                    px, py, bx, by, relX, relY);
+            if (g_batteryInnerPanel) {
+                TrackProperty(g_batteryInnerPanel, StackPanel::OrientationProperty());
+                g_batteryInnerPanel.Orientation(Orientation::Horizontal);
             }
+            int bx, by;
+            int groupPosition = items.visible[2] ? items.position[2]
+                                                 : items.position[3];
+            resolvePos(groupPosition, bx, by);
+            int batteryNaturalY =
+                (items.visible[0] ? geom.slotH : 0) +
+                (items.visible[1] ? geom.slotH : 0);
+            PositionSlot(g_batteryPresenter, batteryNaturalY, bx, by, 0, 0);
+            if (items.visible[2])
+                ApplyOffset(g_batteryGlyphFE, g_settings.batteryX,
+                            g_settings.batteryY);
+            if (items.visible[3])
+                ApplyOffset(g_batteryPercentFE, g_settings.percentX,
+                            g_settings.percentY);
+            Wh_Log(L"[Layout] Coupled group=(%d,%d)px battery=%d percent=%d",
+                   bx, by, items.visible[2], items.visible[3]);
         }
     }
 
     Wh_Log(L"[Layout] Applied grid (SP children=%d)", n);
 
     // Best-effort color application; also retried in OnLayoutUpdated
-    ApplyAllColors();
+    ApplyAllItemStyles();
 }
 
 // ── Deferred layout (LayoutUpdated) ──────────────────────────────────────
 
-static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
+static void OnLayoutUpdatedImpl() {
     auto sp = g_layoutUpdatedSP;
     if (!sp) return;
 
+    bool wantsPercent = ItemOrderContains(g_settings.itemOrderStr, L"percent");
     bool allReady = g_wifiPresenter && g_volumePresenter &&
                     (!g_batteryPresenter ||
-                     (g_batteryInnerPanel && g_batteryPercentFE));
+                     (g_batteryInnerPanel &&
+                      (!wantsPercent || g_batteryPercentFE)));
     if (allReady) {
         sp.LayoutUpdated(g_layoutUpdatedToken); g_layoutUpdatedToken = {};
         g_layoutUpdatedSP = nullptr;
-        ApplyAllColors();
+        ApplyAllItemStyles();
         return;
     }
 
@@ -1208,6 +1377,15 @@ static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
     ApplyLayout(sp, g_taskbarWnd);
 }
 
+static void OnLayoutUpdated(IInspectable const&, IInspectable const&) {
+    try {
+        OnLayoutUpdatedImpl();
+    } catch (...) {
+        LogCurrentUiException(L"LayoutUpdated");
+        RevokeLayoutUpdated();
+    }
+}
+
 // ── Taskbar and window thread helpers ─────────────────────────────────────
 
 static HWND FindCurrentProcessTaskbarWnd() {
@@ -1224,24 +1402,66 @@ static HWND FindCurrentProcessTaskbarWnd() {
 }
 
 using RunFromWindowThreadProc_t = void (*)(void*);
-static bool RunFromWindowThread(HWND hWnd, RunFromWindowThreadProc_t proc, void* procParam) {
-    static const UINT kMsg = RegisterWindowMessage(L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
-    struct Param { RunFromWindowThreadProc_t proc; void* procParam; };
-    DWORD dwThreadId = GetWindowThreadProcessId(hWnd, nullptr);
-    if (!dwThreadId) return false;
-    if (dwThreadId == GetCurrentThreadId()) { proc(procParam); return true; }
-    HHOOK hook = SetWindowsHookEx(WH_CALLWNDPROC, [](int nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
-        if (nCode == HC_ACTION) {
-            auto* cwp = (const CWPSTRUCT*)lParam;
-            if (cwp->message == kMsg) { auto* p = (Param*)cwp->lParam; p->proc(p->procParam); }
-        }
-        return CallNextHookEx(nullptr, nCode, wParam, lParam);
-    }, nullptr, dwThreadId);
+static void LogCurrentUiException(PCWSTR context) noexcept {
+    try {
+        throw;
+    } catch (winrt::hresult_error const& error) {
+        Wh_Log(L"[Lifecycle] %s failed hr=0x%08X: %s", context,
+               static_cast<unsigned>(error.code().value),
+               error.message().c_str());
+    } catch (std::exception const&) {
+        Wh_Log(L"[Lifecycle] %s failed with a C++ exception", context);
+    } catch (...) {
+        Wh_Log(L"[Lifecycle] %s failed with an unknown exception", context);
+    }
+}
+
+static bool InvokeWindowThreadProc(RunFromWindowThreadProc_t proc,
+                                   void* parameter) {
+    try {
+        proc(parameter);
+        return true;
+    } catch (...) {
+        LogCurrentUiException(L"UI callback");
+    }
+    return false;
+}
+
+static bool RunFromWindowThread(HWND hWnd, RunFromWindowThreadProc_t proc,
+                                void* procParam) {
+    static UINT message = RegisterWindowMessageW(
+        L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
+    struct Dispatch {
+        RunFromWindowThreadProc_t proc;
+        void* parameter;
+        bool succeeded = false;
+    };
+    DWORD threadId = GetWindowThreadProcessId(hWnd, nullptr);
+    if (!threadId) return false;
+    if (threadId == GetCurrentThreadId())
+        return InvokeWindowThreadProc(proc, procParam);
+    HHOOK hook = SetWindowsHookExW(
+        WH_CALLWNDPROC,
+        [](int code, WPARAM wParam, LPARAM lParam) -> LRESULT {
+            if (code == HC_ACTION) {
+                auto call = reinterpret_cast<CWPSTRUCT const*>(lParam);
+                static UINT dispatchMessage = RegisterWindowMessageW(
+                    L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
+                if (call->message == dispatchMessage) {
+                    auto dispatch = reinterpret_cast<Dispatch*>(call->lParam);
+                    dispatch->succeeded = InvokeWindowThreadProc(
+                        dispatch->proc, dispatch->parameter);
+                }
+            }
+            return CallNextHookEx(nullptr, code, wParam, lParam);
+        },
+        nullptr, threadId);
     if (!hook) return false;
-    Param param{ proc, procParam };
-    SendMessage(hWnd, kMsg, 0, (LPARAM)&param);
+
+    Dispatch dispatch{proc, procParam};
+    SendMessageW(hWnd, message, 0, reinterpret_cast<LPARAM>(&dispatch));
     UnhookWindowsHookEx(hook);
-    return true;
+    return dispatch.succeeded;
 }
 
 // ── GetTaskbarXamlRoot ────────────────────────────────────────────────────
@@ -1333,77 +1553,17 @@ static FrameworkElement FindChildRecursive(FrameworkElement const& e,
     return nullptr;
 }
 
-static bool FindBatteryInnerElements(DependencyObject const& node,
-                                     StackPanel& ip, FrameworkElement& glyph,
-                                     FrameworkElement& pct, int depth = 0) {
-    if (depth > 8) return false;
-    int n = VisualTreeHelper::GetChildrenCount(node);
-    for (int i = 0; i < n; i++) {
-        auto child = VisualTreeHelper::GetChild(node, i);
-        if (!child) continue;
-        auto sp = child.try_as<StackPanel>();
-        if (sp && !sp.IsItemsHost()) {
-            ip = sp;
-            int spN = VisualTreeHelper::GetChildrenCount(sp);
-            if (spN >= 1) glyph = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
-            if (spN >= 2) pct   = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
-            return true;
-        }
-        if (FindBatteryInnerElements(child, ip, glyph, pct, depth + 1)) return true;
-    }
-    return false;
-}
-
-static bool CleanupLiveOmniButton() {
-    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (!hWnd) return false;
-    try {
-        auto xamlRoot = GetTaskbarXamlRoot(hWnd);
-        if (!xamlRoot) return false;
-        auto content = xamlRoot.Content().try_as<FrameworkElement>();
-        if (!content) return false;
-        auto omniBtn = FindChildRecursive(content, [](FrameworkElement fe) {
-            return fe.Name() == L"ControlCenterButton"; });
-        if (!omniBtn) return false;
-        auto grid = FindChildByClassName(omniBtn, L"Windows.UI.Xaml.Controls.Grid");
-        auto cp   = grid ? FindChildByName(grid, L"ContentPresenter") : nullptr;
-        auto ip   = cp   ? FindChildByClassName(cp, L"Windows.UI.Xaml.Controls.ItemsPresenter") : nullptr;
-        auto sp   = ip   ? FindChildByClassName(ip, L"Windows.UI.Xaml.Controls.StackPanel").try_as<StackPanel>() : nullptr;
-        if (!sp || !sp.IsItemsHost()) return false;
-        FrameworkElement wifi{nullptr}, vol{nullptr}, batt{nullptr};
-        FrameworkElement bglyph{nullptr}, bpct{nullptr};
-        StackPanel bip{nullptr};
-        int nc = VisualTreeHelper::GetChildrenCount(sp);
-        if (nc >= 1) wifi = VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
-        if (nc >= 2) vol  = VisualTreeHelper::GetChild(sp, 1).try_as<FrameworkElement>();
-        for (int i = 0; i < nc; i++) {
-            auto child = VisualTreeHelper::GetChild(sp, i).try_as<FrameworkElement>();
-            if (child && HasBatteryDescendant(child)) {
-                batt = child;
-                FindBatteryInnerElements(child, bip, bglyph, bpct);
-                break;
-            }
-        }
-        CleanupXamlElements(sp, omniBtn, wifi, vol, batt, bip, bglyph, bpct);
-        Wh_Log(L"[Cleanup] Live OmniButton cleanup applied");
-        return true;
-    } catch (...) {
-        Wh_Log(L"[Cleanup] Live OmniButton cleanup failed");
-        return false;
-    }
-}
-
 // ── Apply settings ────────────────────────────────────────────────────────
 
-static void ApplyAllSettings() {
+static bool ApplyAllSettings() {
     HWND hWnd = FindCurrentProcessTaskbarWnd();
-    if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return; }
+    if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return false; }
     g_taskbarWnd = hWnd;
     try {
         auto xamlRoot = GetTaskbarXamlRoot(hWnd);
-        if (!xamlRoot) { Wh_Log(L"[Apply] GetTaskbarXamlRoot failed"); return; }
+        if (!xamlRoot) { Wh_Log(L"[Apply] GetTaskbarXamlRoot failed"); return false; }
         auto content = xamlRoot.Content().try_as<FrameworkElement>();
-        if (!content) return;
+        if (!content) return false;
         if (!g_omniStackPanel) {
             auto omniBtn = FindChildRecursive(content, [](FrameworkElement fe) {
                 return fe.Name() == L"ControlCenterButton"; });
@@ -1415,10 +1575,13 @@ static void ApplyAllSettings() {
                 auto sp   = ip   ? FindChildByClassName(ip, L"Windows.UI.Xaml.Controls.StackPanel").try_as<StackPanel>() : nullptr;
                 if (sp && sp.IsItemsHost()) {
                     ApplyLayout(sp, hWnd);
+                    bool wantsPercent = ItemOrderContains(
+                        g_settings.itemOrderStr, L"percent");
                     bool needsDeferred = !g_wifiPresenter || !g_volumePresenter ||
-                                         !g_batteryPresenter ||
                                          (g_batteryPresenter &&
-                                          (!g_batteryInnerPanel || !g_batteryPercentFE));
+                                          (!g_batteryInnerPanel ||
+                                           (wantsPercent &&
+                                            !g_batteryPercentFE)));
                     if (needsDeferred) {
                         g_layoutUpdatedSP = sp;
                         g_layoutUpdatedToken = sp.LayoutUpdated(OnLayoutUpdated);
@@ -1427,16 +1590,23 @@ static void ApplyAllSettings() {
                 } else Wh_Log(L"[Apply] IsItemsHost StackPanel not found");
             } else Wh_Log(L"[Apply] ControlCenterButton not found");
         } else {
-            // Already applied layout; re-apply colors only (e.g. after settings change path)
-            ApplyAllColors();
+            // Already applied; late template materialization may expose glyph
+            // TextBlocks after the initial pass.
+            ApplyAllItemStyles();
         }
-    } catch (...) { Wh_Log(L"[Apply] Exception (XAML not ready)"); }
+    } catch (...) {
+        LogCurrentUiException(L"ApplyAllSettings");
+        return false;
+    }
+    return g_omniStackPanel != nullptr;
 }
 
-static void ApplyAllSettingsOnWindowThread() {
-    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (!hWnd) return;
-    RunFromWindowThread(hWnd, [](void*) { ApplyAllSettings(); }, nullptr);
+static bool ApplyPendingSettings() {
+    if (g_reapplyPending.exchange(false)) {
+        CleanupAndResetCurrentElements();
+        g_applied = false;
+    }
+    return ApplyAllSettings();
 }
 
 // ── IconView constructor hook ──────────────────────────────────────────────
@@ -1446,16 +1616,26 @@ IconView_IconView_t IconView_IconView_Original;
 
 void* WINAPI IconView_IconView_Hook(void* pThis) {
     void* ret = IconView_IconView_Original(pThis);
-    FrameworkElement iconView = nullptr;
-    ((IUnknown**)pThis)[1]->QueryInterface(winrt::guid_of<FrameworkElement>(), winrt::put_abi(iconView));
-    if (!iconView) return ret;
-    g_autoRevokerList.emplace_back();
-    auto it = std::prev(g_autoRevokerList.end());
-    *it = iconView.Loaded(winrt::auto_revoke_t{},
-        [it](IInspectable const&, RoutedEventArgs const&) {
-            g_autoRevokerList.erase(it);
-            if (!g_unloading && !g_omniStackPanel) ApplyAllSettings();
-        });
+    try {
+        FrameworkElement iconView = nullptr;
+        ((IUnknown**)pThis)[1]->QueryInterface(
+            winrt::guid_of<FrameworkElement>(), winrt::put_abi(iconView));
+        if (!iconView) return ret;
+        g_autoRevokerList.emplace_back();
+        auto it = std::prev(g_autoRevokerList.end());
+        *it = iconView.Loaded(winrt::auto_revoke_t{},
+            [it](IInspectable const&, RoutedEventArgs const&) {
+                try {
+                    g_autoRevokerList.erase(it);
+                    if (!g_unloading && (!g_applied || g_reapplyPending))
+                        g_applied = ApplyPendingSettings();
+                } catch (...) {
+                    LogCurrentUiException(L"IconView Loaded");
+                }
+            });
+    } catch (...) {
+        LogCurrentUiException(L"IconView constructor hook");
+    }
     return ret;
 }
 
@@ -1494,40 +1674,127 @@ static HMODULE GetSystemTrayModuleHandle() {
 }
 
 static bool HookSystemTraySymbols(HMODULE hModule) {
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+    WindhawkUtils::SYMBOL_HOOK systemTrayDllHooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original, IconView_IconView_Hook,
     }};
-    if (!WindhawkUtils::HookSymbols(hModule, hooks, ARRAYSIZE(hooks))) {
+    if (!WindhawkUtils::HookSymbols(hModule, systemTrayDllHooks,
+                                    ARRAYSIZE(systemTrayDllHooks))) {
         Wh_Log(L"[Hooks] HookSymbols failed"); return false;
     }
     return true;
 }
 
 static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName) {
-    if (!g_systemTrayModuleHooked && GetSystemTrayModuleHandle() == hModule &&
-        !g_systemTrayModuleHooked.exchange(true)) {
+    if (!g_systemTrayModuleHooked && GetSystemTrayModuleHandle() == hModule) {
+        bool expected = false;
+        if (!g_systemTrayModuleHooked.compare_exchange_strong(expected, true))
+            return;
         Wh_Log(L"[LoadLib] %s — hooking symbols", lpLibFileName);
-        if (HookSystemTraySymbols(hModule)) Wh_ApplyHookOperations();
+        if (HookSystemTraySymbols(hModule)) {
+            Wh_ApplyHookOperations();
+        } else {
+            g_systemTrayModuleHooked = false;
+        }
     }
 }
 
 HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags) {
     HMODULE hModule = LoadLibraryExW_Original(lpLibFileName, hFile, dwFlags);
-    if (hModule && lpLibFileName) HandleLoadedModuleIfSystemTray(hModule, lpLibFileName);
+    try {
+        if (hModule && lpLibFileName)
+            HandleLoadedModuleIfSystemTray(hModule, lpLibFileName);
+    } catch (...) {
+        LogCurrentUiException(L"LoadLibraryExW hook");
+    }
     return hModule;
+}
+
+static void ApplyOnTaskbarWindowThread() {
+    HWND window = g_taskbarWnd ? g_taskbarWnd
+                               : FindCurrentProcessTaskbarWnd();
+    if (!window) return;
+    RunFromWindowThread(window, [](void*) {
+        if (!g_unloading) g_applied = ApplyPendingSettings();
+    }, nullptr);
+}
+
+static void StopRetryThread() {
+    if (g_retryStopEvent) SetEvent(g_retryStopEvent);
+    if (g_retryThread) {
+        DWORD result;
+        do {
+            result = MsgWaitForMultipleObjects(
+                1, &g_retryThread, FALSE, INFINITE, QS_SENDMESSAGE);
+            if (result == WAIT_OBJECT_0 + 1) {
+                MSG message;
+                PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
+            }
+        } while (result == WAIT_OBJECT_0 + 1);
+        CloseHandle(g_retryThread);
+        g_retryThread = nullptr;
+    }
+    if (g_retryStopEvent) {
+        CloseHandle(g_retryStopEvent);
+        g_retryStopEvent = nullptr;
+    }
+}
+
+static void StartRetryThread() {
+    StopRetryThread();
+    if (g_unloading) return;
+    g_retryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!g_retryStopEvent) return;
+    HANDLE stopEvent = g_retryStopEvent;
+    g_retryThread = CreateThread(
+        nullptr, 0,
+        [](void* parameter) -> DWORD {
+            HANDLE stopEvent = reinterpret_cast<HANDLE>(parameter);
+            for (int attempt = 0; attempt < 5 && !g_unloading; ++attempt) {
+                if (g_applied) break;
+                if (attempt &&
+                    WaitForSingleObject(stopEvent, 2000) != WAIT_TIMEOUT)
+                    break;
+                ApplyOnTaskbarWindowThread();
+            }
+            return 0;
+        },
+        stopEvent, 0, nullptr);
+    if (!g_retryThread) {
+        CloseHandle(g_retryStopEvent);
+        g_retryStopEvent = nullptr;
+    }
+}
+
+using TrayUI_StartTaskbar_t = void (WINAPI*)(void*);
+static TrayUI_StartTaskbar_t TrayUI_StartTaskbar_Original;
+
+static void WINAPI TrayUI_StartTaskbar_Hook(void* self) {
+    TrayUI_StartTaskbar_Original(self);
+    try {
+        if (!g_unloading) {
+            g_applied = false;
+            g_reapplyPending = true;
+            StartRetryThread();
+        }
+    } catch (...) {
+        LogCurrentUiException(L"TrayUI::StartTaskbar hook");
+    }
 }
 
 static bool HookTaskbarDllSymbols() {
     HMODULE hTaskbar = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!hTaskbar) { Wh_Log(L"[Hooks] Failed to load taskbar.dll"); return false; }
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         { {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"}, &CTaskBand_ITaskListWndSite_vftable },
         { {LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"}, &CTaskBand_GetTaskbarHost_Original },
         { {LR"(public: int __cdecl TaskbarHost::FrameHeight(void)const )"}, &TaskbarHost_FrameHeight_Original },
         { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"}, &std__Ref_count_base__Decref_Original },
+        { {LR"(public: virtual void __cdecl TrayUI::StartTaskbar(void))"},
+          &TrayUI_StartTaskbar_Original, TrayUI_StartTaskbar_Hook },
     };
-    return WindhawkUtils::HookSymbols(hTaskbar, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(hTaskbar, taskbarDllHooks,
+                                      ARRAYSIZE(taskbarDllHooks));
 }
 
 // ── Windhawk lifecycle ─────────────────────────────────────────────────────
@@ -1535,11 +1802,15 @@ static bool HookTaskbarDllSymbols() {
 BOOL Wh_ModInit() {
     Wh_Log(L"[Init] OmniButton Customizer v1.0");
     LoadSettings();
-    if (!HookTaskbarDllSymbols())
-        Wh_Log(L"[Init] taskbar.dll symbol hooks failed — continuing");
+    if (!HookTaskbarDllSymbols()) {
+        Wh_Log(L"[Init] taskbar.dll symbol hooks failed");
+        return FALSE;
+    }
     if (HMODULE hSysTray = GetSystemTrayModuleHandle()) {
-        g_systemTrayModuleHooked = true;
-        if (!HookSystemTraySymbols(hSysTray)) Wh_Log(L"[Init] system tray symbol hooks failed");
+        if (HookSystemTraySymbols(hSysTray))
+            g_systemTrayModuleHooked = true;
+        else
+            Wh_Log(L"[Init] system tray symbol hooks failed");
     } else {
         Wh_Log(L"[Init] System tray module not loaded yet");
         HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
@@ -1555,42 +1826,53 @@ void Wh_ModAfterInit() {
         if (HMODULE hSysTray = GetSystemTrayModuleHandle()) {
             if (!g_systemTrayModuleHooked.exchange(true)) {
                 Wh_Log(L"[AfterInit] system tray module found — hooking");
-                if (HookSystemTraySymbols(hSysTray)) Wh_ApplyHookOperations();
+                if (HookSystemTraySymbols(hSysTray)) {
+                    Wh_ApplyHookOperations();
+                } else {
+                    g_systemTrayModuleHooked = false;
+                }
             }
         }
     }
-    if (g_systemTrayModuleHooked) ApplyAllSettingsOnWindowThread();
+    StartRetryThread();
     Wh_Log(L"[AfterInit] systemTrayModuleHooked=%d", (int)g_systemTrayModuleHooked.load());
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
+    StopRetryThread();
     Wh_Log(L"[Uninit]");
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {
         if (!RunFromWindowThread(hWnd, [](void*) {
             g_autoRevokerList.clear();
             CleanupAndResetCurrentElements();
+            g_applied = false;
         }, nullptr)) {
-            g_autoRevokerList.clear();
-            CleanupAndResetCurrentElements();
+            Wh_Log(L"[Uninit] Taskbar dispatch failed; retaining XAML state");
         }
     } else {
-        g_autoRevokerList.clear();
-        CleanupAndResetCurrentElements();
+        Wh_Log(L"[Uninit] No taskbar UI thread; retaining XAML state");
     }
 }
 
 void Wh_ModSettingsChanged() {
+    StopRetryThread();
     LoadSettings();
+    g_reapplyPending = true;
+    g_applied = false;
     Wh_Log(L"[Settings] Updated");
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (!hWnd) { Wh_Log(L"[Settings] No taskbar window"); return; }
-    if (!RunFromWindowThread(hWnd, [](void*) {
-        CleanupAndResetCurrentElements();
-        ApplyAllSettings();
-    }, nullptr)) {
-        CleanupAndResetCurrentElements();
-        ApplyAllSettings();
+    if (!hWnd) {
+        Wh_Log(L"[Settings] No taskbar window; scheduling retry");
+        StartRetryThread();
+        return;
     }
+    if (!RunFromWindowThread(hWnd, [](void* parameter) {
+        HWND window = static_cast<HWND>(parameter);
+        if (!GetTaskbarXamlRoot(window)) return;
+        g_applied = ApplyPendingSettings();
+    }, hWnd))
+        Wh_Log(L"[Settings] Taskbar dispatch failed; retaining XAML state");
+    if (!g_applied && !g_unloading) StartRetryThread();
 }

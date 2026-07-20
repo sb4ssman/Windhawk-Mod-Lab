@@ -885,3 +885,30 @@ at most four checks per second.
   an incorrect coupled battery percentage and a missing glyph in independent
   mode. The next diagnostic input is the mod's `[Battery]` and `[Layout]` logs;
   no code fix was made during this audit.
+
+## 2026-07-19 — OmniButton full-template test candidate
+
+- Completed the post-audit hardening pass while preserving the mod's defining
+  scope: granular control of every native OmniButton item. Added canonical
+  `gridMode` and `smartLayout`, retained the exact Smart Grid v1.0 body, and
+  exposed per-item color, size, font family, opacity, visibility/order, and X/Y
+  offsets for wifi, volume, battery, and percentage.
+- Fixed the broken `itemOrder` contract: omitted tokens are now actually hidden
+  instead of silently appended. Coupled mode keeps battery/percentage together
+  as one native grid item with independent styling/nudges; independent mode
+  gives each child a real slot within a full-grid inner-panel footprint.
+  Collapsed-sibling natural offsets are accounted for explicitly.
+- Replaced guessed cleanup defaults with a dependency-property lease: every
+  changed native XAML property snapshots its exact original local value and is
+  restored in reverse order. Adopted lifecycle v1.2 behavior throughout:
+  `no_destroy` XAML owners, UI-thread-only cleanup/intentional retention,
+  live-root settings guards, exception containment, retry recovery, and
+  `TrayUI::StartTaskbar`. Both symbol-hook arrays now identify their modules.
+- Removed the superseded rediscovery/blanket-ClearValue cleanup path and added
+  battery/layout diagnostics reporting native slots, inner-panel structure,
+  visibility, and resolved coordinates for the live test.
+- Verification passes: Windhawk Clang compilation, exit-time destructor audit,
+  settings YAML parsing (36 settings), exact Smart Grid body comparison, README
+  parity, `git diff --check`, and the current upstream Windhawk validator via a
+  clean source-only staging copy. Full submission preflight intentionally still
+  stops on the three vertical-era screenshots; replace them after live testing.

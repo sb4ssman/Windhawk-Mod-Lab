@@ -6,10 +6,11 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-**OmniButton Customizer is the active development target.** Its v1.0 source
-compiles and its README layers match, but the last live test is broken: coupled
-battery percentage is wrong and independent mode hides the battery glyph. The
-user confirmed that the Grid template is not implicated.
+**OmniButton Customizer is the active development target.** A fully hardened
+v1.0 candidate is ready for live testing. The previous build's coupled
+percentage error and missing independent-mode battery glyph were addressed by
+replacing the battery layout contract; neither fix is considered confirmed
+until the user tests this candidate.
 
 Template status (audited 2026-07-19):
 
@@ -19,27 +20,32 @@ Template status (audited 2026-07-19):
 - Color tokens: canonical behavior is present through a Color-returning parser;
   the Brush-returning button-surface template is not applicable because this
   mod mutates native glyphs rather than owning a button surface.
-- XAML lifecycle v1.2: **not adopted**. The exit-time audit reports 14
-  destructible namespace-scope XAML/WinRT owners. Dispatch lacks the template's
-  exception boundary/live-root contract, and unload/settings fallbacks can
-  release XAML state off the taskbar UI thread.
+- XAML lifecycle v1.2: adopted. All XAML/WinRT owners use process-safe lifetime,
+  cleanup is UI-thread-only, callbacks contain exceptions, and startup/restart
+  use the standard retry plus `TrayUI::StartTaskbar` path.
 - Injected-column, Start-placement, button-surface, and placement-contract
   templates: not applicable to the current feature set.
 
+Candidate changes awaiting live evidence:
+
+- Missing `itemOrder` tokens now really hide items instead of being appended.
+- Coupled mode treats battery/percentage as one native group; independent mode
+  gives each a full grid cell inside a correctly sized footprint.
+- Every item now has independent color, size, font, opacity, visibility/order,
+  and X/Y nudge controls.
+- Canonical `gridMode` and `smartLayout` settings expose the entire Smart Grid
+  template instead of inferring a partial mode from row/column values.
+- Exact original dependency-property values are snapshotted and restored on
+  settings change/unload instead of guessing Windows defaults.
+
 Next work, in order:
 
-- [ ] FIRST collect Windhawk `[Battery]` and `[Layout]` logs from the failing
-      coupled and independent modes; do not resume static guessing.
-- [ ] Fix coupled percentage and independent glyph behavior from that evidence.
-- [ ] Adopt lifecycle v1.2: `[[clang::no_destroy]]` owners, UI-thread-only
-      cleanup, intentional retention when no live taskbar exists, live-root
-      guards, callback exception containment, and startup/restart retry path.
-- [ ] Rename or annotate both generic symbol-hook arrays for upstream validator
-      compliance.
-- [ ] Re-run compile, destructor audit, README parity, template comparison, and
-      submission preflight.
-- [ ] Live-test dual/single height, short-group position/alignment, colors,
-      settings reload, disable, and Explorer restart.
+- [ ] Run `.agents/knowledge/omnibutton-test-checklist.md`, starting with
+      coupled default, independent non-adjacent battery/percentage, omission of
+      `percent`, repeated settings changes, disable, and Explorer restart.
+- [ ] If battery behavior differs, capture the new `[Battery]`, `[Layout]`, and
+      `[Lifecycle]` lines; the candidate now logs native slot classes, inner
+      battery structure, visibility map, and resolved cell coordinates.
 - [ ] Replace the vertical-era screenshots, then prepare a PR only after explicit
       user approval.
 
@@ -75,9 +81,10 @@ Follow-ups:
       shipping without the curated `_templates/` profiles (settings names,
       order, smart grid). Every mod touched must be checked against
       `_templates/settings-profiles.md`, the applicable copy-source templates,
-      and `six-mod-settings-audit.md` before screenshots/PR. OmniButton's open
-      lifecycle gap is documented above; Tray Utility also has lifecycle and
-      Start-placement follow-ups before its next approved PR update.
+      and `six-mod-settings-audit.md` before screenshots/PR. OmniButton's
+      applicable gaps are resolved in the current test candidate; Tray Utility
+      still has lifecycle and Start-placement follow-ups before its next
+      approved PR update.
 - [ ] windhawk-mods PR update script (pull upstream → copy .wh.cpp →
       create/update PR); fork at `t:/Github/sb4ssman/windhawk-mods/`
 
