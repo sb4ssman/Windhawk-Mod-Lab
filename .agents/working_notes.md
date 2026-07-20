@@ -76,11 +76,13 @@ with current docs/screenshots (standing directives in README.md).
      favor of the customizer; if refused, the 5 review comments need a response
      commit (archive: knowledge/pr-review-comments.md)
 
-5. **Privacy Indicator Anchor** — v1.0 SUBMITTED 2026-07-19 (PR #4843).
-   Branch add-tray-privacy-indicator-anchor on the fork, based on current
-   upstream/main; user approved the submission. Development history is in the
-   work log (2026-07-19 entries).
-   - [ ] Watch PR #4843 CI (validation + compile matrix) and maintainer review
+5. **Privacy Indicator Anchor** — v1.0 SUBMITTED 2026-07-19 (PR #4843), CI
+   GREEN. Branch add-tray-privacy-indicator-anchor on the fork, based on
+   current upstream/main; user approved the submission. PR validation and the
+   1.6.1/1.7.3/2.0.0-alpha.1 compile matrix all pass. Development history is
+   in the work log (2026-07-19 entries).
+   - [ ] Watch PR #4843 for maintainer review; no PR updates without explicit
+         user approval
    - [ ] LIVE-TEST start-placement v1.1 (2026-07-19 geometry fix, UNTESTED at
          submission; positions are labeled experimental): v1.0 pinned Start to
          a stale absolute X and put the leftOfStart group at the taskbar's
