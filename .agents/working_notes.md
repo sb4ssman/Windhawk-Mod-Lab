@@ -34,12 +34,11 @@ README.md).
      TCC-integration copy; its PDH note is
      knowledge/taskbar-clock-spacer-pdh-invalid-data.md).
 
-2. **Taskbar VD Switcher** — v1.7 MERGED 2026-07-18 (PR #4516). Remaining work
-   is follow-up, not release-blocking.
-   - [ ] Issue #4830 feature set: custom user-defined indicator symbols/letters
-         (example active/inactive dot strings), separate master-button and
-         indicator fonts, and Styler-friendly Checked/CheckedPointerOver/
-         CheckedPressed visual states
+2. **Taskbar VD Switcher** — v1.8 LIVE-TESTED 2026-07-19; user approved update
+   submission. Issue #4830 is resolved in-tree: custom active/inactive indicator
+   symbols, separate indicator/Task View font families, and real ToggleButton
+   Checked/CheckedPointerOver/CheckedPressed states. Existing gallery reuse is
+   explicitly authorized for this submission.
    - [ ] Verify the full-rebuild change also fixes issue #4784 (hover/hit-test)
    - [ ] Test the experimental `multiMonitor` toggle (deferred: Explorer
          restarts disrupt the user's desktop order)

@@ -34,14 +34,15 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 ## Features
 
-- Numbered, roman-numeral, dot, or custom-label buttons
+- Numbered, roman-numeral, customizable indicator-symbol, or custom-label buttons
 - Smart grid layout with balanced, vertical-pack, horizontal-pack, and fixed override modes
 - Highlights the active desktop immediately on switch
 - Buttons appear/disappear as desktops are added or removed
 - Five placement positions within the system tray, plus experimental Start-adjacent and Start-overlay positions
 - Start placement modes: left of Start, over Start, and right of Start
 - Configurable size, spacing, colors, opacity, and shine effect
-- Per-state text color, font size, corner radius, bold, and border
+- Per-state text color, font size/family, corner radius, bold, and border
+- Native checked states that can be targeted by Windows 11 Taskbar Styler
 - Tooltip on each button shows the desktop's display name
 - Option to hide the bar entirely when only one desktop exists
 - Experimental option to also show the switcher on secondary monitors' taskbars
@@ -60,9 +61,12 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 | Button width | 20 px | Width of each button |
 | Button height | 22 px | Height of each button |
 | Button spacing | 2 px | Gap between buttons in the grid |
-| Label format | Numbers | Numbers · Roman numerals · Dots · Custom |
+| Label format | Numbers | Numbers · Roman numerals · Indicator symbols · Custom labels |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
+| Active indicator | ● | Symbol shown for the current desktop in Indicator symbols mode |
+| Inactive indicator | ○ | Symbol shown for other desktops in Indicator symbols mode |
 | Font size | 10 pt | Button label size |
+| Indicator font family | *(native)* | Font family for desktop labels and indicator symbols |
 | Active text color | *(native)* | Current desktop's label color |
 | Inactive text color | *(native)* | Other desktops' label color |
 | Active color | `accent` | Current desktop background; empty keeps the native surface |
@@ -81,9 +85,14 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 | Show on all taskbars | Off | Experimental: also inject into secondary monitors' taskbars (tray positions only; may need an Explorer restart after enabling) |
 | Task View button | Off | Optional button that opens Task View for previewing, creating, or closing desktops |
 | Task View button label | ⊞ | Text shown on the Task View button |
+| Task View font family | *(native)* | Independent font family for the Task View label |
 | Task View button position | After | Column before/after desktop buttons, or sliver row above/below |
 | Task View button sliver height | 6 px | Height of the Task View button when used as a sliver row |
 | Task View button column width | 14 px | Width of the Task View button when used as a side column |
+
+For a copy-ready colored indicator preset, choose **Indicator symbols** and set
+**Active indicator symbol** to `🟢` and **Inactive indicator symbol** to `🔴`.
+Swap either emoji for any symbol, letter, or text you prefer.
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
 honored), the generics `accent`, `accentLight`, and `accentDark` for the
@@ -92,6 +101,21 @@ nothing drawn, element still present and clickable. Leaving a color empty
 keeps the native behavior described for that setting — including the Active
 color, where empty means the current desktop's button keeps the plain native
 surface with no highlight at all.
+
+## Taskbar Styler
+
+Desktop buttons are XAML `ToggleButton` controls named `VdBtn_0`, `VdBtn_1`,
+and so on. The current desktop has `IsChecked=true`, exposing the native
+`Checked`, `CheckedPointerOver`, and `CheckedPressed` states. Taskbar Styler
+can target every indicator's template presenter with:
+
+```text
+Grid#VdSwitcherBar > ToggleButton > ContentPresenter#ContentPresenter@CommonStates
+```
+
+State-qualified styles such as `Background@Checked`,
+`Background@CheckedPointerOver`, and `Background@CheckedPressed` then apply
+without inferring the active desktop from its color.
 
 ## Known limitations
 

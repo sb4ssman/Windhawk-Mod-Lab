@@ -826,3 +826,24 @@ at most four checks per second.
   module-named symbol-hook variables (or module comment above), the required
   "## Mod authorship" PR-body section and its push-time evaluation, the local
   Windhawk clang syntax check, and the established PR body format.
+
+## 2026-07-19 — VD Switcher Issue #4830 candidate implemented
+
+- Made the published `dot` label mode customizable through independent active
+  and inactive indicator strings while preserving `●`/`○` as its defaults.
+  Added independent indicator and Task View font-family settings; empty keeps
+  the native font.
+- Replaced desktop `Button` controls with `ToggleButton` controls whose checked
+  value follows the actual current desktop. The native `Checked`,
+  `CheckedPointerOver`, and `CheckedPressed` states now exist for Taskbar
+  Styler, while click handling immediately restores the registry-backed state
+  until the asynchronous desktop switch notification triggers a rebuild.
+- Hardened the existing full-rebuild path: click tokens, tooltips, and boxed
+  content are now owned per grid and cleared before XAML subtree removal.
+  Adopted the process-shutdown lifetime contract for all settings/XAML owners,
+  removed off-thread teardown fallback, guarded settings/unload on a live XAML
+  root, and contained UI/native-callback exceptions.
+- Updated both README layers with the new settings and the exact Taskbar Styler
+  target. Windhawk compilation, exit-time-destructor audit, settings YAML
+  parsing, README parity, and `git diff --check` pass. Version remains v1.7;
+  live visual, switching, Styler-state, disable, and restart tests remain.
