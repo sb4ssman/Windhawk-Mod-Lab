@@ -13,7 +13,20 @@ is submitted and awaiting review; Clock Spacer is deferred; VD Switcher is
 follow-up feature work. No further submissions until each works as described
 with current docs/screenshots (standing directives in README.md).
 
-1. **Taskbar Clock Spacer** — ACTIVE. Width-defect fix ready for live test.
+1. **Taskbar Clock Spacer** — v1.1 SUBMITTED 2026-07-19 (PR #4443 updated),
+   CI GREEN. User live-tested and approved all three fix rounds. The branch
+   `add-taskbar-clock-spacer` was rebuilt as a single fresh commit on current
+   upstream/main (old base was ~248k deletions stale); PR title/body updated
+   with the v1.0→v1.1 changelog, companion-mod framing, and authorship
+   section. Validator required module-named symbol-hook variables
+   (systemTrayDllHooks + a "// taskbar.dll" comment form). PR validation and
+   the 1.6.1/1.7.3/2.0.0-alpha.1 compile matrix all pass. Watch for
+   maintainer review; no PR updates without explicit user approval.
+   - [ ] Optional: fresh screenshots for the PR/readme gallery (target.png is
+         a reference shot, not published)
+   - [ ] Close m417z/my-windhawk-mods PR #68 explicitly (still open; user
+         decided 2026-07-19 the integration attempt is finished)
+   Superseded details (kept for this session only):
    DIAGNOSED AND FIXED 2026-07-19 (static analysis vs the current TCC source;
    compiles clean with the local Windhawk clang — see
    knowledge/lab-local-compile-check.md): the "multiplying spaces" the user saw

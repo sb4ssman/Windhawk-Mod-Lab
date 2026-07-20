@@ -815,3 +815,10 @@ at most four checks per second.
   corrected the readme double-spacer table example per user wording.
 - User live-tested and approved ("everything is looking good") — submission
   of the PR #4443 update authorized.
+- With user approval after their live test, submitted the update to PR #4443:
+  rebuilt branch add-taskbar-clock-spacer as one fresh v1.1 commit on current
+  upstream/main (85a971d5), refreshed the PR title/body (changelog, companion
+  framing, authorship section). Validator demanded module-indicating
+  symbol-hook variable names — renamed to systemTrayDllHooks and used the
+  "// taskbar.dll" comment form for the StartTaskbar hook. All CI green:
+  validation + 1.6.1/1.7.3/2.0.0-alpha.1 compile matrix.

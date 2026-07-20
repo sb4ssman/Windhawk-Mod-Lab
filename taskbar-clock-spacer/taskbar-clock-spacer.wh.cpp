@@ -859,13 +859,15 @@ static HMODULE GetSystemTrayModuleHandle() {
 }
 
 static bool HookSystemTraySymbols(HMODULE h) {
-    WindhawkUtils::SYMBOL_HOOK systemTrayHooks[] = {{
+    // SystemTray.dll, Taskbar.View.dll (pre-2604), ExplorerExtensions.dll
+    WindhawkUtils::SYMBOL_HOOK systemTrayDllHooks[] = {{
         {LR"(public: void __cdecl winrt::SystemTray::implementation::DateTimeIconContent::OnApplyTemplate(void))"},
         &DateTimeIconContent_OnApplyTemplate_Original,
         DateTimeIconContent_OnApplyTemplate_Hook,
         true,
     }};
-    return WindhawkUtils::HookSymbols(h, systemTrayHooks, ARRAYSIZE(systemTrayHooks));
+    return WindhawkUtils::HookSymbols(h, systemTrayDllHooks,
+                                      ARRAYSIZE(systemTrayDllHooks));
 }
 
 static void TryHookSystemTrayModule(PCWSTR reason) {
@@ -931,14 +933,16 @@ static bool HookTaskbarDllSymbols() {
         return false;
 
     // Optional: resolution failure falls back to the LoadLibraryExW watcher.
-    WindhawkUtils::SYMBOL_HOOK startTaskbarHook[] = {{
+    // taskbar.dll
+    WindhawkUtils::SYMBOL_HOOK startTaskbarHooks[] = {{
         {LR"(public: virtual void __cdecl TrayUI::StartTaskbar(void))"},
         &TrayUI_StartTaskbar_Original,
         TrayUI_StartTaskbar_Hook,
         true,
     }};
     g_trayUiStartTaskbarHooked =
-        WindhawkUtils::HookSymbols(h, startTaskbarHook, ARRAYSIZE(startTaskbarHook)) &&
+        WindhawkUtils::HookSymbols(h, startTaskbarHooks,
+                                   ARRAYSIZE(startTaskbarHooks)) &&
         TrayUI_StartTaskbar_Original != nullptr;
     return true;
 }
