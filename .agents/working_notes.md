@@ -119,8 +119,6 @@ history is in the work log (2026-07-19 entries).
       the pre-template inline copy (`PositionStartGroup`) with the same v1.0
       geometry defects fixed in privacy-anchor on 2026-07-19 (stale absolute
       anchor, leftOfStart pinned to taskbar edge).
-- [ ] Lab repo has post-push edits to commit: @version 0.5→1.0 bump (with
-      matching init-log line) + root README status row
 - [ ] `assets/part-of-a-mess.png` (June leftover) is unreferenced — archive
       or delete at user's discretion
 
@@ -129,9 +127,11 @@ history is in the work log (2026-07-19 entries).
       shipping without the curated `_templates/` profiles (settings names,
       order, smart grid). Every mod touched must be checked against
       `_templates/settings-profiles.md` + `six-mod-settings-audit.md` before
-      screenshots/PR. Remaining known gap: folder-menus (smart grid broken).
-      tray-utility-customizer and privacy-indicator-anchor RESOLVED 2026-07-19
-      (both submitted at v1.0 with full canonical profiles).
+      screenshots/PR. folder-menus RESOLVED (replacement Smart Grid
+      live-confirmed, v0.7 in PR #4485); tray-utility-customizer and
+      privacy-indicator-anchor RESOLVED 2026-07-19 (submitted at v1.0 with
+      full canonical profiles). No known open gaps; keep checking every mod
+      touched.
 - [ ] taskmanager-tail README: user decision needed on unification direction
       (published mod; folder README is standalone-repo style)
 - [ ] windhawk-mods PR update script (pull upstream → copy .wh.cpp →

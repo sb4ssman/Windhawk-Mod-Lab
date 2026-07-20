@@ -773,3 +773,9 @@ at most four checks per second.
 - With explicit user approval, bumped @version 0.9 → 1.0 and submitted PR
   #4843 (branch add-tray-privacy-indicator-anchor, based on upstream/main
   7babeba1) with the TUC-style authorship body. Root README row updated.
+- Post-submission reconciliation: PR #4843 CI green (validation + all three
+  compile matrix jobs). PR states verified live: #4843, #4841, #4485 all open
+  with no maintainer response pending on our side; m417z/my-windhawk-mods PR
+  #68 remains open and still needs an explicit close. Cleared two stale note
+  lines (TUC lab bump already committed; folder-menus smart grid gap resolved
+  at v0.7).
