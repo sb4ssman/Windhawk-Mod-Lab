@@ -1,4 +1,4 @@
-// Copy-source template v1.0: Windows 11 taskbar XAML lifecycle.
+// Copy-source template v1.1: Windows 11 taskbar XAML lifecycle.
 //
 // Adapter contract: implement ApplyModUi() and RemoveModUi() below. Both are
 // always called synchronously on the taskbar window thread. ApplyModUi returns
@@ -45,6 +45,26 @@ static std::atomic<bool> g_templateApplied{false};
 static HWND g_templateTaskbarWnd = nullptr;
 static HANDLE g_templateRetryThread = nullptr;
 static HANDLE g_templateRetryStopEvent = nullptr;
+
+// PROCESS-SHUTDOWN CONTRACT (crash class found 2026-07-19 in Privacy
+// Indicator Anchor): Explorer shutdown doesn't guarantee Wh_ModUninit. Never
+// let CRT global destruction release namespace-scope state after the XAML
+// framework has torn down or from the shutdown thread. Prefer eliminating
+// non-trivial namespace-scope objects. When they are necessary, mark them
+// no_destroy--especially strong XAML/WinRT references and containers that own
+// WinRT references, event revokers, weak_ref objects, Storyboards, or delegates:
+//
+// [[clang::no_destroy]] static FrameworkElement g_ownedRoot = nullptr;
+// [[clang::no_destroy]] static std::vector<OwnedEventState> g_eventStates;
+// [[clang::no_destroy]] static ModSettings g_settings;
+//
+// This is intentional process-lifetime retention, not a replacement for
+// cleanup. Controlled settings changes and mod unload must still revoke and
+// release everything synchronously on the taskbar UI thread. If no taskbar
+// window/UI thread can be reached during Wh_ModUninit, retain the no_destroy
+// state; do not add an off-thread fallback that clears XAML objects.
+// Run exit-time-destructor-audit.ps1 before submission; every diagnostic must
+// be eliminated or intentionally converted to a no_destroy lifetime.
 
 using CTaskBand_GetTaskbarHost_t = void* (WINAPI*)(void*, void*);
 static CTaskBand_GetTaskbarHost_t CTaskBand_GetTaskbarHost_Original;
@@ -262,7 +282,9 @@ static bool HookTaskbarSymbols() {
     HMODULE module = LoadLibraryExW(L"taskbar.dll", nullptr,
                                     LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!module) return false;
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    // PR validation requires the variable name (or an immediately preceding
+    // module comment) to identify the symbol target module.
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         {{LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
          &CTaskBand_ITaskListWndSite_vftable},
         {{LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
@@ -274,7 +296,8 @@ static bool HookTaskbarSymbols() {
         {{LR"(public: virtual void __cdecl TrayUI::StartTaskbar(void))"},
          &TrayUI_StartTaskbar_Original, TrayUI_StartTaskbar_Hook},
     };
-    return WindhawkUtils::HookSymbols(module, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(
+        module, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
 BOOL Wh_ModInit() {
@@ -307,9 +330,14 @@ void Wh_ModUninit() {
     StopRetryThread();
     HWND window = g_templateTaskbarWnd ? g_templateTaskbarWnd
                                        : FindCurrentProcessTaskbarWnd();
-    if (window)
+    if (window) {
         RunFromWindowThread(window, [](void*) {
             RemoveModUi();
             g_templateApplied = false;
         }, nullptr);
+    } else {
+        // Intentionally retain all no_destroy XAML/WinRT holders. There is no
+        // known UI thread on which releasing them would be safe.
+        Wh_Log(L"[Uninit] No taskbar UI thread; retaining XAML state");
+    }
 }

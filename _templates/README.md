@@ -17,6 +17,8 @@ comment, and adapt only through the documented settings or callback contract.
 | `placement-contract.md` | Future cross-mod placement vocabulary, ownership rules, and placement lease design |
 | `six-mod-settings-audit.md` | Evidence matrix for the six active visual mods |
 | `submission-checklist.md` | Documentation parity, screenshot coverage, version, compile, and live-test gate |
+| `submission-preflight.ps1` | Automated compile, README/gallery, diff, symbol-hook, and upstream-validator gate |
+| `exit-time-destructor-audit.ps1` | Clang gate for unsafe namespace-scope destructors in injected mods |
 | `verify-readme-sync.ps1` | Normalized folder README versus embedded Windhawk README parity check |
 
 `tests/smart-grid-layout-tests.cpp` covers balanced selection, half-cell
@@ -52,6 +54,10 @@ visual settings family.
    before staging a template adoption to a PR.
 8. Complete `submission-checklist.md`; compilation is not a substitute for the
    three documentation layers, current screenshots, or focused live testing.
+9. Namespace-scope XAML/WinRT owners must use intentional `no_destroy`
+   lifetime. Release them explicitly on the taskbar UI thread for controlled
+   unload, and retain them when no UI thread can be reached during process
+   teardown.
 
 ## Update workflow
 

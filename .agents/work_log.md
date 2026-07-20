@@ -678,3 +678,32 @@ at most four checks per second.
   submission commit to `46f3301`, and retriggered CI. Final status is green:
   PR validation plus Windhawk 1.6.1, 1.7.3, and 2.0.0-alpha.1 compilation all
   pass.
+
+## 2026-07-19 — Privacy restart-crash fix and submission gates
+
+- Correlated repeated restart-time Explorer failures with Windows Error
+  Reporting: `Windows.UI.Xaml.dll` access violation `0xc0000005` at stable
+  offset `0x24c62f`, with Privacy Anchor v0.9 loaded. Root-caused destructible
+  namespace-scope XAML/WinRT owners that could release after framework teardown
+  because process shutdown does not guarantee `Wh_ModUninit`.
+- Marked all Privacy Anchor XAML owners, revoker/state containers, and settings
+  state `[[clang::no_destroy]]`. Controlled unload still clears them on the
+  taskbar UI thread; the no-taskbar fallback now intentionally retains state
+  instead of releasing it from Windhawk's unload thread. Windhawk syntax and
+  the new exit-time-destructor audit pass. Version remains v0.9 pending live
+  restart testing.
+- Added lifecycle template v1.1 plus
+  `_templates/exit-time-destructor-audit.ps1`. The six-mod adopter audit found
+  the same unprotected-global class in VD Switcher, OmniButton, and Tray Utility;
+  those require deliberate rollout before their next PR updates.
+- Added `_templates/submission-preflight.ps1` and expanded the submission
+  checklist. The automated gate now checks compilation, exit-time destructors,
+  embedded/folder README parity, broken and unreferenced gallery assets,
+  `git diff --check`, generic symbol-hook names, and the current upstream
+  Windhawk validator. PR workflow checks now explicitly cover one-file branch
+  scope, the intact authorship/AI section, current upstream base, the full CI
+  matrix, and retriggering CI after description-only fixes.
+- The real upstream validator caught and drove both Privacy hook arrays to
+  target-specific names (`taskbarDllHooks`, `systemTrayDllHooks`); Privacy now
+  passes upstream source validation. Its full preflight stops as designed on
+  six unreferenced screenshots awaiting the later gallery pass.

@@ -76,7 +76,32 @@ current docs/screenshots (standing directives in README.md).
      favor of the customizer; if refused, the 5 review comments need a response
      commit (archive: knowledge/pr-review-comments.md)
 
-5. **Privacy Indicator Anchor** — THIRD IN ACTIVE QUEUE.
+5. **Privacy Indicator Anchor** — ACTIVE STARTUP-CRASH INVESTIGATION.
+   User isolated frequent post-restart Explorer/Windhawk recovery to this mod
+   on 2026-07-19. Windows Error Reporting confirms repeated `explorer.exe`
+   access violations in `Windows.UI.Xaml.dll` (`0xc0000005`, identical offset
+   `0x24c62f`) while `local@tray-privacy-indicator-anchor_0.9_621759.dll` is
+   loaded. Source audit found the matching lifecycle defect: the namespace-
+   scope synthetic `Grid`/`FrameworkElement` owners, `g_privacyStates`, and
+   `g_loadedRevokers` are destructible globals. During process shutdown,
+   Windhawk does not guarantee `Wh_ModUninit`, so their destructors can release
+   XAML/WinRT objects after XAML teardown and off the UI thread. This is the
+   same proven crash class previously fixed in Folder Menus.
+   - [x] Fix all namespace-scope XAML/WinRT owners with intentional
+         `[[clang::no_destroy]]` lifetime, retaining explicit UI-thread cleanup
+         for controlled mod unload/settings changes
+   - [x] Remove the unsafe no-taskbar fallback in `Wh_ModUninit` that directly
+         clears revokers and XAML state off the UI thread; intentionally retain
+         the no-destroy holders if no taskbar UI thread can be reached
+   - [ ] Regression-test repeated Explorer restarts and full system restarts,
+         then confirm Event Viewer has no new `Windows.UI.Xaml.dll` crashes
+   - [ ] If crashes remain, isolate the persistent camera monitor separately;
+         its worker-thread ownership and guarded cleanup currently look sound
+   Fix compiles, passes the new exit-time-destructor gate, and passes the live
+   upstream Windhawk source validator. Awaiting repeated Explorer/full-restart
+   testing. Submission preflight intentionally remains blocked on six current
+   but unreferenced screenshots in `assets/`; gallery selection belongs to the
+   later documentation/screenshot pass.
    Do not treat the visual-state implementation or the 2026-07-19 metadata fix
    as completion. Mostly
    working as of 2026-07-18 user tests:
@@ -130,6 +155,9 @@ authorship" template section: submitter-with-AI-assistance + Claude) and the
 Windhawk 1.6.1 / 1.7.3 / 2.0.0-alpha.1 compile matrix. Full development
 history is in the work log (2026-07-19 entries).
 - [ ] Watch PR #4841 for maintainer review
+- [ ] Before any PR update, adopt lifecycle template v1.1: the destructor audit
+      found unprotected XAML owners, revokers, snapshots/watchers, and timer
+      state. Do not update the submitted PR without explicit user approval.
 - [ ] Lab repo has post-push edits to commit: @version 0.5→1.0 bump (with
       matching init-log line) + root README status row
 - [ ] `assets/part-of-a-mess.png` (June leftover) is unreferenced — archive

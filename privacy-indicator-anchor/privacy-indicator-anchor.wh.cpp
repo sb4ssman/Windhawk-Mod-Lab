@@ -666,7 +666,7 @@ struct ModSettings {
     int  slashOpacity   = 100;
     bool suppressNativeIndicators = true;
 };
-static ModSettings g_settings;
+[[clang::no_destroy]] static ModSettings g_settings;
 static std::atomic<bool> g_cameraHardwareDetectionEnabled{true};
 static std::atomic<bool> g_cameraItemEnabled{true};
 static std::atomic<bool> g_copilotItemEnabled{true};
@@ -871,24 +871,29 @@ static std::atomic<bool> g_cameraHardwareOccluded{false};
 static std::atomic<bool> g_copilotInstalled{false};
 static std::atomic<bool> g_copilotActive{false};
 static std::atomic<bool> g_copilotDisabled{true};
-static Grid              g_syntheticGrid   = nullptr;
-static FrameworkElement  g_locIcon         = nullptr;
-static FrameworkElement  g_micIcon         = nullptr;
-static FrameworkElement  g_camIcon         = nullptr;
-static FrameworkElement  g_copilotIcon     = nullptr;
-static FrameworkElement  g_locSlot         = nullptr;
-static FrameworkElement  g_micSlot         = nullptr;
-static FrameworkElement  g_camSlot         = nullptr;
-static FrameworkElement  g_copilotSlot     = nullptr;
-static FrameworkElement  g_locGlowIcon     = nullptr;
-static FrameworkElement  g_micGlowIcon     = nullptr;
-static FrameworkElement  g_camGlowIcon     = nullptr;
-static FrameworkElement  g_copilotGlowIcon = nullptr;
-static FrameworkElement  g_locSlashIcon    = nullptr;
-static FrameworkElement  g_micSlashIcon    = nullptr;
-static FrameworkElement  g_camSlashIcon    = nullptr;
-static FrameworkElement  g_copilotSlashIcon = nullptr;
-static FrameworkElement  g_syntheticParent = nullptr;
+// Explorer process shutdown doesn't guarantee a Wh_ModUninit call. Keep all
+// namespace-scope XAML/WinRT owners out of CRT global destruction so they
+// can't release taskbar objects after XAML has torn down or from the shutdown
+// thread. Controlled unload still clears them explicitly on the taskbar UI
+// thread in Wh_ModUninit.
+[[clang::no_destroy]] static Grid g_syntheticGrid = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_locIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_micIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_camIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_copilotIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_locSlot = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_micSlot = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_camSlot = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_copilotSlot = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_locGlowIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_micGlowIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_camGlowIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_copilotGlowIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_locSlashIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_micSlashIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_camSlashIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_copilotSlashIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_syntheticParent = nullptr;
 static int               g_syntheticColumn = -1;
 
 struct SlotEventState {
@@ -914,12 +919,13 @@ struct PrivacyState {
     int64_t visibilityToken = 0;
     Type    type      = Type::Location;
 };
-static std::vector<PrivacyState> g_privacyStates;
+[[clang::no_destroy]] static std::vector<PrivacyState> g_privacyStates;
 
 using FrameworkElementLoadedRevoker = winrt::impl::event_revoker<
     IFrameworkElement,
     &winrt::impl::abi<IFrameworkElement>::type::remove_Loaded>;
-static std::list<FrameworkElementLoadedRevoker> g_loadedRevokers;
+[[clang::no_destroy]] static std::list<FrameworkElementLoadedRevoker>
+    g_loadedRevokers;
 
 // Forward declarations
 static void ApplyStyle();
@@ -3485,7 +3491,7 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR path, HANDLE file, DWORD flags) {
 static bool HookTaskbarDllSymbols() {
     HMODULE h = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!h) return false;
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
         { {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
           &CTaskBand_ITaskListWndSite_vftable },
         { {LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
@@ -3495,18 +3501,19 @@ static bool HookTaskbarDllSymbols() {
         { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
           &std__Ref_count_base__Decref_Original },
     };
-    return WindhawkUtils::HookSymbols(h, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(
+        h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
 static bool HookSystemTraySymbols(HMODULE h) {
-    WindhawkUtils::SYMBOL_HOOK systemTrayHooks[] = {{
+    WindhawkUtils::SYMBOL_HOOK systemTrayDllHooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original,
         IconView_IconView_Hook,
         false,
     }};
     return WindhawkUtils::HookSymbols(
-        h, systemTrayHooks, ARRAYSIZE(systemTrayHooks));
+        h, systemTrayDllHooks, ARRAYSIZE(systemTrayDllHooks));
 }
 
 static void HandleLoadedModuleIfSystemTray(HMODULE module,
@@ -3777,9 +3784,11 @@ void Wh_ModUninit() {
             RemoveSyntheticIcons();
         }, nullptr);
     } else {
-        g_loadedRevokers.clear();
-        ClearPrivacyStates();
-        RemoveSyntheticIcons();
+        // No taskbar window means there is no known UI thread on which XAML
+        // cleanup is safe. The no_destroy holders intentionally retain their
+        // references until process exit instead of releasing them here from
+        // Windhawk's unload thread.
+        Wh_Log(L"[Uninit] No taskbar UI thread; retaining XAML state");
     }
 }
 

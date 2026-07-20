@@ -146,6 +146,24 @@ slot order, generic defaults, teardown clears, readme sync verified).
   `-fsyntax-only -DUNICODE -D_UNICODE -include windows.h -include
   windhawk_api.h`) as a checked-in script next to `verify-readme-sync.ps1`.
 
+## 2026-07-19 audit — process-shutdown destructor contract
+
+Privacy Indicator Anchor's restart-time Explorer crashes exposed a second,
+distinct teardown contract: Explorer process shutdown does not guarantee
+`Wh_ModUninit`, so CRT destruction of namespace-scope XAML/WinRT owners can run
+after `Windows.UI.Xaml` teardown and off the taskbar UI thread. The lifecycle
+template is now v1.1 and requires intentional `[[clang::no_destroy]]` lifetime
+for necessary non-trivial globals, explicit UI-thread cleanup during controlled
+unload, and retention rather than off-thread cleanup when no taskbar window can
+be reached. `_templates/exit-time-destructor-audit.ps1` turns Clang's
+`-Wexit-time-destructors` diagnostic into a submission gate.
+
+Adopter audit result: Folder Menus and Clock Spacer already protect their XAML
+owners, though Folder Menus still has non-XAML destructible globals to classify
+before its next update. Privacy Anchor was fixed in this pass. VD Switcher,
+OmniButton Customizer, and Tray Utility Customizer still have unprotected XAML
+owners/revokers and must adopt the v1.1 contract before their next PR update.
+
 ## Remaining differences to resolve gradually
 
 - VDS has the best smart-grid selector but published row/column/opacity/color
