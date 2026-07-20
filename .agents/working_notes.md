@@ -6,11 +6,10 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-**OmniButton Customizer is the active development target.** A fully hardened
-v1.0 candidate is ready for live testing. The previous build's coupled
-percentage error and missing independent-mode battery glyph were addressed by
-replacing the battery layout contract; neither fix is considered confirmed
-until the user tests this candidate.
+**OmniButton Customizer is the active development target.** A second hardened
+v1.0 candidate is ready for live testing after the first candidate exposed two
+visual defects: disable did not fully restore the native percentage alignment,
+and forced 2×2 cells looked off-center on a double-height taskbar.
 
 Template status (audited 2026-07-19):
 
@@ -37,12 +36,21 @@ Candidate changes awaiting live evidence:
   template instead of inferring a partial mode from row/column values.
 - Exact original dependency-property values are snapshotted and restored on
   settings change/unload instead of guessing Windows defaults.
+- Independent battery/percentage is now the default. The mod no longer mutates
+  outer `ControlCenterButton` dimensions/alignment; cleanup forces a final
+  native layout pass. Native battery/percentage children are measured at their
+  desired size and centered in each cell; presenters use native horizontal/
+  vertical content alignment.
+- Canonical group padding and group X/Y offsets provide safe placement detail
+  without changing the native tray order. Full cross-column relocation remains
+  intentionally deferred: it would invalidate other mods' `beforeOmni` /
+  `beforeClock` semantics without a shared placement lease.
 
 Next work, in order:
 
 - [ ] Run `.agents/knowledge/omnibutton-test-checklist.md`, starting with
-      coupled default, independent non-adjacent battery/percentage, omission of
-      `percent`, repeated settings changes, disable, and Explorer restart.
+      a clean Explorer-restart baseline, default independent mode, forced 2×2
+      centering, omission of `percent`, repeated settings changes, and disable.
 - [ ] If battery behavior differs, capture the new `[Battery]`, `[Layout]`, and
       `[Lifecycle]` lines; the candidate now logs native slot classes, inner
       battery structure, visibility map, and resolved cell coordinates.

@@ -21,12 +21,12 @@ opacity, and position. Designed for both standard and multi-row taskbars.
 
 ## Battery / percent modes
 
-**Coupled** (default): the selected battery and percentage elements stay in
+**Coupled**: the selected battery and percentage elements stay in
 their native inner panel and occupy one grid cell as a group. Each still has
 independent appearance and nudge controls.
 
-**Independent**: battery glyph and percentage text are separate grid items and
-can be placed in any positions, including non-adjacent cells.
+**Independent** (default): battery glyph and percentage text are separate grid
+items and can be placed in any positions, including non-adjacent cells.
 
 ## Grid settings
 
@@ -49,9 +49,20 @@ group's position.
 ## Per-item appearance
 
 Each item has independent color, size, font family, opacity, and X/Y nudge
-settings. Colors accept `#RRGGBB`, `#AARRGGBB`, `accent`, `accentLight`,
-`accentDark`, or `transparent`. Empty colors/fonts, size 0, and opacity -1
-preserve the native value.
+settings. Group padding controls reserved space around the grid; group X/Y
+offsets move the complete OmniButton contents without changing tray ordering.
+Colors accept `#RRGGBB`, `#AARRGGBB`, `accent`, `accentLight`, `accentDark`, or
+`transparent`. Empty colors/fonts, size 0, and opacity -1 preserve native values.
+
+## Placement and other taskbar mods
+
+`groupPadding*` reserves space inside the native OmniButton and
+`groupOffsetX`/`groupOffsetY` visually moves its grid. These controls preserve
+the native `ControlCenterButton` in its original system-tray position, so other
+mods' semantic anchors such as "before OmniButton" and "before clock" keep
+their established meaning. The mod intentionally does not reorder the native
+button across tray columns; doing so would require a shared placement lease so
+multiple mods cannot claim contradictory anchor order.
 
 ## Presets
 
@@ -85,7 +96,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
     Space-separated tokens in grid fill order: wifi, volume, battery, percent.
     Omit a token to hide that item. Items unavailable in Windows are skipped.
 
-- batteryPercentMode: coupled
+- batteryPercentMode: independent
   $name: Battery / percent mode
   $description: >-
     Coupled: percent renders inside the battery slot (native behavior).
@@ -209,9 +220,20 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 - percentOpacity: -1
   $name: Battery percentage opacity (-1 = native, 0-100%)
 
-- buttonHorizontalPadding: 2
-  $name: Button horizontal padding (px)
-  $description: Internal horizontal padding on each side of the grid. Default 2.
+- groupPaddingLeft: 2
+  $name: Group padding left (px)
+- groupPaddingRight: 2
+  $name: Group padding right (px)
+- groupPaddingTop: 0
+  $name: Group padding top (px)
+- groupPaddingBottom: 0
+  $name: Group padding bottom (px)
+- groupOffsetX: 0
+  $name: Group horizontal offset (px)
+  $description: Moves the complete grid visually without changing tray ordering.
+- groupOffsetY: 0
+  $name: Group vertical offset (px)
+  $description: Moves the complete grid visually without changing tray ordering.
 
 - wifiOffsetX: 0
   $name: Wifi nudge X
@@ -240,6 +262,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <exception>
 #include <functional>
 #include <limits>
@@ -512,7 +535,9 @@ struct ModSettings {
     wchar_t    batteryFontFamily[64];
     wchar_t    percentFontFamily[64];
     int        wifiOpacity, volumeOpacity, batteryOpacity, percentOpacity;
-    int        buttonHorizontalPadding;
+    int        groupPaddingLeft, groupPaddingRight;
+    int        groupPaddingTop, groupPaddingBottom;
+    int        groupOffsetX, groupOffsetY;
     int        wifiX,    wifiY;
     int        volumeX,  volumeY;
     int        batteryX, batteryY;
@@ -560,8 +585,8 @@ static void LoadSettings() {
       } }
 
     { auto* s = Wh_GetStringSetting(L"batteryPercentMode");
-      g_settings.batteryPercentMode = (s && wcscmp(s,L"independent")==0)
-                                    ? BattPctMode::Independent : BattPctMode::Coupled;
+      g_settings.batteryPercentMode = (s && wcscmp(s,L"coupled")==0)
+                                    ? BattPctMode::Coupled : BattPctMode::Independent;
       if (s) Wh_FreeStringSetting(s); }
 
     { auto* s = Wh_GetStringSetting(L"gridMode");
@@ -621,7 +646,12 @@ static void LoadSettings() {
     g_settings.batteryOpacity = clampOpacity(Wh_GetIntSetting(L"batteryOpacity"));
     g_settings.percentOpacity = clampOpacity(Wh_GetIntSetting(L"percentOpacity"));
 
-    g_settings.buttonHorizontalPadding = clampPad(Wh_GetIntSetting(L"buttonHorizontalPadding"));
+    g_settings.groupPaddingLeft = clampPad(Wh_GetIntSetting(L"groupPaddingLeft"));
+    g_settings.groupPaddingRight = clampPad(Wh_GetIntSetting(L"groupPaddingRight"));
+    g_settings.groupPaddingTop = clampPad(Wh_GetIntSetting(L"groupPaddingTop"));
+    g_settings.groupPaddingBottom = clampPad(Wh_GetIntSetting(L"groupPaddingBottom"));
+    g_settings.groupOffsetX = clampNudge(Wh_GetIntSetting(L"groupOffsetX"));
+    g_settings.groupOffsetY = clampNudge(Wh_GetIntSetting(L"groupOffsetY"));
 
     g_settings.wifiX    = clampNudge(Wh_GetIntSetting(L"wifiOffsetX"));
     g_settings.wifiY    = clampNudge(Wh_GetIntSetting(L"wifiOffsetY"));
@@ -934,7 +964,8 @@ static void ApplyAllItemStyles() {
     if (!g_wifiGlyphTB   && g_wifiPresenter)    g_wifiGlyphTB   = AcquireGlyphTB(g_wifiPresenter);
     if (!g_volumeGlyphTB && g_volumePresenter)   g_volumeGlyphTB = AcquireGlyphTB(g_volumePresenter);
     if (!g_batteryGlyphTB && g_batteryGlyphFE)   g_batteryGlyphTB = AcquireGlyphTB(g_batteryGlyphFE);
-    if (!g_percentTB && g_batteryPercentFE)       g_percentTB = g_batteryPercentFE.try_as<TextBlock>();
+    if (!g_percentTB && g_batteryPercentFE)
+        g_percentTB = AcquireGlyphTB(g_batteryPercentFE);
 
     ApplyItemStyle(g_wifiPresenter, g_wifiGlyphTB, g_settings.wifiColor,
                    g_settings.wifiSize, g_settings.wifiFontFamily,
@@ -950,46 +981,24 @@ static void ApplyAllItemStyles() {
                    g_settings.percentOpacity);
 }
 
-// ── OmniButton chrome / internal footprint ────────────────────────────────
-
-static void ApplyOmniButtonChrome() {
-    if (!g_omniButton) return;
-    double pad = double(g_settings.buttonHorizontalPadding);
-    auto ctrl = g_omniButton.try_as<Control>();
-    if (ctrl) {
-        TrackProperty(ctrl, Control::PaddingProperty());
-        TrackProperty(ctrl, Control::HorizontalContentAlignmentProperty());
-        TrackProperty(ctrl, Control::VerticalContentAlignmentProperty());
-        ctrl.Padding(Thickness{ pad, 0.0, pad, 0.0 });
-        ctrl.HorizontalContentAlignment(HorizontalAlignment::Center);
-        ctrl.VerticalContentAlignment(VerticalAlignment::Center);
-    }
-    TrackProperty(g_omniButton, FrameworkElement::WidthProperty());
-    TrackProperty(g_omniButton, FrameworkElement::MinWidthProperty());
-    TrackProperty(g_omniButton, FrameworkElement::MaxWidthProperty());
-    TrackProperty(g_omniButton, FrameworkElement::HeightProperty());
-    TrackProperty(g_omniButton, FrameworkElement::MinHeightProperty());
-    TrackProperty(g_omniButton, FrameworkElement::MaxHeightProperty());
-    TrackProperty(g_omniButton, FrameworkElement::HorizontalAlignmentProperty());
-    g_omniButton.Width(std::numeric_limits<double>::quiet_NaN());
-    g_omniButton.MinWidth(0);
-    g_omniButton.MaxWidth(std::numeric_limits<double>::infinity());
-    g_omniButton.Height(std::numeric_limits<double>::quiet_NaN());
-    g_omniButton.MinHeight(0);
-    g_omniButton.MaxHeight(std::numeric_limits<double>::infinity());
-    g_omniButton.HorizontalAlignment(HorizontalAlignment::Stretch);
-    g_omniButton.InvalidateMeasure();
-}
+// ── Internal footprint ────────────────────────────────────────────────────
+// The native ControlCenterButton owns taskbar placement and flyout semantics.
+// Mutate only its internal items host; never force outer button geometry.
 
 static void ApplyItemsHostFootprint(StackPanel const& sp, const GridGeom& geom) {
     TrackProperty(sp, FrameworkElement::WidthProperty());
     TrackProperty(sp, FrameworkElement::HeightProperty());
     TrackProperty(sp, FrameworkElement::HorizontalAlignmentProperty());
     TrackProperty(sp, FrameworkElement::VerticalAlignmentProperty());
-    sp.Width(double(geom.layout.columns * g_settings.slotWidth));
-    sp.Height(double(geom.layout.rows * geom.slotH));
+    sp.Width(double(geom.layout.columns * g_settings.slotWidth +
+                    g_settings.groupPaddingLeft +
+                    g_settings.groupPaddingRight));
+    sp.Height(double(geom.layout.rows * geom.slotH +
+                     g_settings.groupPaddingTop +
+                     g_settings.groupPaddingBottom));
     sp.HorizontalAlignment(HorizontalAlignment::Center);
     sp.VerticalAlignment(VerticalAlignment::Center);
+    ApplyOffset(sp, g_settings.groupOffsetX, g_settings.groupOffsetY);
     sp.InvalidateMeasure();
 }
 
@@ -1017,7 +1026,27 @@ static void RevokeLayoutUpdated() {
 
 static void CleanupAndResetCurrentElements() {
     RevokeLayoutUpdated();
+    auto stackPanel = g_omniStackPanel;
+    auto button = g_omniButton;
     RestorePropertySnapshots();
+    try {
+        if (stackPanel) {
+            stackPanel.InvalidateMeasure();
+            stackPanel.InvalidateArrange();
+        }
+        if (button) {
+            button.InvalidateMeasure();
+            button.InvalidateArrange();
+            if (auto parent = VisualTreeHelper::GetParent(button)
+                                  .try_as<UIElement>()) {
+                parent.InvalidateMeasure();
+                parent.InvalidateArrange();
+            }
+            button.UpdateLayout();
+        }
+    } catch (...) {
+        LogCurrentUiException(L"native layout refresh");
+    }
     ResetElementRefs();
 }
 
@@ -1105,6 +1134,40 @@ static void PrepareSlot(FrameworkElement const& element, int slotWidth,
     }
 }
 
+struct CellContentMetrics {
+    int centerX = 0;
+    int centerY = 0;
+    int naturalWidth = 0;
+};
+
+// Measure the native child at its desired size, then return the translation
+// needed to center that complete visual in one slot. This works for direct
+// TextBlocks and for Windows' custom battery-icon element without assuming an
+// internal template or relying on manual nudges.
+static CellContentMetrics PrepareIndependentItem(
+    FrameworkElement const& element, int slotWidth, int slotHeight) {
+    CellContentMetrics result;
+    if (!element) return result;
+    TrackProperty(element, FrameworkElement::WidthProperty());
+    TrackProperty(element, FrameworkElement::HeightProperty());
+    TrackProperty(element, FrameworkElement::HorizontalAlignmentProperty());
+    TrackProperty(element, FrameworkElement::VerticalAlignmentProperty());
+    element.Width(std::numeric_limits<double>::quiet_NaN());
+    element.Height(std::numeric_limits<double>::quiet_NaN());
+    element.HorizontalAlignment(HorizontalAlignment::Left);
+    element.VerticalAlignment(VerticalAlignment::Top);
+    element.Measure(winrt::Windows::Foundation::Size{
+        std::numeric_limits<float>::infinity(),
+        std::numeric_limits<float>::infinity()});
+    auto desired = element.DesiredSize();
+    result.naturalWidth = int(std::ceil(desired.Width));
+    result.centerX = int(std::max(0.0,
+        (double(slotWidth) - double(desired.Width)) / 2.0));
+    result.centerY = int(std::max(0.0,
+        (double(slotHeight) - double(desired.Height)) / 2.0));
+    return result;
+}
+
 // Translate an item from its current natural StackPanel Y to an absolute pixel
 // position within the grid footprint. Hidden siblings are collapsed and don't
 // contribute to naturalY.
@@ -1170,7 +1233,6 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
         items.visible[2], items.visible[3],
         g_settings.batteryPercentMode == BattPctMode::Independent ? L"indep" : L"coupled");
 
-    if (g_omniButton) ApplyOmniButtonChrome();
     ApplyItemsHostFootprint(sp, geom);
 
     // Helper: absolute pixel position of a grid slot, including short-group
@@ -1178,8 +1240,10 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     // offset units of one slot).
     auto resolvePos = [&](int gridPos, int& outX, int& outY) {
         grid::Cell c = grid::GetCell(gridPos, itemCount, geom.layout, geom.config);
-        outX = int((c.column + c.leftOffsetUnits) * g_settings.slotWidth);
-        outY = int((c.row + c.topOffsetUnits) * geom.slotH);
+        outX = g_settings.groupPaddingLeft +
+               int((c.column + c.leftOffsetUnits) * g_settings.slotWidth);
+        outY = g_settings.groupPaddingTop +
+               int((c.row + c.topOffsetUnits) * geom.slotH);
     };
 
     // ── Wifi (slot 0) ──
@@ -1212,6 +1276,9 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
         }
     }
 
+    // Apply font/size before measuring direct TextBlocks for cell centering.
+    ApplyAllItemStyles();
+
     // ── Battery + percent ──
     if (hasBattPres && g_batteryPresenter) {
         bool showBatteryGroup = items.visible[2] || items.visible[3];
@@ -1226,8 +1293,12 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
             // span the full grid at its origin. The selected native children
             // receive one slot each and are translated to their template cells.
 
-            int footprintWidth = geom.layout.columns * g_settings.slotWidth;
-            int footprintHeight = geom.layout.rows * geom.slotH;
+            int footprintWidth = geom.layout.columns * g_settings.slotWidth +
+                                 g_settings.groupPaddingLeft +
+                                 g_settings.groupPaddingRight;
+            int footprintHeight = geom.layout.rows * geom.slotH +
+                                  g_settings.groupPaddingTop +
+                                  g_settings.groupPaddingBottom;
             TrackProperty(g_batteryPresenter, FrameworkElement::WidthProperty());
             TrackProperty(g_batteryPresenter, FrameworkElement::HeightProperty());
             TrackProperty(g_batteryPresenter, FrameworkElement::HorizontalAlignmentProperty());
@@ -1262,29 +1333,36 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
                 g_batteryInnerPanel.VerticalAlignment(VerticalAlignment::Top);
             }
 
-            if (items.visible[2])
-                PrepareSlot(g_batteryGlyphFE, g_settings.slotWidth, geom.slotH);
-            if (items.visible[3])
-                PrepareSlot(g_batteryPercentFE, g_settings.slotWidth, geom.slotH);
+            CellContentMetrics batteryMetrics = items.visible[2]
+                ? PrepareIndependentItem(g_batteryGlyphFE,
+                                         g_settings.slotWidth, geom.slotH)
+                : CellContentMetrics{};
+            CellContentMetrics percentMetrics = items.visible[3]
+                ? PrepareIndependentItem(g_batteryPercentFE,
+                                         g_settings.slotWidth, geom.slotH)
+                : CellContentMetrics{};
 
             // Absolute position of battery glyph within battery CP
             int bx = 0, by = 0;
             if (items.visible[2]) {
                 resolvePos(items.position[2], bx, by);
                 ApplyOffset(g_batteryGlyphFE,
-                    bx + g_settings.batteryX, by + g_settings.batteryY);
+                    bx + batteryMetrics.centerX + g_settings.batteryX,
+                    by + batteryMetrics.centerY + g_settings.batteryY);
             }
 
-            // Absolute position of percent within battery CP. The percent's
-            // natural X is one glyph-slot in (the glyph is fixed to slotWidth),
-            // so subtract it.
+            // Absolute position of percent within the battery presenter. The
+            // horizontal StackPanel naturally places it after the battery's
+            // measured width, so subtract that natural origin first.
             int px = 0, py = 0;
             if (items.visible[3]) {
                 resolvePos(items.position[3], px, py);
-                int percentNaturalX = items.visible[2] ? g_settings.slotWidth : 0;
+                int percentNaturalX = items.visible[2]
+                    ? batteryMetrics.naturalWidth : 0;
                 ApplyOffset(g_batteryPercentFE,
-                    px - percentNaturalX + g_settings.percentX,
-                    py + g_settings.percentY);
+                    px - percentNaturalX + percentMetrics.centerX +
+                        g_settings.percentX,
+                    py + percentMetrics.centerY + g_settings.percentY);
             }
 
             Wh_Log(L"[Layout] Indep batt=(%d,%d)px pct=(%d,%d)px", bx, by, px, py);
@@ -1324,8 +1402,6 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
 
     Wh_Log(L"[Layout] Applied grid (SP children=%d)", n);
 
-    // Best-effort color application; also retried in OnLayoutUpdated
-    ApplyAllItemStyles();
 }
 
 // ── Deferred layout (LayoutUpdated) ──────────────────────────────────────

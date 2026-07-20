@@ -7,12 +7,12 @@ opacity, and position. Designed for both standard and multi-row taskbars.
 
 ## Battery / percent modes
 
-**Coupled** (default): the selected battery and percentage elements stay in
+**Coupled**: the selected battery and percentage elements stay in
 their native inner panel and occupy one grid cell as a group. Each still has
 independent appearance and nudge controls.
 
-**Independent**: battery glyph and percentage text are separate grid items and
-can be placed in any positions, including non-adjacent cells.
+**Independent** (default): battery glyph and percentage text are separate grid
+items and can be placed in any positions, including non-adjacent cells.
 
 ## Grid settings
 
@@ -35,9 +35,20 @@ group's position.
 ## Per-item appearance
 
 Each item has independent color, size, font family, opacity, and X/Y nudge
-settings. Colors accept `#RRGGBB`, `#AARRGGBB`, `accent`, `accentLight`,
-`accentDark`, or `transparent`. Empty colors/fonts, size 0, and opacity -1
-preserve the native value.
+settings. Group padding controls reserved space around the grid; group X/Y
+offsets move the complete OmniButton contents without changing tray ordering.
+Colors accept `#RRGGBB`, `#AARRGGBB`, `accent`, `accentLight`, `accentDark`, or
+`transparent`. Empty colors/fonts, size 0, and opacity -1 preserve native values.
+
+## Placement and other taskbar mods
+
+`groupPadding*` reserves space inside the native OmniButton and
+`groupOffsetX`/`groupOffsetY` visually moves its grid. These controls preserve
+the native `ControlCenterButton` in its original system-tray position, so other
+mods' semantic anchors such as "before OmniButton" and "before clock" keep
+their established meaning. The mod intentionally does not reorder the native
+button across tray columns; doing so would require a shared placement lease so
+multiple mods cannot claim contradictory anchor order.
 
 ## Presets
 

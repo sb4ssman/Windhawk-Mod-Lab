@@ -912,3 +912,24 @@ at most four checks per second.
   parity, `git diff --check`, and the current upstream Windhawk validator via a
   clean source-only staging copy. Full submission preflight intentionally still
   stops on the three vertical-era screenshots; replace them after live testing.
+
+## 2026-07-20 — OmniButton restoration, centering, and safe placement candidate
+
+- User screenshots from the first full-template candidate showed that disabling
+  did not fully restore native battery-percentage alignment and that a forced
+  2×2 layout was visually off-center on a double-height taskbar.
+- Removed all outer `ControlCenterButton` width/height/alignment mutations. The
+  mod now changes only the internal items host, restores leased properties, then
+  invalidates/updates the native button and parent layout during cleanup.
+- Made independent battery/percentage the default. Native battery/percentage
+  children are measured at their desired size and receive computed horizontal/
+  vertical center offsets; presenters continue to center their content through
+  native content alignment. Per-item nudges remain available for optical
+  correction rather than basic cell geometry.
+- Replaced the old button-padding setting with the canonical four group-padding
+  controls plus group X/Y offsets. Padding participates in the grid footprint;
+  offsets are visual-only and preserve the native OmniButton's semantic order.
+- Deliberately did not add cross-tray relocation. Moving the native button to a
+  different column would make other mods' `beforeOmni` and `beforeClock` anchors
+  disagree with visual order unless all participants share an owned placement
+  lease/contract.
