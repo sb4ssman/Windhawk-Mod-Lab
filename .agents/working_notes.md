@@ -76,7 +76,7 @@ current docs/screenshots (standing directives in README.md).
      favor of the customizer; if refused, the 5 review comments need a response
      commit (archive: knowledge/pr-review-comments.md)
 
-5. **Privacy Indicator Anchor** — ACTIVE STARTUP-CRASH INVESTIGATION.
+5. **Privacy Indicator Anchor** — ACTIVE FINAL LIVE TEST.
    User isolated frequent post-restart Explorer/Windhawk recovery to this mod
    on 2026-07-19. Windows Error Reporting confirms repeated `explorer.exe`
    access violations in `Windows.UI.Xaml.dll` (`0xc0000005`, identical offset
@@ -93,15 +93,23 @@ current docs/screenshots (standing directives in README.md).
    - [x] Remove the unsafe no-taskbar fallback in `Wh_ModUninit` that directly
          clears revokers and XAML state off the UI thread; intentionally retain
          the no-destroy holders if no taskbar UI thread can be reached
-   - [ ] Regression-test repeated Explorer restarts and full system restarts,
-         then confirm Event Viewer has no new `Windows.UI.Xaml.dll` crashes
-   - [ ] If crashes remain, isolate the persistent camera monitor separately;
-         its worker-thread ownership and guarded cleanup currently look sound
-   Fix compiles, passes the new exit-time-destructor gate, and passes the live
-   upstream Windhawk source validator. Awaiting repeated Explorer/full-restart
-   testing. Submission preflight intentionally remains blocked on six current
-   but unreferenced screenshots in `assets/`; gallery selection belongs to the
-   later documentation/screenshot pass.
+   - [x] First restart regression test FAILED 2026-07-19. The old XAML AV did
+         not recur; the fresh failure is an uncaught MinGW/C++ exception
+         (`0x20474343`) surfaced through `KERNELBASE.dll`.
+   - [x] Fix the dump-proven startup chain: removed `Application::Current`,
+         stopped clearing from repainting absent synthetic UI, requires a live
+         XAML root before cleanup/reapply, and contains exceptions at all native
+         and XAML callback boundaries.
+   - [x] Full system restart survived with the crash fix on 2026-07-19.
+   - [ ] Re-test one Explorer or system restart with the final Start-placement
+         build and confirm Event Viewer has neither the old XAML AV nor
+         `0x20474343`.
+   The camera worker is not implicated by the fresh dump. Source compilation,
+   the exit-time-destructor gate, and upstream source validation still pass.
+   Full applicable template adoption is complete: Smart Grid v1.0,
+   injected-grid-column v1.2, lifecycle dispatcher v1.2, canonical settings,
+   and StartPlacement v1.0 are verbatim. Complete submission preflight,
+   including the current upstream validator, passes.
    Do not treat the visual-state implementation or the 2026-07-19 metadata fix
    as completion. Mostly
    working as of 2026-07-18 user tests:
@@ -134,16 +142,26 @@ current docs/screenshots (standing directives in README.md).
    - [ ] Live-test the four-state visual polish: idle, active, unavailable, and
          active-while-unavailable. Compare steady/pulse/radiate at low and high
          intensity, and confirm radiation never changes tray width.
-   - [ ] MISSING SMART GRID (2026-07-19, user report): the anchor has no smart
-         grid layout at all. Adopt `_templates/smart-grid-layout.h` +
-         `settings-profiles.md` group-layout profile (gridMode/smartLayout/
-         gridRows/gridColumns/fillOrder/shortGroup*) so its layout settings are
-         uniform with the other tray mods.
+   - [x] Smart Grid uses the full canonical six-mode settings and verbatim
+         template algorithm
+   - [ ] Live-test `leftOfStart` and `rightOfStart`, then switch back to a tray
+         position and confirm Start/task-item placement restores exactly
    - [ ] If user's saved `slashDirection` is still "rising" from the old
      default, one dropdown click to Falling fixes it
    - [x] Embedded↔folder readme unification
-   - [ ] Capture submission screenshots, including an intentionally striking
-         radiating-active example and a blocked/active slash combination
+   - [x] All ten PNG screenshots examined and included in both README layers,
+         including glow, blocked-active, Smart Grid, and all four tooltips
+   - [ ] COMMIT + PUSH the four new tooltip PNGs (camera/copilot/mic/
+         location-tooltip-and-win-settings) — they are untracked, so every
+         raw.githubusercontent URL for them 404s (screenshot-audit 2026-07-19).
+         The other six assets are already on origin/main.
+   - [ ] Consider retaking `location-mic-availble-not-in-use.png` — only idle
+         screenshot, dated May 9 (old build, filename typo "availble")
+   - [ ] Pre-PR: decide what to do with the embedded readme's `## Files` and
+         `## Status` sections — relative links/lab language don't belong on
+         windhawk.net (Folder Menus precedent has neither section)
+   - [ ] After final live confirmation, bump v0.9 to PR-ready v1.0 and prepare
+         the current-upstream one-file PR branch/body
    - Design/reference: knowledge/privacy-anchor-design-notes.md,
      `_research/privacy-indicator-anchor-design.md`
 

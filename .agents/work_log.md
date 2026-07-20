@@ -707,3 +707,48 @@ at most four checks per second.
   target-specific names (`taskbarDllHooks`, `systemTrayDllHooks`); Privacy now
   passes upstream source validation. Its full preflight stops as designed on
   six unreferenced screenshots awaiting the later gallery pass.
+
+## 2026-07-19 — Privacy restart failure: second startup crash root-caused
+
+- The first post-fix restart still failed, but with a new signature:
+  `KERNELBASE.dll`, exception `0x20474343`, offset `0xC1ADA`; the previous
+  `Windows.UI.Xaml.dll` access violation did not recur.
+- Parsed the fresh 14.6 MB Explorer minidump and mapped module-relative stack
+  addresses through the installed Privacy DLL's symbol table. The actionable
+  chain is `RunFromWindowThread` → `ApplyStyleOnWindowThread` →
+  `ClearPrivacyStates` → `UpdateSyntheticState` → inlined
+  `UpdateSyntheticOpacity` → `Application::Current` → `winrt::throw_hresult`.
+  Early startup calls cleanup before verifying a live XAML root;
+  `ClearPrivacyStates` unnecessarily repaints nonexistent synthetic UI, and
+  the exception escapes the WH_CALLWNDPROC hook callback. The camera worker is
+  absent from the failing chain.
+- Template-conformance audit found Privacy only uses the Smart Grid algorithm
+  verbatim and a color-parser variant. Its lifecycle is hand-rolled instead of
+  adopting the guarded lifecycle template, its group-layout settings omit
+  canonical `gridMode`/`smartLayout`, and its column lease is an older manual
+  implementation that lacks injected-grid-column.h v1.2's span-aware
+  after-anchor and unavailable-anchor behavior. No second source fix was made
+  in this diagnostic pass.
+
+## 2026-07-19 — Privacy crash fix, Start placement, and submission preflight
+
+- Implemented the dump-driven restart fix and lifecycle-template v1.2:
+  eliminated `Application::Current`, guarded cleanup/reapply on a live XAML
+  root, stopped teardown from repainting absent synthetic UI, and contained
+  exceptions in taskbar dispatch, native hooks, Loaded handlers, and property
+  callbacks. The user confirmed this build survived a full system restart.
+- Replaced remaining local infrastructure with applicable verbatim templates:
+  Smart Grid v1.0, injected-grid-column v1.2, canonical settings profiles, and
+  the lifecycle dispatcher. Added `_templates/start-placement.h` v1.0 by
+  extracting the proven Tray Utility/VD Switcher pattern into a reversible
+  owned-group lease, then copied it verbatim into Privacy Anchor for new
+  experimental `leftOfStart` and `rightOfStart` settings.
+- Examined and documented every PNG in `privacy-indicator-anchor/assets`: idle,
+  horizontal and compact-grid disabled states, two active treatments,
+  blocked-active treatment, and the four location/microphone/camera/Copilot
+  evidence tooltips. Folder and embedded README copies remain synchronized.
+- Mod compilation, StartPlacement header compilation, exit-time-destructor
+  audit, exact template-block comparison, README parity, image inventory,
+  `git diff --check`, and the networked upstream Windhawk validator all pass.
+  Final readiness now depends on live testing the two new positions and the
+  concise teardown/action/monitor checklist; version remains v0.9 meanwhile.

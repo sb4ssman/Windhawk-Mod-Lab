@@ -8,14 +8,59 @@ The goal is to stop taskbar tray sections from shifting when Windows briefly
 shows or hides privacy indicators, especially when Windows Web Experience Pack
 or Widgets frequently access location.
 
+## Gallery
+
+Idle location and microphone placeholders reserve their tray space without
+demanding attention:
+
+![Idle location and microphone placeholders](assets/location-mic-availble-not-in-use.png)
+
+All four unavailable indicators in a single row:
+
+![All four privacy indicators unavailable in one row](assets/all-4-disabled.png)
+
+The same four indicators in a compact Smart Grid layout:
+
+![All four unavailable indicators in a compact grid](assets/all-4-disabled-grid.png)
+
+Microphone and camera activity highlighted in red:
+
+![Active microphone and camera highlighted in red](assets/camera-mic-in-use-highlighted.png)
+
+The active glow treatment provides a more emphatic alternative:
+
+![Active microphone and camera with glow](assets/cam-mic-in-use-highlight-glow.png)
+
+Active or requested pathways can remain conspicuous even while blocked:
+
+![Requested or active privacy pathways shown while blocked](assets/requested-or-active-pathways-disabled.png)
+
+The location tooltip explains the access-denied reason and opens the matching
+Windows privacy page when clicked:
+
+![Location evidence tooltip and Windows Location settings](assets/location-tooltip-and-win-settings.png)
+
+Microphone evidence distinguishes an endpoint mute from privacy denial:
+
+![Microphone endpoint-mute evidence tooltip](assets/mic-tooltip.png)
+
+Supported camera drivers report their hardware privacy-control evidence:
+
+![Camera hardware privacy-control evidence tooltip](assets/camera-tooltip.png)
+
+Copilot reports its installation state and links to the relevant settings:
+
+![Copilot installation-state tooltip](assets/copilot-tooltip.png)
+
 ## Features
 
 - Persistent placeholder icons for location, microphone, camera, and Copilot
 - Idle opacity setting so inactive icons can be subtle but still reserve space
 - Configurable icon order with `location`, `mic`, `camera`, and `copilot` tokens
-- Row-first or column-first grid fill
+- Six Smart Grid modes with balanced, vertical-pack, and horizontal-pack layouts
 - Short row/column placement and alignment controls
-- Placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
+- Tray placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
+- Experimental placement immediately left or right of Start
 - Per-icon X/Y nudges plus whole-group X/Y offset
 - Independent idle, active, disabled, glow, and slash colors
 - Steady, breathing, or radiating active emphasis with reach/speed controls
@@ -31,10 +76,15 @@ or Widgets frequently access location.
 appear and in what sequence: `location`, `mic`, `camera`, `copilot`. Remove a
 token to hide that icon; reorder tokens to change the display order.
 
-`gridRows` and `gridColumns` shape the icon grid; `0` (the default for both) is
-automatic: a single column when the whole icon stack fits the taskbar height
-(double-height taskbars), otherwise more columns. Set either one to fix that
-axis — the other follows from the icon count.
+`gridMode` selects Smart automatic, Single row, Single column, Fixed rows,
+Fixed columns, or Fixed rows and columns. In Smart automatic mode,
+`smartLayout` chooses Balanced, Pack vertical, or Pack horizontal. The default
+Balanced layout picks the least-skewed shape that fits the live taskbar height.
+
+`gridRows` and `gridColumns` provide the requested dimensions for the fixed
+modes; `0` leaves that axis automatic. Smart automatic uses the live taskbar
+height and icon pitch as its row capacity rather than treating these values as
+an implicit mode selector.
 
 When one row or column has fewer icons than the rest, use `shortGroupPosition`
 and `shortGroupAlign` to control where it sits and how it's aligned:
@@ -53,6 +103,14 @@ arrangements like:
 [loc] [cam]      [loc] [mic]
 [mic] [   ]  or  [   ] [cam]   (short column centered)
 ```
+
+## Placement
+
+The five tray positions reserve a dedicated system-tray column. The
+experimental `leftOfStart` and `rightOfStart` positions instead place the
+owned indicator group beside Start and reserve matching room in the centered
+taskbar items area. These Start-adjacent modes may need adjustment on future
+Windows builds or with other mods that also reposition Start.
 
 ## States and colors
 

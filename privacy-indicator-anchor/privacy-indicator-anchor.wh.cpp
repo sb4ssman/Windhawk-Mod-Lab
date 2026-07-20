@@ -22,14 +22,59 @@ The goal is to stop taskbar tray sections from shifting when Windows briefly
 shows or hides privacy indicators, especially when Windows Web Experience Pack
 or Widgets frequently access location.
 
+## Gallery
+
+Idle location and microphone placeholders reserve their tray space without
+demanding attention:
+
+![Idle location and microphone placeholders](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/location-mic-availble-not-in-use.png)
+
+All four unavailable indicators in a single row:
+
+![All four privacy indicators unavailable in one row](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/all-4-disabled.png)
+
+The same four indicators in a compact Smart Grid layout:
+
+![All four unavailable indicators in a compact grid](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/all-4-disabled-grid.png)
+
+Microphone and camera activity highlighted in red:
+
+![Active microphone and camera highlighted in red](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/camera-mic-in-use-highlighted.png)
+
+The active glow treatment provides a more emphatic alternative:
+
+![Active microphone and camera with glow](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/cam-mic-in-use-highlight-glow.png)
+
+Active or requested pathways can remain conspicuous even while blocked:
+
+![Requested or active privacy pathways shown while blocked](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/requested-or-active-pathways-disabled.png)
+
+The location tooltip explains the access-denied reason and opens the matching
+Windows privacy page when clicked:
+
+![Location evidence tooltip and Windows Location settings](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/location-tooltip-and-win-settings.png)
+
+Microphone evidence distinguishes an endpoint mute from privacy denial:
+
+![Microphone endpoint-mute evidence tooltip](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/mic-tooltip.png)
+
+Supported camera drivers report their hardware privacy-control evidence:
+
+![Camera hardware privacy-control evidence tooltip](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/camera-tooltip.png)
+
+Copilot reports its installation state and links to the relevant settings:
+
+![Copilot installation-state tooltip](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/copilot-tooltip.png)
+
 ## Features
 
 - Persistent placeholder icons for location, microphone, camera, and Copilot
 - Idle opacity setting so inactive icons can be subtle but still reserve space
 - Configurable icon order with `location`, `mic`, `camera`, and `copilot` tokens
-- Row-first or column-first grid fill
+- Six Smart Grid modes with balanced, vertical-pack, and horizontal-pack layouts
 - Short row/column placement and alignment controls
-- Placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
+- Tray placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
+- Experimental placement immediately left or right of Start
 - Per-icon X/Y nudges plus whole-group X/Y offset
 - Independent idle, active, disabled, glow, and slash colors
 - Steady, breathing, or radiating active emphasis with reach/speed controls
@@ -45,10 +90,15 @@ or Widgets frequently access location.
 appear and in what sequence: `location`, `mic`, `camera`, `copilot`. Remove a
 token to hide that icon; reorder tokens to change the display order.
 
-`gridRows` and `gridColumns` shape the icon grid; `0` (the default for both) is
-automatic: a single column when the whole icon stack fits the taskbar height
-(double-height taskbars), otherwise more columns. Set either one to fix that
-axis — the other follows from the icon count.
+`gridMode` selects Smart automatic, Single row, Single column, Fixed rows,
+Fixed columns, or Fixed rows and columns. In Smart automatic mode,
+`smartLayout` chooses Balanced, Pack vertical, or Pack horizontal. The default
+Balanced layout picks the least-skewed shape that fits the live taskbar height.
+
+`gridRows` and `gridColumns` provide the requested dimensions for the fixed
+modes; `0` leaves that axis automatic. Smart automatic uses the live taskbar
+height and icon pitch as its row capacity rather than treating these values as
+an implicit mode selector.
 
 When one row or column has fewer icons than the rest, use `shortGroupPosition`
 and `shortGroupAlign` to control where it sits and how it's aligned:
@@ -67,6 +117,14 @@ arrangements like:
 [loc] [cam]      [loc] [mic]
 [mic] [   ]  or  [   ] [cam]   (short column centered)
 ```
+
+## Placement
+
+The five tray positions reserve a dedicated system-tray column. The
+experimental `leftOfStart` and `rightOfStart` positions instead place the
+owned indicator group beside Start and reserve matching room in the centered
+taskbar items area. These Start-adjacent modes may need adjustment on future
+Windows builds or with other mods that also reposition Start.
 
 ## States and colors
 
@@ -146,15 +204,17 @@ compact microphone and camera state changes without restarting the full report.
 
 // ==WindhawkModSettings==
 /*
-- position: "beforeOmni"
+- position: beforeOmni
   $name: Position
-  $description: Where to place the privacy placeholders in the tray.
+  $description: Where to place the group in the Windows 11 taskbar.
   $options:
-  - "beforeIcons": "Before notification icons"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeClock": "Before clock"
-  - "afterClock": "After clock"
-  - "afterShowDesktop": "After Show Desktop strip"
+  - beforeIcons: Before notification icons
+  - beforeOmni: Before network, volume, and battery
+  - beforeClock: Before clock
+  - afterClock: After clock
+  - afterShowDesktop: After Show Desktop
+  - leftOfStart: Left of Start (experimental)
+  - rightOfStart: Right of Start (experimental)
 
 - itemOrder: "location,mic,camera,copilot"
   $name: Icon order
@@ -163,47 +223,47 @@ compact microphone and camera state changes without restarting the full report.
     mic, camera, copilot. Remove a token to hide that icon. Reorder to change
     layout. Camera and copilot are experimental — see mod description.
 
-- cameraHardwareDetection: true
-  $name: Monitor camera hardware privacy control
-  $description: >-
-    Uses the Windows 11 CameraOcclusionInfo driver signal. This initializes the
-    default camera controller in SharedReadOnly mode but never starts preview or
-    frame capture. State changes are event-driven with a five-minute watchdog.
-    Turn off if a particular camera activates its LED/indicator or behaves
-    poorly while monitored.
+- gridMode: autoSmart
+  $name: Grid mode
+  $options:
+  - autoSmart: Smart automatic
+  - singleRow: Single row
+  - singleColumn: Single column
+  - fixedRows: Fixed rows
+  - fixedColumns: Fixed columns
+  - fixedGrid: Fixed rows and columns
+
+- smartLayout: balanced
+  $name: Smart layout
+  $options:
+  - balanced: Balanced
+  - packVertical: Pack vertical
+  - packHorizontal: Pack horizontal
 
 - gridRows: 0
   $name: Rows (0 = auto)
-  $description: >-
-    Rows in the icon grid. 0 = automatic from the icon count and taskbar
-    height (see Columns).
 
 - gridColumns: 0
   $name: Columns (0 = auto)
-  $description: >-
-    Columns in the icon grid. 0 (default) picks automatically: a single column
-    when the whole icon stack fits the taskbar height (double-height
-    taskbars), otherwise more columns.
 
-- fillOrder: "rowFirst"
+- fillOrder: rowFirst
   $name: Fill order
   $options:
-  - "rowFirst": "Row first"
-  - "columnFirst": "Column first"
+  - rowFirst: Row first
+  - columnFirst: Column first
 
-- shortGroupPosition: "last"
+- shortGroupPosition: last
   $name: Short row or column
-  $description: When icons don't divide evenly, where the short row/column goes.
   $options:
-  - "first": "First"
-  - "last": "Last"
+  - first: First
+  - last: Last
 
-- shortGroupAlign: "center"
+- shortGroupAlign: center
   $name: Short row or column alignment
   $options:
-  - "start": "Start"
-  - "center": "Center"
-  - "end": "End"
+  - start: Start
+  - center: Center
+  - end: End
 
 - iconSize: 16
   $name: Icon size (pt)
@@ -346,6 +406,15 @@ compact microphone and camera state changes without restarting the full report.
 - copilotOffsetY: 0
   $name: Copilot Y offset (px)
 
+- cameraHardwareDetection: true
+  $name: Monitor camera hardware privacy control
+  $description: >-
+    Uses the Windows 11 CameraOcclusionInfo driver signal. This initializes the
+    default camera controller in SharedReadOnly mode but never starts preview or
+    frame capture. State changes are event-driven with a five-minute watchdog.
+    Turn off if a particular camera activates its LED/indicator or behaves
+    poorly while monitored.
+
 - suppressNativeIndicators: 1
   $name: Suppress Windows privacy indicators (1=on, 0=off)
   $description: >-
@@ -384,9 +453,11 @@ compact microphone and camera state changes without restarting the full report.
 #include <algorithm>
 #include <atomic>
 #include <cwctype>
+#include <exception>
 #include <functional>
 #include <list>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <windhawk_utils.h>
@@ -618,6 +689,419 @@ inline Cell GetCell(int index, int count, Layout const& layout,
 namespace grid = windhawk_mod_templates::smart_grid;
 
 // ============================================================
+// Injected SystemTrayFrameGrid column
+// Template block: _templates/injected-grid-column.h v1.2 (verbatim copy —
+// keep in sync with the template; Windhawk mods are single-file).
+// ============================================================
+
+namespace windhawk_mod_templates::injected_grid_column {
+
+using winrt::Windows::UI::Xaml::FrameworkElement;
+using winrt::Windows::UI::Xaml::GridUnitType;
+using winrt::Windows::UI::Xaml::Controls::ColumnDefinition;
+using winrt::Windows::UI::Xaml::Controls::Grid;
+
+enum class Anchor {
+    BeforeIcons,
+    BeforeOmni,
+    BeforeClock,
+    AfterClock,
+    AfterShowDesktop,
+};
+
+struct Lease {
+    std::wstring markerName;
+    int column = -1;
+};
+
+inline FrameworkElement FindDirectChild(Grid const& parent,
+                                        wchar_t const* name) {
+    for (auto const& child : parent.Children()) {
+        auto element = child.try_as<FrameworkElement>();
+        if (element && element.Name() == name)
+            return element;
+    }
+    return nullptr;
+}
+
+inline bool ResolveColumn(Grid const& parent, Anchor anchor, int& column) {
+    if (anchor == Anchor::BeforeIcons) {
+        column = 0;
+        return true;
+    }
+
+    wchar_t const* referenceName = nullptr;
+    bool after = false;
+    switch (anchor) {
+        case Anchor::BeforeOmni:
+            referenceName = L"ControlCenterButton";
+            break;
+        case Anchor::BeforeClock:
+            referenceName = L"NotificationCenterButton";
+            break;
+        case Anchor::AfterClock:
+            referenceName = L"ShowDesktopStack";
+            break;
+        case Anchor::AfterShowDesktop:
+            referenceName = L"ShowDesktopStack";
+            after = true;
+            break;
+        case Anchor::BeforeIcons:
+            break;
+    }
+
+    auto reference = FindDirectChild(parent, referenceName);
+    if (!reference)
+        return false; // Never silently turn an unavailable anchor into column 0.
+    column = Grid::GetColumn(reference) +
+             (after ? std::max(1, Grid::GetColumnSpan(reference)) : 0);
+    return true;
+}
+
+inline bool AcquireAt(Grid const& parent, int column,
+                      std::wstring const& markerName, Lease& lease) {
+    if (!parent || column < 0 || markerName.empty() ||
+        FindDirectChild(parent, markerName.c_str()))
+        return false;
+
+    ColumnDefinition definition;
+    definition.Width({1.0, GridUnitType::Auto});
+    if (static_cast<uint32_t>(column) < parent.ColumnDefinitions().Size())
+        parent.ColumnDefinitions().InsertAt(column, definition);
+    else
+        parent.ColumnDefinitions().Append(definition);
+
+    for (auto const& child : parent.Children()) {
+        auto element = child.try_as<FrameworkElement>();
+        if (!element) continue;
+        int start = Grid::GetColumn(element);
+        int span = Grid::GetColumnSpan(element);
+        if (start >= column)
+            Grid::SetColumn(element, start + 1);
+        else if (start + span > column)
+            Grid::SetColumnSpan(element, span + 1);
+    }
+
+    Grid marker;
+    marker.Name(markerName);
+    marker.Width(0.0);
+    marker.Height(0.0);
+    marker.IsHitTestVisible(false);
+    Grid::SetColumn(marker, column);
+    parent.Children().Append(marker);
+
+    lease = {markerName, column};
+    return true;
+}
+
+inline bool Acquire(Grid const& parent, Anchor anchor,
+                    std::wstring const& markerName, Lease& lease) {
+    int column = -1;
+    if (!parent || !ResolveColumn(parent, anchor, column))
+        return false;
+    return AcquireAt(parent, column, markerName, lease);
+}
+
+inline bool Release(Grid const& parent, Lease& lease) {
+    if (!parent || lease.markerName.empty())
+        return false;
+
+    uint32_t markerIndex = 0;
+    bool found = false;
+    int liveColumn = lease.column;
+    for (uint32_t i = 0; i < parent.Children().Size(); ++i) {
+        auto element = parent.Children().GetAt(i).try_as<FrameworkElement>();
+        if (element && element.Name() == lease.markerName) {
+            markerIndex = i;
+            liveColumn = Grid::GetColumn(element);
+            found = true;
+            break;
+        }
+    }
+    if (!found || liveColumn < 0)
+        return false;
+
+    parent.Children().RemoveAt(markerIndex);
+    if (static_cast<uint32_t>(liveColumn) < parent.ColumnDefinitions().Size())
+        parent.ColumnDefinitions().RemoveAt(liveColumn);
+
+    for (auto const& child : parent.Children()) {
+        auto element = child.try_as<FrameworkElement>();
+        if (!element) continue;
+        int start = Grid::GetColumn(element);
+        int span = Grid::GetColumnSpan(element);
+        if (start > liveColumn)
+            Grid::SetColumn(element, start - 1);
+        else if (start < liveColumn && start + span > liveColumn)
+            Grid::SetColumnSpan(element, std::max(1, span - 1));
+    }
+
+    lease = {};
+    return true;
+}
+
+} // namespace windhawk_mod_templates::injected_grid_column
+
+namespace lease_column = windhawk_mod_templates::injected_grid_column;
+
+// ============================================================
+// Start-adjacent owned group
+// Template block: _templates/start-placement.h v1.0 (verbatim copy — keep in
+// sync with the template; Windhawk mods are single-file).
+// ============================================================
+
+namespace windhawk_mod_templates::start_placement {
+
+using winrt::Windows::UI::Xaml::FrameworkElement;
+using winrt::Windows::UI::Xaml::HorizontalAlignment;
+using winrt::Windows::UI::Xaml::Thickness;
+using winrt::Windows::UI::Xaml::UIElement;
+using winrt::Windows::UI::Xaml::VerticalAlignment;
+using winrt::Windows::UI::Xaml::Visibility;
+using winrt::Windows::UI::Xaml::Automation::AutomationProperties;
+using winrt::Windows::UI::Xaml::Controls::Canvas;
+using winrt::Windows::UI::Xaml::Controls::Grid;
+using winrt::Windows::UI::Xaml::Media::TranslateTransform;
+using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
+
+enum class Side {
+    Left,
+    Right,
+};
+
+struct Lease {
+    Grid group{nullptr};
+    Grid rootGrid{nullptr};
+    FrameworkElement startButton{nullptr};
+    FrameworkElement taskItemsPanel{nullptr};
+    Thickness groupOriginalMargin{};
+    Thickness taskItemsPanelOriginalMargin{};
+    double startButtonOriginalX = -1.0;
+    winrt::event_token layoutToken{};
+    Side side = Side::Left;
+    double spacing = 0.0;
+};
+
+template<typename Predicate>
+inline FrameworkElement FindDescendant(FrameworkElement const& root,
+                                       Predicate&& predicate,
+                                       int depth = 0) {
+    if (!root || depth > 64)
+        return nullptr;
+    if (predicate(root))
+        return root;
+    int count = VisualTreeHelper::GetChildrenCount(root);
+    for (int i = 0; i < count; ++i) {
+        auto child = VisualTreeHelper::GetChild(root, i)
+                         .try_as<FrameworkElement>();
+        auto match = FindDescendant(
+            child, std::forward<Predicate>(predicate), depth + 1);
+        if (match)
+            return match;
+    }
+    return nullptr;
+}
+
+inline Grid FindTaskbarRootGrid(FrameworkElement const& root) {
+    auto taskbarFrame = FindDescendant(
+        root, [](FrameworkElement const& element) {
+            return winrt::get_class_name(element) ==
+                   L"Taskbar.TaskbarFrame";
+        });
+    if (!taskbarFrame)
+        return nullptr;
+
+    int count = VisualTreeHelper::GetChildrenCount(taskbarFrame);
+    for (int i = 0; i < count; ++i) {
+        auto child = VisualTreeHelper::GetChild(taskbarFrame, i)
+                         .try_as<Grid>();
+        if (child && child.Name() == L"RootGrid")
+            return child;
+    }
+    return nullptr;
+}
+
+inline FrameworkElement FindStartButton(FrameworkElement const& root) {
+    return FindDescendant(
+        root, [](FrameworkElement const& element) {
+            return winrt::get_class_name(element) ==
+                       L"Taskbar.ExperienceToggleButton" &&
+                   AutomationProperties::GetAutomationId(element) ==
+                       L"StartButton";
+        });
+}
+
+inline bool Position(Lease& lease) noexcept {
+    if (!lease.group || !lease.rootGrid || !lease.startButton)
+        return false;
+
+    try {
+        double groupWidth = lease.group.Width() +
+                            lease.groupOriginalMargin.Left +
+                            lease.groupOriginalMargin.Right;
+        double groupHeight = lease.group.Height() +
+                             lease.groupOriginalMargin.Top +
+                             lease.groupOriginalMargin.Bottom;
+        bool startHidden =
+            lease.startButton.Visibility() == Visibility::Collapsed;
+        double startWidth = lease.startButton.ActualWidth();
+        double startHeight = lease.startButton.ActualHeight();
+        if (startWidth <= 0.0 && !startHidden)
+            startWidth = 44.0;
+        if (startHeight <= 0.0)
+            startHeight = groupHeight;
+
+        auto transform = lease.startButton.TransformToVisual(lease.rootGrid);
+        auto point = transform.TransformPoint({0.0f, 0.0f});
+        auto existingShift =
+            lease.startButton.RenderTransform().try_as<TranslateTransform>();
+        double currentShift = existingShift ? existingShift.X() : 0.0;
+        double rawX = point.X - currentShift;
+        double anchorX = lease.startButtonOriginalX >= 0.0
+                             ? lease.startButtonOriginalX
+                             : rawX;
+
+        double push = groupWidth + std::max(0.0, lease.spacing);
+        if (lease.taskItemsPanel) {
+            auto margin = lease.taskItemsPanel.Margin();
+            double needed =
+                lease.taskItemsPanelOriginalMargin.Left + push;
+            if (std::fabs(margin.Left - needed) > 0.5) {
+                margin.Left = needed;
+                lease.taskItemsPanel.Margin(margin);
+            }
+        }
+
+        double left;
+        double desiredStartX;
+        if (lease.side == Side::Left) {
+            left = 0.0;
+            desiredStartX = anchorX + push;
+        } else {
+            left = anchorX + startWidth + std::max(0.0, lease.spacing);
+            desiredStartX = anchorX;
+        }
+        if (!startHidden) {
+            double neededShift = desiredStartX - rawX;
+            if (std::fabs(neededShift) <= 0.5) {
+                if (existingShift || lease.startButton.RenderTransform())
+                    lease.startButton.ClearValue(
+                        UIElement::RenderTransformProperty());
+            } else if (std::fabs(currentShift - neededShift) > 0.5) {
+                TranslateTransform startShift;
+                startShift.X(neededShift);
+                lease.startButton.RenderTransform(startShift);
+            }
+        }
+
+        double top = point.Y + (startHeight - groupHeight) / 2.0;
+        if (top < 0.0)
+            top = 0.0;
+        double rootWidth = lease.rootGrid.ActualWidth();
+        if (rootWidth > 0.0 && left + groupWidth > rootWidth)
+            left = std::max(0.0, rootWidth - groupWidth);
+
+        auto target = lease.groupOriginalMargin;
+        target.Left += left;
+        target.Top += top;
+        auto current = lease.group.Margin();
+        if (std::fabs(current.Left - target.Left) > 0.5 ||
+            std::fabs(current.Top - target.Top) > 0.5) {
+            lease.group.Margin(target);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+inline bool Release(Lease& lease) noexcept {
+    if (!lease.group)
+        return false;
+
+    try {
+        if (lease.rootGrid && lease.layoutToken)
+            lease.rootGrid.LayoutUpdated(lease.layoutToken);
+        if (lease.taskItemsPanel)
+            lease.taskItemsPanel.Margin(
+                lease.taskItemsPanelOriginalMargin);
+        if (lease.startButton)
+            lease.startButton.ClearValue(
+                UIElement::RenderTransformProperty());
+        lease.group.Margin(lease.groupOriginalMargin);
+        if (lease.rootGrid) {
+            uint32_t index = 0;
+            if (lease.rootGrid.Children().IndexOf(lease.group, index))
+                lease.rootGrid.Children().RemoveAt(index);
+        }
+    } catch (...) {
+        lease = {};
+        return false;
+    }
+    lease = {};
+    return true;
+}
+
+inline bool Acquire(FrameworkElement const& root, Grid const& group,
+                    Side side, double spacing, Lease& lease) {
+    if (!root || !group || lease.group || group.Width() <= 0.0 ||
+        group.Height() <= 0.0)
+        return false;
+
+    auto rootGrid = FindTaskbarRootGrid(root);
+    auto startButton = FindStartButton(root);
+    if (!rootGrid || !startButton)
+        return false;
+
+    lease.group = group;
+    lease.rootGrid = rootGrid;
+    lease.startButton = startButton;
+    lease.groupOriginalMargin = group.Margin();
+    lease.side = side;
+    lease.spacing = spacing;
+
+    group.HorizontalAlignment(HorizontalAlignment::Left);
+    group.VerticalAlignment(VerticalAlignment::Top);
+    Grid::SetColumn(group, 0);
+    Grid::SetColumnSpan(
+        group,
+        std::max(1, static_cast<int>(
+                        rootGrid.ColumnDefinitions().Size())));
+    Canvas::SetZIndex(group, 1000);
+    rootGrid.Children().Append(group);
+
+    lease.taskItemsPanel = FindDescendant(
+        rootGrid, [](FrameworkElement const& element) {
+            return element.Name() == L"TaskbarFrameRepeater";
+        });
+    if (lease.taskItemsPanel) {
+        lease.taskItemsPanelOriginalMargin =
+            lease.taskItemsPanel.Margin();
+    }
+    try {
+        auto transform = startButton.TransformToVisual(rootGrid);
+        lease.startButtonOriginalX =
+            transform.TransformPoint({0.0f, 0.0f}).X;
+    } catch (...) {
+        lease.startButtonOriginalX = -1.0;
+    }
+
+    if (!Position(lease)) {
+        Release(lease);
+        return false;
+    }
+    lease.layoutToken = rootGrid.LayoutUpdated(
+        [&lease](auto const&, auto const&) {
+            Position(lease);
+        });
+    return true;
+}
+
+} // namespace windhawk_mod_templates::start_placement
+
+namespace start_placement = windhawk_mod_templates::start_placement;
+
+// ============================================================
 // Settings
 // ============================================================
 
@@ -625,6 +1109,8 @@ struct ModSettings {
     std::wstring position = L"beforeOmni";
     std::wstring itemOrder = L"location,mic,camera,copilot";
     bool cameraHardwareDetection = true;
+    grid::GridMode gridMode = grid::GridMode::AutoSmart;
+    grid::SmartLayout smartLayout = grid::SmartLayout::Balanced;
     int  gridRows    = 0;
     int  gridColumns = 0;
     grid::FillOrder          fillOrder          = grid::FillOrder::RowFirst;
@@ -745,6 +1231,17 @@ static void LoadSettings() {
     g_copilotItemEnabled.store(
         std::find(enabledItems.begin(), enabledItems.end(), L"copilot") !=
         enabledItems.end());
+    { std::wstring s = GetStringSetting(L"gridMode");
+      if      (s == L"singleRow")    g_settings.gridMode = grid::GridMode::SingleRow;
+      else if (s == L"singleColumn") g_settings.gridMode = grid::GridMode::SingleColumn;
+      else if (s == L"fixedRows")    g_settings.gridMode = grid::GridMode::FixedRows;
+      else if (s == L"fixedColumns") g_settings.gridMode = grid::GridMode::FixedColumns;
+      else if (s == L"fixedGrid")    g_settings.gridMode = grid::GridMode::FixedGrid;
+      else                            g_settings.gridMode = grid::GridMode::AutoSmart; }
+    { std::wstring s = GetStringSetting(L"smartLayout");
+      if      (s == L"packVertical")   g_settings.smartLayout = grid::SmartLayout::PackVertical;
+      else if (s == L"packHorizontal") g_settings.smartLayout = grid::SmartLayout::PackHorizontal;
+      else                              g_settings.smartLayout = grid::SmartLayout::Balanced; }
     g_settings.gridRows    = clamp(Wh_GetIntSetting(L"gridRows"), 0, 10);
     g_settings.gridColumns = clamp(Wh_GetIntSetting(L"gridColumns"), 0, 10);
     { std::wstring s = GetStringSetting(L"fillOrder");
@@ -839,6 +1336,7 @@ enum StateRefreshFlags : DWORD {
 static std::atomic<bool> g_unloading{false};
 static HWND              g_taskbarWnd           = nullptr;
 static std::atomic<bool>  g_systemTrayModuleHooked{false};
+static std::atomic<bool>  g_taskbarRestarted{false};
 static HANDLE            g_retryThread          = nullptr;
 static HANDLE            g_retryStopEvent       = nullptr;
 static HANDLE            g_stateRefreshEvent    = nullptr;
@@ -871,6 +1369,7 @@ static std::atomic<bool> g_cameraHardwareOccluded{false};
 static std::atomic<bool> g_copilotInstalled{false};
 static std::atomic<bool> g_copilotActive{false};
 static std::atomic<bool> g_copilotDisabled{true};
+static std::atomic<bool> g_taskbarDarkTheme{true};
 // Explorer process shutdown doesn't guarantee a Wh_ModUninit call. Keep all
 // namespace-scope XAML/WinRT owners out of CRT global destruction so they
 // can't release taskbar objects after XAML has torn down or from the shutdown
@@ -894,7 +1393,8 @@ static std::atomic<bool> g_copilotDisabled{true};
 [[clang::no_destroy]] static FrameworkElement g_camSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_copilotSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_syntheticParent = nullptr;
-static int               g_syntheticColumn = -1;
+[[clang::no_destroy]] static lease_column::Lease g_columnLease;
+[[clang::no_destroy]] static start_placement::Lease g_startLease;
 
 struct SlotEventState {
     FrameworkElement element{nullptr};
@@ -928,10 +1428,12 @@ using FrameworkElementLoadedRevoker = winrt::impl::event_revoker<
     g_loadedRevokers;
 
 // Forward declarations
-static void ApplyStyle();
+static bool ApplyStyle();
+static bool ApplyOnTaskbarThread();
 static void ApplyStyleOnWindowThread();
 static void ClearPrivacyStates();
 static void RemoveSyntheticIcons();
+static void RemoveModUi();
 static void StopRetryThread();
 static void UpdatePrivacyStates(DWORD flags);
 static bool HookSystemTraySymbols(HMODULE h);
@@ -970,72 +1472,88 @@ static HMODULE GetSystemTrayModuleHandle() {
 
 // ============================================================
 // GetTaskbarXamlRoot
+// Template block: _templates/taskbar-xaml-lifecycle.template.cpp v1.2.
+// Taskbar discovery, XAML-root access, window-thread dispatch, symbol hooks,
+// taskbar restart trigger, and unload rules stay verbatim where the
+// privacy-specific monitoring worker doesn't require an adapter.
 // ============================================================
 
-using CTaskBand_GetTaskbarHost_t = void* (WINAPI*)(void* pThis, void* result);
-CTaskBand_GetTaskbarHost_t CTaskBand_GetTaskbarHost_Original;
+using CTaskBand_GetTaskbarHost_t = void* (WINAPI*)(void*, void*);
+static CTaskBand_GetTaskbarHost_t CTaskBand_GetTaskbarHost_Original;
+using TaskbarHost_FrameHeight_t = int (WINAPI*)(void*);
+static TaskbarHost_FrameHeight_t TaskbarHost_FrameHeight_Original;
+using std__Ref_count_base__Decref_t = void (WINAPI*)(void*);
+static std__Ref_count_base__Decref_t std__Ref_count_base__Decref_Original;
+static void* CTaskBand_ITaskListWndSite_vftable;
 
-using TaskbarHost_FrameHeight_t = int (WINAPI*)(void* pThis);
-TaskbarHost_FrameHeight_t TaskbarHost_FrameHeight_Original;
-
-using std__Ref_count_base__Decref_t = void (WINAPI*)(void* pThis);
-std__Ref_count_base__Decref_t std__Ref_count_base__Decref_Original;
-
-static void* CTaskBand_ITaskListWndSite_vftable = nullptr;
-
-static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
+static XamlRoot GetTaskbarXamlRoot(HWND taskbarWindow) {
     if (!CTaskBand_GetTaskbarHost_Original ||
         !TaskbarHost_FrameHeight_Original ||
         !std__Ref_count_base__Decref_Original ||
         !CTaskBand_ITaskListWndSite_vftable)
         return nullptr;
 
-    HWND hTaskSwWnd = (HWND)GetProp(hTaskbarWnd, L"TaskbandHWND");
-    if (!hTaskSwWnd) return nullptr;
-    void* taskBand = (void*)GetWindowLongPtr(hTaskSwWnd, 0);
+    HWND taskSwitchWindow = reinterpret_cast<HWND>(
+        GetPropW(taskbarWindow, L"TaskbandHWND"));
+    if (!taskSwitchWindow) return nullptr;
+    void* taskBand = reinterpret_cast<void*>(
+        GetWindowLongPtrW(taskSwitchWindow, 0));
     if (!taskBand) return nullptr;
+
     void* taskBandForSite = taskBand;
-    for (int i = 0; *(void**)taskBandForSite != CTaskBand_ITaskListWndSite_vftable; i++) {
+    for (int i = 0;
+         *reinterpret_cast<void**>(taskBandForSite) !=
+             CTaskBand_ITaskListWndSite_vftable;
+         ++i) {
         if (i == 20) return nullptr;
-        taskBandForSite = (void**)taskBandForSite + 1;
+        taskBandForSite = reinterpret_cast<void**>(taskBandForSite) + 1;
     }
+
     void* taskbarHostSharedPtr[2]{};
-    CTaskBand_GetTaskbarHost_Original(taskBandForSite, taskbarHostSharedPtr);
+    CTaskBand_GetTaskbarHost_Original(taskBandForSite,
+                                     taskbarHostSharedPtr);
     if (!taskbarHostSharedPtr[0] || !taskbarHostSharedPtr[1]) {
         if (taskbarHostSharedPtr[1])
             std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
         return nullptr;
     }
-    size_t offset = 0x10;
+
+    size_t elementOffset = 0x10;
 #if defined(_M_X64)
-    {
-        const BYTE* b = (const BYTE*)TaskbarHost_FrameHeight_Original;
-        if (b[0]==0x48 && b[1]==0x83 && b[2]==0xEC && b[4]==0x48 &&
-            b[5]==0x83 && b[6]==0xC1 && b[7]<=0x7F)
-            offset = b[7];
-        else
-            Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
+    auto bytes = reinterpret_cast<BYTE const*>(TaskbarHost_FrameHeight_Original);
+    if (bytes[0] == 0x48 && bytes[1] == 0x83 && bytes[2] == 0xEC &&
+        bytes[4] == 0x48 && bytes[5] == 0x83 && bytes[6] == 0xC1 &&
+        bytes[7] <= 0x7F) {
+        elementOffset = bytes[7];
+    } else {
+        Wh_Log(L"[Template] Unsupported TaskbarHost::FrameHeight");
     }
 #elif defined(_M_ARM64)
-    {
-        const DWORD* p = (const DWORD*)TaskbarHost_FrameHeight_Original;
-        if (p[0] == 0xD503237F && (p[1] & 0xFFC07FFF) == 0xA9807BFD &&
-            p[2] == 0x910003FD && (p[3] & 0xFFF00FE0) == 0xF8400C00)
-            offset = (p[3] >> 12) & 0xFF;
-        else
-            Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
+    auto instructions = reinterpret_cast<DWORD const*>(
+        TaskbarHost_FrameHeight_Original);
+    if (instructions[0] == 0xD503237F &&
+        (instructions[1] & 0xFFC07FFF) == 0xA9807BFD &&
+        instructions[2] == 0x910003FD &&
+        (instructions[3] & 0xFFF00FE0) == 0xF8400C00) {
+        elementOffset = (instructions[3] >> 12) & 0xFF;
+    } else {
+        Wh_Log(L"[Template] Unsupported TaskbarHost::FrameHeight");
     }
 #else
-#error "Unsupported architecture"
+#error Unsupported architecture
 #endif
-    auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
-    if (!iunk) {
+
+    auto unknown = *reinterpret_cast<IUnknown**>(
+        reinterpret_cast<BYTE*>(taskbarHostSharedPtr[0]) + elementOffset);
+    if (!unknown) {
         std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
         return nullptr;
     }
-    FrameworkElement taskbarElem = nullptr;
-    iunk->QueryInterface(winrt::guid_of<FrameworkElement>(), winrt::put_abi(taskbarElem));
-    auto result = taskbarElem ? taskbarElem.XamlRoot() : nullptr;
+
+    FrameworkElement taskbarElement = nullptr;
+    unknown->QueryInterface(winrt::guid_of<FrameworkElement>(),
+                            winrt::put_abi(taskbarElement));
+    auto result = taskbarElement ? taskbarElement.XamlRoot() : nullptr;
     std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
     return result;
 }
@@ -1044,38 +1562,82 @@ static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
 // Window thread marshalling / taskbar discovery
 // ============================================================
 
-using RunFromWindowThreadProc_t = void (*)(void*);
+using WindowThreadProc = void (*)(void*);
 
-static bool RunFromWindowThread(HWND hWnd, RunFromWindowThreadProc_t proc, void* procParam) {
-    static const UINT kMsg = RegisterWindowMessage(L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
-    struct Param { RunFromWindowThreadProc_t proc; void* procParam; };
-    DWORD dwThreadId = GetWindowThreadProcessId(hWnd, nullptr);
-    if (!dwThreadId) return false;
-    if (dwThreadId == GetCurrentThreadId()) { proc(procParam); return true; }
-    HHOOK hook = SetWindowsHookEx(WH_CALLWNDPROC, [](int nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
-        if (nCode == HC_ACTION) {
-            const CWPSTRUCT* cwp = (const CWPSTRUCT*)lParam;
-            if (cwp->message == RegisterWindowMessageW(L"Windhawk_RunFromWindowThread_" WH_MOD_ID)) {
-                auto* p = (Param*)cwp->lParam;
-                p->proc(p->procParam);
+static void LogCurrentUiException(PCWSTR context) noexcept {
+    try {
+        throw;
+    } catch (winrt::hresult_error const& error) {
+        Wh_Log(L"[Lifecycle] %s failed hr=0x%08X: %s", context,
+               static_cast<unsigned>(error.code().value),
+               error.message().c_str());
+    } catch (std::exception const&) {
+        Wh_Log(L"[Lifecycle] %s failed with a C++ exception", context);
+    } catch (...) {
+        Wh_Log(L"[Lifecycle] %s failed with an unknown exception", context);
+    }
+}
+
+static bool InvokeWindowThreadProc(WindowThreadProc proc, void* parameter) {
+    try {
+        proc(parameter);
+        return true;
+    } catch (...) {
+        LogCurrentUiException(L"UI callback");
+    }
+    return false;
+}
+
+static bool RunFromWindowThread(HWND window, WindowThreadProc proc,
+                                void* parameter) {
+    static UINT message = RegisterWindowMessageW(
+        L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
+    struct Dispatch {
+        WindowThreadProc proc;
+        void* parameter;
+        bool succeeded = false;
+    };
+    DWORD threadId = GetWindowThreadProcessId(window, nullptr);
+    if (!threadId) return false;
+    if (threadId == GetCurrentThreadId()) {
+        return InvokeWindowThreadProc(proc, parameter);
+    }
+
+    HHOOK hook = SetWindowsHookExW(
+        WH_CALLWNDPROC,
+        [](int code, WPARAM wParam, LPARAM lParam) -> LRESULT {
+            if (code == HC_ACTION) {
+                auto call = reinterpret_cast<CWPSTRUCT const*>(lParam);
+                static UINT dispatchMessage = RegisterWindowMessageW(
+                    L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
+                if (call->message == dispatchMessage) {
+                    auto dispatch = reinterpret_cast<Dispatch*>(call->lParam);
+                    dispatch->succeeded = InvokeWindowThreadProc(
+                        dispatch->proc, dispatch->parameter);
+                }
             }
-        }
-        return CallNextHookEx(nullptr, nCode, wParam, lParam);
-    }, nullptr, dwThreadId);
+            return CallNextHookEx(nullptr, code, wParam, lParam);
+        },
+        nullptr, threadId);
     if (!hook) return false;
-    Param param{ proc, procParam };
-    SendMessage(hWnd, kMsg, 0, (LPARAM)&param);
+
+    Dispatch dispatch{proc, parameter};
+    SendMessageW(window, message, 0, reinterpret_cast<LPARAM>(&dispatch));
     UnhookWindowsHookEx(hook);
-    return true;
+    return dispatch.succeeded;
 }
 
 static HWND FindCurrentProcessTaskbarWnd() {
     HWND result = nullptr;
-    EnumWindows([](HWND hWnd, LPARAM lParam) -> BOOL {
-        DWORD pid; WCHAR cls[32];
-        if (GetWindowThreadProcessId(hWnd, &pid) && pid == GetCurrentProcessId() &&
-            GetClassName(hWnd, cls, ARRAYSIZE(cls)) && _wcsicmp(cls, L"Shell_TrayWnd") == 0) {
-            *reinterpret_cast<HWND*>(lParam) = hWnd; return FALSE;
+    EnumWindows([](HWND window, LPARAM parameter) -> BOOL {
+        DWORD processId = 0;
+        wchar_t className[32];
+        if (GetWindowThreadProcessId(window, &processId) &&
+            processId == GetCurrentProcessId() &&
+            GetClassNameW(window, className, ARRAYSIZE(className)) &&
+            _wcsicmp(className, L"Shell_TrayWnd") == 0) {
+            *reinterpret_cast<HWND*>(parameter) = window;
+            return FALSE;
         }
         return TRUE;
     }, reinterpret_cast<LPARAM>(&result));
@@ -1197,10 +1759,10 @@ static void SetGlowActive(FrameworkElement const& glow, bool active) {
 }
 
 static void UpdateSyntheticOpacity() {
+    if (!g_syntheticGrid) return;
     double idleOpacity = g_settings.idleOpacity / 100.0;
     double disabledOpacity = g_settings.disabledOpacity / 100.0;
-    bool isDark =
-        Application::Current().RequestedTheme() == ApplicationTheme::Dark;
+    bool isDark = g_taskbarDarkTheme.load();
     winrt::Windows::UI::Color neutralColor = isDark
         ? winrt::Windows::UI::Color{255, 255, 255, 255}
         : winrt::Windows::UI::Color{255, 30, 30, 30};
@@ -1352,6 +1914,7 @@ static void UpdateSyntheticTooltips() {
 }
 
 static void UpdateSyntheticState() {
+    if (!g_syntheticGrid) return;
     UpdateSyntheticOpacity();
     UpdateSyntheticTooltips();
 }
@@ -2772,6 +3335,16 @@ static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
 }
 
 static bool InjectSyntheticIcons(FrameworkElement root) {
+    try {
+        auto theme = root.ActualTheme();
+        if (theme == ElementTheme::Dark)
+            g_taskbarDarkTheme.store(true);
+        else if (theme == ElementTheme::Light)
+            g_taskbarDarkTheme.store(false);
+    } catch (...) {
+        // Keep the dark-taskbar-safe default until a live root reports a theme.
+    }
+
     auto gridElem = FindChildRecursive(root, [](FrameworkElement fe) {
         return fe.Name() == L"SystemTrayFrameGrid";
     });
@@ -2780,10 +3353,10 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     if (!gridParent) { Wh_Log(L"[Inject] SystemTrayFrameGrid not a Grid"); return false; }
 
     // Idempotent check.
-    for (auto child : gridParent.Children()) {
-        if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == L"PrivacyAnchorBar")
-            return true;
-    }
+    if (FindChildRecursive(root, [](FrameworkElement const& element) {
+            return element.Name() == L"PrivacyAnchorBar";
+        }))
+        return true;
 
     auto activeItems = ParseItemOrder(g_settings.itemOrder);
     if (activeItems.empty()) {
@@ -2791,45 +3364,25 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         return true;
     }
 
-    auto findNamedDirect = [&](const wchar_t* name) -> FrameworkElement {
-        for (auto child : gridParent.Children()) {
-            if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == name)
-                return fe;
+    bool startPosition = g_settings.position == L"leftOfStart" ||
+                         g_settings.position == L"rightOfStart";
+    int insertCol = -1;
+    if (!startPosition) {
+        lease_column::Anchor anchor = lease_column::Anchor::BeforeIcons;
+        if (g_settings.position == L"beforeOmni")
+            anchor = lease_column::Anchor::BeforeOmni;
+        else if (g_settings.position == L"beforeClock")
+            anchor = lease_column::Anchor::BeforeClock;
+        else if (g_settings.position == L"afterClock")
+            anchor = lease_column::Anchor::AfterClock;
+        else if (g_settings.position == L"afterShowDesktop")
+            anchor = lease_column::Anchor::AfterShowDesktop;
+
+        if (!lease_column::ResolveColumn(gridParent, anchor, insertCol)) {
+            Wh_Log(L"[Inject] Position anchor unavailable: %s",
+                   g_settings.position.c_str());
+            return false;
         }
-        return nullptr;
-    };
-
-    FrameworkElement refElem = nullptr;
-    bool insertAfterRef = false;
-    if      (g_settings.position == L"beforeOmni")
-        refElem = findNamedDirect(L"ControlCenterButton");
-    else if (g_settings.position == L"beforeClock")
-        refElem = findNamedDirect(L"NotificationCenterButton");
-    else if (g_settings.position == L"afterClock")
-        refElem = findNamedDirect(L"ShowDesktopStack");
-    else if (g_settings.position == L"afterShowDesktop") {
-        refElem = findNamedDirect(L"ShowDesktopStack");
-        insertAfterRef = true;
-    }
-
-    int insertCol = 0;
-    if (insertAfterRef && refElem)  insertCol = Grid::GetColumn(refElem) + 1;
-    else if (refElem)               insertCol = Grid::GetColumn(refElem);
-
-    ColumnDefinition cd;
-    cd.Width({ 1.0, GridUnitType::Auto });
-    if ((uint32_t)insertCol < gridParent.ColumnDefinitions().Size())
-        gridParent.ColumnDefinitions().InsertAt(insertCol, cd);
-    else
-        gridParent.ColumnDefinitions().Append(cd);
-
-    for (auto child : gridParent.Children()) {
-        auto fe = child.try_as<FrameworkElement>();
-        if (!fe) continue;
-        int col  = Grid::GetColumn(fe);
-        int span = Grid::GetColumnSpan(fe);
-        if (col >= insertCol)             Grid::SetColumn(fe, col + 1);
-        else if (col + span > insertCol)  Grid::SetColumnSpan(fe, span + 1);
     }
 
     // ── Build the anchor bar ────────────────────────────────────
@@ -2843,22 +3396,15 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
 
     int N = (int)activeItems.size();
 
-    // Grid shape from the smart-grid template; mode derives from the rows /
-    // columns settings (0 = auto).
+    // Grid shape from the canonical group-layout settings profile.
     grid::Config cfg;
+    cfg.mode               = g_settings.gridMode;
+    cfg.smartLayout        = g_settings.smartLayout;
     cfg.fillOrder          = g_settings.fillOrder;
     cfg.shortGroupPosition = g_settings.shortGroupPosition;
     cfg.shortGroupAlign    = g_settings.shortGroupAlign;
     cfg.rows               = g_settings.gridRows;
     cfg.columns            = g_settings.gridColumns;
-    if      (g_settings.gridRows > 0 && g_settings.gridColumns > 0)
-        cfg.mode = grid::GridMode::FixedGrid;
-    else if (g_settings.gridRows > 0)
-        cfg.mode = grid::GridMode::FixedRows;
-    else if (g_settings.gridColumns > 0)
-        cfg.mode = grid::GridMode::FixedColumns;
-    else
-        cfg.mode = grid::GridMode::AutoSmart;
 
     // Row capacity from the taskbar height and icon pitch: a single column on
     // double-height taskbars, more columns when the stack doesn't fit.
@@ -2890,6 +3436,12 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     if (g_settings.buttonSpacing > 0) {
         bar.ColumnSpacing((double)g_settings.buttonSpacing);
         bar.RowSpacing((double)g_settings.buttonSpacing);
+    }
+    if (startPosition) {
+        bar.Width(cols * g_settings.iconSize +
+                  std::max(0, cols - 1) * g_settings.buttonSpacing);
+        bar.Height(rows * g_settings.iconSize +
+                   std::max(0, rows - 1) * g_settings.buttonSpacing);
     }
 
     g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
@@ -2971,7 +3523,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         slot.Children().Append(glowFe);
 
         if (token == L"copilot") {
-            bool isDark = (Application::Current().RequestedTheme() == ApplicationTheme::Dark);
+            bool isDark = g_taskbarDarkTheme.load();
             winrt::Windows::UI::Color neutralColor = isDark
                 ? winrt::Windows::UI::Color{255, 255, 255, 255}
                 : winrt::Windows::UI::Color{255,  30,  30,  30};
@@ -3090,8 +3642,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
             if (g_settings.slashColorSet) {
                 slashBrush.Color(g_settings.slashColorValue);
             } else {
-                bool isDark = (Application::Current().RequestedTheme()
-                               == ApplicationTheme::Dark);
+                bool isDark = g_taskbarDarkTheme.load();
                 slashBrush.Color(isDark ? winrt::Windows::UI::Color{255, 255, 255, 255}
                                         : winrt::Windows::UI::Color{255,  30,  30,  30});
             }
@@ -3141,12 +3692,36 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         bar.Children().Append(slot);
     }
 
-    Grid::SetColumn(bar, insertCol);
-    gridParent.Children().Append(bar);
+    if (startPosition) {
+        auto side = g_settings.position == L"leftOfStart"
+                        ? start_placement::Side::Left
+                        : start_placement::Side::Right;
+        if (!start_placement::Acquire(
+                root, bar, side, g_settings.buttonSpacing,
+                g_startLease)) {
+            Wh_Log(L"[Inject] Start anchor unavailable: %s",
+                   g_settings.position.c_str());
+            return false;
+        }
+        g_syntheticParent = g_startLease.rootGrid;
+    } else {
+        if (!lease_column::AcquireAt(
+                gridParent, insertCol, L"PrivacyAnchorColumnMarker",
+                g_columnLease)) {
+            Wh_Log(L"[Inject] Failed to acquire tray column %d", insertCol);
+            return false;
+        }
+        try {
+            Grid::SetColumn(bar, g_columnLease.column);
+            gridParent.Children().Append(bar);
+        } catch (...) {
+            lease_column::Release(gridParent, g_columnLease);
+            throw;
+        }
+        g_syntheticParent = gridElem;
+    }
 
     g_syntheticGrid   = bar;
-    g_syntheticParent = gridElem;
-    g_syntheticColumn = insertCol;
 
     UpdateSyntheticState();
     Wh_Log(L"[Inject] PrivacyAnchorBar: %d icons, %d cols, %d rows", N, cols, rows);
@@ -3189,37 +3764,26 @@ static void RemoveSyntheticIcons() {
     clearIconState(g_camSlot ? g_camSlot : g_camIcon);
     clearIconState(g_copilotSlot ? g_copilotSlot : g_copilotIcon);
 
-    auto gridParent = g_syntheticParent ? g_syntheticParent.try_as<Grid>() : nullptr;
-    if (!gridParent) {
-        g_syntheticGrid    = nullptr;
-        g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
-        g_locSlot = nullptr; g_micSlot = nullptr; g_camSlot = nullptr; g_copilotSlot = nullptr;
-        g_locGlowIcon = nullptr; g_micGlowIcon = nullptr; g_camGlowIcon = nullptr; g_copilotGlowIcon = nullptr;
-        g_locSlashIcon = nullptr; g_micSlashIcon = nullptr; g_camSlashIcon = nullptr; g_copilotSlashIcon = nullptr;
-        g_syntheticParent  = nullptr; g_syntheticColumn = -1;
-        return;
-    }
-
-    int col = g_syntheticColumn;
-    for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
-        auto fe = gridParent.Children().GetAt(i).try_as<FrameworkElement>();
-        if (fe && fe.Name() == L"PrivacyAnchorBar") {
-            col = Grid::GetColumn(fe);
-            gridParent.Children().RemoveAt(i);
-            break;
+    auto gridParent =
+        g_syntheticParent ? g_syntheticParent.try_as<Grid>() : nullptr;
+    if (g_startLease.group) {
+        if (!start_placement::Release(g_startLease))
+            Wh_Log(L"[Remove] Start placement lease was not live");
+    } else if (gridParent) {
+        for (uint32_t i = 0; i < gridParent.Children().Size(); i++) {
+            auto fe = gridParent.Children().GetAt(i)
+                          .try_as<FrameworkElement>();
+            if (fe && fe.Name() == L"PrivacyAnchorBar") {
+                gridParent.Children().RemoveAt(i);
+                break;
+            }
         }
-    }
-
-    if (col >= 0 && (uint32_t)col < gridParent.ColumnDefinitions().Size())
-        gridParent.ColumnDefinitions().RemoveAt((uint32_t)col);
-
-    for (auto child : gridParent.Children()) {
-        auto fe = child.try_as<FrameworkElement>();
-        if (!fe) continue;
-        int c    = Grid::GetColumn(fe);
-        int span = Grid::GetColumnSpan(fe);
-        if (c > col)                     Grid::SetColumn(fe, c - 1);
-        else if (c < col && c + span > col) Grid::SetColumnSpan(fe, span - 1);
+        if (!lease_column::Release(gridParent, g_columnLease)) {
+            Wh_Log(L"[Remove] Privacy column lease was not live");
+            g_columnLease = {};
+        }
+    } else {
+        g_columnLease = {};
     }
 
     g_syntheticGrid    = nullptr;
@@ -3227,8 +3791,14 @@ static void RemoveSyntheticIcons() {
     g_locSlot = nullptr; g_micSlot = nullptr; g_camSlot = nullptr; g_copilotSlot = nullptr;
     g_locGlowIcon = nullptr; g_micGlowIcon = nullptr; g_camGlowIcon = nullptr; g_copilotGlowIcon = nullptr;
     g_locSlashIcon = nullptr; g_micSlashIcon = nullptr; g_camSlashIcon = nullptr; g_copilotSlashIcon = nullptr;
-    g_syntheticParent  = nullptr; g_syntheticColumn = -1;
+    g_syntheticParent = nullptr;
     Wh_Log(L"[Remove] PrivacyAnchorBar removed");
+}
+
+static void RemoveModUi() {
+    g_loadedRevokers.clear();
+    ClearPrivacyStates();
+    RemoveSyntheticIcons();
 }
 
 // ============================================================
@@ -3271,45 +3841,53 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
     state.textToken = tb.RegisterPropertyChangedCallback(
         TextBlock::TextProperty(),
         [](DependencyObject sender, DependencyProperty) {
-            if (g_unloading) return;
-            auto tbRef = sender.try_as<TextBlock>();
-            if (!tbRef) return;
-            std::wstring_view newText = tbRef.Text();
-            if (!newText.empty() && newText.length() == 1 && !IsPrivacyGlyph(newText[0])) {
-                Wh_Log(L"[Privacy] Unknown glyph change: U+%04X", (unsigned)newText[0]);
-                return;
-            }
-            if (!IsPrivacyText(newText)) return;
-            if (newText.empty()) {
-                for (auto& s : g_privacyStates) {
-                    if (s.textBlockRef.get() == tbRef) {
-                        SetPrivacyActive(s.type, false);
-                        break;
-                    }
+            try {
+                if (g_unloading) return;
+                auto tbRef = sender.try_as<TextBlock>();
+                if (!tbRef) return;
+                std::wstring_view newText = tbRef.Text();
+                if (!newText.empty() && newText.length() == 1 && !IsPrivacyGlyph(newText[0])) {
+                    Wh_Log(L"[Privacy] Unknown glyph change: U+%04X", (unsigned)newText[0]);
+                    return;
                 }
-            } else {
-                auto detectedType = DetectPrivacyType(newText);
-                for (auto& s : g_privacyStates) {
-                    if (s.textBlockRef.get() == tbRef) {
-                        if (s.type != detectedType)
+                if (!IsPrivacyText(newText)) return;
+                if (newText.empty()) {
+                    for (auto& s : g_privacyStates) {
+                        if (s.textBlockRef.get() == tbRef) {
                             SetPrivacyActive(s.type, false);
-                        s.type = detectedType;
-                        break;
+                            break;
+                        }
                     }
+                } else {
+                    auto detectedType = DetectPrivacyType(newText);
+                    for (auto& s : g_privacyStates) {
+                        if (s.textBlockRef.get() == tbRef) {
+                            if (s.type != detectedType)
+                                SetPrivacyActive(s.type, false);
+                            s.type = detectedType;
+                            break;
+                        }
+                    }
+                    SetPrivacyActive(detectedType, true);
                 }
-                SetPrivacyActive(detectedType, true);
+            } catch (...) {
+                LogCurrentUiException(L"privacy text callback");
             }
         });
 
     state.visibilityToken = iconView.RegisterPropertyChangedCallback(
         UIElement::VisibilityProperty(),
         [](DependencyObject sender, DependencyProperty) {
-            if (g_unloading) return;
-            if (!g_settings.suppressNativeIndicators) return;
-            auto iconView = sender.try_as<FrameworkElement>();
-            if (!iconView || iconView.Visibility() == Visibility::Collapsed) return;
-            iconView.Visibility(Visibility::Collapsed);
-            iconView.IsHitTestVisible(false);
+            try {
+                if (g_unloading) return;
+                if (!g_settings.suppressNativeIndicators) return;
+                auto iconView = sender.try_as<FrameworkElement>();
+                if (!iconView || iconView.Visibility() == Visibility::Collapsed) return;
+                iconView.Visibility(Visibility::Collapsed);
+                iconView.IsHitTestVisible(false);
+            } catch (...) {
+                LogCurrentUiException(L"privacy visibility callback");
+            }
         });
 
     g_privacyStates.push_back(std::move(state));
@@ -3371,27 +3949,27 @@ static void ClearPrivacyStates() {
     g_copilotActive.store(false);
     g_copilotDisabled.store(true);
     g_copilotBlockReason.store(PrivacyBlockReason::NotInstalled);
-    UpdateSyntheticState();
 }
 
 // ============================================================
 // Apply
 // ============================================================
 
-static void ApplyStyle() {
+static bool ApplyStyle() {
     Wh_Log(L"[Apply] enter");
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return; }
+    if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return false; }
     g_taskbarWnd = hWnd;
 
     XamlRoot xamlRoot = nullptr;
-    try { xamlRoot = GetTaskbarXamlRoot(hWnd); } catch (...) { return; }
-    if (!xamlRoot) { Wh_Log(L"[Apply] XamlRoot unavailable"); return; }
+    try { xamlRoot = GetTaskbarXamlRoot(hWnd); } catch (...) { return false; }
+    if (!xamlRoot) { Wh_Log(L"[Apply] XamlRoot unavailable"); return false; }
 
     auto root = xamlRoot.Content().try_as<FrameworkElement>();
-    if (!root) return;
+    if (!root) return false;
 
-    if (!g_syntheticGrid) InjectSyntheticIcons(root);
+    if (!g_syntheticGrid && !InjectSyntheticIcons(root))
+        return false;
 
     auto sysGrid = FindChildRecursive(root, [](FrameworkElement fe) {
         return fe.Name() == L"SystemTrayFrameGrid";
@@ -3400,16 +3978,29 @@ static void ApplyStyle() {
         auto mainStack = FindChildByName(sysGrid, L"MainStack");
         if (mainStack) ScanMainStack(mainStack);
     }
+    return true;
+}
+
+static bool ApplyOnTaskbarThread() {
+    HWND window = FindCurrentProcessTaskbarWnd();
+    if (!window) return false;
+    g_taskbarWnd = window;
+    if (!GetTaskbarXamlRoot(window)) return false;
+    if (g_taskbarRestarted.load()) {
+        RemoveModUi();
+        g_taskbarRestarted.store(false);
+    }
+    g_loadedRevokers.clear();
+    ClearPrivacyStates();
+    return ApplyStyle();
 }
 
 static void ApplyStyleOnWindowThread() {
-    HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (!hWnd) return;
-    RunFromWindowThread(hWnd, [](void*) {
-        g_loadedRevokers.clear();
-        ClearPrivacyStates();
-        ApplyStyle();
-    }, nullptr);
+    HWND window = g_taskbarWnd ? g_taskbarWnd
+                               : FindCurrentProcessTaskbarWnd();
+    if (!window) return;
+    RunFromWindowThread(
+        window, [](void*) { ApplyOnTaskbarThread(); }, nullptr);
 }
 
 static void StopRetryThread() {
@@ -3442,6 +4033,18 @@ static void StopRetryThread() {
 // Hooks
 // ============================================================
 
+using TrayUI_StartTaskbar_t = void (WINAPI*)(void*);
+static TrayUI_StartTaskbar_t TrayUI_StartTaskbar_Original;
+
+static void WINAPI TrayUI_StartTaskbar_Hook(void* self) {
+    TrayUI_StartTaskbar_Original(self);
+    if (!g_unloading) {
+        g_taskbarWnd = nullptr;
+        g_taskbarRestarted.store(true);
+        ApplyStyleOnWindowThread();
+    }
+}
+
 using IconView_IconView_t = void* (WINAPI*)(void* pThis);
 IconView_IconView_t IconView_IconView_Original;
 
@@ -3449,31 +4052,41 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
     void* ret = IconView_IconView_Original(pThis);
     if (g_unloading) return ret;
 
-    FrameworkElement iconView = nullptr;
-    ((IUnknown**)pThis)[1]->QueryInterface(winrt::guid_of<FrameworkElement>(),
-                                            winrt::put_abi(iconView));
-    if (!iconView) return ret;
+    try {
+        FrameworkElement iconView = nullptr;
+        ((IUnknown**)pThis)[1]->QueryInterface(winrt::guid_of<FrameworkElement>(),
+                                                winrt::put_abi(iconView));
+        if (!iconView) return ret;
 
-    g_loadedRevokers.emplace_back();
-    auto it = g_loadedRevokers.end(); --it;
-    *it = iconView.Loaded(winrt::auto_revoke_t{},
-        [it](winrt::Windows::Foundation::IInspectable const& sender, auto const&) {
-            g_loadedRevokers.erase(it);
-            if (g_unloading) return;
-            auto fe = sender.try_as<FrameworkElement>();
-            if (!fe) return;
-            if (winrt::get_class_name(fe) == L"SystemTray.IconView" &&
-                fe.Name() == L"SystemTrayIcon") {
-                if (!g_syntheticGrid) {
-                    auto xamlRoot = fe.XamlRoot();
-                    if (xamlRoot) {
-                        auto root = xamlRoot.Content().try_as<FrameworkElement>();
-                        if (root) InjectSyntheticIcons(root);
+        g_loadedRevokers.emplace_back();
+        auto it = g_loadedRevokers.end(); --it;
+        *it = iconView.Loaded(winrt::auto_revoke_t{},
+            [it](winrt::Windows::Foundation::IInspectable const& sender, auto const&) {
+                try {
+                    g_loadedRevokers.erase(it);
+                    if (g_unloading) return;
+                    auto fe = sender.try_as<FrameworkElement>();
+                    if (!fe) return;
+                    if (winrt::get_class_name(fe) == L"SystemTray.IconView" &&
+                        fe.Name() == L"SystemTrayIcon") {
+                        if (g_taskbarRestarted.load()) {
+                            ApplyOnTaskbarThread();
+                        } else if (!g_syntheticGrid) {
+                            auto xamlRoot = fe.XamlRoot();
+                            if (xamlRoot) {
+                                auto root = xamlRoot.Content().try_as<FrameworkElement>();
+                                if (root) InjectSyntheticIcons(root);
+                            }
+                        }
+                        ApplyPrivacyIndicatorBehavior(fe);
                     }
+                } catch (...) {
+                    LogCurrentUiException(L"IconView Loaded callback");
                 }
-                ApplyPrivacyIndicatorBehavior(fe);
-            }
-        });
+            });
+    } catch (...) {
+        LogCurrentUiException(L"IconView constructor hook");
+    }
 
     return ret;
 }
@@ -3500,6 +4113,8 @@ static bool HookTaskbarDllSymbols() {
           &TaskbarHost_FrameHeight_Original },
         { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
           &std__Ref_count_base__Decref_Original },
+        { {LR"(public: virtual void __cdecl TrayUI::StartTaskbar(void))"},
+          &TrayUI_StartTaskbar_Original, TrayUI_StartTaskbar_Hook },
     };
     return WindhawkUtils::HookSymbols(
         h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
@@ -3779,9 +4394,7 @@ void Wh_ModUninit() {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {
         RunFromWindowThread(hWnd, [](void*) {
-            g_loadedRevokers.clear();
-            ClearPrivacyStates();
-            RemoveSyntheticIcons();
+            RemoveModUi();
         }, nullptr);
     } else {
         // No taskbar window means there is no known UI thread on which XAML
@@ -3808,9 +4421,10 @@ void Wh_ModSettingsChanged() {
 
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return;
-    RunFromWindowThread(hWnd, [](void*) {
-        ClearPrivacyStates();
-        RemoveSyntheticIcons();
-        ApplyStyle();
-    }, nullptr);
+    RunFromWindowThread(hWnd, [](void* parameter) {
+        HWND window = static_cast<HWND>(parameter);
+        if (!GetTaskbarXamlRoot(window)) return;
+        RemoveModUi();
+        ApplyOnTaskbarThread();
+    }, hWnd);
 }

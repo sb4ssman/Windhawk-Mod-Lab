@@ -1,4 +1,6 @@
-// Copy-source template v1.1: Windows 11 taskbar XAML lifecycle.
+// Copy-source template v1.2: Windows 11 taskbar XAML lifecycle.
+// v1.2: contain every UI-dispatch exception at the WH_CALLWNDPROC boundary
+// and verify a live XAML root before settings-change removal/reapply.
 //
 // Adapter contract: implement ApplyModUi() and RemoveModUi() below. Both are
 // always called synchronously on the taskbar window thread. ApplyModUi returns
@@ -9,6 +11,7 @@
 #include <winrt/Windows.UI.Xaml.h>
 
 #include <atomic>
+#include <exception>
 #include <vector>
 
 #include <windhawk_utils.h>
@@ -93,16 +96,43 @@ static HWND FindCurrentProcessTaskbarWnd() {
 
 using WindowThreadProc = void (*)(void*);
 
+static void LogCurrentUiException(PCWSTR context) noexcept {
+    try {
+        throw;
+    } catch (winrt::hresult_error const& error) {
+        Wh_Log(L"[Lifecycle] %s failed hr=0x%08X: %s", context,
+               static_cast<unsigned>(error.code().value),
+               error.message().c_str());
+    } catch (std::exception const&) {
+        Wh_Log(L"[Lifecycle] %s failed with a C++ exception", context);
+    } catch (...) {
+        Wh_Log(L"[Lifecycle] %s failed with an unknown exception", context);
+    }
+}
+
+static bool InvokeWindowThreadProc(WindowThreadProc proc, void* parameter) {
+    try {
+        proc(parameter);
+        return true;
+    } catch (...) {
+        LogCurrentUiException(L"UI callback");
+    }
+    return false;
+}
+
 static bool RunFromWindowThread(HWND window, WindowThreadProc proc,
                                 void* parameter) {
     static UINT message = RegisterWindowMessageW(
         L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
-    struct Dispatch { WindowThreadProc proc; void* parameter; };
+    struct Dispatch {
+        WindowThreadProc proc;
+        void* parameter;
+        bool succeeded = false;
+    };
     DWORD threadId = GetWindowThreadProcessId(window, nullptr);
     if (!threadId) return false;
     if (threadId == GetCurrentThreadId()) {
-        proc(parameter);
-        return true;
+        return InvokeWindowThreadProc(proc, parameter);
     }
 
     HHOOK hook = SetWindowsHookExW(
@@ -114,7 +144,8 @@ static bool RunFromWindowThread(HWND window, WindowThreadProc proc,
                     L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
                 if (call->message == dispatchMessage) {
                     auto dispatch = reinterpret_cast<Dispatch*>(call->lParam);
-                    dispatch->proc(dispatch->parameter);
+                    dispatch->succeeded = InvokeWindowThreadProc(
+                        dispatch->proc, dispatch->parameter);
                 }
             }
             return CallNextHookEx(nullptr, code, wParam, lParam);
@@ -125,7 +156,7 @@ static bool RunFromWindowThread(HWND window, WindowThreadProc proc,
     Dispatch dispatch{proc, parameter};
     SendMessageW(window, message, 0, reinterpret_cast<LPARAM>(&dispatch));
     UnhookWindowsHookEx(hook);
-    return true;
+    return dispatch.succeeded;
 }
 
 static XamlRoot GetTaskbarXamlRoot(HWND taskbarWindow) {
@@ -317,11 +348,13 @@ void Wh_ModSettingsChanged() {
     HWND window = g_templateTaskbarWnd ? g_templateTaskbarWnd
                                        : FindCurrentProcessTaskbarWnd();
     if (window) {
-        RunFromWindowThread(window, [](void*) {
+        RunFromWindowThread(window, [](void* parameter) {
+            HWND window = static_cast<HWND>(parameter);
+            if (!GetTaskbarXamlRoot(window)) return;
             RemoveModUi();
             g_templateApplied = false;
             ApplyOnTaskbarThread();
-        }, nullptr);
+        }, window);
     }
 }
 

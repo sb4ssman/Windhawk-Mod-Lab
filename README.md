@@ -10,7 +10,7 @@ double-height taskbars with room for two-row tray controls.
 | Folder | Status | Description |
 |--------|--------|-------------|
 | [omnibutton-customizer/](omnibutton-customizer/) | v1.0, in development | Configurable grid layout for the Windows 11 OmniButton: wifi, volume, battery, and battery percentage |
-| [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.9, in development | Keeps location, microphone, camera, and Copilot status placeholders visible in the tray to prevent layout shifts |
+| [privacy-indicator-anchor/](privacy-indicator-anchor/) | v0.9, in development | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
 | [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, in development | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7, submitted in PR #4485 | Compact taskbar buttons that open configured Shell targets as popup menus with classic Shell context menus and subfolder navigation |

@@ -13,7 +13,8 @@ comment, and adapt only through the documented settings or callback contract.
 | `smart-grid-layout.h` | Row, column, fixed-grid, and smart-grid calculation plus short-group placement |
 | `button-surface.h` | Hex/accent colors, native-default clearing, hover/pressed resources, border, opacity, and shine |
 | `injected-grid-column.h` | Reversible `SystemTrayFrameGrid` column insertion with marker-based cleanup |
-| `taskbar-xaml-lifecycle.template.cpp` | Taskbar-thread dispatch, guarded XAML-root access, `TrayUI::StartTaskbar`, and bounded retry lifecycle |
+| `start-placement.h` | Experimental owned-group placement immediately left or right of Start with reversible task-item reservation |
+| `taskbar-xaml-lifecycle.template.cpp` | Taskbar-thread dispatch with exception containment, guarded XAML-root access, `TrayUI::StartTaskbar`, and bounded retry lifecycle |
 | `placement-contract.md` | Future cross-mod placement vocabulary, ownership rules, and placement lease design |
 | `six-mod-settings-audit.md` | Evidence matrix for the six active visual mods |
 | `submission-checklist.md` | Documentation parity, screenshot coverage, version, compile, and live-test gate |
@@ -58,6 +59,13 @@ visual settings family.
    lifetime. Release them explicitly on the taskbar UI thread for controlled
    unload, and retain them when no UI thread can be reached during process
    teardown.
+10. Treat every taskbar UI callback as an exception boundary. Keep the v1.2
+    `RunFromWindowThread` dispatcher verbatim, catch WinRT/C++ exceptions in
+    native hooks and XAML event/property callbacks, and verify a live XAML root
+    before removing or reapplying UI during startup and settings changes.
+11. Start-adjacent placement is a separate extension from tray-column
+    injection. Copy `start-placement.h` as a complete block, use it only for an
+    owned group, and release its lease before destroying the group.
 
 ## Update workflow
 

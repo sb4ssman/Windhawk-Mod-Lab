@@ -47,6 +47,21 @@ Use for an independently injected tray group.
 Only advertise anchors the implementation supports. Start-adjacent and overlay
 positions belong to the StartPlacement extension, not the base profile.
 
+### StartPlacement extension
+
+Append these options only when the mod copies `start-placement.h` and owns the
+entire group being placed:
+
+```yaml
+  - leftOfStart: Left of Start (experimental)
+  - rightOfStart: Right of Start (experimental)
+```
+
+These positions reserve room in the centered taskbar-items area rather than a
+system-tray column. They are experimental because the internal Start/RootGrid
+layout can change between Windows builds and can conflict with another mod
+that repositions Start.
+
 ## Group layout
 
 Use for a repeated set of items. `availableRows` is calculated by code from the

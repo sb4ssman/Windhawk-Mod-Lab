@@ -2,7 +2,8 @@
 
 Audited against the active sources on 2026-07-16.
 Tray Utility column re-audited 2026-07-19 against v0.4 (full template adoption:
-smart-grid-layout.h v1.0 + injected-grid-column.h v1.1).
+smart-grid-layout.h v1.0 + injected-grid-column.h v1.2). Privacy Anchor was
+re-audited 2026-07-19 after its full grid, column, and lifecycle adoption.
 
 Legend: `yes` means canonical/current; `legacy` means a published or truthful
 different name; `partial` means the capability exists with fewer modes; `n/a`
@@ -11,9 +12,9 @@ means the profile does not belong to the mod.
 | Capability | VD Switcher | Folder Menus | Privacy Anchor | OmniButton | Tray Utility | Clock Spacer |
 |---|---|---|---|---|---|---|
 | Owner model | injected group + Start overlay | injected group | injected icon group | native mutation | native relocation | native text mutation |
-| `position` | yes, extended | yes | yes | native | yes | native |
-| Smart layout | full balanced/vertical/horizontal | balanced/vertical/horizontal | missing | existing automatic geometry | balanced/vertical/horizontal | n/a |
-| Rows | `buttonRows` legacy | `gridRows` | missing | `gridRows` | `gridRows` | n/a |
+| `position` | yes, extended | yes | yes, extended | native | yes | native |
+| Smart layout | full balanced/vertical/horizontal | balanced/vertical/horizontal | full balanced/vertical/horizontal | existing automatic geometry | balanced/vertical/horizontal | n/a |
+| Rows | `buttonRows` legacy | `gridRows` | `gridRows` | `gridRows` | `gridRows` | n/a |
 | Columns | `buttonColumns` legacy | `gridColumns` | `gridColumns` | `gridColumns` | `gridColumns` | n/a |
 | `fillOrder` | yes | yes | yes | yes | yes | n/a |
 | `shortGroupPosition` | trailing only | yes | yes | trailing only | yes | n/a |
@@ -31,9 +32,9 @@ means the profile does not belong to the mod.
 | Border/radius | yes | yes | n/a | native | native | n/a |
 | Opacity | `buttonOpacity` legacy | `opacity` | idle/glow/slash | per-color animation | native | text styles |
 | Shine | yes | yes | n/a | gradient endpoints | n/a | n/a |
-| Accent keyword | yes | yes | RGB fields | missing | n/a | text-style parser |
-| Reversible insertion marker | named root + live column | named root + live column | named root + live column | n/a | template column lease + snapshots | n/a |
-| Startup trigger | IconView + retry | TrayUI + retry | three-DLL IconView + retry | IconView + retry | Loaded hooks + retry | upstream-specific hooks |
+| Accent keyword | yes | yes | yes | missing | n/a | text-style parser |
+| Reversible insertion marker | named root + live column | named root + live column | template column lease | n/a | template column lease + snapshots | n/a |
+| Startup trigger | IconView + retry | TrayUI + retry | TrayUI + three-DLL IconView + retry | IconView + retry | Loaded hooks + retry | upstream-specific hooks |
 
 ## Repeated settings evidence
 
@@ -112,21 +113,21 @@ slot order, generic defaults, teardown clears, readme sync verified).
 
 ### Privacy Indicator Anchor
 
-- Teardown: GAP (same class as the folder-menus crash, lower severity).
-  Property-changed callbacks on native elements are unregistered ✓, but the
-  injected synthetic icons carry boxed-hstring tooltips
-  (`ToolTipService::SetToolTip(fe, box_value(...))`) that are NOT cleared
-  before `Children().RemoveAt`. Add a tooltip-clear pass at the top of
-  `RemoveSyntheticIcons`. Also: `g_loadedRevokers.clear()` runs off the UI
-  thread in `Wh_ModUninit` — move inside the `RunFromWindowThread` lambda to
-  match the other mods.
-- Colors: NONCONFORMANT twice — (a) `activeColorEnabled` + `activeColorR/G/B`
-  integer triplet should become a single `activeColor` string (hex/generics;
-  empty = current default behavior); (b) `slashColor` takes bare hex WITHOUT
-  `#` — adopt the canonical parser. Mod is unpublished, so no compat aliases
-  needed.
-- Settings: grid family canonical ✓ (`itemOrder`, `gridColumns`, `fillOrder`,
-  `shortGroupPosition`, `shortGroupAlign`).
+- Lifecycle: v1.2 adopted. Namespace-scope XAML/WinRT owners use intentional
+  `[[clang::no_destroy]]`; controlled cleanup stays on the taskbar UI thread;
+  no-taskbar teardown retains state; dispatch, native hooks, and XAML callbacks
+  contain exceptions; cleanup/reapply requires a live XAML root.
+- Insertion: `injected-grid-column.h` v1.2 copied verbatim, including
+  span-aware after-anchor resolution and no silent column-zero fallback.
+- Start placement: `start-placement.h` v1.0 copied verbatim for experimental
+  Left/Right of Start positions and reversible task-item reservation.
+- Colors: conformant icon-surface variant. The parser returns `Color` rather
+  than `Brush`, with the canonical hex/accent/transparent tokens and empty
+  native-foreground behavior.
+- Settings: canonical host-injection order and full grid family ✓ (`gridMode`,
+  `smartLayout`, `gridRows`, `gridColumns`, `fillOrder`,
+  `shortGroupPosition`, `shortGroupAlign`). Advanced camera monitoring and
+  native-indicator suppression are last.
 
 ### Template additions made this pass
 
@@ -152,7 +153,7 @@ Privacy Indicator Anchor's restart-time Explorer crashes exposed a second,
 distinct teardown contract: Explorer process shutdown does not guarantee
 `Wh_ModUninit`, so CRT destruction of namespace-scope XAML/WinRT owners can run
 after `Windows.UI.Xaml` teardown and off the taskbar UI thread. The lifecycle
-template is now v1.1 and requires intentional `[[clang::no_destroy]]` lifetime
+template v1.1 introduced intentional `[[clang::no_destroy]]` lifetime
 for necessary non-trivial globals, explicit UI-thread cleanup during controlled
 unload, and retention rather than off-thread cleanup when no taskbar window can
 be reached. `_templates/exit-time-destructor-audit.ps1` turns Clang's
@@ -162,7 +163,10 @@ Adopter audit result: Folder Menus and Clock Spacer already protect their XAML
 owners, though Folder Menus still has non-XAML destructible globals to classify
 before its next update. Privacy Anchor was fixed in this pass. VD Switcher,
 OmniButton Customizer, and Tray Utility Customizer still have unprotected XAML
-owners/revokers and must adopt the v1.1 contract before their next PR update.
+owners/revokers and must adopt the lifetime contract before their next PR
+update. Privacy Anchor then exposed a separate uncaught-startup-exception path;
+v1.2 adds exception containment at the window-hook boundary and a live-root
+guard before removal/reapply.
 
 ## Remaining differences to resolve gradually
 
