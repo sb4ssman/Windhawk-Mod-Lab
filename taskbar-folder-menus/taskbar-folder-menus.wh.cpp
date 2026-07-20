@@ -2316,12 +2316,13 @@ static void* WINAPI IconView_IconView_Hook(void* pThis) {
 }
 
 static bool HookSystemTraySymbols(HMODULE module) {
-    WindhawkUtils::SYMBOL_HOOK hooks[] = {{
+    WindhawkUtils::SYMBOL_HOOK systemTrayDllHooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original,
         IconView_IconView_Hook,
     }};
-    return WindhawkUtils::HookSymbols(module, hooks, ARRAYSIZE(hooks));
+    return WindhawkUtils::HookSymbols(
+        module, systemTrayDllHooks, ARRAYSIZE(systemTrayDllHooks));
 }
 
 using LoadLibraryExW_t = HMODULE (WINAPI*)(LPCWSTR, HANDLE, DWORD);
