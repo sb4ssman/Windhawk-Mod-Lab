@@ -822,3 +822,7 @@ at most four checks per second.
   symbol-hook variable names — renamed to systemTrayDllHooks and used the
   "// taskbar.dll" comment form for the StartTaskbar hook. All CI green:
   validation + 1.6.1/1.7.3/2.0.0-alpha.1 compile matrix.
+- Recorded the durable submission-preflight rules in .agents/README.md:
+  module-named symbol-hook variables (or module comment above), the required
+  "## Mod authorship" PR-body section and its push-time evaluation, the local
+  Windhawk clang syntax check, and the established PR body format.

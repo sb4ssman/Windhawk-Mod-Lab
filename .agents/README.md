@@ -96,6 +96,23 @@ least one clean, ordinary single-height taskbar example and one useful
 double-height/elaborate configuration. The gallery should demonstrate the main
 purpose and a few meaningful configurations, not every possible setting.
 
+## Submission preflight (learned from the 2026-07-19 submissions)
+
+- The upstream PR validator requires `SYMBOL_HOOK` variable names to indicate
+  the target module (e.g. `taskbarDllHooks`, `systemTrayDllHooks`), or a
+  comment naming the module(s) directly above the array
+  (`// taskbar.dll` / `// SystemTray.dll, Taskbar.View.dll`). Anything else
+  fails CI.
+- The PR body must keep the template's "## Mod authorship" section
+  (submitter-with-AI-assistance + Claude for this lab). The validator reads
+  the body at push time — a body edited after the push needs a new push (or
+  re-run) to clear the warning.
+- Syntax-check locally before pushing with the bundled Windhawk clang:
+  knowledge/lab-local-compile-check.md.
+- PR bodies follow the established format: feature paragraph + highlights +
+  screenshots + tested-live summary + Changelog + Mod authorship (see PRs
+  #4841/#4843/#4443).
+
 ## Repo shape
 
 Each mod lives in its own lowercase subdirectory. A mod folder may have its own
