@@ -6,11 +6,11 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-Five mods to prepare. Immediate execution order from the user (2026-07-19):
-OmniButton → Privacy Anchor. Folder Menus is ready for an explicitly authorized
-PR sync; Clock Spacer is deferred behind the active fixes; VD Switcher is
-follow-up feature work. No submissions until each works as described with
-current docs/screenshots (standing directives in README.md).
+Privacy Anchor was submitted 2026-07-19 with explicit user approval (PR
+#4843). Remaining active work: OmniButton (broken, needs logs). Folder Menus
+is submitted and awaiting review; Clock Spacer is deferred; VD Switcher is
+follow-up feature work. No further submissions until each works as described
+with current docs/screenshots (standing directives in README.md).
 
 1. **Taskbar Clock Spacer** — DEFERRED behind Folder Menus/OmniButton/Privacy.
    v1.1 FAILED first live round (2026-07-19,
@@ -76,92 +76,29 @@ current docs/screenshots (standing directives in README.md).
      favor of the customizer; if refused, the 5 review comments need a response
      commit (archive: knowledge/pr-review-comments.md)
 
-5. **Privacy Indicator Anchor** — ACTIVE FINAL LIVE TEST.
-   User isolated frequent post-restart Explorer/Windhawk recovery to this mod
-   on 2026-07-19. Windows Error Reporting confirms repeated `explorer.exe`
-   access violations in `Windows.UI.Xaml.dll` (`0xc0000005`, identical offset
-   `0x24c62f`) while `local@tray-privacy-indicator-anchor_0.9_621759.dll` is
-   loaded. Source audit found the matching lifecycle defect: the namespace-
-   scope synthetic `Grid`/`FrameworkElement` owners, `g_privacyStates`, and
-   `g_loadedRevokers` are destructible globals. During process shutdown,
-   Windhawk does not guarantee `Wh_ModUninit`, so their destructors can release
-   XAML/WinRT objects after XAML teardown and off the UI thread. This is the
-   same proven crash class previously fixed in Folder Menus.
-   - [x] Fix all namespace-scope XAML/WinRT owners with intentional
-         `[[clang::no_destroy]]` lifetime, retaining explicit UI-thread cleanup
-         for controlled mod unload/settings changes
-   - [x] Remove the unsafe no-taskbar fallback in `Wh_ModUninit` that directly
-         clears revokers and XAML state off the UI thread; intentionally retain
-         the no-destroy holders if no taskbar UI thread can be reached
-   - [x] First restart regression test FAILED 2026-07-19. The old XAML AV did
-         not recur; the fresh failure is an uncaught MinGW/C++ exception
-         (`0x20474343`) surfaced through `KERNELBASE.dll`.
-   - [x] Fix the dump-proven startup chain: removed `Application::Current`,
-         stopped clearing from repainting absent synthetic UI, requires a live
-         XAML root before cleanup/reapply, and contains exceptions at all native
-         and XAML callback boundaries.
-   - [x] Full system restart survived with the crash fix on 2026-07-19.
-   - [ ] Re-test one Explorer or system restart with the final Start-placement
-         build and confirm Event Viewer has neither the old XAML AV nor
-         `0x20474343`.
-   The camera worker is not implicated by the fresh dump. Source compilation,
-   the exit-time-destructor gate, and upstream source validation still pass.
-   Full applicable template adoption is complete: Smart Grid v1.0,
-   injected-grid-column v1.2, lifecycle dispatcher v1.2, canonical settings,
-   and StartPlacement v1.0 are verbatim. Complete submission preflight,
-   including the current upstream validator, passes.
-   Do not treat the visual-state implementation or the 2026-07-19 metadata fix
-   as completion. Mostly
-   working as of 2026-07-18 user tests:
-   copilot slash now sticks (WebExperience false-positive fixed), slash default
-   flipped to falling (`\`), native active-mic suppression CONFIRMED working
-   with correct mirrored state, in-use lighting confirmed (fires on actual
-   streaming only — ConsentStore records are written on stream, not open).
-   The camera slash is now LIVE-CONFIRMED: it responds to the physical switch.
-   Microsoft treats idle-camera occlusion as advisory, so the refined tooltip
-   says "likely blocked" until Windows also reports active camera use.
-   - [ ] Live-test the evidence-specific tooltip text for all four icons,
-         especially Copilot's new transparent slot hit target
-   - [ ] Click each icon and confirm the reason-aware Settings destination:
-         location privacy; mic privacy/default input; camera privacy/device;
-         Copilot taskbar/installed apps
-   - [ ] Toggle `cameraHardwareDetection` off/on and remove/re-add `camera` in
-         `itemOrder`; confirm the controller releases/reopens without an
-         Explorer restart and only one monitor remains active
-   - [ ] Confirm the persistent `SharedReadOnly` monitor does not turn on the
-         webcam LED or create a permanent webcam-usage record by itself.
-   - [ ] Confirm the Fn-key mic state is labeled "Endpoint muted" rather than
-         "Hardware disabled" and that Windows privacy denial gets a distinct
-         access-denied reason
-   - [ ] Keep frame-signature inference only as an opt-in fallback experiment
-         for cameras whose drivers do not support `CameraHardware` occlusion.
-   - [x] Live-test the new event-driven state worker: location, mic, camera,
-         permission, and hardware-shutter states all produced the expected UI.
-         Some camera/location/mic responses remain naturally delayed, but the
-         removed three-second global sweep has not been needed for correctness.
-   - [ ] Live-test the four-state visual polish: idle, active, unavailable, and
-         active-while-unavailable. Compare steady/pulse/radiate at low and high
-         intensity, and confirm radiation never changes tray width.
-   - [x] Smart Grid uses the full canonical six-mode settings and verbatim
-         template algorithm
-   - [ ] Live-test `leftOfStart` and `rightOfStart`, then switch back to a tray
-         position and confirm Start/task-item placement restores exactly
-   - [ ] If user's saved `slashDirection` is still "rising" from the old
-     default, one dropdown click to Falling fixes it
-   - [x] Embedded↔folder readme unification
-   - [x] All ten PNG screenshots examined and included in both README layers,
-         including glow, blocked-active, Smart Grid, and all four tooltips
-   - [ ] COMMIT + PUSH the four new tooltip PNGs (camera/copilot/mic/
-         location-tooltip-and-win-settings) — they are untracked, so every
-         raw.githubusercontent URL for them 404s (screenshot-audit 2026-07-19).
-         The other six assets are already on origin/main.
+5. **Privacy Indicator Anchor** — v1.0 SUBMITTED 2026-07-19 (PR #4843).
+   Branch add-tray-privacy-indicator-anchor on the fork, based on current
+   upstream/main; user approved the submission. Development history is in the
+   work log (2026-07-19 entries).
+   - [ ] Watch PR #4843 CI (validation + compile matrix) and maintainer review
+   - [ ] LIVE-TEST start-placement v1.1 (2026-07-19 geometry fix, UNTESTED at
+         submission; positions are labeled experimental): v1.0 pinned Start to
+         a stale absolute X and put the leftOfStart group at the taskbar's
+         left edge; v1.1 positions relative to Start's live layout X with a
+         constant counter-shift chosen by visual-tree containment in
+         TaskbarFrameRepeater. Test both sides, center- and left-aligned
+         taskbars, apps opening/closing, then switch back to a tray position
+         and confirm exact restore.
+   - [ ] Remaining live checks (non-blocking follow-ups): restart regression on
+         the final build (no XAML AV, no `0x20474343`); cameraHardwareDetection
+         toggle + camera itemOrder removal releases/reopens the controller; the
+         SharedReadOnly monitor never lights the webcam LED or writes a usage
+         record; Fn-key mic reads "Muted - endpoint", privacy denial reads
+         access-denied; four-state visual polish and glow styles
    - [ ] Consider retaking `location-mic-availble-not-in-use.png` — only idle
          screenshot, dated May 9 (old build, filename typo "availble")
-   - [ ] Pre-PR: decide what to do with the embedded readme's `## Files` and
-         `## Status` sections — relative links/lab language don't belong on
-         windhawk.net (Folder Menus precedent has neither section)
-   - [ ] After final live confirmation, bump v0.9 to PR-ready v1.0 and prepare
-         the current-upstream one-file PR branch/body
+   - [ ] Frame-signature inference stays an opt-in fallback experiment only,
+         for cameras without `CameraHardware` occlusion support
    - Design/reference: knowledge/privacy-anchor-design-notes.md,
      `_research/privacy-indicator-anchor-design.md`
 
@@ -176,6 +113,10 @@ history is in the work log (2026-07-19 entries).
 - [ ] Before any PR update, adopt lifecycle template v1.1: the destructor audit
       found unprotected XAML owners, revokers, snapshots/watchers, and timer
       state. Do not update the submitted PR without explicit user approval.
+- [ ] Also adopt start-placement template v1.1 at that time: TUC still carries
+      the pre-template inline copy (`PositionStartGroup`) with the same v1.0
+      geometry defects fixed in privacy-anchor on 2026-07-19 (stale absolute
+      anchor, leftOfStart pinned to taskbar edge).
 - [ ] Lab repo has post-push edits to commit: @version 0.5→1.0 bump (with
       matching init-log line) + root README status row
 - [ ] `assets/part-of-a-mess.png` (June leftover) is unreferenced — archive
@@ -186,9 +127,9 @@ history is in the work log (2026-07-19 entries).
       shipping without the curated `_templates/` profiles (settings names,
       order, smart grid). Every mod touched must be checked against
       `_templates/settings-profiles.md` + `six-mod-settings-audit.md` before
-      screenshots/PR. Remaining known gaps: privacy-indicator-anchor (smart
-      grid settings not exposed/working per user), folder-menus (smart grid
-      broken). tray-utility-customizer RESOLVED 2026-07-19 (submitted v1.0).
+      screenshots/PR. Remaining known gap: folder-menus (smart grid broken).
+      tray-utility-customizer and privacy-indicator-anchor RESOLVED 2026-07-19
+      (both submitted at v1.0 with full canonical profiles).
 - [ ] taskmanager-tail README: user decision needed on unification direction
       (published mod; folder README is standalone-repo style)
 - [ ] windhawk-mods PR update script (pull upstream → copy .wh.cpp →

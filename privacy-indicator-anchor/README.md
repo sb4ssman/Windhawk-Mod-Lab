@@ -23,9 +23,10 @@ The same four indicators in a compact Smart Grid layout:
 
 ![All four unavailable indicators in a compact grid](assets/all-4-disabled-grid.png)
 
-Microphone and camera activity highlighted in red:
+Activity highlighted in red — the microphone in use, and the slashed camera
+reporting attempted use while its hardware switch blocks it:
 
-![Active microphone and camera highlighted in red](assets/camera-mic-in-use-highlighted.png)
+![Active microphone in red beside a red slashed camera blocked by its hardware switch](assets/camera-mic-in-use-highlighted.png)
 
 The active glow treatment provides a more emphatic alternative:
 
@@ -134,22 +135,10 @@ For a deliberately striking treatment, start with `glowStyle: radiate`,
 `glowOpacity: 85`, `glowSize: 260`, and `glowSpeed: 850`, then choose an
 `activeColor`/`glowColor` that fits the rest of the taskbar theme.
 
-## Files
-
-- [privacy-indicator-anchor.wh.cpp](privacy-indicator-anchor.wh.cpp) - Windhawk mod source
-- [privacy-trigger-test.html](privacy-trigger-test.html) - local browser test page for triggering privacy states
-- [privacy-trigger-server.ps1](privacy-trigger-server.ps1) - helper server for the test page
-- [privacy-diag.ps1](privacy-diag.ps1) - diagnostic helper for privacy/device state
-- [archive/](archive/) - earlier experiments
-- [assets/](assets/) - visual/test assets
-
-## Status
-
-Version `0.9` is still in lab development. Camera hardware-switch detection and
-the Copilot indicator are experimental because Windows exposes those states
-differently across devices and builds.
-
 ## Notes
+
+Camera hardware-switch detection and the Copilot indicator are experimental
+because Windows exposes those states differently across devices and builds.
 
 Camera activity is detected from Windows webcam-usage records and any mirrored
 native privacy state. Hardware camera blocking uses Windows 11
@@ -182,6 +171,3 @@ Copilot opens taskbar or installed-app settings.
 `suppressNativeIndicators` defaults to `1` so the mod hides Windows' own pop-in
 privacy indicators and mirrors state into the stable placeholders. Set it to `0`
 temporarily when comparing against Windows' native tray glyphs during testing.
-
-Run `privacy-diag.ps1 -Watch` while flipping hardware privacy switches to see
-compact microphone and camera state changes without restarting the full report.

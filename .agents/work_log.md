@@ -752,3 +752,24 @@ at most four checks per second.
   `git diff --check`, and the networked upstream Windhawk validator all pass.
   Final readiness now depends on live testing the two new positions and the
   concise teardown/action/monitor checklist; version remains v0.9 meanwhile.
+
+## 2026-07-19 — Privacy Anchor screenshots, start-placement v1.1, v1.0 submission (PR #4843)
+
+- Screenshot audit found the four tooltip PNGs referenced but never committed
+  (raw GitHub URLs 404ed); the user committed and pushed all ten. All images
+  visually verified against their captions; the red-highlight caption was
+  corrected to name the blocked-while-active camera.
+- Pruned both README layers for submission: removed `## Files`, `## Status`,
+  and the `privacy-diag.ps1` note; folded the experimental camera/Copilot
+  sentence into `## Notes`. Layers verified byte-identical modulo raw URLs.
+- Diagnosed the broken `leftOfStart`/`rightOfStart` geometry: v1.0 of
+  `_templates/start-placement.h` pinned Start to a stale absolute X captured
+  at Acquire and placed the Left group at the taskbar's left edge. Wrote
+  template v1.1: group positioned relative to Start's live layout X each
+  layout pass; constant Start counter-shift selected by visual-tree
+  containment of Start in TaskbarFrameRepeater. Copied verbatim into the mod.
+  Tray-utility-customizer still carries the pre-template inline copy with the
+  v1.0 defects (noted for its next approved PR update). v1.1 is UNTESTED live.
+- With explicit user approval, bumped @version 0.9 → 1.0 and submitted PR
+  #4843 (branch add-tray-privacy-indicator-anchor, based on upstream/main
+  7babeba1) with the TUC-style authorship body. Root README row updated.

@@ -2,7 +2,7 @@
 // @id              tray-privacy-indicator-anchor
 // @name            Tray Privacy Indicator Anchor
 // @description     Permanently shows location/microphone/camera/Copilot icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
-// @version         0.9
+// @version         1.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -37,9 +37,10 @@ The same four indicators in a compact Smart Grid layout:
 
 ![All four unavailable indicators in a compact grid](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/all-4-disabled-grid.png)
 
-Microphone and camera activity highlighted in red:
+Activity highlighted in red — the microphone in use, and the slashed camera
+reporting attempted use while its hardware switch blocks it:
 
-![Active microphone and camera highlighted in red](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/camera-mic-in-use-highlighted.png)
+![Active microphone in red beside a red slashed camera blocked by its hardware switch](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/camera-mic-in-use-highlighted.png)
 
 The active glow treatment provides a more emphatic alternative:
 
@@ -148,22 +149,10 @@ For a deliberately striking treatment, start with `glowStyle: radiate`,
 `glowOpacity: 85`, `glowSize: 260`, and `glowSpeed: 850`, then choose an
 `activeColor`/`glowColor` that fits the rest of the taskbar theme.
 
-## Files
-
-- [privacy-indicator-anchor.wh.cpp](privacy-indicator-anchor.wh.cpp) - Windhawk mod source
-- [privacy-trigger-test.html](privacy-trigger-test.html) - local browser test page for triggering privacy states
-- [privacy-trigger-server.ps1](privacy-trigger-server.ps1) - helper server for the test page
-- [privacy-diag.ps1](privacy-diag.ps1) - diagnostic helper for privacy/device state
-- [archive/](archive/) - earlier experiments
-- [assets/](assets/) - visual/test assets
-
-## Status
-
-Version `0.9` is still in lab development. Camera hardware-switch detection and
-the Copilot indicator are experimental because Windows exposes those states
-differently across devices and builds.
-
 ## Notes
+
+Camera hardware-switch detection and the Copilot indicator are experimental
+because Windows exposes those states differently across devices and builds.
 
 Camera activity is detected from Windows webcam-usage records and any mirrored
 native privacy state. Hardware camera blocking uses Windows 11
@@ -196,9 +185,6 @@ Copilot opens taskbar or installed-app settings.
 `suppressNativeIndicators` defaults to `1` so the mod hides Windows' own pop-in
 privacy indicators and mirrors state into the stable placeholders. Set it to `0`
 temporarily when comparing against Windows' native tray glyphs during testing.
-
-Run `privacy-diag.ps1 -Watch` while flipping hardware privacy switches to see
-compact microphone and camera state changes without restarting the full report.
 */
 // ==/WindhawkModReadme==
 
@@ -846,12 +832,13 @@ namespace lease_column = windhawk_mod_templates::injected_grid_column;
 
 // ============================================================
 // Start-adjacent owned group
-// Template block: _templates/start-placement.h v1.0 (verbatim copy — keep in
+// Template block: _templates/start-placement.h v1.1 (verbatim copy — keep in
 // sync with the template; Windhawk mods are single-file).
 // ============================================================
 
 namespace windhawk_mod_templates::start_placement {
 
+using winrt::Windows::UI::Xaml::DependencyObject;
 using winrt::Windows::UI::Xaml::FrameworkElement;
 using winrt::Windows::UI::Xaml::HorizontalAlignment;
 using winrt::Windows::UI::Xaml::Thickness;
@@ -876,7 +863,7 @@ struct Lease {
     FrameworkElement taskItemsPanel{nullptr};
     Thickness groupOriginalMargin{};
     Thickness taskItemsPanelOriginalMargin{};
-    double startButtonOriginalX = -1.0;
+    bool startInTaskItemsPanel = false;
     winrt::event_token layoutToken{};
     Side side = Side::Left;
     double spacing = 0.0;
@@ -951,17 +938,18 @@ inline bool Position(Lease& lease) noexcept {
         if (startHeight <= 0.0)
             startHeight = groupHeight;
 
+        // rawX is Start's live layout position with our own counter-shift
+        // backed out. It is re-read on every layout pass, so task-list churn
+        // on a center-aligned taskbar re-centers the group naturally.
         auto transform = lease.startButton.TransformToVisual(lease.rootGrid);
         auto point = transform.TransformPoint({0.0f, 0.0f});
         auto existingShift =
             lease.startButton.RenderTransform().try_as<TranslateTransform>();
         double currentShift = existingShift ? existingShift.X() : 0.0;
         double rawX = point.X - currentShift;
-        double anchorX = lease.startButtonOriginalX >= 0.0
-                             ? lease.startButtonOriginalX
-                             : rawX;
 
-        double push = groupWidth + std::max(0.0, lease.spacing);
+        double spacing = std::max(0.0, lease.spacing);
+        double push = groupWidth + spacing;
         if (lease.taskItemsPanel) {
             auto margin = lease.taskItemsPanel.Margin();
             double needed =
@@ -972,27 +960,38 @@ inline bool Position(Lease& lease) noexcept {
             }
         }
 
-        double left;
-        double desiredStartX;
-        if (lease.side == Side::Left) {
+        // The Start counter-shift is a constant per mode, not an absolute-
+        // anchor correction. When Start rides the repeater-margin push, room
+        // for a Left group already opens at the block's left edge (no shift),
+        // and a Right group needs Start pulled back so the gap opens between
+        // Start and the task items. When Start sits outside the repeater the
+        // roles invert: the pushed items leave the Right gap by themselves,
+        // and a Left group needs Start pushed out of the way instead.
+        double neededShift;
+        if (lease.side == Side::Left)
+            neededShift = lease.startInTaskItemsPanel ? 0.0 : push;
+        else
+            neededShift = lease.startInTaskItemsPanel ? -push : 0.0;
+        if (startHidden)
+            neededShift = 0.0;
+
+        if (std::fabs(neededShift) <= 0.5) {
+            if (existingShift || lease.startButton.RenderTransform())
+                lease.startButton.ClearValue(
+                    UIElement::RenderTransformProperty());
+        } else if (std::fabs(currentShift - neededShift) > 0.5) {
+            TranslateTransform startShift;
+            startShift.X(neededShift);
+            lease.startButton.RenderTransform(startShift);
+        }
+
+        // Place the group relative to where Start actually ends up.
+        double startFinalX = rawX + neededShift;
+        double left = lease.side == Side::Left
+                          ? startFinalX - groupWidth - spacing
+                          : startFinalX + startWidth + spacing;
+        if (left < 0.0)
             left = 0.0;
-            desiredStartX = anchorX + push;
-        } else {
-            left = anchorX + startWidth + std::max(0.0, lease.spacing);
-            desiredStartX = anchorX;
-        }
-        if (!startHidden) {
-            double neededShift = desiredStartX - rawX;
-            if (std::fabs(neededShift) <= 0.5) {
-                if (existingShift || lease.startButton.RenderTransform())
-                    lease.startButton.ClearValue(
-                        UIElement::RenderTransformProperty());
-            } else if (std::fabs(currentShift - neededShift) > 0.5) {
-                TranslateTransform startShift;
-                startShift.X(neededShift);
-                lease.startButton.RenderTransform(startShift);
-            }
-        }
 
         double top = point.Y + (startHeight - groupHeight) / 2.0;
         if (top < 0.0)
@@ -1077,13 +1076,20 @@ inline bool Acquire(FrameworkElement const& root, Grid const& group,
     if (lease.taskItemsPanel) {
         lease.taskItemsPanelOriginalMargin =
             lease.taskItemsPanel.Margin();
-    }
-    try {
-        auto transform = startButton.TransformToVisual(rootGrid);
-        lease.startButtonOriginalX =
-            transform.TransformPoint({0.0f, 0.0f}).X;
-    } catch (...) {
-        lease.startButtonOriginalX = -1.0;
+        // Whether Start rides the repeater-margin push is build-dependent.
+        // Resolve it from the visual tree instead of inferring from motion.
+        try {
+            auto panel = lease.taskItemsPanel.as<DependencyObject>();
+            for (auto node = startButton.as<DependencyObject>(); node;
+                 node = VisualTreeHelper::GetParent(node)) {
+                if (node == panel) {
+                    lease.startInTaskItemsPanel = true;
+                    break;
+                }
+            }
+        } catch (...) {
+            lease.startInTaskItemsPanel = false;
+        }
     }
 
     if (!Position(lease)) {
@@ -4151,7 +4157,7 @@ static void HandleLoadedModuleIfSystemTray(HMODULE module,
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Privacy Anchor v0.9");
+    Wh_Log(L"[Init] Privacy Anchor v1.0");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols()) {
