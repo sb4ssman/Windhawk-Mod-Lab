@@ -6,117 +6,78 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-Five submissions now awaiting maintainer review: Privacy Anchor (PR #4843),
-Clock Spacer v1.1 (PR #4443), Folder Menus (PR #4485), Tray Utility Customizer
-(PR #4841), and VD Switcher v1.8 (PR #4844) — all CI green, all submitted
-2026-07-19 with explicit user approval. Remaining active work: OmniButton
-(broken, needs logs). No further submissions until each works as described
-with current docs/screenshots (standing directives in README.md).
+**OmniButton Customizer is the active development target.** Its v1.0 source
+compiles and its README layers match, but the last live test is broken: coupled
+battery percentage is wrong and independent mode hides the battery glyph. The
+user confirmed that the Grid template is not implicated.
 
-1. **Taskbar Clock Spacer** — v1.1 SUBMITTED 2026-07-19 (PR #4443 updated),
-   CI GREEN. User live-tested and approved all three fix rounds. The branch
-   `add-taskbar-clock-spacer` was rebuilt as a single fresh commit on current
-   upstream/main (old base was ~248k deletions stale); PR title/body updated
-   with the v1.0→v1.1 changelog, companion-mod framing, and authorship
-   section. Validator required module-named symbol-hook variables
-   (systemTrayDllHooks + a "// taskbar.dll" comment form). PR validation and
-   the 1.6.1/1.7.3/2.0.0-alpha.1 compile matrix all pass. Watch for
-   maintainer review; no PR updates without explicit user approval.
-   - [ ] Optional: fresh screenshots for the PR/readme gallery (target.png is
-         a reference shot, not published)
-   - [ ] Close m417z/my-windhawk-mods PR #68 explicitly (still open; user
-         decided 2026-07-19 the integration attempt is finished)
-   - [ ] Optional residual live checks: Explorer-restart path and
-         mod-disable teardown; multiple `%s%` per line; `minSpacerWidth`
-   - Fix history and design rationale: work log 2026-07-19 entries.
-     Old experiments live in `_archive/` (clock-spacer v1.0 and the
-     TCC-integration copy; its PDH note is
-     knowledge/taskbar-clock-spacer-pdh-invalid-data.md).
+Template status (audited 2026-07-19):
 
-2. **Taskbar VD Switcher** — v1.8 SUBMITTED 2026-07-19 in PR #4844, CI GREEN.
-   Issue #4830 is resolved: custom active/inactive indicator symbols, separate
-   indicator/Task View font families, and real ToggleButton Checked/
-   CheckedPointerOver/CheckedPressed states. User live-tested and approved the
-   update and existing gallery reuse. PR branch is a clean one-file commit on
-   current upstream/main; validation and the 1.6.1/1.7.3/2.0.0-alpha.1 compile
-   matrix pass.
-   - [ ] Watch PR #4844 for maintainer review; no PR updates without explicit
-         user approval
-   - [ ] Verify the full-rebuild change also fixes issue #4784 (hover/hit-test)
-   - [ ] Test the experimental `multiMonitor` toggle (deferred: Explorer
-         restarts disrupt the user's desktop order)
+- Smart Grid v1.0: adopted; implementation body is an exact template match
+  (`<algorithm>` is already included earlier in the single-file mod).
+- Settings profile: canonical, capability-appropriate names and ordering.
+- Color tokens: canonical behavior is present through a Color-returning parser;
+  the Brush-returning button-surface template is not applicable because this
+  mod mutates native glyphs rather than owning a button surface.
+- XAML lifecycle v1.2: **not adopted**. The exit-time audit reports 14
+  destructible namespace-scope XAML/WinRT owners. Dispatch lacks the template's
+  exception boundary/live-root contract, and unload/settings fallbacks can
+  release XAML state off the taskbar UI thread.
+- Injected-column, Start-placement, button-surface, and placement-contract
+  templates: not applicable to the current feature set.
 
-3. **Taskbar Folder Menus** — v0.7 SUBMITTED 2026-07-19 in PR #4485, CI GREEN.
-   The PR branch is cleanly based on current upstream/main at commit `46f3301`.
-   PR validation and the Windhawk 1.6.1/1.7.3/2.0.0-alpha.1 compile matrix all
-   pass. User live-confirmed the replacement Smart Grid and restart persistence;
-   both README layers use all six current screenshots. Watch for maintainer
-   follow-up; do not update the PR again without explicit approval.
+Next work, in order:
 
-4. **OmniButton Customizer** — ACTIVE. BROKEN. Test round 3 failed 2026-07-17 (work
-   log): battery percent still wrong; independent mode hides the battery glyph
-   entirely. Grid template not implicated per user.
-   - [ ] FIRST: get Windhawk logs from the user's machine (`[Battery]`,
-         `[Layout]` lines) — no more static guessing
-   - [ ] Fix coupled percent + independent mode from that evidence
-   - [ ] Then grid retest (dual + single height), shortGroupPosition, colors
-   - [ ] Fresh screenshots (current ones are vertical-era), then PR
-   - PR #3859 (vertical-omnibutton): awaiting m417z response on retiring it in
-     favor of the customizer; if refused, the 5 review comments need a response
-     commit (archive: knowledge/pr-review-comments.md)
+- [ ] FIRST collect Windhawk `[Battery]` and `[Layout]` logs from the failing
+      coupled and independent modes; do not resume static guessing.
+- [ ] Fix coupled percentage and independent glyph behavior from that evidence.
+- [ ] Adopt lifecycle v1.2: `[[clang::no_destroy]]` owners, UI-thread-only
+      cleanup, intentional retention when no live taskbar exists, live-root
+      guards, callback exception containment, and startup/restart retry path.
+- [ ] Rename or annotate both generic symbol-hook arrays for upstream validator
+      compliance.
+- [ ] Re-run compile, destructor audit, README parity, template comparison, and
+      submission preflight.
+- [ ] Live-test dual/single height, short-group position/alignment, colors,
+      settings reload, disable, and Explorer restart.
+- [ ] Replace the vertical-era screenshots, then prepare a PR only after explicit
+      user approval.
 
-5. **Privacy Indicator Anchor** — v1.0 SUBMITTED 2026-07-19 (PR #4843), CI
-   GREEN. Branch add-tray-privacy-indicator-anchor on the fork, based on
-   current upstream/main; user approved the submission. PR validation and the
-   1.6.1/1.7.3/2.0.0-alpha.1 compile matrix all pass. Development history is
-   in the work log (2026-07-19 entries).
-   - [ ] Watch PR #4843 for maintainer review; no PR updates without explicit
-         user approval
-   - User confirmed 2026-07-19 they live-tested the Start-adjacent positions
-         before approving submission — treat the submitted build's
-         leftOfStart/rightOfStart as user-verified; no open test item. (If the
-         maintainer questions it, deal with it then.)
-   - [ ] Remaining live checks (non-blocking follow-ups): restart regression on
-         the final build (no XAML AV, no `0x20474343`); cameraHardwareDetection
-         toggle + camera itemOrder removal releases/reopens the controller; the
-         SharedReadOnly monitor never lights the webcam LED or writes a usage
-         record; Fn-key mic reads "Muted - endpoint", privacy denial reads
-         access-denied; four-state visual polish and glow styles
-   - [ ] Consider retaking `location-mic-availble-not-in-use.png` — only idle
-         screenshot, dated May 9 (old build, filename typo "availble")
-   - [ ] Frame-signature inference stays an opt-in fallback experiment only,
-         for cameras without `CameraHardware` occlusion support
-   - Design/reference: knowledge/privacy-anchor-design-notes.md,
-     `_research/privacy-indicator-anchor-design.md`
+PR #3859 (`vertical-omnibutton`) is awaiting m417z's response on retiring it in
+favor of this full customizer. If retirement is refused, its five review comments
+still need a response commit; see `knowledge/pr-review-comments.md`.
 
-## Tray Utility Customizer — v1.0 SUBMITTED 2026-07-19 (PR #4841), CI GREEN
+## Submitted — awaiting maintainer review
 
-PR #4841 on ramensoftware/windhawk-mods (branch add-tray-utility-customizer).
-All CI checks pass: PR validation (after adding the required "## Mod
-authorship" template section: submitter-with-AI-assistance + Claude) and the
-Windhawk 1.6.1 / 1.7.3 / 2.0.0-alpha.1 compile matrix. Full development
-history is in the work log (2026-07-19 entries).
-- [ ] Watch PR #4841 for maintainer review
-- [ ] Before any PR update, adopt lifecycle template v1.1: the destructor audit
-      found unprotected XAML owners, revokers, snapshots/watchers, and timer
-      state. Do not update the submitted PR without explicit user approval.
-- [ ] Also adopt start-placement template v1.1 at that time: TUC still carries
-      the pre-template inline copy (`PositionStartGroup`) with the same v1.0
-      geometry defects fixed in privacy-anchor on 2026-07-19 (stale absolute
-      anchor, leftOfStart pinned to taskbar edge).
-- [ ] `assets/part-of-a-mess.png` (June leftover) is unreferenced — archive
-      or delete at user's discretion
+All five are CI green and were submitted/updated with explicit user approval on
+2026-07-19. Do not change a PR without fresh explicit approval.
+
+- Privacy Indicator Anchor v1.0 — PR #4843
+- Taskbar Clock Spacer v1.1 — PR #4443
+- Taskbar Folder Menus v0.7 — PR #4485
+- Tray Utility Customizer v1.0 — PR #4841
+- Taskbar VD Switcher v1.8 — PR #4844
+
+Follow-ups:
+
+- [ ] Clock Spacer: close m417z/my-windhawk-mods PR #68; optional fresh gallery
+      and residual restart/disable/token checks.
+- [ ] VD Switcher: verify issue #4784 hover/hit-test and test `multiMonitor`
+      when Explorer restarts will not disrupt the user's desktop order.
+- [ ] Privacy Anchor: optional final-build restart/hardware-monitor checks and
+      idle screenshot refresh; keep frame-signature inference opt-in only.
+- [ ] Tray Utility: before any approved PR update, adopt lifecycle v1.2 and
+      Start-placement v1.1; archive/delete unreferenced `part-of-a-mess.png` at
+      user discretion.
 
 ## Lab-level todos
 - [ ] TEMPLATE UNIFORMITY IS A STANDING PRIORITY (user, 2026-07-19): mods keep
       shipping without the curated `_templates/` profiles (settings names,
       order, smart grid). Every mod touched must be checked against
-      `_templates/settings-profiles.md` + `six-mod-settings-audit.md` before
-      screenshots/PR. folder-menus RESOLVED (replacement Smart Grid
-      live-confirmed, v0.7 in PR #4485); tray-utility-customizer and
-      privacy-indicator-anchor RESOLVED 2026-07-19 (submitted at v1.0 with
-      full canonical profiles). No known open gaps; keep checking every mod
-      touched.
+      `_templates/settings-profiles.md`, the applicable copy-source templates,
+      and `six-mod-settings-audit.md` before screenshots/PR. OmniButton's open
+      lifecycle gap is documented above; Tray Utility also has lifecycle and
+      Start-placement follow-ups before its next approved PR update.
 - [ ] windhawk-mods PR update script (pull upstream → copy .wh.cpp →
       create/update PR); fork at `t:/Github/sb4ssman/windhawk-mods/`
 

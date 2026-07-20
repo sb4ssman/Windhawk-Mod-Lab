@@ -863,3 +863,25 @@ at most four checks per second.
   upstream/main `7babeba1`. PR #4844 is ready for review and mergeable. Final
   CI is green: PR validation plus Windhawk 1.6.1, 1.7.3, and
   2.0.0-alpha.1 compatibility builds all pass.
+
+## 2026-07-19 — OmniButton template-conformance audit
+
+- Reconciled the current v1.0 source against every lab template. The Smart Grid
+  implementation body exactly matches `_templates/smart-grid-layout.h` v1.0
+  (its `<algorithm>` include is hoisted earlier in the single-file source), the
+  settings profile is canonical for the mod's capabilities, and the generic
+  color-token behavior is present through the required Color-returning parser.
+  README parity and Windhawk syntax compilation pass.
+- Confirmed that button-surface, injected-column, Start-placement, and the
+  future placement contract do not apply to the current native-OmniButton
+  design.
+- Found one substantive applicable-template gap: XAML lifecycle v1.2 has not
+  been adopted. The exit-time destructor audit reports 14 namespace-scope
+  XAML/WinRT owners, while the hand-rolled dispatcher and unload/settings paths
+  lack the template's full live-root, exception-containment, UI-thread cleanup,
+  retention, and retry guarantees. Both symbol-hook arrays also remain generic
+  `hooks` variables and must be renamed or annotated before upstream validation.
+- Kept the functional diagnosis evidence-driven: the last live test still has
+  an incorrect coupled battery percentage and a missing glyph in independent
+  mode. The next diagnostic input is the mod's `[Battery]` and `[Layout]` logs;
+  no code fix was made during this audit.
