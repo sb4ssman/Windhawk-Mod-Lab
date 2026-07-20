@@ -45,10 +45,24 @@ becomes a gap, and all leftover width is shared out evenly between the gaps.
 | --- | --- |
 | `%time%%s%%date%` | time hugs the left edge, date hugs the right, gap fills the middle |
 | `%time%%s%%date%%s%%weekday%` | three items, two equal gaps |
-| `%time%%s%%s%%date%` | two gaps in a row, so the date is pushed twice as far right |
+| `%time%%s%%date%%s%%s%%weekday%` | Double-spacer: more space is weighted between date and weekday |
 
 The first item always hugs the left edge and the last always hugs the right edge,
 so the line stays anchored as the text changes width.
+
+### Spacers inside the weather
+
+The weather service substitutes `%s` as its sunset token, so `%s%` cannot be
+written inside Taskbar Clock Customization's **Weather format**. Write
+`{spacer}` there instead, for example:
+
+```
+%c{spacer}🌡️%t{spacer}🌬️%w
+```
+
+`{spacer}` passes through the weather service verbatim, arrives in the clock
+line, and becomes the same elastic gap as `%s%` — so weather items justify
+with the rest of the clock.
 
 ## Setup
 
@@ -90,8 +104,9 @@ incorrectly.
 ## Limitations
 
 - `%s%` is interpreted after Taskbar Clock Customization expands its format
-  tokens, so it works in the top and bottom line formats but not inside generated
-  composite segments such as the weather string.
+  tokens, so it works in the top and bottom line formats. Inside the composite
+  weather segment use `{spacer}` instead — the weather service would consume
+  `%s%` as its sunset token.
 - Lines without `%s%` are left completely alone — the mod is a no-op for them.
 - Font, size, and color of the spaced segments follow the original clock text's
   current style, so the clock mod's style settings continue to apply.
@@ -269,6 +284,12 @@ static void StartInitialScan();
 
 static constexpr PCWSTR kSpacerToken    = L"%s%";
 static constexpr size_t kSpacerTokenLen = 3;
+// Weather-format spacer: wttr.in substitutes %s (sunset), so %s% cannot be
+// written inside Taskbar Clock Customization's Weather format. A literal
+// {spacer} instead rides through the wttr.in request untouched and arrives in
+// the clock line text, where it splits exactly like %s%.
+static constexpr PCWSTR kWeatherSpacerToken    = L"{spacer}";
+static constexpr size_t kWeatherSpacerTokenLen = 8;
 static constexpr PCWSTR kDateBlock      = L"DateInnerTextBlock";
 static constexpr PCWSTR kTimeBlock      = L"TimeInnerTextBlock";
 
@@ -306,17 +327,35 @@ static FrameworkElement FindChildRecursive(FrameworkElement const& element,
 // Spacer geometry
 // ============================================================
 
+static size_t FindNextSpacer(std::wstring_view text, size_t pos,
+                             size_t* tokenLen) {
+    size_t plain = text.find(kSpacerToken, pos);
+    size_t weather = text.find(kWeatherSpacerToken, pos);
+    if (weather < plain) {
+        *tokenLen = kWeatherSpacerTokenLen;
+        return weather;
+    }
+    *tokenLen = kSpacerTokenLen;
+    return plain;
+}
+
+static bool HasSpacerToken(std::wstring_view text) {
+    size_t tokenLen;
+    return FindNextSpacer(text, 0, &tokenLen) != std::wstring_view::npos;
+}
+
 static std::vector<std::wstring> SplitOnSpacer(std::wstring_view text) {
     std::vector<std::wstring> segments;
     size_t pos = 0;
     while (true) {
-        size_t found = text.find(kSpacerToken, pos);
+        size_t tokenLen;
+        size_t found = FindNextSpacer(text, pos, &tokenLen);
         if (found == std::wstring_view::npos) {
             segments.emplace_back(text.substr(pos));
             break;
         }
         segments.emplace_back(text.substr(pos, found - pos));
-        pos = found + kSpacerTokenLen;
+        pos = found + tokenLen;
     }
     return segments;
 }
@@ -388,17 +427,33 @@ static double EffectiveLineWidth(TextBlock original, StackPanel parent) {
     return 0.0;
 }
 
-static void ApplyWidthConstraint(FrameworkElement element, double width) {
+// The generated panel is pinned to exactly the effective width (min AND max).
+// The values are constants from settings, never measurements, so there is no
+// feedback ratchet. Both bounds matter: MinWidth expands short content to the
+// fixed clock width; MaxWidth stops a naturally wider line from dragging the
+// panel past it — a StackPanel arranges a child at max(slot, desired), so an
+// uncapped panel would exceed Taskbar Clock Customization's Max width and
+// stretch every spaced row with it.
+static void ApplyPanelWidthConstraint(FrameworkElement element, double width) {
     if (!element) return;
-    if (g_settings.maxWidth > 0)
-        element.MaxWidth((double)g_settings.maxWidth);
+    if (width > 1.0) {
+        element.MinWidth(width);
+        element.MaxWidth(width);
+    } else {
+        element.ClearValue(FrameworkElement::MinWidthProperty());
+        element.ClearValue(FrameworkElement::MaxWidthProperty());
+    }
+}
+
+// Rows only get the cap. They stretch to the pinned panel width, and an
+// unspaced over-long line (for example the weather line) clips at the fixed
+// width exactly like the native text block does under TCC's Max width.
+static void ApplyRowWidthCap(FrameworkElement element, double width) {
+    if (!element) return;
+    if (width > 1.0)
+        element.MaxWidth(width);
     else
         element.ClearValue(FrameworkElement::MaxWidthProperty());
-
-    if (width > 1.0)
-        element.Width(width);
-    else
-        element.ClearValue(FrameworkElement::WidthProperty());
 }
 
 static void WarnIfNoElasticRoom(bool hasElasticRoom) {
@@ -422,10 +477,9 @@ static Grid BuildSpacerGrid(winrt::hstring const& name,
     grid.Name(name + L"_Spacer");
     grid.HorizontalAlignment(HorizontalAlignment::Stretch);
     grid.VerticalAlignment(VerticalAlignment::Center);
-    ApplyWidthConstraint(grid, width);
+    ApplyRowWidthCap(grid, width);
 
     double minSpacer = (double)g_settings.minSpacerWidth;
-    WarnIfNoElasticRoom(width > 1.0);
 
     int segmentCount = (int)segments.size();
     for (int i = 0; i < segmentCount; i++) {
@@ -474,7 +528,7 @@ static FrameworkElement BuildLineElement(winrt::hstring const& baseName,
     textBlock.Text(line);
     textBlock.VerticalAlignment(VerticalAlignment::Center);
     CopyTextStyle(styleSource, textBlock);
-    ApplyWidthConstraint(textBlock, width);
+    ApplyRowWidthCap(textBlock, width);
     return textBlock;
 }
 
@@ -491,7 +545,9 @@ static bool UpdateLineElementText(FrameworkElement lineElement,
                                   double width) {
     if (!lineElement) return false;
     auto segments = SplitOnSpacer(line);
-    ApplyWidthConstraint(lineElement, width);
+    // Reapplied on the fast path: a TCC Max width change alters the effective
+    // width without changing this mod's settings (the layout key).
+    ApplyRowWidthCap(lineElement, width);
 
     if (segments.size() > 1) {
         auto grid = lineElement.try_as<Grid>();
@@ -518,7 +574,7 @@ static bool UpdateGeneratedPanelText(StackPanel generatedPanel,
         generatedPanel.Children().Size() != (uint32_t)lines.size())
         return false;
 
-    ApplyWidthConstraint(generatedPanel, width);
+    ApplyPanelWidthConstraint(generatedPanel, width);
 
     for (uint32_t i = 0; i < (uint32_t)lines.size(); i++) {
         auto lineElement = generatedPanel.Children().GetAt(i).try_as<FrameworkElement>();
@@ -584,13 +640,14 @@ static void UpdateSpacerLine(SpacerState& state) {
     winrt::hstring textHString = original.Text();
     std::wstring fullText{textHString.c_str(), textHString.size()};
 
-    if (fullText.find(kSpacerToken) == std::wstring::npos) {
+    if (!HasSpacerToken(fullText)) {
         RemoveGeneratedPanel(state);
         RestoreSourceTextBlock(original);
         return;
     }
 
     double width = EffectiveLineWidth(original, parent);
+    WarnIfNoElasticRoom(width > 1.0);
     auto lines = SplitLines(fullText);
     uint64_t layoutKey = CurrentLayoutKey();
 
@@ -609,7 +666,7 @@ static void UpdateSpacerLine(SpacerState& state) {
     generated.Orientation(Orientation::Vertical);
     generated.HorizontalAlignment(HorizontalAlignment::Stretch);
     generated.VerticalAlignment(VerticalAlignment::Center);
-    ApplyWidthConstraint(generated, width);
+    ApplyPanelWidthConstraint(generated, width);
 
     for (int i = 0; i < (int)lines.size(); i++)
         generated.Children().Append(

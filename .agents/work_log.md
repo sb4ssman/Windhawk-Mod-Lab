@@ -799,3 +799,19 @@ at most four checks per second.
 - Established a local Windhawk clang syntax-check recipe (Windhawk's bundled
   toolchain, -DWH_MOD etc.) — recorded in knowledge/lab-local-compile-check.md;
   the fixed Clock Spacer compiles clean with it.
+
+## 2026-07-19 — Clock Spacer rounds 2-3: weather {spacer}, width pinning; user-confirmed
+
+- Round 2: restored the weather spacer from the archived integration design as
+  a standalone-compatible `{spacer}` split token (wttr.in consumes %s as
+  sunset; a literal {spacer} echoes through verbatim), and replaced explicit
+  generated-row Width with stretch geometry.
+- Round 3 (user screenshot showed lines exceeding TCC's 150px Max width): a
+  StackPanel arranges a child at max(slot, desired), so the unspaced weather
+  row dragged the uncapped generated panel past TCC's cap. The generated panel
+  is now pinned to exactly the effective width (MinWidth + MaxWidth, constants
+  only), and every row gets MaxWidth = width so over-long unspaced lines clip
+  like the native block. Row caps reapply on the per-tick fast path. Also
+  corrected the readme double-spacer table example per user wording.
+- User live-tested and approved ("everything is looking good") — submission
+  of the PR #4443 update authorized.

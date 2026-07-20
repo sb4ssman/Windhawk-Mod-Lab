@@ -31,10 +31,24 @@ becomes a gap, and all leftover width is shared out evenly between the gaps.
 | --- | --- |
 | `%time%%s%%date%` | time hugs the left edge, date hugs the right, gap fills the middle |
 | `%time%%s%%date%%s%%weekday%` | three items, two equal gaps |
-| `%time%%s%%s%%date%` | two gaps in a row, so the date is pushed twice as far right |
+| `%time%%s%%date%%s%%s%%weekday%` | Double-spacer: more space is weighted between date and weekday |
 
 The first item always hugs the left edge and the last always hugs the right edge,
 so the line stays anchored as the text changes width.
+
+### Spacers inside the weather
+
+The weather service substitutes `%s` as its sunset token, so `%s%` cannot be
+written inside Taskbar Clock Customization's **Weather format**. Write
+`{spacer}` there instead, for example:
+
+```
+%c{spacer}🌡️%t{spacer}🌬️%w
+```
+
+`{spacer}` passes through the weather service verbatim, arrives in the clock
+line, and becomes the same elastic gap as `%s%` — so weather items justify
+with the rest of the clock.
 
 ## Setup
 
@@ -76,8 +90,9 @@ incorrectly.
 ## Limitations
 
 - `%s%` is interpreted after Taskbar Clock Customization expands its format
-  tokens, so it works in the top and bottom line formats but not inside generated
-  composite segments such as the weather string.
+  tokens, so it works in the top and bottom line formats. Inside the composite
+  weather segment use `{spacer}` instead — the weather service would consume
+  `%s%` as its sunset token.
 - Lines without `%s%` are left completely alone — the mod is a no-op for them.
 - Font, size, and color of the spaced segments follow the original clock text's
   current style, so the clock mod's style settings continue to apply.

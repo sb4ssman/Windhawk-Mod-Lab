@@ -29,14 +29,43 @@ with current docs/screenshots (standing directives in README.md).
    ActualWidth. maxWidth setting docs updated in all three layers. Target
    behavior reference: `taskbar-clock-spacer/target.png` (5-line justified
    clock from the retired TCC-integration build).
-   - [ ] USER LIVE TEST of the fix: with TCC Max width set (e.g. 120) and
-         `%s%` in top/bottom lines, gaps appear at once, stay constant-width
-         across ticks, and the clock never creeps wider. Also verify with only
-         this mod's Max clock width set, and with neither (spacer inert).
-   - [ ] Add the weather-component spacer feature (spacer slot for the taskbar
-         weather widget/component — scope needs a short design conversation:
-         %s% inside TCC's composite weather segment is currently documented as
-         unsupported)
+   ROUND 2 (2026-07-19, after user screenshot comparison vs target.png): two
+   more changes, UNCOMMITTED AND UNPUSHED pending user test (explicit user
+   directive: NO PUSH before their testing).
+   - Weather spacer restored from the archived integration copy's design
+     (`_archive/taskbar-clock-customization-spacer`): `{spacer}` is now a
+     second split token. wttr.in consumes `%s` (sunset), so `%s%` can't ride
+     through the Weather format, but a literal `{spacer}` is echoed verbatim
+     by wttr.in and lands in the clock text where the mod splits on it — no
+     TCC modification needed (the integration used a  marker because it
+     rewrote the format pre-request; standalone doesn't need to).
+   - Edge-inset defect fixed: generated rows had explicit Width, so when a
+     sibling line (the unspaced weather line) was wider, the fixed-width rows
+     floated centered inside the wider panel — the insets in the user's
+     screenshot. Now the panel gets MinWidth (+ MaxWidth cap) and rows
+     stretch, so lines always justify to the panel's true width; explicit
+     Width only with the Line width override setting. Unspaced rows carry no
+     width constraint (no clipping).
+   - Docs updated in both layers (weather {spacer} section + limitations).
+     Compiles clean (-Wall) with the local Windhawk clang.
+   ROUND 3 (2026-07-19, user screenshot: lines justify but exceed TCC's
+   150px Max width): a StackPanel arranges a child at max(slot, desired), so
+   the unspaced weather row's natural width dragged the uncapped generated
+   panel past TCC's cap and every spaced row stretched with it. Fix: the
+   generated panel is now pinned to exactly the effective width (MinWidth AND
+   MaxWidth), and every row gets MaxWidth = width, so an over-long unspaced
+   line clips at the fixed width like the native block. Row caps reapply on
+   the fast path (TCC Max width can change without touching this mod's layout
+   key). Also corrected the readme table's double-spacer example per user.
+   Compiles clean (-Wall).
+   - [ ] USER LIVE TEST: (a) clock width exactly matches TCC's Max width
+         (150), never wider; (b) gaps constant across ticks, no creep;
+         (c) all lines hug both edges matching target.png; (d) `{spacer}` in
+         TCC's Weather format produces gaps inside the weather line (takes
+         effect on the next weather refresh); (e) verify with TCC Max width,
+         with this mod's Max clock width, and with neither (spacer inert)
+   - [ ] After user confirmation: commit, then screenshots, PR #4443 rebase +
+         description reframe
    DIRECTION SETTLED 2026-07-19: the deliverable is the STANDALONE companion mod
    (`@id taskbar-clock-spacer`, PR #4443, still open). The integration attempt
    (PR #68 in m417z/my-windhawk-mods) is finished — the maintainer preferred a
