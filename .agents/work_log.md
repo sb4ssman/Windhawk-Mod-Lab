@@ -948,3 +948,20 @@ at most four checks per second.
   spaces and mixed comma/space input.
 - Expanded the independent-layout diagnostic to log each child's measured
   width and computed X/Y centering offsets alongside its resolved cell.
+
+## 2026-07-20 — OmniButton compound-percentage root cause
+
+- Follow-up screenshots disproved the one-row default direction: compact 2×2
+  on standard height is a core purpose of the mod and the four visuals clearly
+  fit. Restored the 24px Smart automatic row pitch, leaving explicit grid modes
+  and `slotHeight` as user overrides.
+- Root-caused the missing `%`: Windows can expose the battery number and percent
+  sign as separate children in the native inner StackPanel. The implementation
+  cached, moved, styled, hid, and restored only child 1, stranding child 2 where
+  it was clipped. It now owns every child after the battery glyph as one logical
+  percentage cluster, measures their combined width, centers the cluster in its
+  cell, and applies all percentage controls to every part.
+- Added a targeted outer-width lease (`Width`/`MinWidth`/`MaxWidth` only) sized
+  to the internal grid footprint. This prevents the native button template from
+  clipping a one-row or 2×2 percentage cluster while preserving native height,
+  alignment, placement, and exact snapshot restoration on disable.

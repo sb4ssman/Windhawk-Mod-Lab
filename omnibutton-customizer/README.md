@@ -20,17 +20,18 @@ items and can be placed in any positions, including non-adjacent cells.
 - **Smart layout** — balanced, vertical packing, or horizontal packing.
 - **Slot width / height** — size of each grid cell. Height 0 = taskbar height ÷ rows.
 - **Grid rows / columns** — dimensions used by the matching fixed mode.
-- Smart automatic keeps a standard-height taskbar in one row and uses multiple
-  rows only when the taskbar has enough vertical breathing room.
+- Smart automatic uses every row that can hold the 24px default pitch; four
+  independent items therefore become a compact 2×2 on standard taskbar height.
 - **Fill order** — row-first or column-first.
 - **Short row or column** — when items don't divide evenly, whether the short
   row/column is first or last, and how it's aligned (start/center/end).
 
 ## Item order
 
-`itemOrder` is a space-separated list: `wifi`, `volume`, `battery`, `percent`.
-Rearrange tokens to change grid order; omit a token to hide that item. Items
-absent from Windows (for example, battery on a desktop) are silently skipped.
+`itemOrder` is a comma-separated list: `wifi`, `volume`, `battery`, `percent`.
+Spaces are also accepted. Rearrange tokens to change grid order; omit a token
+to hide that item. Items absent from Windows (for example, battery on a desktop)
+are silently skipped.
 In coupled mode, the first `battery` or `percent` token determines the shared
 group's position.
 
@@ -56,7 +57,7 @@ multiple mods cannot claim contradictory anchor order.
 
 ### Standard 2×2
 `gridMode: fixedColumns` · `gridColumns: 2` · `fillOrder: rowFirst` · `batteryPercentMode: independent` · `itemOrder: "wifi, volume, battery, percent"`
-(Smart automatic picks this shape on a taller taskbar)
+(Smart automatic picks this shape on standard taskbar height)
 
 ### Single column — 3 icons (no percent)
 `gridMode: singleColumn` · `itemOrder: "wifi, volume, battery"`

@@ -28,6 +28,8 @@ open for the battery-mode checks and save the `[Battery]`, `[Layout]`, and
 ## Battery modes
 
 - Independent default: battery and percentage occupy separate centered cells.
+- Verify the complete native percentage is visible (`81%`, not `81`) and all
+  percentage style/offset controls move both the number and `%` sign together.
 - Coupled: battery and percentage occupy one grid cell as a native pair.
 - Coupled: adjust battery and percentage offsets independently.
 - Coupled: omit `percent`; battery remains visible by itself.
@@ -45,8 +47,8 @@ open for the battery-mode checks and save the `[Battery]`, `[Layout]`, and
 - Test row-first and column-first fill.
 - Test first/last short group and start/center/end short-group alignment.
 - Test both single-height and multi-row taskbars.
-- With Smart automatic, verify standard height stays in one row and a taller
-  taskbar can select 2×2.
+- With Smart automatic, verify four independent items select a legible 2×2 on
+  standard height.
 - Force a 2×2 grid on a double-height taskbar; verify all four visuals are
   horizontally and vertically centered before applying any per-item nudge.
 

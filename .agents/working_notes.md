@@ -6,12 +6,12 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-**OmniButton Customizer is the active development target.** A second hardened
-v1.0 candidate survived the user's Explorer restart. The screenshot exposed a
-remaining default-shape defect: a normal ~48px taskbar was classified as two
-24px rows, producing a cramped 2×2 instead of a native-like single row. The next
-candidate uses a 28px automatic row pitch, so standard height stays one row and
-a genuinely taller taskbar can select 2×2.
+**OmniButton Customizer is the active development target.** The candidate
+survived the user's Explorer restart, but the next screenshots exposed the real
+clipping defect: Windows renders the percentage as multiple native children
+(number plus `%`), while the mod controlled only the first. The current
+candidate treats every child after the battery glyph as one percentage cluster.
+Smart automatic is restored to the intended compact 2×2 at standard height.
 
 Template status (audited 2026-07-19):
 
@@ -38,11 +38,11 @@ Candidate changes awaiting live evidence:
   template instead of inferring a partial mode from row/column values.
 - Exact original dependency-property values are snapshotted and restored on
   settings change/unload instead of guessing Windows defaults.
-- Independent battery/percentage is now the default. The mod no longer mutates
-  outer `ControlCenterButton` dimensions/alignment; cleanup forces a final
-  native layout pass. Native battery/percentage children are measured at their
-  desired size and centered in each cell; presenters use native horizontal/
-  vertical content alignment.
+- Independent battery/percentage is now the default. The mod does not mutate
+  outer `ControlCenterButton` height/alignment; cleanup forces a final native
+  layout pass. Its width is leased only to the grid footprint so percentage
+  parts cannot be clipped. Native battery/percentage children are measured at
+  desired size and centered in each cell.
 - Canonical group padding and group X/Y offsets provide safe placement detail
   without changing the native tray order. Full cross-column relocation remains
   intentionally deferred: it would invalidate other mods' `beforeOmni` /
@@ -50,12 +50,14 @@ Candidate changes awaiting live evidence:
 - `itemOrder` is now comma-separated in the setting default, description, docs,
   presets, and tests (`wifi, volume, battery, percent`); the parser continues to
   accept whitespace-only legacy input.
+- Percentage visibility, color, font, size, opacity, and offsets now apply to
+  the complete native cluster, including a separately rendered `%` sign.
 
 Next work, in order:
 
 - [ ] Run `.agents/knowledge/omnibutton-test-checklist.md`, starting with
-      a clean Explorer-restart baseline, default independent mode, forced 2×2
-      centering, omission of `percent`, repeated settings changes, and disable.
+      default/forced 2×2 legibility (including `%`), independent centering,
+      omission of `percent`, repeated settings changes, and disable restoration.
 - [ ] If battery behavior differs, capture the new `[Battery]`, `[Layout]`, and
       `[Lifecycle]` lines; the candidate now logs native slot classes, inner
       battery structure, visibility map, and resolved cell coordinates.
