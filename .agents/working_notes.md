@@ -6,13 +6,12 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-Four submissions now awaiting maintainer review: Privacy Anchor (PR #4843),
-Clock Spacer v1.1 (PR #4443), Folder Menus (PR #4485), and Tray Utility
-Customizer (PR #4841) — all CI green, all submitted 2026-07-19 with explicit
-user approval. Remaining active work: OmniButton (broken, needs logs);
-VD Switcher is follow-up feature work. No further submissions until each
-works as described with current docs/screenshots (standing directives in
-README.md).
+Five submissions now awaiting maintainer review: Privacy Anchor (PR #4843),
+Clock Spacer v1.1 (PR #4443), Folder Menus (PR #4485), Tray Utility Customizer
+(PR #4841), and VD Switcher v1.8 (PR #4844) — all CI green, all submitted
+2026-07-19 with explicit user approval. Remaining active work: OmniButton
+(broken, needs logs). No further submissions until each works as described
+with current docs/screenshots (standing directives in README.md).
 
 1. **Taskbar Clock Spacer** — v1.1 SUBMITTED 2026-07-19 (PR #4443 updated),
    CI GREEN. User live-tested and approved all three fix rounds. The branch
@@ -34,16 +33,18 @@ README.md).
      TCC-integration copy; its PDH note is
      knowledge/taskbar-clock-spacer-pdh-invalid-data.md).
 
-2. **Taskbar VD Switcher** — v1.8 LIVE-TESTED 2026-07-19; user approved update
-   submission. Issue #4830 is resolved in-tree: custom active/inactive indicator
-   symbols, separate indicator/Task View font families, and real ToggleButton
-   Checked/CheckedPointerOver/CheckedPressed states. Existing gallery reuse is
-   explicitly authorized for this submission.
+2. **Taskbar VD Switcher** — v1.8 SUBMITTED 2026-07-19 in PR #4844, CI GREEN.
+   Issue #4830 is resolved: custom active/inactive indicator symbols, separate
+   indicator/Task View font families, and real ToggleButton Checked/
+   CheckedPointerOver/CheckedPressed states. User live-tested and approved the
+   update and existing gallery reuse. PR branch is a clean one-file commit on
+   current upstream/main; validation and the 1.6.1/1.7.3/2.0.0-alpha.1 compile
+   matrix pass.
+   - [ ] Watch PR #4844 for maintainer review; no PR updates without explicit
+         user approval
    - [ ] Verify the full-rebuild change also fixes issue #4784 (hover/hit-test)
    - [ ] Test the experimental `multiMonitor` toggle (deferred: Explorer
          restarts disrupt the user's desktop order)
-   - [ ] Refresh screenshots (accent default changed visuals)
-   - [ ] Sync folder README settings table
 
 3. **Taskbar Folder Menus** — v0.7 SUBMITTED 2026-07-19 in PR #4485, CI GREEN.
    The PR branch is cleanly based on current upstream/main at commit `46f3301`.

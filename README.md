@@ -15,7 +15,7 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, submitted (PR #4443) | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7, submitted in PR #4485 | Compact taskbar buttons that open configured Shell targets as popup menus with classic Shell context menus and subfolder navigation |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.8, live-tested; update submission pending | Clickable virtual desktop buttons with customizable indicators, native checked states, grid layouts, Task View button, and tray/Start placement |
+| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.8 submitted (PR #4844), CI green | Clickable virtual desktop buttons with customizable indicators, native checked states, grid layouts, Task View button, and tray/Start placement |
 | [tray-utility-customizer/](tray-utility-customizer/) | v1.0, submitted (PR open) | Arranges detected Windows tray utilities into a configurable row, column, or smart grid |
 
 ## Repository Layout

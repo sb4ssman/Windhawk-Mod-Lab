@@ -847,3 +847,19 @@ at most four checks per second.
   target. Windhawk compilation, exit-time-destructor audit, settings YAML
   parsing, README parity, and `git diff --check` pass. Version remains v1.7;
   live visual, switching, Styler-state, disable, and restart tests remain.
+
+## 2026-07-19 — VD Switcher v1.8 submitted (PR #4844)
+
+- User live-confirmed the Issue #4830 build and explicitly approved submission
+  with the existing gallery. Bumped metadata/init logging from v1.7 to v1.8.
+- Archived six legacy unreferenced screenshots under the mod's existing
+  `Archive/assets/`; every image remaining in the published `assets/` folder is
+  referenced by both README layers.
+- Full local submission preflight passes: Windhawk compilation, exit-time
+  destructor audit, README parity and image inventory, `git diff --check`, and
+  the current networked upstream validator.
+- Submitted a clean one-file update on branch
+  `update-taskbar-vd-switcher-v1.8`, commit `0d58a4a6`, based on current
+  upstream/main `7babeba1`. PR #4844 is ready for review and mergeable. Final
+  CI is green: PR validation plus Windhawk 1.6.1, 1.7.3, and
+  2.0.0-alpha.1 compatibility builds all pass.
