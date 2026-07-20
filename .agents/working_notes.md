@@ -6,11 +6,13 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-Privacy Anchor was submitted 2026-07-19 with explicit user approval (PR
-#4843). Remaining active work: OmniButton (broken, needs logs); Clock Spacer v1.1 submitted (PR #4443, CI green). Folder Menus
-is submitted and awaiting review; Clock Spacer is deferred; VD Switcher is
-follow-up feature work. No further submissions until each works as described
-with current docs/screenshots (standing directives in README.md).
+Four submissions now awaiting maintainer review: Privacy Anchor (PR #4843),
+Clock Spacer v1.1 (PR #4443), Folder Menus (PR #4485), and Tray Utility
+Customizer (PR #4841) — all CI green, all submitted 2026-07-19 with explicit
+user approval. Remaining active work: OmniButton (broken, needs logs);
+VD Switcher is follow-up feature work. No further submissions until each
+works as described with current docs/screenshots (standing directives in
+README.md).
 
 1. **Taskbar Clock Spacer** — v1.1 SUBMITTED 2026-07-19 (PR #4443 updated),
    CI GREEN. User live-tested and approved all three fix rounds. The branch
@@ -115,8 +117,6 @@ history is in the work log (2026-07-19 entries).
       privacy-indicator-anchor RESOLVED 2026-07-19 (submitted at v1.0 with
       full canonical profiles). No known open gaps; keep checking every mod
       touched.
-- [ ] taskmanager-tail README: user decision needed on unification direction
-      (published mod; folder README is standalone-repo style)
 - [ ] windhawk-mods PR update script (pull upstream → copy .wh.cpp →
       create/update PR); fork at `t:/Github/sb4ssman/windhawk-mods/`
 

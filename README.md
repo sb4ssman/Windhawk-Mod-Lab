@@ -12,7 +12,7 @@ double-height taskbars with room for two-row tray controls.
 | [omnibutton-customizer/](omnibutton-customizer/) | v1.0, in development | Configurable grid layout for the Windows 11 OmniButton: wifi, volume, battery, and battery percentage |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v1.0, submitted (PR open) | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
-| [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, in development | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
+| [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, submitted (PR #4443) | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7, submitted in PR #4485 | Compact taskbar buttons that open configured Shell targets as popup menus with classic Shell context menus and subfolder navigation |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
 | [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7, local test; v1.6 update PR open | Clickable virtual desktop buttons with grid layouts, Task View button, tray placement, and Start-adjacent placement |
