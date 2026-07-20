@@ -779,3 +779,23 @@ at most four checks per second.
   #68 remains open and still needs an explicit close. Cleared two stale note
   lines (TUC lab bump already committed; folder-menus smart grid gap resolved
   at v0.7).
+
+## 2026-07-19 — Clock Spacer width-ratchet diagnosis and fix; taskmanager-tail README unified
+
+- User corrected the record: the Start-adjacent positions in the submitted
+  Privacy Anchor build were live-tested by them before approval; the
+  "untested v1.1" caveat was struck from the notes.
+- taskmanager-tail folder README rewritten to mirror the published embedded
+  readme exactly (verified byte-identical), resolving the standalone-repo
+  style divergence.
+- Clock Spacer "multiplying spaces" diagnosed against the current TCC source
+  (.tmp-windhawk-mods snapshot): (1) EffectiveLineWidth's ActualWidth fallback
+  hard-set generated-row Width from a live measurement each tick — a monotonic
+  width ratchet; (2) with the mod's maxWidth at 0, ApplyWidthConstraint on the
+  parent cleared the StackPanel MaxWidth that TCC sets for its Max width
+  feature. Fixed by never mutating the parent panel, collapsing the source
+  block to zero width, and sourcing width only from settings or TCC's constant
+  parent MaxWidth. maxWidth setting docs synced across all three layers.
+- Established a local Windhawk clang syntax-check recipe (Windhawk's bundled
+  toolchain, -DWH_MOD etc.) — recorded in knowledge/lab-local-compile-check.md;
+  the fixed Clock Spacer compiles clean with it.

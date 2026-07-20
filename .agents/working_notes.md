@@ -7,19 +7,36 @@ Living todo list — current state only, pruned every session. Completed work
 ## Current focus
 
 Privacy Anchor was submitted 2026-07-19 with explicit user approval (PR
-#4843). Remaining active work: OmniButton (broken, needs logs). Folder Menus
+#4843). Remaining active work: Clock Spacer (width fix awaiting live test) and
+OmniButton (broken, needs logs). Folder Menus
 is submitted and awaiting review; Clock Spacer is deferred; VD Switcher is
 follow-up feature work. No further submissions until each works as described
 with current docs/screenshots (standing directives in README.md).
 
-1. **Taskbar Clock Spacer** — DEFERRED behind Folder Menus/OmniButton/Privacy.
-   v1.1 FAILED first live round (2026-07-19,
-   user report): the spacer effect does not work as expected ("something is
-   funny" — behavior unspecified, needs diagnosis with logs/UWPSpy), and the
-   WEATHER-COMPONENT SPACER feature is MISSING entirely (a spacer slot for the
-   taskbar weather widget/component was part of the intended feature set).
-   - [ ] Diagnose the wrong/absent spacer effect on live taskbar
-   - [ ] Add the weather-component spacer feature
+1. **Taskbar Clock Spacer** — ACTIVE. Width-defect fix ready for live test.
+   DIAGNOSED AND FIXED 2026-07-19 (static analysis vs the current TCC source;
+   compiles clean with the local Windhawk clang — see
+   knowledge/lab-local-compile-check.md): the "multiplying spaces" the user saw
+   were a measurement-feedback ratchet — `EffectiveLineWidth` fell back to
+   `parent.ActualWidth()` and hard-set `Width` on the generated rows from that
+   snapshot every tick, so the clock could only ever grow. A second defect
+   compounded it: with the mod's own maxWidth at 0, `ApplyWidthConstraint` on
+   the parent CLEARED the StackPanel MaxWidth that Taskbar Clock Customization
+   itself sets — erasing the user's fixed clock width (TCC only reapplies on
+   style invalidation). Fix: never touch the parent panel at all, collapse the
+   source block to zero width so the panel follows the generated rows, and take
+   the width from our settings or TCC's constant parent MaxWidth — never from
+   ActualWidth. maxWidth setting docs updated in all three layers. Target
+   behavior reference: `taskbar-clock-spacer/target.png` (5-line justified
+   clock from the retired TCC-integration build).
+   - [ ] USER LIVE TEST of the fix: with TCC Max width set (e.g. 120) and
+         `%s%` in top/bottom lines, gaps appear at once, stay constant-width
+         across ticks, and the clock never creeps wider. Also verify with only
+         this mod's Max clock width set, and with neither (spacer inert).
+   - [ ] Add the weather-component spacer feature (spacer slot for the taskbar
+         weather widget/component — scope needs a short design conversation:
+         %s% inside TCC's composite weather segment is currently documented as
+         unsupported)
    DIRECTION SETTLED 2026-07-19: the deliverable is the STANDALONE companion mod
    (`@id taskbar-clock-spacer`, PR #4443, still open). The integration attempt
    (PR #68 in m417z/my-windhawk-mods) is finished — the maintainer preferred a
@@ -83,14 +100,10 @@ with current docs/screenshots (standing directives in README.md).
    in the work log (2026-07-19 entries).
    - [ ] Watch PR #4843 for maintainer review; no PR updates without explicit
          user approval
-   - [ ] LIVE-TEST start-placement v1.1 (2026-07-19 geometry fix, UNTESTED at
-         submission; positions are labeled experimental): v1.0 pinned Start to
-         a stale absolute X and put the leftOfStart group at the taskbar's
-         left edge; v1.1 positions relative to Start's live layout X with a
-         constant counter-shift chosen by visual-tree containment in
-         TaskbarFrameRepeater. Test both sides, center- and left-aligned
-         taskbars, apps opening/closing, then switch back to a tray position
-         and confirm exact restore.
+   - User confirmed 2026-07-19 they live-tested the Start-adjacent positions
+         before approving submission — treat the submitted build's
+         leftOfStart/rightOfStart as user-verified; no open test item. (If the
+         maintainer questions it, deal with it then.)
    - [ ] Remaining live checks (non-blocking follow-ups): restart regression on
          the final build (no XAML AV, no `0x20474343`); cameraHardwareDetection
          toggle + camera itemOrder removal releases/reopens the controller; the

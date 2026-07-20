@@ -80,9 +80,9 @@ incorrectly.
 
 - **Line width override** — explicit width for the spacer grid. Usually `0`
   (automatic) is correct; the width is inherited from the clock's Max width.
-- **Max clock width** — applies a hard maximum width to the clock text, the
-  generated spacer rows, and their immediate clock panel. Use this if you prefer
-  not to change Taskbar Clock Customization's own settings.
+- **Max clock width** — fixed width for the generated spacer rows. Equivalent
+  to setting Max width in Taskbar Clock Customization; that mod's own Max width
+  is respected automatically when this is `0`.
 - **Minimum spacer width** — a floor, in pixels, for every gap. `0` (the default)
   leaves gaps fully elastic. A small value such as `8` guarantees a visible gap
   even before a fixed clock width is configured.
@@ -110,10 +110,9 @@ incorrectly.
 - maxWidth: 0
   $name: Max clock width (px, 0 = off)
   $description: >-
-    Applies a hard maximum width to the clock text blocks, generated spacer rows,
-    and their immediate clock panel. Use this to stop changing clock text from
-    resizing the taskbar tray area. Set it to the same width you use for the
-    clock.
+    Fixed width for the generated spacer rows. Equivalent to setting Max width
+    in Taskbar Clock Customization — use whichever you prefer; that mod's own
+    Max width is respected automatically when this is 0.
 
 - minSpacerWidth: 0
   $name: Minimum spacer width (px, 0 = off)
@@ -132,6 +131,7 @@ incorrectly.
 #include <winrt/Windows.UI.Xaml.Media.h>
 
 #include <atomic>
+#include <cmath>
 #include <functional>
 #include <string>
 #include <vector>
@@ -374,10 +374,17 @@ static double EffectiveLineWidth(TextBlock original, StackPanel parent) {
         return (double)g_settings.lineWidth;
     if (g_settings.maxWidth > 0)
         return (double)g_settings.maxWidth;
-    if (parent && parent.ActualWidth() > 1.0)
-        return parent.ActualWidth();
-    if (original && original.ActualWidth() > 1.0)
-        return original.ActualWidth();
+    // Taskbar Clock Customization applies its "Max width" setting as MaxWidth
+    // on this same StackPanel, so a finite value there is the fixed clock
+    // width to fill. It must be read as a *setting*, never measured:
+    // deriving the width from ActualWidth and then setting Width feeds the
+    // next measurement, and the clock ratchets permanently wider every time
+    // any line's text gets longer (live-observed as multiplying gaps).
+    if (parent) {
+        double parentMax = parent.MaxWidth();
+        if (std::isfinite(parentMax) && parentMax > 1.0)
+            return parentMax;
+    }
     return 0.0;
 }
 
@@ -525,11 +532,16 @@ static bool UpdateGeneratedPanelText(StackPanel generatedPanel,
 // Source text block visibility
 // ============================================================
 
+// Zero both axes: Taskbar Clock Customization re-sets Visibility on its own
+// schedule, and a nonzero-width collapsed block would still widen the shared
+// StackPanel past the generated rows.
 static void CollapseSourceTextBlock(TextBlock original) {
     if (!original) return;
     original.Height(0.0);
     original.MinHeight(0.0);
     original.MaxHeight(0.0);
+    original.Width(0.0);
+    original.MinWidth(0.0);
     original.Visibility(Visibility::Collapsed);
 }
 
@@ -538,15 +550,9 @@ static void RestoreSourceTextBlock(TextBlock original) {
     original.ClearValue(FrameworkElement::HeightProperty());
     original.ClearValue(FrameworkElement::MinHeightProperty());
     original.ClearValue(FrameworkElement::MaxHeightProperty());
+    original.ClearValue(FrameworkElement::WidthProperty());
+    original.ClearValue(FrameworkElement::MinWidthProperty());
     original.Visibility(Visibility::Visible);
-}
-
-static void ApplyClockWidthConstraints(TextBlock original, StackPanel parent) {
-    double width = g_settings.lineWidth > 0 ? (double)g_settings.lineWidth
-                 : g_settings.maxWidth > 0 ? (double)g_settings.maxWidth
-                 : 0.0;
-    ApplyWidthConstraint(original, width);
-    ApplyWidthConstraint(parent, width);
 }
 
 static void RemoveGeneratedPanel(SpacerState& state) {
@@ -570,7 +576,10 @@ static void UpdateSpacerLine(SpacerState& state) {
     auto parent   = state.parentRef.get();
     if (!original || !parent) return;
 
-    ApplyClockWidthConstraints(original, parent);
+    // The parent StackPanel is deliberately never resized here. Taskbar Clock
+    // Customization owns its MaxWidth (clearing it erased the user's fixed
+    // clock width), and the panel is auto-width, so it follows the generated
+    // rows on its own once the source block collapses to zero size.
 
     winrt::hstring textHString = original.Text();
     std::wstring fullText{textHString.c_str(), textHString.size()};
@@ -940,14 +949,12 @@ static void ClearSpacerStates() {
             if (state.textToken)
                 textBlock.UnregisterPropertyChangedCallback(
                     TextBlock::TextProperty(), state.textToken);
-            textBlock.ClearValue(FrameworkElement::WidthProperty());
             textBlock.ClearValue(FrameworkElement::MaxWidthProperty());
             RestoreSourceTextBlock(textBlock);
         }
-        if (auto parent = state.parentRef.get()) {
-            parent.ClearValue(FrameworkElement::WidthProperty());
-            parent.ClearValue(FrameworkElement::MaxWidthProperty());
-        }
+        // The parent StackPanel is intentionally untouched: this mod no longer
+        // sets anything on it, and clearing MaxWidth here would erase Taskbar
+        // Clock Customization's fixed clock width.
         RemoveGeneratedPanel(state);
     }
     g_states.clear();

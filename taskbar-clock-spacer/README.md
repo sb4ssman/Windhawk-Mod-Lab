@@ -66,9 +66,9 @@ incorrectly.
 
 - **Line width override** — explicit width for the spacer grid. Usually `0`
   (automatic) is correct; the width is inherited from the clock's Max width.
-- **Max clock width** — applies a hard maximum width to the clock text, the
-  generated spacer rows, and their immediate clock panel. Use this if you prefer
-  not to change Taskbar Clock Customization's own settings.
+- **Max clock width** — fixed width for the generated spacer rows. Equivalent
+  to setting Max width in Taskbar Clock Customization; that mod's own Max width
+  is respected automatically when this is `0`.
 - **Minimum spacer width** — a floor, in pixels, for every gap. `0` (the default)
   leaves gaps fully elastic. A small value such as `8` guarantees a visible gap
   even before a fixed clock width is configured.

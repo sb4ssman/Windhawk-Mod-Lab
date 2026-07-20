@@ -1,37 +1,22 @@
-# Task Manager Tail
+# Task Manager Tail 1.1
 
-A Windhawk mod that automatically keeps **Task Manager** (or any other specified application) at the tail end of your Windows 11 taskbar.
+This mod ensures that **Task Manager** always stays at the tail end of your taskbar on **Windows 10 and Windows 11**.
+
+When you open or close other applications, this mod detects the change and automatically
+moves the Task Manager button to the tail end of the list.
 
 ## Features
+- **Event Driven:** Uses lightweight hooks to detect window changes instantly.
+- **Zero Polling:** Does not waste CPU cycles checking the taskbar constantly.
+- **Configurable:** Supports non-English languages and other target applications.
+- **Cross-Platform:** Works on both Windows 10 and Windows 11.
 
-*   **Event Driven:** Uses lightweight system hooks (`SetWinEventHook`) to detect window changes instantly without polling.
-*   **Zero CPU Usage:** Sleeps completely when no windows are opening or closing.
-*   **Configurable:**
-    *   **Target Application:** Default is Task Manager, but can be configured for Notepad, Calculator, etc.
-    *   **Localization Support:** Works with non-English Windows versions via partial name matching.
-    *   **Timing Control:** Adjustable delays and debounce timers to suit your preference.
+## Platform Notes
 
-## Installation
+**Windows 11:** Full functionality. Responds to all window open/close events.
 
-Install from the [Windhawk mod catalog](https://windhawk.net/mods/task-manager-tail).
-
-## Configuration
-
-You can customize the behavior in the Windhawk mod settings:
-
-*   **Target Button Name:** The text on the taskbar button (e.g., "Task Manager"). Supports partial matching.
-*   **Target Window Class:** The internal class name (e.g., `TaskManagerWindow`). Use tools like Spy++ to find this for other apps.
-*   **Move Delay:** Time (ms) to wait before moving the button (visual smoothing).
-*   **Event Debounce Time:** Time (ms) to wait for window events to settle before checking.
-
-## How It Works
-
-This mod runs as a background tool and listens for global window creation/destruction events. When the taskbar layout changes, it uses UI Automation to scan the taskbar buttons. If the target application is found but is not at the end of the list, it uses the `ITaskbarList` interface to move it to the tail.
-
-## Supported Systems
-
-*   **Windows 11** and **Windows 10**
-
-## License
-
-MIT
+**Windows 10:** The target moves to the tail when new applications are opened.
+Due to Windows 10 taskbar limitations, closing apps or manual dragging may not
+immediately trigger a reposition - the target will return to the tail on the
+next app open event. This decision avoids polling, or alternatively parsing 
+many possible (continuous) user interaction event noise.
