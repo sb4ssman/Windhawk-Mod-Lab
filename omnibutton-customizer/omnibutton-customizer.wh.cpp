@@ -34,6 +34,8 @@ items and can be placed in any positions, including non-adjacent cells.
 - **Smart layout** — balanced, vertical packing, or horizontal packing.
 - **Slot width / height** — size of each grid cell. Height 0 = taskbar height ÷ rows.
 - **Grid rows / columns** — dimensions used by the matching fixed mode.
+- Smart automatic keeps a standard-height taskbar in one row and uses multiple
+  rows only when the taskbar has enough vertical breathing room.
 - **Fill order** — row-first or column-first.
 - **Short row or column** — when items don't divide evenly, whether the short
   row/column is first or last, and how it's aligned (start/center/end).
@@ -67,20 +69,20 @@ multiple mods cannot claim contradictory anchor order.
 ## Presets
 
 ### Standard 2×2
-`gridMode: fixedColumns` · `gridColumns: 2` · `fillOrder: rowFirst` · `batteryPercentMode: independent` · `itemOrder: "wifi volume battery percent"`
-(the auto default already picks this shape on a single-height taskbar)
+`gridMode: fixedColumns` · `gridColumns: 2` · `fillOrder: rowFirst` · `batteryPercentMode: independent` · `itemOrder: "wifi, volume, battery, percent"`
+(Smart automatic picks this shape on a taller taskbar)
 
 ### Single column — 3 icons (no percent)
-`gridMode: singleColumn` · `itemOrder: "wifi volume battery"`
+`gridMode: singleColumn` · `itemOrder: "wifi, volume, battery"`
 
 ### Single column — all 4 icons
-`gridMode: singleColumn` · `batteryPercentMode: independent` · `itemOrder: "wifi volume battery percent"`
+`gridMode: singleColumn` · `batteryPercentMode: independent` · `itemOrder: "wifi, volume, battery, percent"`
 
 ### Percent top, battery bottom (independent mode)
-`gridMode: fixedColumns` · `gridColumns: 2` · `batteryPercentMode: independent` · `itemOrder: "wifi volume percent battery"`
+`gridMode: fixedColumns` · `gridColumns: 2` · `batteryPercentMode: independent` · `itemOrder: "wifi, volume, percent, battery"`
 
 ### Wide bar (original OmniButton style)
-`gridMode: singleRow` · `itemOrder: "wifi volume battery"`
+`gridMode: singleRow` · `itemOrder: "wifi, volume, battery"`
 
 ## Windows 11 Taskbar Styler compatibility
 
@@ -90,11 +92,12 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 
 // ==WindhawkModSettings==
 /*
-- itemOrder: "wifi volume battery percent"
+- itemOrder: "wifi, volume, battery, percent"
   $name: Item order
   $description: >-
-    Space-separated tokens in grid fill order: wifi, volume, battery, percent.
-    Omit a token to hide that item. Items unavailable in Windows are skipped.
+    Comma-separated tokens in grid fill order: wifi, volume, battery, percent.
+    Spaces are also accepted. Omit a token to hide that item. Items unavailable
+    in Windows are skipped.
 
 - batteryPercentMode: independent
   $name: Battery / percent mode
@@ -581,7 +584,7 @@ static void LoadSettings() {
           Wh_FreeStringSetting(s);
       } else {
           if (s) Wh_FreeStringSetting(s);
-          wcscpy(g_settings.itemOrderStr, L"wifi volume battery percent");
+          wcscpy(g_settings.itemOrderStr, L"wifi, volume, battery, percent");
       } }
 
     { auto* s = Wh_GetStringSetting(L"batteryPercentMode");
@@ -753,11 +756,15 @@ static GridGeom ResolveGeometry(int itemCount, HWND hTaskbarWnd) {
     geom.config.rows               = g_settings.gridRows;
     geom.config.columns            = g_settings.gridColumns;
 
-    // Auto row capacity: a 24px pitch keeps auto rows readable; the slotHeight
-    // setting overrides it. Balanced AutoSmart then prefers a single column on
-    // double-height taskbars and a 2x2 for 4 items on single-height.
-    int unit = g_settings.slotHeight > 0 ? g_settings.slotHeight : 24;
+    // A standard ~48px taskbar does not have enough breathing room for two
+    // native icon rows even though 2*24 fits mathematically. A 28px automatic
+    // pitch keeps standard height to one row and admits 2x2 on a taller bar.
+    // An explicit slotHeight remains an intentional override.
+    int unit = g_settings.slotHeight > 0 ? g_settings.slotHeight : 28;
     geom.config.availableRows = std::max(1, taskbarH / std::max(1, unit));
+    Wh_Log(L"[Layout] taskbarH=%d rowPitch=%d availableRows=%d gridMode=%d",
+           taskbarH, unit, geom.config.availableRows,
+           static_cast<int>(geom.config.mode));
 
     geom.layout = grid::ComputeLayout(itemCount, geom.config);
 
@@ -1365,7 +1372,12 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
                     py + percentMetrics.centerY + g_settings.percentY);
             }
 
-            Wh_Log(L"[Layout] Indep batt=(%d,%d)px pct=(%d,%d)px", bx, by, px, py);
+            Wh_Log(L"[Layout] Indep battCell=(%d,%d) center=(%d,%d) width=%d "
+                   L"pctCell=(%d,%d) center=(%d,%d) width=%d",
+                   bx, by, batteryMetrics.centerX, batteryMetrics.centerY,
+                   batteryMetrics.naturalWidth, px, py,
+                   percentMetrics.centerX, percentMetrics.centerY,
+                   percentMetrics.naturalWidth);
         } else {
             // Coupled mode keeps the selected native battery/percent children
             // together as one grid item. Each child still has its own style

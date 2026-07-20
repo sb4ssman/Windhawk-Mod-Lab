@@ -933,3 +933,18 @@ at most four checks per second.
   different column would make other mods' `beforeOmni` and `beforeClock` anchors
   disagree with visual order unless all participants share an owned placement
   lease/contract.
+
+## 2026-07-20 — OmniButton native-height default and item-order syntax
+
+- The restoration/centering candidate survived the user's Explorer restart,
+  but their near-stock 48px tray screenshot revealed that Smart automatic was
+  treating the exact mathematical fit of two 24px rows as usable space. That
+  forced a cramped 2×2 layout on standard height. Raised the default automatic
+  row pitch to 28px: standard height now selects one row, while taller taskbars
+  still admit the balanced 2×2 shape. Explicit `slotHeight` remains an override.
+- Reconciled the visible item-order syntax. The YAML default, fallback, README
+  presets, and live-test checklist now consistently use comma-separated tokens
+  (`wifi, volume, battery, percent`); parsing remains backward compatible with
+  spaces and mixed comma/space input.
+- Expanded the independent-layout diagnostic to log each child's measured
+  width and computed X/Y centering offsets alongside its resolved cell.

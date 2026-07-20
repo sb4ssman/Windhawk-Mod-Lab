@@ -7,9 +7,11 @@ Living todo list — current state only, pruned every session. Completed work
 ## Current focus
 
 **OmniButton Customizer is the active development target.** A second hardened
-v1.0 candidate is ready for live testing after the first candidate exposed two
-visual defects: disable did not fully restore the native percentage alignment,
-and forced 2×2 cells looked off-center on a double-height taskbar.
+v1.0 candidate survived the user's Explorer restart. The screenshot exposed a
+remaining default-shape defect: a normal ~48px taskbar was classified as two
+24px rows, producing a cramped 2×2 instead of a native-like single row. The next
+candidate uses a 28px automatic row pitch, so standard height stays one row and
+a genuinely taller taskbar can select 2×2.
 
 Template status (audited 2026-07-19):
 
@@ -45,6 +47,9 @@ Candidate changes awaiting live evidence:
   without changing the native tray order. Full cross-column relocation remains
   intentionally deferred: it would invalidate other mods' `beforeOmni` /
   `beforeClock` semantics without a shared placement lease.
+- `itemOrder` is now comma-separated in the setting default, description, docs,
+  presets, and tests (`wifi, volume, battery, percent`); the parser continues to
+  accept whitespace-only legacy input.
 
 Next work, in order:
 

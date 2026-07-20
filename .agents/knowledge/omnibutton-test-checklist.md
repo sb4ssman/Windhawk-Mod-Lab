@@ -19,8 +19,8 @@ open for the battery-mode checks and save the `[Battery]`, `[Layout]`, and
 
 ## Item contract
 
-- `itemOrder: "wifi volume battery"`: percentage is hidden, not appended.
-- `itemOrder: "volume wifi battery percent"`: wifi/volume order swaps.
+- `itemOrder: "wifi, volume, battery"`: percentage is hidden, not appended.
+- `itemOrder: "volume, wifi, battery, percent"`: wifi/volume order swaps.
 - Omit each token in turn and verify only that item is hidden.
 - On a desktop without a battery, verify unavailable battery tokens are skipped
   without leaving an empty cell.
@@ -32,7 +32,7 @@ open for the battery-mode checks and save the `[Battery]`, `[Layout]`, and
 - Coupled: adjust battery and percentage offsets independently.
 - Coupled: omit `percent`; battery remains visible by itself.
 - Coupled: omit `battery`; percentage remains visible by itself.
-- Independent: `itemOrder: "wifi volume percent battery"`; battery and
+- Independent: `itemOrder: "wifi, volume, percent, battery"`; battery and
   percentage remain visible in separate, non-adjacent cells.
 - Toggle coupled ↔ independent repeatedly and confirm no missing glyph, stranded
   percentage, or doubled offset.
@@ -45,6 +45,8 @@ open for the battery-mode checks and save the `[Battery]`, `[Layout]`, and
 - Test row-first and column-first fill.
 - Test first/last short group and start/center/end short-group alignment.
 - Test both single-height and multi-row taskbars.
+- With Smart automatic, verify standard height stays in one row and a taller
+  taskbar can select 2×2.
 - Force a 2×2 grid on a double-height taskbar; verify all four visuals are
   horizontally and vertically centered before applying any per-item nudge.
 
