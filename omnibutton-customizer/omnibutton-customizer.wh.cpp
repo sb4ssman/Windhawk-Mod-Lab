@@ -677,13 +677,11 @@ static void LoadSettings() {
 [[clang::no_destroy]] static StackPanel       g_batteryInnerPanel{ nullptr };
 [[clang::no_destroy]] static FrameworkElement g_batteryGlyphFE{ nullptr };
 [[clang::no_destroy]] static FrameworkElement g_batteryPercentFE{ nullptr };
-[[clang::no_destroy]] static std::vector<FrameworkElement>
-    g_batteryPercentElements;
 
 [[clang::no_destroy]] static TextBlock g_wifiGlyphTB{ nullptr };
 [[clang::no_destroy]] static TextBlock g_volumeGlyphTB{ nullptr };
 [[clang::no_destroy]] static TextBlock g_batteryGlyphTB{ nullptr };
-[[clang::no_destroy]] static std::vector<TextBlock> g_percentTextBlocks;
+[[clang::no_destroy]] static TextBlock g_percentTB{ nullptr };
 
 [[clang::no_destroy]] static StackPanel g_layoutUpdatedSP{ nullptr };
 static winrt::event_token g_layoutUpdatedToken{};
@@ -779,7 +777,7 @@ static GridGeom ResolveGeometry(int itemCount, HWND hTaskbarWnd) {
 
 // ── XAML helpers ──────────────────────────────────────────────────────────
 
-static void ApplyOffset(FrameworkElement const& fe, int x, int y) {
+static void ApplyOffset(FrameworkElement const& fe, double x, double y) {
     if (!fe) return;
     TrackProperty(fe, UIElement::RenderTransformProperty());
     if (x != 0 || y != 0) {
@@ -813,7 +811,6 @@ static bool WalkSetupBatteryInnerPanel(DependencyObject const& node, int slotW, 
         if (sp && !sp.IsItemsHost()) {
             g_batteryInnerPanel = sp;
             g_batteryPercentFE = nullptr;
-            g_batteryPercentElements.clear();
             int spN = VisualTreeHelper::GetChildrenCount(sp);
             Wh_Log(L"[Battery] inner panel name=%s orientation=%s children=%d size=%.1fx%.1f",
                    sp.Name().c_str(),
@@ -829,22 +826,21 @@ static bool WalkSetupBatteryInnerPanel(DependencyObject const& node, int slotW, 
                            glyph.ActualWidth(), glyph.ActualHeight());
                 }
             }
-            for (int percentIndex = 1; percentIndex < spN; ++percentIndex) {
-                auto percentElement = VisualTreeHelper::GetChild(sp, percentIndex)
+            if (spN >= 2) {
+                auto percentElement = VisualTreeHelper::GetChild(sp, 1)
                                           .try_as<FrameworkElement>();
-                if (!percentElement) continue;
-                if (!g_batteryPercentFE) g_batteryPercentFE = percentElement;
-                g_batteryPercentElements.push_back(percentElement);
-                auto textBlock = percentElement.try_as<TextBlock>();
-                Wh_Log(L"[Battery] percentPart=%d class=%s name=%s text=%s size=%.1fx%.1f",
-                       percentIndex - 1,
-                       winrt::get_class_name(percentElement).c_str(),
-                       percentElement.Name().c_str(),
-                       textBlock ? textBlock.Text().c_str() : L"<non-TextBlock>",
-                       percentElement.ActualWidth(),
-                       percentElement.ActualHeight());
+                if (percentElement) {
+                    g_batteryPercentFE = percentElement;
+                    auto textBlock = percentElement.try_as<TextBlock>();
+                    Wh_Log(L"[Battery] percent class=%s name=%s text=%s size=%.1fx%.1f",
+                           winrt::get_class_name(percentElement).c_str(),
+                           percentElement.Name().c_str(),
+                           textBlock ? textBlock.Text().c_str() : L"<non-TextBlock>",
+                           percentElement.ActualWidth(),
+                           percentElement.ActualHeight());
+                }
             }
-            if (g_batteryPercentElements.empty()) {
+            if (!g_batteryPercentFE) {
                 Wh_Log(L"[Battery] inner SP has %d children — no %% element", spN);
             }
             return true;
@@ -979,11 +975,8 @@ static void ApplyAllItemStyles() {
     if (!g_wifiGlyphTB   && g_wifiPresenter)    g_wifiGlyphTB   = AcquireGlyphTB(g_wifiPresenter);
     if (!g_volumeGlyphTB && g_volumePresenter)   g_volumeGlyphTB = AcquireGlyphTB(g_volumePresenter);
     if (!g_batteryGlyphTB && g_batteryGlyphFE)   g_batteryGlyphTB = AcquireGlyphTB(g_batteryGlyphFE);
-    if (g_percentTextBlocks.size() != g_batteryPercentElements.size()) {
-        g_percentTextBlocks.clear();
-        for (auto const& element : g_batteryPercentElements)
-            g_percentTextBlocks.push_back(AcquireGlyphTB(element));
-    }
+    if (!g_percentTB && g_batteryPercentFE)
+        g_percentTB = AcquireGlyphTB(g_batteryPercentFE);
 
     ApplyItemStyle(g_wifiPresenter, g_wifiGlyphTB, g_settings.wifiColor,
                    g_settings.wifiSize, g_settings.wifiFontFamily,
@@ -994,12 +987,9 @@ static void ApplyAllItemStyles() {
     ApplyItemStyle(g_batteryGlyphFE, g_batteryGlyphTB,
                    g_settings.batteryColor, g_settings.batterySize,
                    g_settings.batteryFontFamily, g_settings.batteryOpacity);
-    for (size_t i = 0; i < g_batteryPercentElements.size(); ++i) {
-        ApplyItemStyle(g_batteryPercentElements[i], g_percentTextBlocks[i],
-                       g_settings.percentColor, g_settings.percentSize,
-                       g_settings.percentFontFamily,
-                       g_settings.percentOpacity);
-    }
+    ApplyItemStyle(g_batteryPercentFE, g_percentTB, g_settings.percentColor,
+                   g_settings.percentSize, g_settings.percentFontFamily,
+                   g_settings.percentOpacity);
 }
 
 // ── Internal footprint ────────────────────────────────────────────────────
@@ -1044,10 +1034,8 @@ static void ResetElementRefs() {
     g_wifiPresenter = nullptr;  g_volumePresenter = nullptr;
     g_batteryPresenter = nullptr; g_batteryInnerPanel = nullptr;
     g_batteryGlyphFE = nullptr; g_batteryPercentFE = nullptr;
-    g_batteryPercentElements.clear();
     g_wifiGlyphTB = nullptr;    g_volumeGlyphTB = nullptr;
-    g_batteryGlyphTB = nullptr;
-    g_percentTextBlocks.clear();
+    g_batteryGlyphTB = nullptr; g_percentTB = nullptr;
 }
 
 static void RevokeLayoutUpdated() {
@@ -1169,9 +1157,9 @@ static void PrepareSlot(FrameworkElement const& element, int slotWidth,
 }
 
 struct CellContentMetrics {
-    int centerX = 0;
-    int centerY = 0;
-    int naturalWidth = 0;
+    double centerX = 0;
+    double centerY = 0;
+    double naturalWidth = 0;
 };
 
 // Measure the native child at its desired size, then return the translation
@@ -1194,11 +1182,11 @@ static CellContentMetrics PrepareIndependentItem(
         std::numeric_limits<float>::infinity(),
         std::numeric_limits<float>::infinity()});
     auto desired = element.DesiredSize();
-    result.naturalWidth = int(std::ceil(desired.Width));
-    result.centerX = int(std::max(0.0,
-        (double(slotWidth) - double(desired.Width)) / 2.0));
-    result.centerY = int(std::max(0.0,
-        (double(slotHeight) - double(desired.Height)) / 2.0));
+    result.naturalWidth = desired.Width;
+    result.centerX = std::max(0.0,
+        (double(slotWidth) - double(desired.Width)) / 2.0);
+    result.centerY = std::max(0.0,
+        (double(slotHeight) - double(desired.Height)) / 2.0);
     return result;
 }
 
@@ -1242,7 +1230,7 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     if (hasBattPres) {
         g_batteryPresenter = VisualTreeHelper::GetChild(sp, battIdx).try_as<FrameworkElement>();
         if (WalkSetupBatteryInnerPanel(g_batteryPresenter, g_settings.slotWidth))
-            hasPercent = !g_batteryPercentElements.empty();
+            hasPercent = (g_batteryPercentFE != nullptr);
     }
 
     // Log any unknown slots (future Windows builds may add more items)
@@ -1318,8 +1306,7 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
         bool showBatteryGroup = items.visible[2] || items.visible[3];
         SetItemVisibility(g_batteryPresenter, showBatteryGroup);
         SetItemVisibility(g_batteryGlyphFE, items.visible[2]);
-        for (auto const& percentElement : g_batteryPercentElements)
-            SetItemVisibility(percentElement, items.visible[3]);
+        SetItemVisibility(g_batteryPercentFE, items.visible[3]);
         if (!showBatteryGroup) {
             // Nothing else to do; Visibility participates in the tracked
             // property lease and is restored during settings changes/unload.
@@ -1372,16 +1359,10 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
                 ? PrepareIndependentItem(g_batteryGlyphFE,
                                          g_settings.slotWidth, geom.slotH)
                 : CellContentMetrics{};
-            std::vector<CellContentMetrics> percentMetrics;
-            int percentClusterWidth = 0;
-            if (items.visible[3]) {
-                for (auto const& percentElement : g_batteryPercentElements) {
-                    auto metrics = PrepareIndependentItem(
-                        percentElement, g_settings.slotWidth, geom.slotH);
-                    percentClusterWidth += metrics.naturalWidth;
-                    percentMetrics.push_back(metrics);
-                }
-            }
+            CellContentMetrics percentMetrics = items.visible[3]
+                ? PrepareIndependentItem(g_batteryPercentFE,
+                                         g_settings.slotWidth, geom.slotH)
+                : CellContentMetrics{};
 
             // Absolute position of battery glyph within battery CP
             int bx = 0, by = 0;
@@ -1398,26 +1379,20 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
             int px = 0, py = 0;
             if (items.visible[3]) {
                 resolvePos(items.position[3], px, py);
-                int percentNaturalX = items.visible[2]
+                double percentNaturalX = items.visible[2]
                     ? batteryMetrics.naturalWidth : 0;
-                int percentClusterCenterX = std::max(
-                    0, (g_settings.slotWidth - percentClusterWidth) / 2);
-                for (size_t i = 0;
-                     i < g_batteryPercentElements.size(); ++i) {
-                    ApplyOffset(g_batteryPercentElements[i],
-                        px - percentNaturalX + percentClusterCenterX +
-                            g_settings.percentX,
-                        py + percentMetrics[i].centerY +
-                            g_settings.percentY);
-                }
+                ApplyOffset(g_batteryPercentFE,
+                    px - percentNaturalX + percentMetrics.centerX +
+                        g_settings.percentX,
+                    py + percentMetrics.centerY + g_settings.percentY);
             }
 
-            Wh_Log(L"[Layout] Indep battCell=(%d,%d) center=(%d,%d) width=%d "
-                   L"pctCell=(%d,%d) parts=%d width=%d",
+            Wh_Log(L"[Layout] Indep battCell=(%d,%d) center=(%.2f,%.2f) width=%.2f "
+                   L"pctCell=(%d,%d) center=(%.2f,%.2f) width=%.2f",
                    bx, by, batteryMetrics.centerX, batteryMetrics.centerY,
                    batteryMetrics.naturalWidth, px, py,
-                   static_cast<int>(percentMetrics.size()),
-                   percentClusterWidth);
+                   percentMetrics.centerX, percentMetrics.centerY,
+                   percentMetrics.naturalWidth);
         } else {
             // Coupled mode keeps the selected native battery/percent children
             // together as one grid item. Each child still has its own style
@@ -1444,11 +1419,9 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
             if (items.visible[2])
                 ApplyOffset(g_batteryGlyphFE, g_settings.batteryX,
                             g_settings.batteryY);
-            if (items.visible[3]) {
-                for (auto const& percentElement : g_batteryPercentElements)
-                    ApplyOffset(percentElement, g_settings.percentX,
-                                g_settings.percentY);
-            }
+            if (items.visible[3])
+                ApplyOffset(g_batteryPercentFE, g_settings.percentX,
+                            g_settings.percentY);
             Wh_Log(L"[Layout] Coupled group=(%d,%d)px battery=%d percent=%d",
                    bx, by, items.visible[2], items.visible[3]);
         }
@@ -1469,7 +1442,7 @@ static void OnLayoutUpdatedImpl() {
                     (!g_batteryPresenter ||
                      (g_batteryInnerPanel &&
                       (!wantsPercent ||
-                       !g_batteryPercentElements.empty())));
+                       g_batteryPercentFE)));
     if (allReady) {
         sp.LayoutUpdated(g_layoutUpdatedToken); g_layoutUpdatedToken = {};
         g_layoutUpdatedSP = nullptr;
@@ -1490,7 +1463,7 @@ static void OnLayoutUpdatedImpl() {
     // Percent TextBlock materialized after the initial layout (e.g. the user
     // flipped the Windows battery-percent switch while the mod was applied).
     if (!percentNowPresent && g_batteryInnerPanel &&
-        g_batteryPercentElements.empty() &&
+        !g_batteryPercentFE &&
         VisualTreeHelper::GetChildrenCount(g_batteryInnerPanel) >= 2) {
         percentNowPresent = true;
     }
@@ -1713,7 +1686,7 @@ static bool ApplyAllSettings() {
                                          (g_batteryPresenter &&
                                           (!g_batteryInnerPanel ||
                                            (wantsPercent &&
-                                            g_batteryPercentElements.empty())));
+                                            !g_batteryPercentFE)));
                     if (needsDeferred) {
                         g_layoutUpdatedSP = sp;
                         g_layoutUpdatedToken = sp.LayoutUpdated(OnLayoutUpdated);

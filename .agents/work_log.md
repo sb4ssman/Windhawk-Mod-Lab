@@ -965,3 +965,16 @@ at most four checks per second.
   to the internal grid footprint. This prevents the native button template from
   clipping a one-row or 2×2 percentage cluster while preserving native height,
   alignment, placement, and exact snapshot restoration on disable.
+
+## 2026-07-20 — OmniButton percentage diagnosis corrected
+
+- Read the live Windhawk diagnostics instead of continuing from the screenshot
+  inference. The battery panel has exactly two children: a 20×16 battery Grid
+  and one `BatteryTextBlock` whose text is `81%`. There is no separately rendered
+  percent-sign child on the tested Windows build; the preceding compound-child
+  diagnosis was incorrect.
+- Simplified the candidate back to one percentage element while retaining the
+  targeted outer-width lease, which addresses clipping independently of the
+  mistaken child-count explanation. Changed independent-item centering from
+  truncated integer offsets to exact floating-point offsets.
+- No source outside OmniButton Customizer was changed by either correction.

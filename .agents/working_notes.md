@@ -7,11 +7,11 @@ Living todo list — current state only, pruned every session. Completed work
 ## Current focus
 
 **OmniButton Customizer is the active development target.** The candidate
-survived the user's Explorer restart, but the next screenshots exposed the real
-clipping defect: Windows renders the percentage as multiple native children
-(number plus `%`), while the mod controlled only the first. The current
-candidate treats every child after the battery glyph as one percentage cluster.
-Smart automatic is restored to the intended compact 2×2 at standard height.
+survived the user's Explorer restart. Live diagnostics show that this Windows
+build exposes the percentage as one `BatteryTextBlock` containing `81%`; the
+earlier multi-child inference from a screenshot was incorrect. Smart automatic
+uses the intended compact 2×2 at standard height. Current work is exact cell
+centering and then optical calibration of the native icon/font shapes.
 
 Template status (audited 2026-07-19):
 
@@ -40,9 +40,9 @@ Candidate changes awaiting live evidence:
   settings change/unload instead of guessing Windows defaults.
 - Independent battery/percentage is now the default. The mod does not mutate
   outer `ControlCenterButton` height/alignment; cleanup forces a final native
-  layout pass. Its width is leased only to the grid footprint so percentage
-  parts cannot be clipped. Native battery/percentage children are measured at
-  desired size and centered in each cell.
+  layout pass. Its width is leased only to the grid footprint so the percentage
+  cannot be clipped. Native battery/percentage elements are measured at desired
+  size and centered in each cell without integer truncation.
 - Canonical group padding and group X/Y offsets provide safe placement detail
   without changing the native tray order. Full cross-column relocation remains
   intentionally deferred: it would invalidate other mods' `beforeOmni` /
@@ -50,8 +50,8 @@ Candidate changes awaiting live evidence:
 - `itemOrder` is now comma-separated in the setting default, description, docs,
   presets, and tests (`wifi, volume, battery, percent`); the parser continues to
   accept whitespace-only legacy input.
-- Percentage visibility, color, font, size, opacity, and offsets now apply to
-  the complete native cluster, including a separately rendered `%` sign.
+- Percentage visibility, color, font, size, opacity, and offsets apply to the
+  single native `BatteryTextBlock`, whose text already includes the `%` sign.
 
 Next work, in order:
 
