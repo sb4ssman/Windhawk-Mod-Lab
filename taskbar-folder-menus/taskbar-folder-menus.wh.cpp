@@ -2,7 +2,7 @@
 // @id              taskbar-folder-menus
 // @name            Taskbar Folder Menus
 // @description     Adds compact Windows 11 taskbar buttons that open configured Shell targets as popup menus, similar to classic taskbar toolbars.
-// @version         0.6
+// @version         0.7
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -25,7 +25,7 @@ toolbar workflow. Windows 10 is not supported.
 *Hovering a compact button shows its configured Shell target.*
 
 ![Four folder buttons on a standard taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-folder-menus/assets/c-github-desktop-controlpanel.png)
-*Drive, GitHub, Desktop, and Control Panel shortcuts arranged in one row.*
+*Drive, GitHub, Desktop, and Control Panel shortcuts arranged in a grid.*
 
 ![Four folder buttons on a taller taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-folder-menus/assets/c-github-desktop-controlpanel-v.png)
 *The same four shortcuts arranged vertically by the grid layout on a taller taskbar.*
@@ -2441,7 +2441,7 @@ static void StartRetryThread() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Taskbar Folder Menus v0.6");
+    Wh_Log(L"[Init] Taskbar Folder Menus v0.7");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols()) {

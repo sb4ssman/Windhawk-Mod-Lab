@@ -57,7 +57,7 @@ current docs/screenshots (standing directives in README.md).
    - [ ] Refresh screenshots (accent default changed visuals)
    - [ ] Sync folder README settings table
 
-3. **Taskbar Folder Menus** — READY FOR PR #4485 SYNC DISCUSSION. User
+3. **Taskbar Folder Menus** — v0.7 SUBMISSION UPDATE AUTHORIZED for PR #4485. User
    live-confirmed the replacement Smart Grid looks correct and the mod survives
    a restart. Current screenshots are in `assets/` and both README layers use
    them. Source compile, screenshot paths, embedded/folder README parity, and
