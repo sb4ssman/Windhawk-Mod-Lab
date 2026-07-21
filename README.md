@@ -9,7 +9,7 @@ double-height taskbars with room for two-row tray controls.
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [omnibutton-customizer/](omnibutton-customizer/) | v1.0, ready for live testing | Per-item layout, visibility, color, size, font, opacity, and position control for the Windows 11 OmniButton |
+| [omnibutton-customizer/](omnibutton-customizer/) | v1.0, submission candidate | Per-item layout, visibility, color, size, font, opacity, and position control for the Windows 11 OmniButton |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v1.0, submitted (PR open) | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
 | [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, submitted (PR #4443) | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |

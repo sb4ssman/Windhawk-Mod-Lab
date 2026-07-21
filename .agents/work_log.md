@@ -978,3 +978,20 @@ at most four checks per second.
   mistaken child-count explanation. Changed independent-item centering from
   truncated integer offsets to exact floating-point offsets.
 - No source outside OmniButton Customizer was changed by either correction.
+
+## 2026-07-21 — OmniButton production gallery and preflight
+
+- Visually reviewed all six pushed screenshots and added them to both README
+  layers with configuration-specific captions. The gallery leads with the new
+  standard-height 2×2, reordered row, and busy-tray examples, then documents
+  coupled mode and the two tall vertical alternatives. Every image in `assets/`
+  is referenced.
+- Clarified that group padding is non-negative internal space (0–24px), while
+  signed group offsets move the rendered grid (-40–40px). Corrected the
+  automatic slot-height documentation from a 20px to the implemented 16px
+  minimum. Folder and embedded README content remain synchronized.
+- Full production preflight passes: Windhawk compilation, exit-time destructor
+  audit, README parity, gallery/link inventory, diff hygiene, symbol-hook policy,
+  and the current upstream Windhawk validator. Root catalog now marks v1.0 as a
+  submission candidate. Actual submission remains gated on explicit approval
+  and a final live disable/restoration/re-enable plus Quick Settings click check.

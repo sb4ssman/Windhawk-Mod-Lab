@@ -19,6 +19,26 @@ OmniButton item: wifi, volume/sound, battery, and battery percentage. Arrange
 them into any grid, hide unneeded items, and tune each item's color, size, font,
 opacity, and position. Designed for both standard and multi-row taskbars.
 
+## Gallery
+
+![Wifi, volume, battery, and percentage in a compact grid](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/in-a-grid.png)
+*The default independent items arranged as a compact 2×2 grid on a standard-height taskbar.*
+
+![Battery percentage, battery, volume, and wifi reordered into one row](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/re-odered-icons.png)
+*The same native items reordered into a single row: percentage, battery, volume, then wifi.*
+
+![OmniButton Customizer in a busy multi-row system tray](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/in-a-busy-tray.png)
+*A compact custom OmniButton layout working alongside several other tray and taskbar mods.*
+
+![Battery and percentage coupled in one cell](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/batt-percent-coupled.png)
+*Coupled mode keeps the native battery and percentage together as one grid item.*
+
+![Wifi, volume, battery, and percentage in a vertical layout](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/wifi-volume-batt-percent-vertical.png)
+*All four independent items arranged vertically on a taller taskbar.*
+
+![Wifi, volume, and battery in a vertical layout](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/wifi-vol-batt-vertical.png)
+*A three-item vertical layout with the percentage omitted through `itemOrder`.*
+
 ## Battery / percent modes
 
 **Coupled**: the selected battery and percentage elements stay in
@@ -52,14 +72,15 @@ group's position.
 ## Per-item appearance
 
 Each item has independent color, size, font family, opacity, and X/Y nudge
-settings. Group padding controls reserved space around the grid; group X/Y
-offsets move the complete OmniButton contents without changing tray ordering.
+settings. Non-negative group padding controls reserved space around the grid;
+group X/Y offsets move the complete OmniButton contents without changing tray
+ordering. Padding values are clamped to 0–24px and offsets to -40–40px.
 Colors accept `#RRGGBB`, `#AARRGGBB`, `accent`, `accentLight`, `accentDark`, or
 `transparent`. Empty colors/fonts, size 0, and opacity -1 preserve native values.
 
 ## Placement and other taskbar mods
 
-`groupPadding*` reserves space inside the native OmniButton and
+`groupPadding*` reserves non-negative space inside the native OmniButton and
 `groupOffsetX`/`groupOffsetY` visually moves its grid. These controls preserve
 the native `ControlCenterButton` in its original system-tray position, so other
 mods' semantic anchors such as "before OmniButton" and "before clock" keep
@@ -167,7 +188,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 - slotHeight: 0
   $name: Slot height (px, 0 = auto)
   $description: >-
-    Height of each grid row. 0 = taskbar height ÷ rows (minimum 20px, capped at 32px).
+    Height of each grid row. 0 = taskbar height ÷ rows (minimum 16px, capped at 32px).
 
 - wifiColor: ""
   $name: Wifi icon color
@@ -226,18 +247,26 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 
 - groupPaddingLeft: 2
   $name: Group padding left (px)
+  $description: Non-negative internal space, clamped to 0–24px.
 - groupPaddingRight: 2
   $name: Group padding right (px)
+  $description: Non-negative internal space, clamped to 0–24px.
 - groupPaddingTop: 0
   $name: Group padding top (px)
+  $description: Non-negative internal space, clamped to 0–24px.
 - groupPaddingBottom: 0
   $name: Group padding bottom (px)
+  $description: Non-negative internal space, clamped to 0–24px.
 - groupOffsetX: 0
   $name: Group horizontal offset (px)
-  $description: Moves the complete grid visually without changing tray ordering.
+  $description: >-
+    Moves the complete grid visually without changing tray ordering. Positive
+    moves right; negative moves left. Clamped to -40–40px.
 - groupOffsetY: 0
   $name: Group vertical offset (px)
-  $description: Moves the complete grid visually without changing tray ordering.
+  $description: >-
+    Moves the complete grid visually without changing tray ordering. Positive
+    moves down; negative moves up. Clamped to -40–40px.
 
 - wifiOffsetX: 0
   $name: Wifi nudge X

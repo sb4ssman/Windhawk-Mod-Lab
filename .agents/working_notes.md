@@ -7,11 +7,10 @@ Living todo list — current state only, pruned every session. Completed work
 ## Current focus
 
 **OmniButton Customizer is the active development target.** The candidate
-survived the user's Explorer restart. Live diagnostics show that this Windows
-build exposes the percentage as one `BatteryTextBlock` containing `81%`; the
-earlier multi-child inference from a screenshot was incorrect. Smart automatic
-uses the intended compact 2×2 at standard height. Current work is exact cell
-centering and then optical calibration of the native icon/font shapes.
+survived the user's Explorer restart and the user considers its optically
+nudged layout ready enough for submission. Six screenshots now document the
+standard 2×2, reordered row, busy multi-row tray, coupled battery/percentage,
+and two vertical layouts. The full automated production preflight passes.
 
 Template status (audited 2026-07-19):
 
@@ -55,14 +54,11 @@ Candidate changes awaiting live evidence:
 
 Next work, in order:
 
-- [ ] Run `.agents/knowledge/omnibutton-test-checklist.md`, starting with
-      default/forced 2×2 legibility (including `%`), independent centering,
-      omission of `percent`, repeated settings changes, and disable restoration.
-- [ ] If battery behavior differs, capture the new `[Battery]`, `[Layout]`, and
-      `[Lifecycle]` lines; the candidate now logs native slot classes, inner
-      battery structure, visibility map, and resolved cell coordinates.
-- [ ] Replace the vertical-era screenshots, then prepare a PR only after explicit
-      user approval.
+- [ ] Before the actual PR, confirm the exact final source still opens Quick
+      Settings and cleanly completes disable → native restoration → re-enable.
+- [ ] After explicit submission approval, build a clean one-file PR branch from
+      current upstream/main. Reconcile it with legacy vertical-omnibutton PR
+      #3859 rather than updating both implementations independently.
 
 PR #3859 (`vertical-omnibutton`) is awaiting m417z's response on retiring it in
 favor of this full customizer. If retirement is refused, its five review comments
