@@ -995,3 +995,19 @@ at most four checks per second.
   and the current upstream Windhawk validator. Root catalog now marks v1.0 as a
   submission candidate. Actual submission remains gated on explicit approval
   and a final live disable/restoration/re-enable plus Quick Settings click check.
+
+## 2026-07-21 — OmniButton Customizer v1.0 submitted (PR #3859)
+
+- User confirmed the final source opens Quick Settings and completes clean
+  disable/native restoration/re-enable, then explicitly approved submission.
+- Maintainer m417z had already approved either replacing or closing the legacy
+  Vertical OmniButton PR. Rebuilt its branch from current upstream/main
+  `7c214926`, replacing the narrow proposal with one new file:
+  `mods/omnibutton-customizer.wh.cpp`.
+- Verified the copied source byte-for-byte by SHA-256, reran Windhawk Clang and
+  the current upstream validator, and committed it as `b7beff82` (`Add
+  OmniButton Customizer v1.0`). Updated PR #3859's title, full feature/test body,
+  screenshots, changelog context, and intact authorship section.
+- Final GitHub CI is green: changed-file validation and Windhawk 1.6.1, 1.7.3,
+  and 2.0.0-alpha.1 compilation all pass. PR:
+  https://github.com/ramensoftware/windhawk-mods/pull/3859
