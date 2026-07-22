@@ -1011,3 +1011,58 @@ at most four checks per second.
 - Final GitHub CI is green: changed-file validation and Windhawk 1.6.1, 1.7.3,
   and 2.0.0-alpha.1 compilation all pass. PR:
   https://github.com/ramensoftware/windhawk-mods/pull/3859
+
+## 2026-07-21 — Tray Utility Customizer v2 rewrite (per-icon layout)
+
+Full ground-up rewrite of tray-utility-customizer after live testing proved the
+host-moving v1 architecture could not deliver the mod's purpose on build 26200:
+Emoji and Touch Keyboard share one Windows host (`NonActivatableStack`), so
+moving whole hosts can never stack them vertically, and forcing 24px cells onto
+wider native icons broke hover highlights and spacing. Nine iteration rounds in
+one session, all under the no-push-without-live-test rule:
+
+- **Two new copy-source templates.** `_templates/nested-group-layout.h` v1.0:
+  pure pixel-space layout from one nestable expression (`|` primary axis, `,`
+  cross axis, parentheses alternate axes), native-size items, absent tokens
+  collapse; unit-tested (`tests/nested-group-layout-tests.cpp` — diamond, both
+  axes, spacing, nesting, cross-align, parse failure). `visual-tree-walk.h`
+  v1.0: `ForEachDescendant`/`FindDescendant`/`CollectDescendants` plus the
+  OmniButton `FindInnerStackPanel`. Both added to `_templates/README.md`.
+- **Per-icon control without splitting Windows hosts.** Hosts reparent into one
+  owned group (`TrayUtilityCustomizerGroup`); each native `IconView` is steered
+  to its target cell with flow-compensating margins (margins participate in
+  layout, so flyouts still anchor correctly — the OmniButton "independent mode"
+  trick generalized). Chevron and the MainStack fallback are host-leaf items.
+  Unplaced visible icons append after the group so nothing is ever lost.
+- **Template adoptions carried in:** lifecycle v1.2 (exception-contained
+  dispatcher, `TrayUI::StartTaskbar` rehook with stale-tree drop, no_destroy on
+  all XAML-owning globals), injected-grid-column v1.2, start-placement bumped to
+  **v1.2** (centers the group against the taskbar RootGrid, not Start's padded
+  box — fixes vertical mis-centering). smart-grid also gained v1.1 `minColumns`
+  + `PackUnits` and v1.2 shortGroupPosition-aware packing during the earlier
+  bundle-era rounds; that block was then removed from this mod when the layout
+  expression replaced grid modes (template file stays for other adopters).
+- **BREAKING settings:** one `layout` expression replaces itemOrder / gridMode /
+  smartLayout / gridRows / gridColumns / fillOrder / shortGroup* /
+  overflowPlacement. `buttonWidth`/`buttonHeight` default 0 = native size.
+  Added `primaryAxis` + `crossAlign`. Deleted the in-mod `enabled` toggle
+  (Windhawk's own enable/disable covers it). Tokens accept forgiving aliases
+  (chevron/keyboard/pen/touchpad/input), canonicalized from the parsed tree;
+  unknown tokens log a warning instead of vanishing.
+- **Detection** switched to stable Segoe Fluent glyph codepoints (Emoji U+F353,
+  Touch Keyboard U+E765) with accessibility-metadata fallbacks.
+- **Dropped as unproven:** a `SetWindowPos` clamp for edge flyouts was written
+  then removed — the tray overflow flyout is an explorer-owned windowed popup
+  but the fix wasn't confirmed to work, and the Emoji panel lives in
+  `TextInputHost.exe` (out of explorer's injection reach). Documented as a known
+  limitation instead. Right-of-Start "snaps in only after interaction" got an
+  `UpdateLayout()` + immediate re-Position and a 600 ms settle-timer re-Position
+  (the centered taskbar re-flows through an animation); still needs live
+  confirmation.
+- Live-confirmed by the user: v2 default row, chevron-over-row, chevron-leading
+  and chevron-trailing stacks, a full single column, a leased tray column, a
+  busy double-height tray, and Right-of-Start. Fresh screenshots pushed
+  (commit `0089823`, no message) and wired into both README layers
+  (README_MATCH). All four template blocks diff-verified verbatim; Windhawk
+  clang syntax check and exit-time-destructor audit clean. NOT submitted —
+  awaiting a final consolidated live pass and explicit approval.
