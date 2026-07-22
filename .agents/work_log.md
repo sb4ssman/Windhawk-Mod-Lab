@@ -1066,3 +1066,31 @@ one session, all under the no-push-without-live-test rule:
   (README_MATCH). All four template blocks diff-verified verbatim; Windhawk
   clang syntax check and exit-time-destructor audit clean. NOT submitted —
   awaiting a final consolidated live pass and explicit approval.
+
+## 2026-07-22 — Tray Utility v1.1 review fixes submitted
+
+- Read the complete open PR #4841 thread before any external write and
+  reconciled m417z's four required review items against the v1.1 rewrite.
+  The rewrite had already removed the redundant `enabled` setting and added
+  ARM64 support; two items still required local changes.
+- Removed the `SystemTray.IconView` constructor hook, its Loaded revokers, the
+  SystemTray.dll/Taskbar.View.dll/ExplorerExtensions.dll discovery path, and
+  the `LoadLibraryExW` hook. Rebuild handling now uses the existing taskbar.dll
+  `TrayUI::StartTaskbar` hook, bounded retry, visibility watchers, and
+  layout-intactness check.
+- Corrected both README layers: Emoji and touch keyboard have stable glyph
+  matching, while pen menu, virtual touchpad, and input indicator currently
+  depend on English accessibility text and might not be detected under other
+  Windows display languages.
+- Full local preflight passed: `COMPILE_OK`,
+  `EXIT_TIME_DESTRUCTOR_AUDIT_OK`, `README_MATCH`, and the upstream validator's
+  `SUBMISSION_PREFLIGHT_OK`. The user then live-confirmed icon churn,
+  Explorer/taskbar rebuild, and disable/native restore/re-enable and explicitly
+  approved submission.
+- Pushed the lab source/readme as `df1f455`, rebased PR #4841's branch onto
+  current upstream/main, copied the source byte-for-byte (SHA-256
+  `177693615EA0EDDD101A583174EEA5ED02A7C20F4D0B4003954E2F259899B62C`), and
+  pushed it as `43d1ac77`. Rewrote the PR body for the v1.1 feature set and
+  current gallery and replied to the maintainer review. GitHub changed-file
+  validation plus Windhawk 1.6.1, 1.7.3, and 2.0.0-alpha.1 compilation all
+  pass.

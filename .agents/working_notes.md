@@ -6,10 +6,10 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-**Tray Utility Customizer v2** (per-icon rewrite) in the local working copy —
-NOT submitted, diverged from what's in PR #4841. Live-confirmed across most
-layouts; two active limitation priorities (edge flyouts, Start settle) and a
-pre-PR audit remain. Full history in work_log 2026-07-21; active items below.
+**Tray Utility Customizer v1.1** (per-icon rewrite) is submitted in updated
+PR #4841 at commit `43d1ac77`. The user live-confirmed the final lifecycle
+simplification; all GitHub validation and Windhawk compile jobs are green.
+Await maintainer review; do not change the PR without fresh explicit approval.
 
 OmniButton Customizer v1.0 is submitted as PR #4855 on branch
 `add-omnibutton-customizer` (base upstream/main, one file:
@@ -27,8 +27,7 @@ Do not change a PR without fresh explicit approval.
 - Privacy Indicator Anchor v1.0 — PR #4843
 - Taskbar Clock Spacer v1.1 — PR #4443
 - Taskbar Folder Menus v0.7 — PR #4485
-- Tray Utility Customizer v1.0 — PR #4841 (⚠ local working copy is now the v2
-  per-icon rewrite, wholly diverged from this PR — do not conflate)
+- Tray Utility Customizer v1.1 — PR #4841 (per-icon rewrite pushed 2026-07-22)
 - Taskbar VD Switcher v1.8 — PR #4844
 
 Follow-ups:
@@ -39,16 +38,21 @@ Follow-ups:
       when Explorer restarts will not disrupt the user's desktop order.
 - [ ] Privacy Anchor: optional final-build restart/hardware-monitor checks and
       idle screenshot refresh; keep frame-signature inference opt-in only.
-- [ ] Tray Utility v2 (per-icon rewrite) — working copy, NOT submitted.
+- [ ] Tray Utility v1.1 (per-icon rewrite) — submitted in PR #4841.
       Full history in work_log 2026-07-21 "Tray Utility Customizer v2
-      rewrite". State: compiles clean, exit-time-destructor audit OK, all
-      four template blocks diff-verified verbatim, both README layers match
-      (README_MATCH) with the new gallery. Live-confirmed by user across
-      row/stack/column/leased-column/busy-tray/Right-of-Start. Before any
-      PR: run `six-mod-settings-audit.md` against the new `layout`/
-      `primaryAxis`/`crossAlign` settings, do a final consolidated
-      disable→restore→re-enable live pass, then get explicit approval.
-      Two ACTIVE PRIORITY limitations remain (see below).
+      rewrite". State: `COMPILE_OK`, exit-time-destructor audit OK,
+      `README_MATCH`, and upstream validator `SUBMISSION_PREFLIGHT_OK`.
+      Settings/template audit and gallery work are complete. Maintainer item
+      1 is addressed by accurately documenting that pen/touchpad/input
+      detection depends on English accessibility text. Item 3 is addressed
+      by removing the IconView constructor hook, the SystemTray/Taskbar.View/
+      ExplorerExtensions dependency, and the LoadLibraryExW hook; lifecycle
+      now relies on taskbar.dll `TrayUI::StartTaskbar`, the bounded initial/
+      rebuild retry, visibility watchers, and the layout-intactness check.
+      User live-confirmed icon appearance/churn, Explorer/taskbar rebuild, and
+      disable→native restore→re-enable. PR commit `43d1ac77`; changed-file
+      validation and Windhawk 1.6.1/1.7.3/2.0.0-alpha.1 compile jobs all pass.
+      Await maintainer review. Two documented limitations remain (see below).
 - [ ] Tray Utility edge flyout clipping — ACCEPTED LIMITATION (both READMEs
       document it). The SetWindowPos work-area clamp was tried TWICE
       (2026-07-21) and REMOVED both times — it never fixed the overflow
@@ -75,10 +79,6 @@ Follow-ups:
       for the selected utilities (touch keyboard TipbandDesiredVisibility,
       pen ShowPenWorkspaceButton, touchpad) instead of an in-mod enable
       toggle. Deferred; needs its own investigation.
-- [ ] Tray Utility housekeeping: old gallery assets `with-carot-stacked.png`,
-      `with-extra-icons-carot.png`, and `part-of-a-mess.png` are no longer
-      referenced by either README; archive/delete at user discretion.
-
 ## Lab-level todos
 - [ ] FUTURE TEMPLATE EXTRACTION — the tray-utility v2 "positioning system"
       is only PARTLY templated. Done: `nested-group-layout.h` (expression →
