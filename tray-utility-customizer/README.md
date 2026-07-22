@@ -32,7 +32,7 @@ positions each icon individually, at its native size by default.
 ![A neat column](assets/neat-stack.png)
 *A full single column of utilities on a single-height taskbar.*
 
-![A dedicated column elsewhere in the tray](assets/put%20it%20somewhere%20else.png)
+![A dedicated column elsewhere in the tray](assets/dedicated-tray-column.png)
 *The group leased into its own tray column at the right end of the taskbar.*
 
 ![On a busy double-height taskbar](assets/busy-tray.png)
@@ -40,6 +40,9 @@ positions each icon individually, at its native size by default.
 
 ![Beside Start](assets/unnecessary-but-possible.png)
 *The experimental Right of Start position — unnecessary, but possible.*
+
+![Right of Start, stacked on a double-height taskbar](assets/right-of-start-2x-taskmanager-height.png)
+*Right of Start on a double-height taskbar, stacked as a column beside Start.*
 
 ## Layout expression
 

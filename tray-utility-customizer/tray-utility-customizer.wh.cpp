@@ -2,7 +2,7 @@
 // @id              tray-utility-customizer
 // @name            Tray Utility Customizer
 // @description     Granular per-icon control over the Windows tray utility icons — Show hidden icons, Emoji, touch keyboard, pen menu, and virtual touchpad — arranged by one nestable layout expression.
-// @version         1.0
+// @version         1.1
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -46,7 +46,7 @@ positions each icon individually, at its native size by default.
 ![A neat column](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/neat-stack.png)
 *A full single column of utilities on a single-height taskbar.*
 
-![A dedicated column elsewhere in the tray](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/put%20it%20somewhere%20else.png)
+![A dedicated column elsewhere in the tray](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/dedicated-tray-column.png)
 *The group leased into its own tray column at the right end of the taskbar.*
 
 ![On a busy double-height taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/busy-tray.png)
@@ -54,6 +54,9 @@ positions each icon individually, at its native size by default.
 
 ![Beside Start](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/unnecessary-but-possible.png)
 *The experimental Right of Start position — unnecessary, but possible.*
+
+![Right of Start, stacked on a double-height taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/right-of-start-2x-taskmanager-height.png)
+*Right of Start on a double-height taskbar, stacked as a column beside Start.*
 
 ## Layout expression
 
@@ -2759,7 +2762,7 @@ static void StartRetryThread() {
 }
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Tray Utility Customizer v1.0 (per-icon rework)");
+    Wh_Log(L"[Init] Tray Utility Customizer v1.1");
     LoadSettings();
 
     if (!HookTaskbarDllSymbols()) {

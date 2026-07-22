@@ -80,6 +80,19 @@ Follow-ups:
       referenced by either README; archive/delete at user discretion.
 
 ## Lab-level todos
+- [ ] FUTURE TEMPLATE EXTRACTION — the tray-utility v2 "positioning system"
+      is only PARTLY templated. Done: `nested-group-layout.h` (expression →
+      pixel placements, tested). NOT done: the orchestration in
+      `ApplyLayout` — reparent native hosts into one owned group + steer each
+      IconView to its target via flow-compensating margins + anchor selection
+      (borrow column / injected-column lease / start-placement lease). That
+      per-icon reparent+margin-steer pattern is the novel reusable piece;
+      extract it into e.g. `tray-group-placement.h` (with the OmniButton
+      "independent mode" as a second data point) when another mod needs it.
+- [ ] TOOLING: UWPSpy is available (XAML-tree inspection) — see memory
+      `reference_uwpspy`. Use it (not Spy++) to investigate whether the
+      tray-utility overflow flyout is an in-process XAML Popup before any
+      further edge-clip attempt.
 - [ ] TEMPLATE UNIFORMITY IS A STANDING PRIORITY (user, 2026-07-19): mods keep
       shipping without the curated `_templates/` profiles (settings names,
       order, smart grid). Every mod touched must be checked against
