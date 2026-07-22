@@ -25,6 +25,13 @@ start of a new chat means cross-checking all of these, not just reading one:
 
 ## Standing directives (do not violate)
 
+- **PRIME DIRECTIVE — NEVER PUSH WITHOUT A HUMAN LIVE TEST.** Do not push to any
+  branch, update any PR, or submit anything until the user has personally run
+  the mod live on their machine and confirmed it works. Compilation passing, CI
+  green, and "looks correct on read" are NOT substitutes for a human live test.
+  When work is ready, hand it back to the user for a live test and WAIT for their
+  explicit confirmation before any push. No exceptions, no "it's a trivial
+  change," no inferring approval from a prior test of a different build.
 - READ EACH MOD CAREFULLY — understand what it does, its context, and its
   interface — BEFORE working on it.
 - We are NOT working on interop/placement mechanics right now.

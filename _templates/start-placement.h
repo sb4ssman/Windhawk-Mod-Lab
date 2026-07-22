@@ -2,12 +2,16 @@
 
 #undef GetCurrentTime
 
-// Copy-source template v1.1: place an owned taskbar group immediately left or
+// Copy-source template v1.2: place an owned taskbar group immediately left or
 // right of Start. The group is appended to TaskbarFrame/RootGrid, the task
 // repeater is given matching left-side room, and Start is counter-shifted by a
-// constant amount so the group tracks Start's live layout position. First
-// adopters: tray-utility-customizer (source pattern, still on the pre-template
-// inline copy) and privacy-indicator-anchor (template extraction).
+// constant amount so the group tracks Start's live layout position. Adopters:
+// tray-utility-customizer (v1.2) and privacy-indicator-anchor (v1.1).
+//
+// v1.2 geometry fix: the group is centered vertically against the taskbar
+// RootGrid, not against Start's reported box — Start's ActualHeight can
+// include asymmetric padding, which visibly mis-centered groups in
+// tray-utility-customizer live testing.
 //
 // v1.1 geometry fix: v1.0 pinned Start to an absolute X captured at Acquire
 // and placed the Left-of-Start group at the taskbar's left edge. On a
@@ -183,7 +187,12 @@ inline bool Position(Lease& lease) noexcept {
         if (left < 0.0)
             left = 0.0;
 
-        double top = point.Y + (startHeight - groupHeight) / 2.0;
+        // v1.2: center against the taskbar root; Start's own box is not a
+        // reliable vertical reference.
+        double rootHeight = lease.rootGrid.ActualHeight();
+        double top = rootHeight > 0.0
+                         ? (rootHeight - groupHeight) / 2.0
+                         : point.Y + (startHeight - groupHeight) / 2.0;
         if (top < 0.0)
             top = 0.0;
         double rootWidth = lease.rootGrid.ActualWidth();

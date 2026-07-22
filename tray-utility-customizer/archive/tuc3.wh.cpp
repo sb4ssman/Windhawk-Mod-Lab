@@ -66,10 +66,6 @@ Two **experimental** positions relocate the group out of the tray entirely:
 push the task list right to reserve room. The group follows Start as the
 taskbar re-centers. Primary taskbar only.
 
-Tray flyouts (such as the hidden-icons overflow) are clamped back onto the
-screen when a screen-edge position would push them off. The Emoji panel is
-drawn by a separate Windows process and cannot be repositioned by this mod.
-
 ## Detection
 
 Icons are identified by their stable Segoe Fluent glyphs with
@@ -2434,18 +2430,6 @@ static bool ApplyLayout() {
             }
         });
 
-    if (startPosition && g_startLease.group) {
-        // Removing the hosts shrinks the tray and the taskbar re-centers
-        // on the NEXT layout pass; without forcing one now the group sits
-        // at the stale Start position until something else (a screenshot,
-        // a hover) happens to trigger layout.
-        try {
-            g_startLease.rootGrid.UpdateLayout();
-        } catch (...) {
-        }
-        start_placement::Position(g_startLease);
-    }
-
     Wh_Log(
         L"[Apply] Layout applied: items=%d targets=%d hosts=%d "
         L"trayColumn=%d dedicated=%d groupSize=%.0fx%.0f trayHeight=%.1f "
@@ -2586,73 +2570,6 @@ static HMODULE WINAPI LoadLibraryExW_Hook(
     return module;
 }
 
-// Tray flyouts (the hidden-icons overflow and friends) are windowed XAML
-// popups owned by explorer; Windows places them from the icon's screen
-// position, and at extreme screen-edge positions that placement runs off
-// the monitor. Clamp any windowed popup back into the work area — a popup
-// should never be off-screen, so the correction is benign, and it only
-// runs while the mod's layout is active. (The emoji panel lives in
-// TextInputHost.exe and is out of this mod's reach.)
-using SetWindowPos_t =
-    BOOL (WINAPI*)(HWND, HWND, int, int, int, int, UINT);
-static SetWindowPos_t SetWindowPos_Original;
-
-static BOOL WINAPI SetWindowPos_Hook(HWND hWnd,
-                                     HWND hWndInsertAfter,
-                                     int x,
-                                     int y,
-                                     int cx,
-                                     int cy,
-                                     UINT uFlags) {
-    if (!g_unloading && g_layoutApplied && !(uFlags & SWP_NOMOVE)) {
-        WCHAR className[64]{};
-        if (GetClassNameW(hWnd, className, ARRAYSIZE(className)) &&
-            _wcsicmp(className, L"Xaml_WindowedPopupClass") == 0) {
-            int width = cx;
-            int height = cy;
-            if (uFlags & SWP_NOSIZE) {
-                RECT rect{};
-                if (GetWindowRect(hWnd, &rect)) {
-                    width = rect.right - rect.left;
-                    height = rect.bottom - rect.top;
-                }
-            }
-            if (width > 0 && height > 0) {
-                RECT target{x, y, x + width, y + height};
-                HMONITOR monitor =
-                    MonitorFromRect(&target, MONITOR_DEFAULTTONEAREST);
-                MONITORINFO info{sizeof(info)};
-                if (monitor && GetMonitorInfoW(monitor, &info)) {
-                    int clampedX = x;
-                    int clampedY = y;
-                    if (target.right > info.rcWork.right) {
-                        clampedX = info.rcWork.right - width;
-                    }
-                    if (clampedX < info.rcWork.left) {
-                        clampedX = info.rcWork.left;
-                    }
-                    if (target.bottom > info.rcWork.bottom) {
-                        clampedY = info.rcWork.bottom - height;
-                    }
-                    if (clampedY < info.rcWork.top) {
-                        clampedY = info.rcWork.top;
-                    }
-                    if (clampedX != x || clampedY != y) {
-                        Wh_Log(
-                            L"[Flyout] Clamped popup (%d,%d %dx%d) -> "
-                            L"(%d,%d)",
-                            x, y, width, height, clampedX, clampedY);
-                        x = clampedX;
-                        y = clampedY;
-                    }
-                }
-            }
-        }
-    }
-    return SetWindowPos_Original(hWnd, hWndInsertAfter, x, y, cx, cy,
-                                 uFlags);
-}
-
 static void StartRetryThread();
 
 // Explorer can rebuild the taskbar in place (TrayUI::StartTaskbar); the old
@@ -2789,22 +2706,6 @@ BOOL Wh_ModInit() {
             Wh_Log(L"[Init] LoadLibraryExW hook unavailable");
             return FALSE;
         }
-    }
-
-    // user32.dll: clamp explorer-owned windowed popups (tray flyouts)
-    // back into the work area at screen-edge positions. Optional — the
-    // mod works without it.
-    HMODULE user32 = GetModuleHandleW(L"user32.dll");
-    auto setWindowPos = user32
-        ? reinterpret_cast<SetWindowPos_t>(
-              GetProcAddress(user32, "SetWindowPos"))
-        : nullptr;
-    if (setWindowPos) {
-        WindhawkUtils::SetFunctionHook(
-            setWindowPos, SetWindowPos_Hook, &SetWindowPos_Original);
-    } else {
-        Wh_Log(L"[Init] SetWindowPos hook unavailable; "
-               L"flyouts won't be edge-clamped");
     }
     return TRUE;
 }

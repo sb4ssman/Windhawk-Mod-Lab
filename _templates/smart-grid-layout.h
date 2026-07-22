@@ -1,10 +1,15 @@
 #pragma once
 
-// Copy-source template v1.0: pure layout math for repeated taskbar items.
+// Copy-source template v1.2: pure layout math for repeated taskbar items.
 // This file intentionally has no WinRT dependency.
+// v1.1: minColumns + PackUnits for items spanning multiple horizontal cells
+// (an indivisible native host carrying several icons).
+// v1.2: PackUnits honors shortGroupPosition — underfull rows gather first
+// or last instead of always landing wherever greedy packing left them.
 
 #include <algorithm>
 #include <climits>
+#include <vector>
 
 namespace windhawk_mod_templates::smart_grid {
 
@@ -31,6 +36,8 @@ struct Config {
     int rows = 0;          // exact in fixed modes; maximum in AutoSmart
     int columns = 0;       // exact in fixed modes; maximum in AutoSmart
     int availableRows = 1; // derive from host height / item pitch
+    int minColumns = 1;    // v1.1: unit-aware callers set this to the
+                           // widest item so every candidate can hold it
 };
 
 struct Layout {
@@ -101,7 +108,8 @@ inline Layout ComputeLayout(int count, Config const& config) {
                             config.smartLayout != SmartLayout::PackHorizontal
                 ? 2 : 1;
             for (int rows = firstRows; rows <= availableRows; ++rows) {
-                int columns = (count + rows - 1) / rows;
+                int columns = std::max((count + rows - 1) / rows,
+                                       config.minColumns);
                 if (config.columns > 0 && columns > config.columns)
                     continue;
                 int score = ScoreCandidate(rows, columns, count,
@@ -120,7 +128,7 @@ inline Layout ComputeLayout(int count, Config const& config) {
     }
 
     result.rows = std::clamp(result.rows, 1, count);
-    result.columns = std::max(1, result.columns);
+    result.columns = std::max({1, result.columns, config.minColumns});
     while (result.rows * result.columns < count) {
         if (config.mode == GridMode::FixedColumns)
             ++result.rows;
@@ -213,6 +221,74 @@ inline Cell GetCell(int index, int count, Layout const& layout,
         }
     }
     return cell;
+}
+
+// v1.1 — unit-aware packing for items that span multiple horizontal cells.
+// An item's units is how many cells wide it is; items pack into rows in item
+// order without splitting. v1.2: underfull rows gather at the front (First)
+// or the back (Last) per config.shortGroupPosition, without reordering the
+// items inside any row, and every underfull row is aligned with
+// config.shortGroupAlign. SingleColumn packs one item per row regardless of
+// width. fillOrder does not participate in unit packing; callers whose
+// items are all one unit wide should use GetCell.
+//
+// Call ComputeLayout first with count = total units and config.minColumns =
+// the widest item, then PackUnits to place items and get the true row count.
+struct UnitPlacement {
+    double columnUnits = 0.0; // leading edge, in cell units
+    double rowUnits = 0.0;
+};
+
+inline Layout PackUnits(int const* units, int itemCount, Layout layout,
+                        Config const& config, UnitPlacement* placements) {
+    for (int i = 0; i < itemCount; ++i)
+        layout.columns = std::max(layout.columns, units[i]);
+
+    struct PackedRow {
+        int firstItem;
+        int endItem;
+        int used;
+    };
+    std::vector<PackedRow> rows;
+    int used = 0;
+    int rowStart = 0;
+    for (int i = 0; i < itemCount; ++i) {
+        int itemUnits = std::clamp(units[i], 1, layout.columns);
+        if (used > 0 &&
+            (used + itemUnits > layout.columns ||
+             config.mode == GridMode::SingleColumn)) {
+            rows.push_back({rowStart, i, used});
+            used = 0;
+            rowStart = i;
+        }
+        used += itemUnits;
+    }
+    if (itemCount > 0)
+        rows.push_back({rowStart, itemCount, used});
+
+    std::vector<int> order(rows.size());
+    for (size_t i = 0; i < order.size(); ++i)
+        order[i] = static_cast<int>(i);
+    std::stable_partition(
+        order.begin(), order.end(), [&](int row) {
+            bool full = rows[row].used >= layout.columns;
+            return config.shortGroupPosition == ShortGroupPosition::Last
+                       ? full
+                       : !full;
+        });
+
+    for (size_t outRow = 0; outRow < order.size(); ++outRow) {
+        PackedRow const& packed = rows[order[outRow]];
+        double column = AlignOffset(layout.columns, packed.used,
+                                    config.shortGroupAlign);
+        for (int i = packed.firstItem; i < packed.endItem; ++i) {
+            placements[i].columnUnits = column;
+            placements[i].rowUnits = static_cast<double>(outRow);
+            column += std::max(1, units[i]);
+        }
+    }
+    layout.rows = rows.empty() ? 1 : static_cast<int>(rows.size());
+    return layout;
 }
 
 } // namespace windhawk_mod_templates::smart_grid

@@ -11,6 +11,8 @@ comment, and adapt only through the documented settings or callback contract.
 |---|---|
 | `settings-profiles.md` | Canonical setting names, order, defaults, and profile boundaries |
 | `smart-grid-layout.h` | Row, column, fixed-grid, and smart-grid calculation plus short-group placement |
+| `nested-group-layout.h` | Pixel-space placement from one nestable layout expression (`\|` along the primary axis, `,` across, parentheses alternate axes) with native-size items |
+| `visual-tree-walk.h` | Descendant walk/find/collect helpers plus the OmniButton inner-StackPanel walk |
 | `button-surface.h` | Hex/accent colors, native-default clearing, hover/pressed resources, border, opacity, and shine |
 | `injected-grid-column.h` | Reversible `SystemTrayFrameGrid` column insertion with marker-based cleanup |
 | `start-placement.h` | Experimental owned-group placement immediately left or right of Start with reversible task-item reservation |
@@ -23,8 +25,11 @@ comment, and adapt only through the documented settings or callback contract.
 | `verify-readme-sync.ps1` | Normalized folder README versus embedded Windhawk README parity check |
 
 `tests/smart-grid-layout-tests.cpp` covers balanced selection, half-cell
-centering, both fill orders, and first/last short-group placement. The pure
-layout test and all three WinRT templates are syntax-checked independently.
+centering, both fill orders, and first/last short-group placement.
+`tests/nested-group-layout-tests.cpp` covers the diamond arrangement, both
+primary axes, spacing, absent-token collapse, nesting, cross alignment, and
+parse failure. The pure layout tests and the WinRT templates are
+syntax-checked independently.
 
 ## The six audited mods
 
