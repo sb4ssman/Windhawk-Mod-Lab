@@ -90,10 +90,12 @@ taskbar re-centers. Primary taskbar only.
 
 ## Detection
 
-Icons are identified by their stable Segoe Fluent glyphs with
-language-neutral fallbacks to accessibility metadata. **Force MainStack**
-allows the complete native `MainStack` to participate as the `emoji` item
-when Windows doesn't expose useful metadata.
+Emoji and touch keyboard are identified by stable Segoe Fluent glyphs, with
+accessibility metadata as a fallback. Pen menu, virtual touchpad, and input
+indicator currently rely on English accessibility text and might not be
+detected on Windows installations using another display language. **Force
+MainStack** allows the complete native `MainStack` to participate as the
+`emoji` item when Windows doesn't expose useful metadata.
 
 ## Known limitations
 

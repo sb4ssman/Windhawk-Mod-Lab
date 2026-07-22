@@ -104,10 +104,12 @@ taskbar re-centers. Primary taskbar only.
 
 ## Detection
 
-Icons are identified by their stable Segoe Fluent glyphs with
-language-neutral fallbacks to accessibility metadata. **Force MainStack**
-allows the complete native `MainStack` to participate as the `emoji` item
-when Windows doesn't expose useful metadata.
+Emoji and touch keyboard are identified by stable Segoe Fluent glyphs, with
+accessibility metadata as a fallback. Pen menu, virtual touchpad, and input
+indicator currently rely on English accessibility text and might not be
+detected on Windows installations using another display language. **Force
+MainStack** allows the complete native `MainStack` to participate as the
+`emoji` item when Windows doesn't expose useful metadata.
 
 ## Known limitations
 
@@ -249,7 +251,6 @@ when Windows doesn't expose useful metadata.
 #include <exception>
 #include <functional>
 #include <initializer_list>
-#include <list>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1033,12 +1034,9 @@ struct Settings {
 // releases everything synchronously on the taskbar UI thread.
 [[clang::no_destroy]] static Settings g_settings{};
 static std::atomic<bool> g_unloading = false;
-static std::atomic<bool> g_systemTrayModuleHooked = false;
 static HWND g_taskbarWnd = nullptr;
 static HANDLE g_retryStopEvent = nullptr;
 static HANDLE g_retryThread = nullptr;
-[[clang::no_destroy]] static std::list<FrameworkElement::Loaded_revoker>
-    g_loadedRevokers;
 
 // Property snapshot for every element the mod touches (tray hosts and the
 // individual IconViews inside them). Hosts additionally get a zero-size
@@ -2551,110 +2549,6 @@ static void ApplyLayoutOnWindowThread() {
 
 // ── Hooks and lifecycle ───────────────────────────────────────────────────
 
-static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE module) {
-    void* info = nullptr;
-    UINT length = 0;
-    HRSRC resource =
-        FindResource(module, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
-    if (resource) {
-        HGLOBAL loaded = LoadResource(module, resource);
-        if (loaded) {
-            void* data = LockResource(loaded);
-            if (data &&
-                (!VerQueryValue(data, L"\\", &info, &length) ||
-                 length == 0)) {
-                info = nullptr;
-            }
-        }
-    }
-    return static_cast<VS_FIXEDFILEINFO*>(info);
-}
-
-static HMODULE GetSystemTrayModuleHandle() {
-    HMODULE module = GetModuleHandleW(L"SystemTray.dll");
-    if (!module) {
-        module = GetModuleHandleW(L"Taskbar.View.dll");
-        if (module) {
-            auto* version = GetModuleVersionInfo(module);
-            WORD major =
-                version ? HIWORD(version->dwFileVersionMS) : 0;
-            if (!major || major >= 2604) {
-                module = nullptr;
-            }
-        }
-    }
-    if (!module) {
-        module = GetModuleHandleW(L"ExplorerExtensions.dll");
-    }
-    return module;
-}
-
-using IconView_IconView_t = void* (WINAPI*)(void*);
-static IconView_IconView_t IconView_IconView_Original;
-
-static void* WINAPI IconView_IconView_Hook(void* pThis) {
-    void* result = IconView_IconView_Original(pThis);
-    if (g_unloading) {
-        return result;
-    }
-
-    FrameworkElement iconView = nullptr;
-    reinterpret_cast<IUnknown**>(pThis)[1]->QueryInterface(
-        winrt::guid_of<FrameworkElement>(),
-        winrt::put_abi(iconView));
-    if (!iconView) {
-        return result;
-    }
-
-    g_loadedRevokers.emplace_back();
-    auto revoker = std::prev(g_loadedRevokers.end());
-    *revoker = iconView.Loaded(
-        winrt::auto_revoke_t{},
-        [revoker](auto const&, auto const&) {
-            g_loadedRevokers.erase(revoker);
-            if (!g_unloading) {
-                ApplyLayoutOnWindowThread();
-            }
-        });
-    return result;
-}
-
-using LoadLibraryExW_t =
-    HMODULE (WINAPI*)(LPCWSTR, HANDLE, DWORD);
-static LoadLibraryExW_t LoadLibraryExW_Original;
-
-static bool HookSystemTraySymbols(HMODULE module) {
-    // SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll
-    WindhawkUtils::SYMBOL_HOOK systemTrayHooks[] = {{
-        {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
-        &IconView_IconView_Original,
-        IconView_IconView_Hook,
-    }};
-    return WindhawkUtils::HookSymbols(
-        module, systemTrayHooks, ARRAYSIZE(systemTrayHooks));
-}
-
-static HMODULE WINAPI LoadLibraryExW_Hook(
-    LPCWSTR fileName,
-    HANDLE file,
-    DWORD flags) {
-    HMODULE module =
-        LoadLibraryExW_Original(fileName, file, flags);
-    if (module && fileName &&
-        !g_systemTrayModuleHooked &&
-        GetSystemTrayModuleHandle() == module &&
-        !g_systemTrayModuleHooked.exchange(true)) {
-        Wh_Log(L"[Hooks] System tray module loaded: %s", fileName);
-        if (HookSystemTraySymbols(module)) {
-            Wh_ApplyHookOperations();
-        } else {
-            g_systemTrayModuleHooked = false;
-            Wh_Log(L"[Hooks] System tray symbol hooks failed");
-        }
-    }
-    return module;
-}
-
 static void StartRetryThread();
 
 // Explorer can rebuild the taskbar in place (TrayUI::StartTaskbar); the old
@@ -2770,29 +2664,6 @@ BOOL Wh_ModInit() {
         return FALSE;
     }
 
-    if (HMODULE module = GetSystemTrayModuleHandle()) {
-        if (!HookSystemTraySymbols(module)) {
-            Wh_Log(L"[Init] system tray symbol hooks failed");
-            return FALSE;
-        }
-        g_systemTrayModuleHooked = true;
-    } else {
-        HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
-        auto loadLibraryExW = kernelbase
-            ? reinterpret_cast<LoadLibraryExW_t>(
-                  GetProcAddress(kernelbase, "LoadLibraryExW"))
-            : nullptr;
-        if (loadLibraryExW) {
-            WindhawkUtils::SetFunctionHook(
-                loadLibraryExW,
-                LoadLibraryExW_Hook,
-                &LoadLibraryExW_Original);
-        } else {
-            Wh_Log(L"[Init] LoadLibraryExW hook unavailable");
-            return FALSE;
-        }
-    }
-
     return TRUE;
 }
 
@@ -2818,7 +2689,6 @@ void Wh_ModUninit() {
         RunFromWindowThread(
             hWnd,
             [](void*) {
-                g_loadedRevokers.clear();
                 ClearHostWatchers();
                 if (g_reapplyTimer) {
                     try {
