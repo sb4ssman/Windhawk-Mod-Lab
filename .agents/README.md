@@ -48,10 +48,12 @@ start of a new chat means cross-checking all of these, not just reading one:
   (a `.tmp-windhawk-mods/` scratch clone once pushed PR #4485, leaving the real
   fork's branch silently diverged for days). Both nested paths are gitignored;
   do not work around that.
-- NEVER BRANCH FROM THE FORK'S `main`. It is polluted with a self-merged
-  vertical-omnibutton commit and merge noise. Always cut and rebase PR branches
-  on `upstream/main` — every current PR branch is a clean one-file diff against
-  it, and it must stay that way.
+- THE ONE HARD SUBMISSION RULE: a PR's diff against `upstream/main` must be
+  exactly one file, `mods/<mod-id>.wh.cpp` — either one added file (new mod) or
+  one modified file (update). This is enforced by upstream `pr_validation.py`
+  (`(added, modified, all) in [(1,0,1),(0,1,1)]`), not a lab preference. Keep
+  the fork's `main` a clean mirror of `upstream/main` so anything branched from
+  it inherits nothing; see "Windhawk submission workflow" below.
 
 ## Notes protocol
 
@@ -128,6 +130,48 @@ purpose and a few meaningful configurations, not every possible setting.
 - PR bodies follow the established format: feature paragraph + highlights +
   screenshots + tested-live summary + Changelog + Mod authorship (see PRs
   #4841/#4843/#4443).
+
+## Windhawk submission workflow (verified against upstream 2026-07-23)
+
+Source of truth: the upstream `README.md` "Submitting a New Mod" / "Submitting a
+Mod Update" sections and `.github/pr_validation.py`. Windhawk mandates NOTHING
+about how you branch — it only judges the PR's final diff and body. The
+GitHub-standard fork-and-PR flow is exactly right; our past breakage came from
+polluting the fork, not from the branch model.
+
+What upstream actually requires:
+
+1. PR diff vs `upstream/main` is exactly ONE file, `mods/<mod-id>.wh.cpp`
+   (one added = new mod, one modified = update). This is the hard gate.
+2. The mod's `@github` metadata matches the PR author's GitHub profile. You can
+   only update a mod you originally submitted.
+3. Update PRs must bump `@version`; new-mod PRs must keep the `## Mod authorship`
+   section in the PR body.
+4. `@id` matches the filename; `SYMBOL_HOOK` arrays name their target module
+   (see the preflight section); commit message carries the changelog.
+
+The clean mechanical flow (all in the fork at
+`t:/Github/sb4ssman/windhawk-mods`, one checkout only):
+
+```
+git fetch upstream
+git switch -c add-<mod-id> upstream/main     # new PR branch cut FROM UPSTREAM
+cp <lab>/<mod>/<mod-id>.wh.cpp mods/<mod-id>.wh.cpp
+git add mods/<mod-id>.wh.cpp                  # stage ONLY that one file
+git diff --name-only upstream/main...HEAD     # MUST print exactly one path
+git commit -m "..."                           # changelog in the message
+git push -u origin add-<mod-id>
+gh pr create --repo ramensoftware/windhawk-mods --base main ...
+```
+
+Updating an existing PR: check out its branch, overwrite the one file, verify
+the one-file diff, commit, push. Never rebase a PR branch onto the fork's `main`
+— rebase onto `upstream/main` only.
+
+Keep the fork's `main` a pristine mirror of `upstream/main` (`git branch -f main
+upstream/main` + `git push --force-with-lease` after fetching). A fork `main`
+used as a workspace is what planted the `vertical-omnibutton.wh.cpp` landmine
+that rode into two branches. `main` is a mirror, not a work surface.
 
 ## Repo shape
 
