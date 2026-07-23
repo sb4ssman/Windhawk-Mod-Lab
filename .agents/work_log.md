@@ -1190,3 +1190,33 @@ one session, all under the no-push-without-live-test rule:
   Utility maintainer-review candidates.
 - No PR, branch, commit, or GitHub comment was changed. Both tested candidates
   remain local pending explicit approval to update their respective PRs.
+
+## 2026-07-23 — Repo hygiene audit and fork cleanup
+
+- Audited every repo, branch, and fork after an interrupted agent session.
+  Nothing upstream was damaged: all six PRs are open/mergeable/`CLEAN`, #4485 is
+  still `46f33014` and #4841 still `43d1ac77`. No rogue forks exist; the only
+  Windhawk forks are `sb4ssman/windhawk-mods` and `m417z-windhawk-mods`. The
+  review candidates are committed to lab `main` as `018a3bd`.
+- Found and removed a 27 MB `.tmp-windhawk-mods/` scratch clone of
+  ramensoftware/windhawk-mods living untracked and un-ignored inside the lab
+  (user deleted it). PR #4485 had actually been pushed from that clone, which is
+  why the real fork's `sb4ssman-taskbar-folder-menus` sat at v0.6 `5f7bfe86` —
+  a diverged line, not an ancestor of the PR head. Reset it to
+  `origin/sb4ssman-taskbar-folder-menus` (`46f33014`); the old tip is kept as
+  tag `backup/folder-menus-local-pre-reset`.
+- Repaired the fork's `remote.origin.fetch`, which had been narrowed to a single
+  explicit refspec for the deleted `sb4ssman-vertical-omnibutton` branch. Plain
+  `git fetch origin` had been failing with `fatal: couldn't find remote ref`,
+  leaving origin refs stale and divergence invisible. Restored the wildcard and
+  set upstream tracking on all ten fork branches.
+- Verified all six open-PR branches are clean: each is a one-file diff against
+  `upstream/main`, none descends from the fork's `main`, and none carries the
+  stray `vertical-omnibutton.wh.cpp`.
+- Identified the root cause of the recurring stray-file problem: the fork's
+  `main` is ahead of `upstream/main` by ten commits that self-merge
+  `mods/vertical-omnibutton.wh.cpp` (fork PR #1) plus merge noise, so anything
+  branched from it inherits the file. Recorded as a standing directive; the
+  force-push reset of fork `main` awaits user approval.
+- Added gitignore guards for nested sister-repo clones and two standing
+  directives (one fork checkout only; never branch from the fork's `main`).

@@ -43,6 +43,15 @@ start of a new chat means cross-checking all of these, not just reading one:
   expect from the interface — not fork housekeeping, not PR logistics.
 - If a shared conversation/paste is truncated, SAY SO and re-read the sources —
   never fill gaps with guesses.
+- ONE FORK CHECKOUT ONLY. All windhawk-mods work happens in the real fork at
+  `t:/Github/sb4ssman/windhawk-mods`. Never clone a sister repo into the lab
+  (a `.tmp-windhawk-mods/` scratch clone once pushed PR #4485, leaving the real
+  fork's branch silently diverged for days). Both nested paths are gitignored;
+  do not work around that.
+- NEVER BRANCH FROM THE FORK'S `main`. It is polluted with a self-merged
+  vertical-omnibutton commit and merge noise. Always cut and rebase PR branches
+  on `upstream/main` — every current PR branch is a clean one-file diff against
+  it, and it must stay that way.
 
 ## Notes protocol
 

@@ -6,12 +6,13 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-**Taskbar Folder Menus v0.7** and **Tray Utility Customizer v1.1** have local,
-uncommitted maintainer-review candidates. Both pass the complete submission
-preflight and were live-confirmed working by the user on 2026-07-23. Tray
-Utility also retains the language-neutral detection rewrite that diverges from
-PR #4841 commit `43d1ac77`. Neither PR has been updated; wait for explicit push
-approval.
+**Taskbar Folder Menus v0.7** and **Tray Utility Customizer v1.1** have
+maintainer-review candidates committed to lab `main` as `018a3bd` (pushed to
+lab origin only). Both pass the complete submission preflight and were
+live-confirmed working by the user on 2026-07-23. Tray Utility also retains the
+language-neutral detection rewrite. Verified 2026-07-23: PR #4485 is still at
+`46f33014` and PR #4841 is still at `43d1ac77` — NEITHER upstream PR has been
+updated. Wait for explicit push approval.
 
 OmniButton Customizer v1.0 is submitted as PR #4855 on branch
 `add-omnibutton-customizer` (base upstream/main, one file:
@@ -20,11 +21,12 @@ legacy Vertical OmniButton PR #3859, which is now CLOSED with a redirect to
 #4855; the stale `sb4ssman-vertical-omnibutton` branch is deleted. Await
 maintainer review; do not change the PR without fresh explicit approval.
 
-## Open upstream PRs — audited 2026-07-22
+## Open upstream PRs — re-audited 2026-07-23
 
 All six are CI green and were submitted/updated with explicit user approval.
-All six are currently open, mergeable, and `CLEAN`. Do not change a PR without
-fresh explicit approval, and never push a review fix before a fresh live test.
+All six are currently open, mergeable, and `CLEAN`, and every PR branch is a
+clean one-file diff against `upstream/main`. Do not change a PR without fresh
+explicit approval, and never push a review fix before a fresh live test.
 
 - OmniButton Customizer v1.0 — PR #4855: no comments/reviews; passive wait.
 - Privacy Indicator Anchor v1.0 — PR #4843: no comments/reviews; passive wait.
@@ -104,6 +106,17 @@ Follow-ups:
       pen ShowPenWorkspaceButton, touchpad) instead of an in-mod enable
       toggle. Deferred; needs its own investigation.
 ## Lab-level todos
+- [ ] FORK `main` RESET — AWAITING APPROVAL. `sb4ssman/windhawk-mods` `main` is
+      ahead of `upstream/main` by ten commits that self-merge
+      `mods/vertical-omnibutton.wh.cpp` (fork PR #1) plus merge noise. Any
+      branch cut from it inherits the stray file — this already forced two
+      "remove stray vertical-omnibutton.wh.cpp" cleanup commits. Fix is
+      `git branch -f main upstream/main` + force-push to origin. No open PR
+      descends from fork `main`, so nothing breaks. Old tip: `de5feb0f`.
+- [ ] STALE FORK BRANCHES — AWAITING APPROVAL. `sb4ssman-taskbar-vd-switcher`
+      (PR #3932 merged), `update-taskbar-vd-switcher` (#4516 merged), and
+      `sb4ssman-virtual-desktop-switcher` (#4484 closed) exist locally and on
+      the fork with no live PR. Safe to delete once approved.
 - [ ] LIFECYCLE v1.3 ROLLOUT — the corrected template distinguishes heap-only
       state, direct XAML handles, and optional-backed XAML containers with
       controlled UI-thread `reset()`. Folder Menus and Tray Utility now have

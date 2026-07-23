@@ -1,1 +1,6 @@
 /.claude/
+
+# Agent scratch clones of sister repos must never be committed into the lab.
+# Work on windhawk-mods in the real fork at t:/Github/sb4ssman/windhawk-mods.
+/.tmp-windhawk-mods/
+/windhawk-mods/
