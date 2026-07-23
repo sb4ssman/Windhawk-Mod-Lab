@@ -1279,3 +1279,33 @@ one session, all under the no-push-without-live-test rule:
 - The dropped mod still exists in the lab at
   `omnibutton-customizer/archive/vertical-omnibutton*.wh.cpp` and was superseded
   upstream by `omnibutton-customizer` (PR #4855); nothing unique was lost.
+
+## 2026-07-23 — Unified element-placement template (nested-group v1.2)
+
+- Decided (with the user) that `nested-group-layout.h` is THE element-placement
+  primitive and `smart-grid-layout.h` is demoted to a shape heuristic that emits
+  an expression rather than a second arranger. This is element placement only;
+  semantic placement ON the taskbar remains a separate, unrelated discussion.
+- Extended `nested-group-layout.h` to v1.2:
+  * Four-side outer `Padding{left,top,right,bottom}`, each side independently
+    addressable, applied once around the whole arranged group; totalSize now
+    includes padding.
+  * First-class per-element nudge via an optional `OffsetResolver` — a cosmetic
+    leaf offset that never moves a neighbor or resizes the group. Old two-arg
+    `Compute` overload retained for source compatibility.
+  * `BuildGridExpression(count, rows, columns, primaryAxis, rowMajor, namer)` —
+    the bridge that turns a smart-grid rows×columns choice into a valid
+    expression (row/column-major fill, ragged grids drop empty cells, axis
+    transpose). This is the "Auto layout" path; "Manual layout" is a
+    user-authored string. Both end at the same `Compute`, so centering, nudge,
+    padding, and collapse are identical either way — the basis for a single
+    "Layout: Auto / Manual" settings toggle.
+- Extended `tests/nested-group-layout-tests.cpp` with padding, nudge,
+  padding+nudge composition, and the generator (single row, both fill orders,
+  ragged, vertical transpose, round-trip). Both this suite and the existing
+  smart-grid suite compile static and pass (exit 0) under Windhawk's bundled
+  clang. Documented the unified model in `_templates/README.md`.
+- Templates are copy-source, not a live dependency, so existing mods are
+  unchanged until they re-adopt; tray-utility still links clean. Next: adopt the
+  unified system in VD Switcher (the user-chosen guinea pig) and hand off a
+  build for a live test before anything is pushed.

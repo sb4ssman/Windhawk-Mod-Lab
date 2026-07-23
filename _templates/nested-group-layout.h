@@ -1,9 +1,23 @@
 #pragma once
 
-// Copy-source template v1.1: nested group layout — pixel-space placement of
+// Copy-source template v1.2: nested group layout — pixel-space placement of
 // named items described by one nestable layout expression. This file
 // intentionally has no WinRT dependency.
+//
+// This is the primary element-placement primitive for the mod family. Every
+// mod that arranges repeated or named items feeds ONE arranger:
+//   * Manual layout: the user authors the expression directly.
+//   * Auto layout:   a shape heuristic (e.g. smart-grid) picks rows x columns,
+//                    then BuildGridExpression emits the equivalent expression.
+// Both paths produce a string that this file parses, measures, and arranges,
+// so centering, per-element nudge, outer padding, and absent-item collapse are
+// identical no matter how the shape was chosen.
+//
 // v1.1 rejects missing closing parentheses and empty/trailing units.
+// v1.2 adds: four-side outer padding (each side individually addressable),
+// first-class per-element nudge via an offset resolver, and the
+// BuildGridExpression generator that turns a rows x columns grid into an
+// expression (the bridge that lets a shape heuristic feed this arranger).
 //
 // Grammar (axis alternates with nesting):
 //   expr  := stack ('|' stack)*    '|' lays stacks along the current axis
@@ -18,7 +32,8 @@
 // Tokens are caller-defined names resolved to pixel sizes by a callback. A
 // token that resolves to an empty size (width or height <= 0) is skipped and
 // consumes no space, so absent items collapse out of the arrangement.
-// Every group is aligned on its cross axis by Config.crossAlign.
+// Every group is aligned on its cross axis by Config.crossAlign. Outer padding
+// is applied once around the whole arranged group.
 
 #include <algorithm>
 #include <cwctype>
@@ -37,10 +52,28 @@ struct Size {
     bool Empty() const { return width <= 0.0 || height <= 0.0; }
 };
 
+// Cosmetic per-element nudge, applied to a leaf's final position without
+// affecting measurement or the placement of any other item.
+struct Offset {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+// Outer margin around the whole arranged group. Each side is individually
+// addressable for granular control; padding never participates in a group's
+// internal cross-axis centering.
+struct Padding {
+    double left = 0.0;
+    double top = 0.0;
+    double right = 0.0;
+    double bottom = 0.0;
+};
+
 struct Config {
     Axis primaryAxis = Axis::Horizontal;
     double spacing = 0.0;
     CrossAlign crossAlign = CrossAlign::Center;
+    Padding padding{};
 };
 
 struct Placement {
@@ -140,6 +173,9 @@ inline bool Parse(std::wstring const& text, Axis primaryAxis, Node& root) {
 }
 
 using SizeResolver = std::function<Size(std::wstring const&)>;
+// Optional per-element nudge. Return {0,0} (or leave the resolver empty) for
+// no offset. Only leaf tokens are offset.
+using OffsetResolver = std::function<Offset(std::wstring const&)>;
 
 inline Size Measure(Node const& node, Config const& config,
                     SizeResolver const& resolve) {
@@ -168,12 +204,15 @@ inline Size Measure(Node const& node, Config const& config,
 }
 
 inline void Arrange(Node const& node, Config const& config,
-                    SizeResolver const& resolve, double x, double y,
+                    SizeResolver const& resolve,
+                    OffsetResolver const& offset, double x, double y,
                     std::vector<Placement>& out) {
     if (!node.token.empty()) {
         Size size = resolve(node.token);
-        if (!size.Empty())
-            out.push_back({node.token, x, y, size});
+        if (!size.Empty()) {
+            Offset nudge = offset ? offset(node.token) : Offset{};
+            out.push_back({node.token, x + nudge.x, y + nudge.y, size});
+        }
         return;
     }
 
@@ -193,10 +232,12 @@ inline void Arrange(Node const& node, Config const& config,
             : config.crossAlign == CrossAlign::End  ? unused
                                                     : 0.0;
         if (node.axis == Axis::Horizontal) {
-            Arrange(child, config, resolve, cursor, y + crossOffset, out);
+            Arrange(child, config, resolve, offset, cursor, y + crossOffset,
+                    out);
             cursor += size.width + config.spacing;
         } else {
-            Arrange(child, config, resolve, x + crossOffset, cursor, out);
+            Arrange(child, config, resolve, offset, x + crossOffset, cursor,
+                    out);
             cursor += size.height + config.spacing;
         }
     }
@@ -204,17 +245,93 @@ inline void Arrange(Node const& node, Config const& config,
 
 // Parse + measure + arrange in one call. Returns false only on a parse
 // error (unbalanced parentheses / trailing garbage). placements come back
-// in expression order; totalSize is the tight bounding size of the group.
+// in expression order; totalSize is the group's bounding size INCLUDING outer
+// padding. Per-element nudge shifts a leaf inside its slot and does not change
+// totalSize or any neighbor.
 inline bool Compute(std::wstring const& text, Config const& config,
                     SizeResolver const& resolve,
+                    OffsetResolver const& offset,
                     std::vector<Placement>& placements, Size& totalSize) {
     Node root;
     if (!Parse(text, config.primaryAxis, root))
         return false;
-    totalSize = Measure(root, config, resolve);
+    Size inner = Measure(root, config, resolve);
     placements.clear();
-    Arrange(root, config, resolve, 0.0, 0.0, placements);
+    if (inner.Empty()) {
+        // No visible items: an empty group has no padded box either.
+        totalSize = {};
+        return true;
+    }
+    Arrange(root, config, resolve, offset, config.padding.left,
+            config.padding.top, placements);
+    totalSize = {inner.width + config.padding.left + config.padding.right,
+                 inner.height + config.padding.top + config.padding.bottom};
     return true;
+}
+
+// Backward-compatible overload without a nudge resolver.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize) {
+    return Compute(text, config, resolve, OffsetResolver{}, placements,
+                   totalSize);
+}
+
+// ---- Auto-layout bridge -----------------------------------------------------
+//
+// Turn a rows x columns grid into an expression, so a shape heuristic (such as
+// smart-grid's ComputeLayout) can feed this arranger instead of being a second
+// placement engine. Positions are filled row-major when rowMajor is true
+// (index = row*columns + column) or column-major otherwise
+// (index = column*rows + row). Grid positions whose index is >= count are left
+// empty, so a ragged final row/column simply produces fewer tokens; the result
+// is always a valid expression (no empty units, no dangling separators).
+//
+// The token for each item comes from `namer(index)`; the default names items
+// by their index. The caller's SizeResolver must map those same names back to
+// each item's pixel size.
+
+using GridTokenNamer = std::function<std::wstring(int index)>;
+
+inline std::wstring BuildGridExpression(int count, int rows, int columns,
+                                        Axis primaryAxis, bool rowMajor,
+                                        GridTokenNamer const& namer = {}) {
+    if (count <= 0 || rows <= 0 || columns <= 0)
+        return {};
+
+    auto name = [&](int index) -> std::wstring {
+        return namer ? namer(index) : std::to_wstring(index);
+    };
+    auto indexAt = [&](int row, int column) -> int {
+        return rowMajor ? row * columns + column : column * rows + row;
+    };
+
+    // With primaryAxis = Horizontal, the outer '|' groups advance along columns
+    // and the inner ',' units advance down rows. With Vertical the roles swap:
+    // outer groups are rows, inner units are columns.
+    int outerCount = primaryAxis == Axis::Horizontal ? columns : rows;
+    int innerCount = primaryAxis == Axis::Horizontal ? rows : columns;
+
+    std::wstring expr;
+    for (int outer = 0; outer < outerCount; ++outer) {
+        std::wstring stack;
+        for (int inner = 0; inner < innerCount; ++inner) {
+            int row = primaryAxis == Axis::Horizontal ? inner : outer;
+            int column = primaryAxis == Axis::Horizontal ? outer : inner;
+            int index = indexAt(row, column);
+            if (index < 0 || index >= count)
+                continue;
+            if (!stack.empty())
+                stack += L", ";
+            stack += name(index);
+        }
+        if (stack.empty())
+            continue;
+        if (!expr.empty())
+            expr += L" | ";
+        expr += stack;
+    }
+    return expr;
 }
 
 } // namespace windhawk_mod_templates::nested_group_layout
