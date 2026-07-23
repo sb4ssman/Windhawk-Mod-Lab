@@ -46,10 +46,12 @@ explicit approval, and never push a review fix before a fresh live test.
   parser rejection, and metadata cleanup — while retaining language-neutral
   detection. CI green; reply posted. Passive wait.
 - Taskbar VD Switcher v1.8 — PR #4844: required `g_settings` no-destroy removal
-  is already present in pushed commit `c5995bd3`, and CI is green. A maintainer
-  reply is still owed (including that Claude introduced the original lifecycle
-  annotation). Its no-destroy XAML containers should be reconciled with the
-  maintainer's newer optional/reset guidance before any future update.
+  is already present in pushed commit `c5995bd3`, CI is green, and the
+  maintainer reply was posted 2026-07-23 (confirming Claude introduced the
+  annotation). Committed publicly to converting `g_autoRevokerList`,
+  `g_buttonEventStates`, and `g_secondaryBars` to optional-backed no-destroy
+  with `reset()` in the NEXT LIVE-TESTED update — not before a live test.
+  Passive wait.
 
 Follow-ups:
 

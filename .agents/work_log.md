@@ -1244,3 +1244,19 @@ one session, all under the no-push-without-live-test rule:
   that catches `winrt::hresult_error` needs `-loleaut32`; a syntax-only check
   cannot see this, which is why the real link gate exists. `-lversion` was
   genuinely unused and is dropped.
+
+## 2026-07-23 — Fork branch cleanup and PR #4844 reply
+
+- Deleted three dead fork branches, local and remote, after confirming none had
+  an open PR: `sb4ssman-taskbar-vd-switcher` (#3932 merged),
+  `update-taskbar-vd-switcher` (#4516 merged), and
+  `sb4ssman-virtual-desktop-switcher` (#4484 closed). Local `backup/deleted-*`
+  tags keep every tip recoverable. The fork now carries exactly the six live PR
+  branches plus `main`.
+- Answered the maintainer's question on PR #4844: Claude introduced the
+  `[[clang::no_destroy]]` annotation, applying it to every namespace-scope
+  global with a non-trivial destructor after an earlier exit-time review rather
+  than only to WinRT-holding globals. Confirmed the required `g_settings` fix is
+  already in `c5995bd3`, and committed publicly to converting the three
+  remaining bare containers on the next live-tested update instead of pushing
+  untested changes onto a green PR.
