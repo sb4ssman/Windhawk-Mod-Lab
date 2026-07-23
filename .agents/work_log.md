@@ -1220,3 +1220,27 @@ one session, all under the no-push-without-live-test rule:
   force-push reset of fork `main` awaits user approval.
 - Added gitignore guards for nested sister-repo clones and two standing
   directives (one fork checkout only; never branch from the fork's `main`).
+
+## 2026-07-23 — Folder Menus and Tray Utility PR updates pushed
+
+- With explicit user approval after the live test, pushed both review-fix
+  candidates: PR #4485 commit `18fe50eb` and PR #4841 commit `20aaf8e5`. Each is
+  a single commit on top of the existing branch, still a one-file diff against
+  current `upstream/main`, and the pushed blobs are hash-identical to the lab
+  candidates. All four CI jobs (changed-file validation, Windhawk 1.6.1, 1.7.3,
+  2.0.0-alpha.1) pass on both. Review replies posted.
+- Re-ran `submission-preflight.ps1` on both before pushing:
+  `COMPILE_OK`, `EXIT_TIME_DESTRUCTOR_AUDIT_OK`, `README_MATCH`,
+  `SUBMISSION_PREFLIGHT_OK`. Verified every review item in the source rather
+  than trusting the notes.
+- Versions deliberately unchanged at 0.7 and 1.1. Neither mod exists in
+  upstream `main`, so these are still the proposed initial versions and the
+  validator has no prior version to compare against.
+- CORRECTION TO THE LIBRARY FINDING: neither mod calls `SysFreeString` or
+  `SysStringLen` directly — earlier greps matched `substr` case-insensitively.
+  `-loleaut32` is required *transitively*, because `winrt::hresult_error`'s
+  constructor and `message()` reference both symbols. Proved by dropping the
+  flag and observing `ld.lld: error: undefined symbol: SysStringLen`. Any mod
+  that catches `winrt::hresult_error` needs `-loleaut32`; a syntax-only check
+  cannot see this, which is why the real link gate exists. `-lversion` was
+  genuinely unused and is dropped.

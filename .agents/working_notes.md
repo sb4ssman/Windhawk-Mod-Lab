@@ -6,13 +6,14 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-**Taskbar Folder Menus v0.7** and **Tray Utility Customizer v1.1** have
-maintainer-review candidates committed to lab `main` as `018a3bd` (pushed to
-lab origin only). Both pass the complete submission preflight and were
-live-confirmed working by the user on 2026-07-23. Tray Utility also retains the
-language-neutral detection rewrite. Verified 2026-07-23: PR #4485 is still at
-`46f33014` and PR #4841 is still at `43d1ac77` — NEITHER upstream PR has been
-updated. Wait for explicit push approval.
+**Taskbar Folder Menus v0.7** (PR #4485, commit `18fe50eb`) and **Tray Utility
+Customizer v1.1** (PR #4841, commit `20aaf8e5`) were updated upstream on
+2026-07-23 with explicit user approval after a live test. Both address every
+required and optional maintainer review item; all four CI jobs are green on
+each, and a review reply is posted on both. Versions were intentionally not
+bumped — neither mod is published upstream yet, so 0.7 and 1.1 remain the
+proposed initial versions. Await maintainer review; do not change either PR
+without fresh explicit approval.
 
 OmniButton Customizer v1.0 is submitted as PR #4855 on branch
 `add-omnibutton-customizer` (base upstream/main, one file:
@@ -33,18 +34,17 @@ explicit approval, and never push a review fix before a fresh live test.
 - Taskbar Clock Spacer v1.1 — PR #4443: maintainer explicitly said it can be
   merged as the standalone mod; integration PR m417z/my-windhawk-mods #68 is
   already closed. Passive wait.
-- Taskbar Folder Menus v0.7 — PR #4485: ACTION REQUIRED. Maintainer's
-  2026-07-21 follow-up asks for optional-backed no-destroy containers with
-  controlled reset, removal of the IconView/multi-module startup path, a
-  single initial apply in `Wh_ModAfterInit`, and elimination of retry-handle
-  races. All are fixed in the local preflight-green, live-tested candidate; PR
-  commit `46f33014` remains unchanged pending explicit push approval.
-- Tray Utility Customizer v1.1 — PR #4841: ACTION REQUIRED. The local
-  preflight-green candidate corrects no-destroy ownership, the MainStack
-  host-leaf phantom-straggler gap, retry synchronization/settings recovery,
-  stale event tokens, parser rejection, and metadata/library cleanup while
-  retaining language-neutral detection. The candidate is live-tested; PR
-  commit `43d1ac77` remains unchanged pending explicit push approval.
+- Taskbar Folder Menus v0.7 — PR #4485: UPDATED 2026-07-23, commit `18fe50eb`.
+  The 2026-07-21 review is fully answered: optional-backed no-destroy state with
+  controlled reset (`g_loadedRevokers` removed outright), no IconView/
+  multi-module startup path, a single apply in `Wh_ModAfterInit`, and
+  SRW-guarded retry-handle handoff. CI green; reply posted. Passive wait.
+- Tray Utility Customizer v1.1 — PR #4841: UPDATED 2026-07-23, commit
+  `20aaf8e5`. Both required items plus every optional item are addressed —
+  no-destroy ownership, the MainStack host-leaf phantom-straggler gap, retry
+  synchronization, settings recovery via the retry path, token revocation,
+  parser rejection, and metadata cleanup — while retaining language-neutral
+  detection. CI green; reply posted. Passive wait.
 - Taskbar VD Switcher v1.8 — PR #4844: required `g_settings` no-destroy removal
   is already present in pushed commit `c5995bd3`, and CI is green. A maintainer
   reply is still owed (including that Claude introduced the original lifecycle
