@@ -1,7 +1,13 @@
-# Local Windhawk syntax check (no Windhawk build needed)
+# Local Windhawk compile-and-link check (no Windhawk UI build needed)
 
-The installed Windhawk ships its clang toolchain; a mod can be syntax-checked
-locally without submitting or building through the Windhawk UI:
+The installed Windhawk ships its clang toolchain. Use the repository gate so a
+mod is both compiled and linked with its declared `@compilerOptions`:
+
+```powershell
+& _templates/compile-check.ps1 <mod-directory>
+```
+
+The underlying syntax-only command remains useful for quick diagnostics:
 
 ```sh
 "/c/Program Files/Windhawk/Compiler/bin/clang++.exe" \
@@ -18,6 +24,7 @@ Notes (established 2026-07-19 on the Clock Spacer fix):
   `-DWH_EDITING` selects the editing variant of the internal macros.
 - `-DUNICODE -D_UNICODE` are required or `RegisterWindowMessage` etc. resolve
   to the ANSI variants and fail on `L""` strings.
-- This is `-fsyntax-only`: it validates includes, WinRT projections, and types
-  but does not link, so `@compilerOptions` libs are irrelevant here.
+- The manual command is `-fsyntax-only`: it validates includes, WinRT
+  projections, and types but cannot detect missing libraries. The repository
+  script performs a real temporary-DLL link and must be the final gate.
 - First run takes ~1-2 minutes (WinRT headers); plan timeouts accordingly.

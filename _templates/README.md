@@ -16,7 +16,7 @@ comment, and adapt only through the documented settings or callback contract.
 | `button-surface.h` | Hex/accent colors, native-default clearing, hover/pressed resources, border, opacity, and shine |
 | `injected-grid-column.h` | Reversible `SystemTrayFrameGrid` column insertion with marker-based cleanup |
 | `start-placement.h` | Experimental owned-group placement immediately left or right of Start with reversible task-item reservation |
-| `taskbar-xaml-lifecycle.template.cpp` | Taskbar-thread dispatch with exception containment, guarded XAML-root access, `TrayUI::StartTaskbar`, and bounded retry lifecycle |
+| `taskbar-xaml-lifecycle.template.cpp` | Taskbar-thread dispatch, guarded XAML-root access, explicit no-destroy ownership, and race-safe `TrayUI::StartTaskbar` retry lifecycle |
 | `placement-contract.md` | Future cross-mod placement vocabulary, ownership rules, and placement lease design |
 | `six-mod-settings-audit.md` | Evidence matrix for the six active visual mods |
 | `submission-checklist.md` | Documentation parity, screenshot coverage, version, compile, and live-test gate |
@@ -60,10 +60,12 @@ visual settings family.
    before staging a template adoption to a PR.
 8. Complete `submission-checklist.md`; compilation is not a substitute for the
    three documentation layers, current screenshots, or focused live testing.
-9. Namespace-scope XAML/WinRT owners must use intentional `no_destroy`
-   lifetime. Release them explicitly on the taskbar UI thread for controlled
-   unload, and retain them when no UI thread can be reached during process
-   teardown.
+9. Namespace-scope ownership follows lifecycle v1.3's three-way rule:
+   heap-only settings/leases destruct normally; direct nullable XAML/WinRT
+   handles use intentional `no_destroy`; XAML-owning containers use
+   `no_destroy optional<container>`, with event revocation followed by
+   `reset()` on controlled UI-thread unload. Retain engaged no-destroy state
+   when no UI thread can be reached during process teardown.
 10. Treat every taskbar UI callback as an exception boundary. Keep the v1.2
     `RunFromWindowThread` dispatcher verbatim, catch WinRT/C++ exceptions in
     native hooks and XAML event/property callbacks, and verify a live XAML root

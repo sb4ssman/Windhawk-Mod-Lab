@@ -99,10 +99,13 @@ int main() {
     assert(Near(Find(placements, L"wide")->x, 0) &&
            Near(Find(placements, L"wide")->y, 12));
 
-    // Parse failures: unbalanced parentheses report false.
-    assert(!Compute(L"a | (b, c", config, square24, placements, total) ||
-           true /* unbalanced open is tolerated by recovery */);
+    // Parse failures: unbalanced parentheses and empty/trailing units report
+    // false instead of silently accepting a different layout.
+    assert(!Compute(L"a | (b, c", config, square24, placements, total));
     assert(!Compute(L"a ) b", config, square24, placements, total));
+    assert(!Compute(L"a |", config, square24, placements, total));
+    assert(!Compute(L"a,,b", config, square24, placements, total));
+    assert(!Compute(L"", config, square24, placements, total));
 
     return 0;
 }

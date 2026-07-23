@@ -1,4 +1,8 @@
-// Copy-source template v1.2: Windows 11 taskbar XAML lifecycle.
+// Copy-source template v1.3: Windows 11 taskbar XAML lifecycle.
+// v1.3: make no_destroy ownership explicit, free container storage on
+// controlled unload, and serialize retry-handle ownership. Wh_ModAfterInit
+// performs one immediate apply; bounded retries are reserved for taskbar
+// startup/rebuild notifications.
 // v1.2: contain every UI-dispatch exception at the WH_CALLWNDPROC boundary
 // and verify a live XAML root before settings-change removal/reapply.
 //
@@ -12,6 +16,7 @@
 
 #include <atomic>
 #include <exception>
+#include <optional>
 #include <vector>
 
 #include <windhawk_utils.h>
@@ -48,24 +53,39 @@ static std::atomic<bool> g_templateApplied{false};
 static HWND g_templateTaskbarWnd = nullptr;
 static HANDLE g_templateRetryThread = nullptr;
 static HANDLE g_templateRetryStopEvent = nullptr;
+static SRWLOCK g_templateRetryLock = SRWLOCK_INIT;
 
 // PROCESS-SHUTDOWN CONTRACT (crash class found 2026-07-19 in Privacy
 // Indicator Anchor): Explorer shutdown doesn't guarantee Wh_ModUninit. Never
 // let CRT global destruction release namespace-scope state after the XAML
-// framework has torn down or from the shutdown thread. Prefer eliminating
-// non-trivial namespace-scope objects. When they are necessary, mark them
-// no_destroy--especially strong XAML/WinRT references and containers that own
-// WinRT references, event revokers, weak_ref objects, Storyboards, or delegates:
+// framework has torn down or from the shutdown thread. Classify every
+// namespace-scope owner instead of applying no_destroy broadly:
 //
+// 1. Heap-only C++ state (settings, strings, numeric leases) destructs normally.
+//    Do NOT annotate it; its destructor is safe and should free its storage.
+//
+// 2. Direct nullable XAML/WinRT handles use no_destroy and are explicitly set
+//    to nullptr by RemoveModUi on the taskbar UI thread.
+//
+// 3. Containers that own XAML/WinRT references, event revokers, weak_ref
+//    objects, Storyboards, or delegates use a no_destroy optional<container>.
+//    Revoke/clear their elements on settings changes. On controlled Wh_ModUninit,
+//    call reset() on the UI thread after revocation so the container's heap
+//    buffer is also freed. If the UI thread is unavailable, intentionally keep
+//    the engaged optional and its XAML state alive.
+//
+// static ModSettings g_settings;  // exit-time-safe: heap-only
 // [[clang::no_destroy]] static FrameworkElement g_ownedRoot = nullptr;
-// [[clang::no_destroy]] static std::vector<OwnedEventState> g_eventStates;
-// [[clang::no_destroy]] static ModSettings g_settings;
+// [[clang::no_destroy]] static std::optional<std::vector<OwnedEventState>>
+//     g_eventStates{std::in_place};
 //
 // This is intentional process-lifetime retention, not a replacement for
-// cleanup. Controlled settings changes and mod unload must still revoke and
-// release everything synchronously on the taskbar UI thread. If no taskbar
-// window/UI thread can be reached during Wh_ModUninit, retain the no_destroy
-// state; do not add an off-thread fallback that clears XAML objects.
+// cleanup. Controlled settings changes must still revoke and clear everything
+// synchronously on the taskbar UI thread while leaving optional containers
+// engaged for reuse. Controlled mod unload must revoke first, then reset the
+// optional containers on that same UI thread. If no taskbar window/UI thread
+// can be reached during Wh_ModUninit, retain all no_destroy state; do not add
+// an off-thread fallback that clears XAML objects.
 // Run exit-time-destructor-audit.ps1 before submission; every diagnostic must
 // be eliminated or intentionally converted to a no_destroy lifetime.
 
@@ -249,32 +269,51 @@ static void ApplyOnTaskbarWindowThread() {
 }
 
 static void StopRetryThread() {
-    if (g_templateRetryStopEvent)
-        SetEvent(g_templateRetryStopEvent);
-    if (g_templateRetryThread) {
+    // Detach ownership while locked, then wait and close outside the lock. A
+    // retry worker can be blocked in SendMessage to the taskbar UI thread; the
+    // UI thread must never wait on this lock while another caller waits for
+    // that worker.
+    AcquireSRWLockExclusive(&g_templateRetryLock);
+    HANDLE retryThread = g_templateRetryThread;
+    HANDLE retryStopEvent = g_templateRetryStopEvent;
+    g_templateRetryThread = nullptr;
+    g_templateRetryStopEvent = nullptr;
+    if (retryStopEvent)
+        SetEvent(retryStopEvent);
+    ReleaseSRWLockExclusive(&g_templateRetryLock);
+
+    if (retryThread) {
         DWORD result;
         do {
             result = MsgWaitForMultipleObjects(
-                1, &g_templateRetryThread, FALSE, INFINITE, QS_SENDMESSAGE);
+                1, &retryThread, FALSE, INFINITE, QS_SENDMESSAGE);
             if (result == WAIT_OBJECT_0 + 1) {
                 MSG message;
                 PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
             }
         } while (result == WAIT_OBJECT_0 + 1);
-        CloseHandle(g_templateRetryThread);
-        g_templateRetryThread = nullptr;
+        CloseHandle(retryThread);
     }
-    if (g_templateRetryStopEvent) {
-        CloseHandle(g_templateRetryStopEvent);
-        g_templateRetryStopEvent = nullptr;
+    if (retryStopEvent) {
+        CloseHandle(retryStopEvent);
     }
 }
 
 static void StartRetryThread() {
     StopRetryThread();
-    if (g_templateUnloading) return;
+    AcquireSRWLockExclusive(&g_templateRetryLock);
+    // Another concurrent StartRetryThread may have won after our stop. Keep
+    // its single retry loop instead of creating a second one.
+    if (g_templateUnloading || g_templateRetryThread ||
+        g_templateRetryStopEvent) {
+        ReleaseSRWLockExclusive(&g_templateRetryLock);
+        return;
+    }
     g_templateRetryStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!g_templateRetryStopEvent) return;
+    if (!g_templateRetryStopEvent) {
+        ReleaseSRWLockExclusive(&g_templateRetryLock);
+        return;
+    }
     HANDLE stopEvent = g_templateRetryStopEvent;
     g_templateRetryThread = CreateThread(
         nullptr, 0,
@@ -296,6 +335,7 @@ static void StartRetryThread() {
         CloseHandle(g_templateRetryStopEvent);
         g_templateRetryStopEvent = nullptr;
     }
+    ReleaseSRWLockExclusive(&g_templateRetryLock);
 }
 
 using TrayUI_StartTaskbar_t = void (WINAPI*)(void*);
@@ -340,7 +380,10 @@ BOOL Wh_ModInit() {
 }
 
 void Wh_ModAfterInit() {
-    StartRetryThread();
+    // The already-running-taskbar case needs one immediate attempt. A taskbar
+    // that is still starting (or later rebuilding) is handled by the
+    // TrayUI::StartTaskbar hook, which owns the bounded retry path.
+    ApplyOnTaskbarWindowThread();
 }
 
 void Wh_ModSettingsChanged() {
@@ -366,6 +409,9 @@ void Wh_ModUninit() {
     if (window) {
         RunFromWindowThread(window, [](void*) {
             RemoveModUi();
+            // After RemoveModUi revokes every event/delegate, reset each
+            // no_destroy optional<container> here to free its heap storage:
+            // g_eventStates.reset();
             g_templateApplied = false;
         }, nullptr);
     } else {

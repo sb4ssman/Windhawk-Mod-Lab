@@ -34,11 +34,15 @@ Use this before opening or updating a submission PR.
       system behavior.
 - [ ] Main interaction and hit-testing work repeatedly.
 - [ ] Explorer restart, mod disable/unload, and re-enable are clean.
-- [ ] The source passes the installed Windhawk compiler syntax check.
+- [ ] The source passes the installed Windhawk compile-and-link check, including
+      its declared `@compilerOptions` libraries.
 - [ ] Run `_templates/exit-time-destructor-audit.ps1 <mod-folder>` and resolve
       every diagnostic. Explorer shutdown may skip `Wh_ModUninit`; necessary
-      non-trivial globals use intentional `[[clang::no_destroy]]` lifetime,
-      while controlled unload still performs explicit UI-thread cleanup.
+      direct XAML globals use intentional `[[clang::no_destroy]]` lifetime;
+      XAML-owning containers use `no_destroy optional<container>` and are reset
+      after explicit UI-thread cleanup on controlled unload; heap-only settings
+      and leases are not annotated and carry an explicit same-line
+      `exit-time-safe: heap-only` audit marker.
 - [ ] Run `_templates/submission-preflight.ps1 <mod-folder>` and get
       `SUBMISSION_PREFLIGHT_OK`. This includes the upstream Windhawk PR
       validator; local Clang compilation alone does not cover repository policy.

@@ -168,6 +168,25 @@ update. Privacy Anchor then exposed a separate uncaught-startup-exception path;
 v1.2 adds exception containment at the window-hook boundary and a live-root
 guard before removal/reapply.
 
+## 2026-07-22 audit — no-destroy ownership correction
+
+Maintainer review established that the earlier contract was incomplete:
+`no_destroy` prevents unsafe CRT teardown, but applying it directly to a
+container also retains that container's heap allocation after a normal mod
+unload, and applying it to heap-only settings is unnecessary. Lifecycle v1.3
+now classifies globals into three shapes: ordinary destruction for heap-only
+settings/leases, direct `no_destroy` for nullable XAML/WinRT handles, and
+`no_destroy optional<container>` for XAML-owning containers with UI-thread
+revocation followed by `reset()` on controlled unload.
+
+The audit script now rejects bare no-destroy containers, no-destroy settings,
+known heap-only injected-column leases, and optional containers without a
+controlled `reset()`. Re-auditing all six active visual mods exposed inherited
+violations in every mod; rollout is required one tested mod at a time. The
+v1.3 retry lifecycle also detaches handles under an SRW lock and waits/closes
+outside it, eliminating double-close/data races without blocking the taskbar
+UI thread behind a worker that may be synchronously dispatching to that thread.
+
 ## Remaining differences to resolve gradually
 
 - VDS has the best smart-grid selector but published row/column/opacity/color

@@ -1094,3 +1094,99 @@ one session, all under the no-push-without-live-test rule:
   current gallery and replied to the maintainer review. GitHub changed-file
   validation plus Windhawk 1.6.1, 1.7.3, and 2.0.0-alpha.1 compilation all
   pass.
+
+## 2026-07-22 — Tray Utility language-neutral detection candidate
+
+- Inspected the installed Windows `SystemTray.dll` rather than constructing a
+  translated-keyword table. Windows exposes stable runtime identities for the
+  relevant controls: EmojiAndMore, TouchKeyboard, InkWorkspace,
+  VirtualTouchpad, Language, and Ime system-tray data-model classes, plus
+  language-neutral XAML control/content names.
+- Replaced all accessibility-label substring matching with a generic subtree
+  identity matcher over runtime data-context class, XAML class/name,
+  AutomationId, and the established Emoji/Touch Keyboard glyph codepoints.
+  Input detection also recognizes `LanguageTextIconContent` and
+  `LanguageImageIconContent`; pen recognizes InkWorkspace identities.
+- Updated both README layers to describe language-neutral detection. Full
+  preflight passes (`COMPILE_OK`, exit-time-destructor audit, `README_MATCH`,
+  upstream validator). Local only and uncommitted; requires a live test of all
+  available utilities before PR #4841 is changed again.
+
+## 2026-07-22 — Full open-PR audit
+
+- Verified all six lab-authored upstream PRs live on GitHub. #4443, #4485,
+  #4841, #4843, #4844, and #4855 are open, mergeable, `CLEAN`, and green across
+  changed-file validation plus Windhawk 1.6.1/1.7.3/2.0.0-alpha.1 builds.
+- OmniButton #4855 and Privacy Anchor #4843 have no maintainer comments or
+  reviews. Clock Spacer #4443 is legitimately awaiting merge: m417z explicitly
+  accepted the standalone route, and the superseded integration PR #68 in
+  `m417z/my-windhawk-mods` is already closed.
+- Found three PRs needing follow-up. Folder Menus #4485 has a July 21 required
+  review covering optional/reset no-destroy containers, removal of the
+  IconView/multi-module startup path, single-shot after-init, and retry-handle
+  races; its pushed source still contains every flagged pattern. Tray Utility
+  #4841 has a second July 22 review requiring a no-destroy ownership correction
+  and flagging a likely MainStack phantom-straggler layout gap; both the pushed
+  source and local detection candidate still contain the relevant patterns.
+- VD Switcher #4844's required `g_settings` correction is already present in
+  pushed commit `c5995bd3`, but no response was posted to the maintainer's
+  question about who introduced the annotation. Its remaining no-destroy
+  containers should be reconciled with the newer optional/reset guidance on a
+  future tested update.
+- No PR, branch, issue, comment, or source was changed during the audit. Only
+  lab notes were reconciled with the live GitHub state.
+
+## 2026-07-22 — Lifecycle v1.3 no-destroy ownership gate
+
+- Corrected the shared lifecycle template after maintainer feedback exposed
+  that v1.2's examples encouraged both over-annotation (`g_settings`) and bare
+  no-destroy containers whose capacity survives normal unload. V1.3 defines
+  three ownership shapes: ordinary destruction for heap-only settings/leases,
+  direct no-destroy nullable XAML handles, and no-destroy
+  `optional<container>` owners revoked and reset on controlled UI-thread unload.
+- Hardened the destructor audit beyond Clang's exit-time warning. It now fails
+  bare no-destroy standard containers, no-destroy settings, the known heap-only
+  injected-column lease, and optional containers with no `reset()` call.
+- Corrected the lifecycle retry model: after-init performs one immediate apply;
+  bounded retry belongs to `TrayUI::StartTaskbar`; retry handles are detached
+  under an SRW lock and waited/closed outside it, preventing double-close races
+  without deadlocking a worker synchronously dispatching to the taskbar thread.
+- The v1.3 template compiles with Windhawk's bundled Clang. The strengthened
+  gate catches the expected Folder Menus and Tray Utility declarations and
+  revealed inherited violations in all six active visual mods, establishing a
+  deliberate one-mod-at-a-time rollout rather than another reactive PR fix.
+
+## 2026-07-22 — Folder Menus and Tray Utility local review candidates
+
+- Applied lifecycle v1.3 to Folder Menus: optional-backed event-state storage
+  with controlled UI-thread reset, one immediate after-init apply, a locked
+  retry-handle handoff, and no IconView/SystemTray multi-module startup path.
+- Applied the same ownership/retry model to Tray Utility and fixed the concrete
+  MainStack phantom-straggler gap by excluding every whole-host layout item
+  from per-icon straggler discovery. Also added forced settings retries, stale
+  token revocation, atomic layout state, strict malformed-layout rejection,
+  and the requested small metadata/library cleanups.
+- Preserved Tray Utility's uncommitted language-neutral detection rewrite.
+  Upgraded the shared nested-layout parser/tests to reject unbalanced or empty
+  expressions, and hardened the lifecycle template/destructor audit so these
+  ownership mistakes are caught before future submissions.
+- Both mod candidates pass Windhawk compilation, the strengthened exit-time
+  destructor audit, README parity, diff hygiene, and the current upstream
+  validator (`SUBMISSION_PREFLIGHT_OK`). No PR, branch, commit, or GitHub
+  comment was changed; both candidates await fresh live testing.
+- The first Folder Menus live build exposed a hole in that wording: the old
+  local compiler gate was syntax-only and therefore missed the accidentally
+  removed `-loleaut32`, producing unresolved `SysFreeString`/`SysStringLen`
+  symbols. Restored the library and upgraded `compile-check.ps1` to perform a
+  real temporary-DLL link using each mod's declared `@compilerOptions`.
+  Folder Menus then passed both the new link gate and full submission preflight.
+  The same mistaken library removal was restored in Tray Utility immediately
+  afterward; it also passes the real link gate and full submission preflight.
+
+## 2026-07-23 — Folder Menus and Tray Utility live confirmation
+
+- The user confirmed that both corrected local builds appear to be working.
+  This satisfies the human live-test gate for the current Folder Menus and Tray
+  Utility maintainer-review candidates.
+- No PR, branch, commit, or GitHub comment was changed. Both tested candidates
+  remain local pending explicit approval to update their respective PRs.

@@ -1,8 +1,9 @@
 #pragma once
 
-// Copy-source template v1.0: nested group layout — pixel-space placement of
+// Copy-source template v1.1: nested group layout — pixel-space placement of
 // named items described by one nestable layout expression. This file
 // intentionally has no WinRT dependency.
+// v1.1 rejects missing closing parentheses and empty/trailing units.
 //
 // Grammar (axis alternates with nesting):
 //   expr  := stack ('|' stack)*    '|' lays stacks along the current axis
@@ -62,9 +63,10 @@ public:
 
     bool Run(Node& root) {
         position_ = 0;
+        valid_ = true;
         root = ParseExpr(axis_);
         SkipSpace();
-        return position_ >= text_.size();
+        return valid_ && position_ >= text_.size();
     }
 
 private:
@@ -97,8 +99,11 @@ private:
             ++position_;
             Node inner = ParseExpr(axis);
             SkipSpace();
-            if (position_ < text_.size() && text_[position_] == L')')
+            if (position_ < text_.size() && text_[position_] == L')') {
                 ++position_;
+            } else {
+                valid_ = false;
+            }
             return inner;
         }
         Node leaf;
@@ -109,6 +114,8 @@ private:
                !iswspace(text_[position_]))
             ++position_;
         leaf.token = text_.substr(start, position_ - start);
+        if (leaf.token.empty())
+            valid_ = false;
         return leaf;
     }
 
@@ -125,6 +132,7 @@ private:
     std::wstring const& text_;
     Axis axis_;
     size_t position_ = 0;
+    bool valid_ = true;
 };
 
 inline bool Parse(std::wstring const& text, Axis primaryAxis, Node& root) {
