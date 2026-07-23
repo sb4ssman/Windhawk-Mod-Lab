@@ -1260,3 +1260,22 @@ one session, all under the no-push-without-live-test rule:
   already in `c5995bd3`, and committed publicly to converting the three
   remaining bare containers on the next live-tested update instead of pushing
   untested changes onto a green PR.
+
+## 2026-07-23 — Fork `main` reset (vertical-omnibutton landmine defused)
+
+- Root cause: `sb4ssman/windhawk-mods` `main` had been used as a workspace, so
+  it sat ten commits ahead of `upstream/main` — nine merge commits plus
+  `94fa7ab6 Add Vertical Omni Button Mod` self-merged via fork PR #1. Content
+  difference was a single stray `mods/vertical-omnibutton.wh.cpp` (1409 lines).
+  Any branch cut from that main inherited the file, which is what produced the
+  two prior "Remove stray vertical-omnibutton.wh.cpp" cleanup commits.
+- Fix, with explicit user approval: fetched `upstream`, tagged the old tip
+  `backup/fork-main-pre-reset` (`de5feb0f`), `git branch -f main upstream/main`,
+  then `git push origin main --force-with-lease`. `origin/main` is now
+  hash-identical to `upstream/main` (`9f9f096a`) and the stray file is gone.
+- Verified nothing else moved: all six PR branches keep their SHAs and remain
+  clean one-file diffs against `upstream/main`. No open PR descended from fork
+  `main`, and PR diffs compare against ramensoftware's base, so none changed.
+- The dropped mod still exists in the lab at
+  `omnibutton-customizer/archive/vertical-omnibutton*.wh.cpp` and was superseded
+  upstream by `omnibutton-customizer` (PR #4855); nothing unique was lost.

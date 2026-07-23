@@ -108,17 +108,17 @@ Follow-ups:
       pen ShowPenWorkspaceButton, touchpad) instead of an in-mod enable
       toggle. Deferred; needs its own investigation.
 ## Lab-level todos
-- [ ] FORK `main` RESET — AWAITING APPROVAL. `sb4ssman/windhawk-mods` `main` is
-      ahead of `upstream/main` by ten commits that self-merge
-      `mods/vertical-omnibutton.wh.cpp` (fork PR #1) plus merge noise. Any
-      branch cut from it inherits the stray file — this already forced two
-      "remove stray vertical-omnibutton.wh.cpp" cleanup commits. Fix is
-      `git branch -f main upstream/main` + force-push to origin. No open PR
-      descends from fork `main`, so nothing breaks. Old tip: `de5feb0f`.
-- [ ] STALE FORK BRANCHES — AWAITING APPROVAL. `sb4ssman-taskbar-vd-switcher`
-      (PR #3932 merged), `update-taskbar-vd-switcher` (#4516 merged), and
-      `sb4ssman-virtual-desktop-switcher` (#4484 closed) exist locally and on
-      the fork with no live PR. Safe to delete once approved.
+- [x] FORK `main` RESET — DONE 2026-07-23. `sb4ssman/windhawk-mods` `main` was
+      reset onto `upstream/main` and force-pushed; `origin/main` is now
+      hash-identical to `upstream/main` (`9f9f096a`) with no
+      `vertical-omnibutton.wh.cpp`. Old tip kept as tag
+      `backup/fork-main-pre-reset` (`de5feb0f`). All six PR branches verified
+      unchanged and still one-file diffs. Landmine defused; keep it that way by
+      never branching from fork `main` (see README directive).
+- [x] STALE FORK BRANCHES — DONE 2026-07-23. Deleted
+      `sb4ssman-taskbar-vd-switcher`, `update-taskbar-vd-switcher`, and
+      `sb4ssman-virtual-desktop-switcher` local + remote; `backup/deleted-*`
+      tags retained. Fork now carries exactly the six live PR branches + `main`.
 - [ ] LIFECYCLE v1.3 ROLLOUT — the corrected template distinguishes heap-only
       state, direct XAML handles, and optional-backed XAML containers with
       controlled UI-thread `reset()`. Folder Menus and Tray Utility now have
