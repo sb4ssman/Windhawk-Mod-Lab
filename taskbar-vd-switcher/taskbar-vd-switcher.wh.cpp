@@ -163,12 +163,41 @@ This mod builds directly on patterns established by several community mods:
   - "overStart": "Over Start button (experimental)"
   - "rightOfStart": "Right of Start button (experimental)"
 
+- layoutMode: auto
+  $name: Layout mode
+  $description: >-
+    Auto arranges the buttons for you from the grid settings below and writes
+    the equivalent layout expression to the Windhawk log each time it applies.
+    Manual uses the Layout expression you type, ignoring the grid settings.
+    Switch to Manual and paste the logged expression to fine-tune Auto's result.
+  $options:
+  - auto: Auto (grid settings below)
+  - manual: Manual (layout expression)
+
+- layout: ""
+  $name: Layout expression
+  $description: >-
+    Used in Manual mode. Names separated by "|" sit side by side along the
+    primary axis; names separated by "," stack across it; parentheses nest.
+    Buttons are named by desktop number (1, 2, 3, ...) plus "master" for the
+    Task View button. Example: "1, 2 | 3, 4" is a 2x2 block. Empty falls back
+    to the automatic arrangement.
+
+- primaryAxis: horizontal
+  $name: Primary axis
+  $description: >-
+    Direction the top-level groups advance. Horizontal lays groups out as
+    columns; Vertical lays them as rows.
+  $options:
+  - horizontal: Horizontal (columns)
+  - vertical: Vertical (rows)
+
 - gridMode: autoSmart
   $name: Grid mode
   $description: >-
-    Choose how the button grid shape is selected. Auto smart picks a compact
-    balanced layout that fits the available taskbar height. Fixed modes use
-    the Rows and/or Columns settings below.
+    Used in Auto layout mode. Chooses how the button grid shape is selected.
+    Auto smart picks a compact balanced layout that fits the available taskbar
+    height. Fixed modes use the Rows and/or Columns settings below.
   $options:
   - autoSmart: Smart automatic
   - singleRow: Single row
@@ -210,11 +239,11 @@ This mod builds directly on patterns established by several community mods:
     no limit). Ignored in Single row and Single column modes. In row-first fill,
     3 columns with 4 desktops gives a 3+1 layout.
 
-- shortGroupAlign: "center"
-  $name: Short column/row alignment
+- crossAlign: "center"
+  $name: Cross-axis alignment
   $description: >-
-    When the last column (column-first) or last row (row-first) has fewer
-    buttons than the others, where to place those buttons within the available space.
+    How each group centers its items across the primary axis, including a short
+    last row or column. Center keeps a ragged group visually balanced.
   $options:
   - "start": "Start (top for columns, left for rows)"
   - "center": "Center"
@@ -228,7 +257,21 @@ This mod builds directly on patterns established by several community mods:
 
 - buttonSpacing: 2
   $name: Button spacing (px)
-  $description: Gap between buttons in the grid
+  $description: Gap between buttons along each axis
+
+- nudge: ""
+  $name: Per-button nudge
+  $description: >-
+    Fine cosmetic offsets applied to whole buttons after placement, as
+    name:dx,dy in pixels, separated by ";" or new lines. Positive dx moves
+    right, positive dy moves down. Example: "1:+3,-1; master:0,-2".
+
+- contentNudge: ""
+  $name: Per-button content nudge
+  $description: >-
+    Like Per-button nudge, but shifts only the label/glyph inside a button,
+    not the button itself. Useful to optically center a tall glyph. Same
+    name:dx,dy format. Example: "master:0,1".
 
 - labelFormat: "number"
   $name: Label format
@@ -322,11 +365,19 @@ This mod builds directly on patterns established by several community mods:
 
 - paddingLeft: 0
   $name: Padding left (px)
-  $description: Extra space to the left of the button grid
+  $description: Space between the left edge of the button group and its neighbor
+
+- paddingTop: 0
+  $name: Padding top (px)
+  $description: Space above the button group
 
 - paddingRight: 2
   $name: Padding right (px)
-  $description: Extra space to the right of the button grid
+  $description: Space between the right edge of the button group and its neighbor
+
+- paddingBottom: 0
+  $name: Padding bottom (px)
+  $description: Space below the button group
 
 - gridVerticalOffset: 0
   $name: Vertical offset (px)
@@ -410,14 +461,18 @@ This mod builds directly on patterns established by several community mods:
 
 #include <atomic>
 #include <list>
+#include <optional>
 #include <string>
 #include <vector>
+#include <utility>
 #include <sstream>
 #include <thread>
 #include <functional>
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <cwchar>
+#include <cstdlib>
 #include <exception>
 
 #include <windhawk_utils.h>
@@ -463,11 +518,18 @@ struct ModSettings {
     bool hideWhenSingle           = false;
     bool multiMonitor             = false;
     int paddingLeft               = 0;
+    int paddingTop                = 0;
     int paddingRight              = 2;
+    int paddingBottom             = 0;
+    std::wstring layoutMode          = L"auto";
+    std::wstring layout              = L"";
+    std::wstring primaryAxis         = L"horizontal";
     std::wstring gridMode            = L"autoSmart";
     std::wstring smartLayout         = L"balanced";
     std::wstring fillOrder           = L"rowFirst";
-    std::wstring shortGroupAlign      = L"center";
+    std::wstring crossAlign          = L"center";
+    std::wstring nudge               = L"";
+    std::wstring contentNudge        = L"";
     bool         showMasterButton     = false;
     std::wstring masterButtonLabel    = L"⊞"; // ⊞
     std::wstring masterButtonFontFamily = L"";
@@ -480,7 +542,7 @@ struct ModSettings {
 // ModSettings holds only std::wstring/int/bool, so its destructor is safe to
 // run at process shutdown; no [[clang::no_destroy]] needed, and adding it would
 // leak the string buffers on every normal unload.
-ModSettings g_settings;
+ModSettings g_settings;  // exit-time-safe: heap-only
 
 static void LoadSettings() {
     auto Str = [](const wchar_t* k) {
@@ -516,11 +578,18 @@ static void LoadSettings() {
     g_settings.hideWhenSingle    = Wh_GetIntSetting(L"hideWhenSingle") != 0;
     g_settings.multiMonitor      = Wh_GetIntSetting(L"multiMonitor") != 0;
     g_settings.paddingLeft       = Wh_GetIntSetting(L"paddingLeft");
+    g_settings.paddingTop        = Wh_GetIntSetting(L"paddingTop");
     g_settings.paddingRight      = Wh_GetIntSetting(L"paddingRight");
+    g_settings.paddingBottom     = Wh_GetIntSetting(L"paddingBottom");
+    g_settings.layoutMode           = Str(L"layoutMode");
+    g_settings.layout               = Str(L"layout");
+    g_settings.primaryAxis          = Str(L"primaryAxis");
     g_settings.gridMode             = Str(L"gridMode");
     g_settings.smartLayout          = Str(L"smartLayout");
     g_settings.fillOrder            = Str(L"fillOrder");
-    g_settings.shortGroupAlign      = Str(L"shortGroupAlign");
+    g_settings.crossAlign           = Str(L"crossAlign");
+    g_settings.nudge                = Str(L"nudge");
+    g_settings.contentNudge         = Str(L"contentNudge");
     g_settings.showMasterButton     = Wh_GetIntSetting(L"showMasterButton") != 0;
     g_settings.masterButtonLabel    = Str(L"masterButtonLabel");
     g_settings.masterButtonFontFamily = Str(L"masterButtonFontFamily");
@@ -569,14 +638,16 @@ static HANDLE g_retryStopEvent = nullptr;
 
 static std::atomic<bool> g_systemTrayModuleHooked{false};
 static std::atomic<int>  g_activeSwitchThreads{0};
-[[clang::no_destroy]] static std::list<FrameworkElement::Loaded_revoker> g_autoRevokerList;
+[[clang::no_destroy]] static std::optional<std::list<FrameworkElement::Loaded_revoker>>
+    g_autoRevokerList{std::in_place};
 
 struct ButtonEventState {
     Grid owner{nullptr};
     ButtonBase button{nullptr};
     winrt::event_token clickToken{};
 };
-[[clang::no_destroy]] static std::vector<ButtonEventState> g_buttonEventStates;
+[[clang::no_destroy]] static std::optional<std::vector<ButtonEventState>>
+    g_buttonEventStates{std::in_place};
 
 // Forward declarations
 static void ApplyAllSettings();
@@ -1741,80 +1812,161 @@ static GridLayout ComputeLayout(int count, bool logDetails = true) {
                g_settings.gridMode.c_str());
     }
 
-    bool rowFirst = (g_settings.fillOrder == L"rowFirst");
-    if (rowFirst) {
-        // Short last-row offset.
-        int lastCount = count % L.cols;
-        if (lastCount == 0) lastCount = L.cols;
-        if (lastCount > 0 && lastCount < L.cols) {
-            if      (g_settings.shortGroupAlign == L"center") L.shortOffset = (L.cols - lastCount) / 2;
-            else if (g_settings.shortGroupAlign == L"end")    L.shortOffset = L.cols - lastCount;
-        }
-    } else {
-        // Short last-column offset.
-        int lastCount = count % L.rows;
-        if (lastCount == 0) lastCount = L.rows;
-        if (lastCount > 0 && lastCount < L.rows) {
-            if      (g_settings.shortGroupAlign == L"center") L.shortOffset = (L.rows - lastCount) / 2;
-            else if (g_settings.shortGroupAlign == L"end")    L.shortOffset = L.rows - lastCount;
-        }
-    }
+    // Cross-axis alignment (including a short last row/column) is handled by the
+    // nested-group arranger's crossAlign, so there is no explicit short offset.
     return L;
 }
 
-static void GetButtonGridPosition(int index, int count, const GridLayout& layout,
-                                  int& row, int& col) {
-    int localRow = 0, localCol = 0;
-    int group = 0;
-    bool rowFirst = (g_settings.fillOrder == L"rowFirst");
+// ---- Unified placement glue: settings -> nested-group engine ----------------
 
-    if (rowFirst) {
-        group = index / layout.cols;
-        localCol = index % layout.cols;
-        bool isLastRow = (group == (count - 1) / layout.cols);
-        if (isLastRow)
-            localCol += layout.shortOffset;
+static ngl::Axis LayoutPrimaryAxis() {
+    return g_settings.primaryAxis == L"vertical" ? ngl::Axis::Vertical
+                                                 : ngl::Axis::Horizontal;
+}
 
-        row = group;
-        col = localCol;
-    } else {
-        group = index / layout.rows;
-        localRow = index % layout.rows;
-        bool isLastCol = (group == (count - 1) / layout.rows);
-        if (isLastCol)
-            localRow += layout.shortOffset;
+static ngl::Config MakeLayoutConfig() {
+    ngl::Config c;
+    c.primaryAxis = LayoutPrimaryAxis();
+    c.spacing = (double)std::max(0, g_settings.buttonSpacing);
+    c.crossAlign = g_settings.crossAlign == L"start" ? ngl::CrossAlign::Start
+                 : g_settings.crossAlign == L"end"   ? ngl::CrossAlign::End
+                                                     : ngl::CrossAlign::Center;
+    c.padding = {(double)g_settings.paddingLeft, (double)g_settings.paddingTop,
+                 (double)g_settings.paddingRight, (double)g_settings.paddingBottom};
+    return c;
+}
 
-        row = localRow;
-        col = group;
+static bool MasterIsSliver() {
+    return g_settings.masterButtonPosition == L"bottom" ||
+           g_settings.masterButtonPosition == L"top";
+}
+
+// Size of a layout token. "master" collapses to empty when hidden; desktop
+// number tokens 1..count are button-sized; anything else collapses out.
+static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
+    if (token == L"master") {
+        if (!g_settings.showMasterButton)
+            return {};
+        double w = (double)g_settings.masterButtonWidth;
+        double h = MasterIsSliver() ? (double)g_settings.masterButtonHeight
+                                    : (double)g_settings.buttonHeight;
+        return {w, h};
     }
+    long n = std::wcstol(token.c_str(), nullptr, 10);
+    if (n >= 1 && n <= count)
+        return {(double)g_settings.buttonWidth, (double)g_settings.buttonHeight};
+    return {};
+}
+
+// Parse "name:dx,dy; name:dx,dy" (';' or newline separated) into name->offset.
+static std::vector<std::pair<std::wstring, ngl::Offset>> ParseNudgeSpec(
+    std::wstring const& spec) {
+    std::vector<std::pair<std::wstring, ngl::Offset>> result;
+    size_t i = 0;
+    while (i < spec.size()) {
+        size_t end = spec.find_first_of(L";\r\n", i);
+        if (end == std::wstring::npos)
+            end = spec.size();
+        std::wstring entry = spec.substr(i, end - i);
+        i = end + 1;
+        size_t colon = entry.find(L':');
+        if (colon == std::wstring::npos)
+            continue;
+        std::wstring name = entry.substr(0, colon);
+        // trim spaces around name
+        size_t a = name.find_first_not_of(L" \t");
+        size_t b = name.find_last_not_of(L" \t");
+        if (a == std::wstring::npos)
+            continue;
+        name = name.substr(a, b - a + 1);
+        std::wstring rest = entry.substr(colon + 1);
+        size_t comma = rest.find(L',');
+        if (comma == std::wstring::npos)
+            continue;
+        ngl::Offset off;
+        off.x = std::wcstod(rest.substr(0, comma).c_str(), nullptr);
+        off.y = std::wcstod(rest.substr(comma + 1).c_str(), nullptr);
+        result.push_back({name, off});
+    }
+    return result;
+}
+
+static ngl::Offset LookupNudge(
+    std::vector<std::pair<std::wstring, ngl::Offset>> const& table,
+    std::wstring const& token) {
+    for (auto const& [name, off] : table)
+        if (name == token)
+            return off;
+    return {};
+}
+
+// Build the auto (smart-grid generated) desktop expression, then wrap the
+// master token per its configured position.
+static std::wstring BuildAutoExpression(int count) {
+    auto layout = ComputeLayout(count);
+    bool rowMajor = g_settings.fillOrder == L"rowFirst";
+    auto namer = [](int index) -> std::wstring {
+        return std::to_wstring(index + 1);
+    };
+    std::wstring grid = ngl::BuildGridExpression(
+        count, layout.rows, layout.cols, LayoutPrimaryAxis(), rowMajor, namer);
+    if (grid.empty())
+        grid = L"1";
+
+    if (g_settings.showMasterButton) {
+        std::wstring const& pos = g_settings.masterButtonPosition;
+        if (pos == L"before")
+            grid = L"master | (" + grid + L")";
+        else if (pos == L"top")
+            grid = L"master, (" + grid + L")";
+        else if (pos == L"bottom")
+            grid = L"(" + grid + L"), master";
+        else  // "after" (default)
+            grid = L"(" + grid + L") | master";
+    }
+    return grid;
+}
+
+// Compute the final pixel placements and the padded group size. Manual mode
+// uses the user's expression, falling back to Auto if it is empty or invalid.
+static bool ComputeButtonPlacements(int count,
+                                    std::vector<ngl::Placement>& placements,
+                                    ngl::Size& total) {
+    ngl::Config cfg = MakeLayoutConfig();
+    auto resolve = [count](std::wstring const& t) {
+        return ResolveLayoutToken(t, count);
+    };
+    auto nudges = ParseNudgeSpec(g_settings.nudge);
+    auto offset = [nudges](std::wstring const& t) {
+        return LookupNudge(nudges, t);
+    };
+
+    bool manual = g_settings.layoutMode == L"manual" && !g_settings.layout.empty();
+    std::wstring expr = manual ? g_settings.layout : BuildAutoExpression(count);
+    bool ok = ngl::Compute(expr, cfg, resolve, offset, placements, total);
+    if (!ok && manual) {
+        Wh_Log(L"[Layout] Manual expression rejected, using automatic layout");
+        expr = BuildAutoExpression(count);
+        ok = ngl::Compute(expr, cfg, resolve, offset, placements, total);
+    }
+    Wh_Log(L"[Layout] count=%d mode=%ls expr=\"%ls\" size=%.0fx%.0f",
+           count, g_settings.layoutMode.c_str(), expr.c_str(),
+           total.width, total.height);
+    return ok;
 }
 
 static double EstimateButtonGridWidth(int count) {
-    auto layout = ComputeLayout(count, false);
-    bool hasMaster    = g_settings.showMasterButton;
-    bool masterIsRow  = g_settings.masterButtonPosition == L"bottom" ||
-                         g_settings.masterButtonPosition == L"top";
-    int gridCols = layout.cols + (hasMaster && !masterIsRow ? 1 : 0);
-    int gaps = std::max(0, gridCols - 1);
-    int masterExtra = (hasMaster && !masterIsRow)
-        ? (g_settings.masterButtonWidth - g_settings.buttonWidth)
-        : 0;
-    return (double)(gridCols * g_settings.buttonWidth + masterExtra +
-                    gaps * g_settings.buttonSpacing);
+    std::vector<ngl::Placement> p;
+    ngl::Size t;
+    ComputeButtonPlacements(count, p, t);
+    return t.width;
 }
 
 static double EstimateButtonGridHeight(int count) {
-    auto layout = ComputeLayout(count, false);
-    bool hasMaster    = g_settings.showMasterButton;
-    bool masterIsRow  = g_settings.masterButtonPosition == L"bottom" ||
-                         g_settings.masterButtonPosition == L"top";
-    int gridRows = layout.rows + (hasMaster && masterIsRow ? 1 : 0);
-    int gaps = std::max(0, gridRows - 1);
-    int masterExtra = (hasMaster && masterIsRow)
-        ? (g_settings.masterButtonHeight - g_settings.buttonHeight)
-        : 0;
-    return (double)(gridRows * g_settings.buttonHeight + masterExtra +
-                    gaps * g_settings.buttonSpacing);
+    std::vector<ngl::Placement> p;
+    ngl::Size t;
+    ComputeButtonPlacements(count, p, t);
+    return t.height;
 }
 
 static void SetControlBrushResource(Control const& control,
@@ -2003,80 +2155,38 @@ static void StyleMasterButton(Button& btn,
                            hoverBrush, pressedBrush, borderBrush);
 }
 
+static void ApplyContentNudge(FrameworkElement const& content, ngl::Offset off) {
+    if (off.x == 0.0 && off.y == 0.0)
+        return;
+    TranslateTransform tt;
+    tt.X(off.x);
+    tt.Y(off.y);
+    content.RenderTransform(tt);
+}
+
 static Grid BuildButtonGrid(int count, int current) {
-    auto layout = ComputeLayout(count);
-    int rows = layout.rows;
-    int cols = layout.cols;
-    Wh_Log(L"[Layout] count=%d rows=%d cols=%d mode=%ls smart=%ls fill=%ls",
-           count, rows, cols, g_settings.gridMode.c_str(),
-           g_settings.smartLayout.c_str(), g_settings.fillOrder.c_str());
+    std::vector<ngl::Placement> placements;
+    ngl::Size total;
+    ComputeButtonPlacements(count, placements, total);
 
-    bool hasMaster    = g_settings.showMasterButton;
-    bool masterBefore = (g_settings.masterButtonPosition == L"before");
-    bool masterBottom = (g_settings.masterButtonPosition == L"bottom");
-    bool masterTop    = (g_settings.masterButtonPosition == L"top");
-    bool masterIsRow  = masterBottom || masterTop;
-
-    // Column-based placement: master gets an extra column to the left or right.
-    // Row-based placement (top/bottom): master gets an extra sliver row spanning all desktop columns.
-    int gridCols   = cols + (hasMaster && !masterIsRow ? 1 : 0);
-    int gridRows   = rows + (hasMaster && masterIsRow  ? 1 : 0);
-    int masterCol  = (hasMaster && !masterIsRow) ? (masterBefore ? 0 : cols) : -1;
-    int masterRow  = (hasMaster && masterIsRow)  ? (masterBottom ? rows : 0) : -1;
-    int deskColOff = (hasMaster && masterBefore) ? 1 : 0;
-    int deskRowOff = (hasMaster && masterTop)    ? 1 : 0;
+    auto contentNudges = ParseNudgeSpec(g_settings.contentNudge);
 
     Grid grid;
     std::vector<ButtonEventState> eventStates;
     grid.Name(L"VdSwitcherBar");
+    // Absolute placement: one implicit cell, each button positioned by Margin
+    // from the group's top-left. The group is sized to the arranger's padded
+    // box (4-side padding included) and centered in the tray slot. Spacing,
+    // rows/columns, and short-group centering are all baked into the placements
+    // by the nested-group arranger.
+    grid.Width(total.width);
+    grid.Height(total.height);
+    grid.HorizontalAlignment(HorizontalAlignment::Center);
     grid.VerticalAlignment(VerticalAlignment::Center);
-    if (g_settings.buttonSpacing > 0) {
-        grid.ColumnSpacing((double)g_settings.buttonSpacing);
-        grid.RowSpacing((double)g_settings.buttonSpacing);
-    }
+    if (g_settings.gridVerticalOffset != 0)
+        grid.Margin({0.0, (double)g_settings.gridVerticalOffset, 0.0, 0.0});
     if (g_settings.buttonOpacity < 100)
         grid.Opacity(std::max(0.0, std::min(1.0, g_settings.buttonOpacity / 100.0)));
-    {
-        // Explicit top-alignment: compute where the desktop button area should start
-        // so it's vertically centered in the taskbar regardless of sliver presence.
-        // VerticalAlignment::Center + Margin cannot handle cases where the grid
-        // is taller than the taskbar slot (XAML clamps, causing distortion).
-        int taskbarH = 0;
-        {
-            HWND hWnd2 = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-            RECT r2{};
-            if (hWnd2 && GetWindowRect(hWnd2, &r2))
-                taskbarH = (int)(r2.bottom - r2.top);
-        }
-        double marginTop = (double)g_settings.gridVerticalOffset;
-        if (taskbarH > 0) {
-            int desktopAreaH = rows * g_settings.buttonHeight
-                             + std::max(0, rows - 1) * std::max(0, g_settings.buttonSpacing);
-            // Center the desktop button area, then shift up if the sliver is above it.
-            marginTop += (double)((taskbarH - desktopAreaH) / 2);
-            if (hasMaster && masterIsRow && masterTop)
-                marginTop -= (double)(g_settings.masterButtonHeight
-                                    + std::max(0, g_settings.buttonSpacing));
-            grid.VerticalAlignment(VerticalAlignment::Top);
-        }
-        grid.Margin({ (double)g_settings.paddingLeft, marginTop, (double)g_settings.paddingRight, 0.0 });
-    }
-
-    for (int r = 0; r < gridRows; r++) {
-        RowDefinition rd;
-        bool isSliverRow = hasMaster && masterIsRow && (r == masterRow);
-        double rowH = isSliverRow ? (double)g_settings.masterButtonHeight
-                                  : (double)g_settings.buttonHeight;
-        rd.Height({ rowH, GridUnitType::Pixel });
-        grid.RowDefinitions().Append(rd);
-    }
-    for (int c = 0; c < gridCols; c++) {
-        ColumnDefinition cd;
-        bool isMasterCol = hasMaster && !masterIsRow && (c == masterCol);
-        double colW = isMasterCol ? (double)g_settings.masterButtonWidth : (double)g_settings.buttonWidth;
-        cd.Width({ colW, GridUnitType::Pixel });
-        grid.ColumnDefinitions().Append(cd);
-    }
 
     auto activeBrush       = ParseColorBrush(g_settings.activeColor);
     auto inactiveBrush     = ParseColorBrush(g_settings.inactiveColor);
@@ -2087,23 +2197,63 @@ static Grid BuildButtonGrid(int count, int current) {
     auto borderBrush       = ParseColorBrush(g_settings.borderColor);
     auto desktopNames      = ReadDesktopNames(count);
 
-    for (int i = 0; i < count; i++) {
-        int btnCol, btnRow;
-        GetButtonGridPosition(i, count, layout, btnRow, btnCol);
-        btnRow += deskRowOff;
-        btnCol += deskColOff;
+    for (auto const& p : placements) {
+        if (p.token == L"master") {
+            Button masterBtn;
+            masterBtn.Name(L"VdMasterBtn");
+            TextBlock content;
+            content.Text(winrt::hstring(g_settings.masterButtonLabel));
+            content.HorizontalAlignment(HorizontalAlignment::Center);
+            content.VerticalAlignment(VerticalAlignment::Center);
+            ApplyContentNudge(content, LookupNudge(contentNudges, L"master"));
+            masterBtn.Content(content);
+            StyleMasterButton(masterBtn, inactiveBrush, inactiveTextBrush,
+                              hoverBrush, pressedBrush, borderBrush);
+            masterBtn.Width(p.size.width);
+            masterBtn.Height(p.size.height);
+            masterBtn.HorizontalAlignment(HorizontalAlignment::Left);
+            masterBtn.VerticalAlignment(VerticalAlignment::Top);
+            masterBtn.Margin({p.x, p.y, 0.0, 0.0});
+            ToolTipService::SetToolTip(masterBtn,
+                winrt::box_value(winrt::hstring(L"Task View (Win+Tab)")));
+            auto masterClickToken = masterBtn.Click([](auto const&, auto const&) {
+                if (g_unloading) return;
+                INPUT inputs[4]{};
+                inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_LWIN;
+                inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = VK_TAB;
+                inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = VK_TAB;  inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
+                inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = VK_LWIN; inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
+            });
+            eventStates.push_back({grid, masterBtn, masterClickToken});
+            grid.Children().Append(masterBtn);
+            continue;
+        }
+
+        long desk = std::wcstol(p.token.c_str(), nullptr, 10);
+        int idx = (int)desk - 1;  // tokens are 1-based desktop numbers
+        if (idx < 0 || idx >= count)
+            continue;
 
         ToggleButton btn;
-        btn.Name(L"VdBtn_" + std::to_wstring(i));
-        btn.Content(winrt::box_value(GetButtonLabel(i, current)));
-        StyleDesktopButton(btn, i == current, activeBrush, inactiveBrush,
+        btn.Name(L"VdBtn_" + std::to_wstring(idx));
+        TextBlock content;
+        content.Text(winrt::hstring(GetButtonLabel(idx, current)));
+        content.HorizontalAlignment(HorizontalAlignment::Center);
+        content.VerticalAlignment(VerticalAlignment::Center);
+        ApplyContentNudge(content, LookupNudge(contentNudges, p.token));
+        btn.Content(content);
+        StyleDesktopButton(btn, idx == current, activeBrush, inactiveBrush,
                            activeTextBrush, inactiveTextBrush,
                            hoverBrush, pressedBrush, borderBrush);
-        btn.Width((double)g_settings.buttonWidth);
-        btn.Height((double)g_settings.buttonHeight);
-        ToolTipService::SetToolTip(btn, winrt::box_value(winrt::hstring(desktopNames[i])));
+        btn.Width(p.size.width);
+        btn.Height(p.size.height);
+        btn.HorizontalAlignment(HorizontalAlignment::Left);
+        btn.VerticalAlignment(VerticalAlignment::Top);
+        btn.Margin({p.x, p.y, 0.0, 0.0});
+        ToolTipService::SetToolTip(btn, winrt::box_value(winrt::hstring(desktopNames[idx])));
 
-        int capturedIdx = i;
+        int capturedIdx = idx;
         auto clickToken = btn.Click([capturedIdx](auto const& sender, auto const&) {
             // ToggleButton changes IsChecked before raising Click. Keep the
             // visual state tied to the actual current desktop while the COM
@@ -2120,10 +2270,10 @@ static Grid BuildButtonGrid(int count, int current) {
             // the STA message pump runs and can deliver the notification thread's
             // SendMessage re-entrantly, corrupting XAML state mid-click.
             g_activeSwitchThreads.fetch_add(1);
-            HANDLE h = CreateThread(nullptr, 0, [](LPVOID p) -> DWORD {
-                int idx = (int)(INT_PTR)p;
+            HANDLE h = CreateThread(nullptr, 0, [](LPVOID p2) -> DWORD {
+                int i2 = (int)(INT_PTR)p2;
                 CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-                if (!g_unloading) SwitchToDesktop(idx);
+                if (!g_unloading) SwitchToDesktop(i2);
                 CoUninitialize();
                 g_activeSwitchThreads.fetch_sub(1);
                 return 0;
@@ -2132,109 +2282,11 @@ static Grid BuildButtonGrid(int count, int current) {
             else g_activeSwitchThreads.fetch_sub(1);
         });
         eventStates.push_back({grid, btn, clickToken});
-
-        Grid::SetRow(btn, btnRow);
-        Grid::SetColumn(btn, btnCol);
-
-        // Short last column (column-first): integer (rows-1)/2 rounds to 0 for rows=2,
-        // so the offset approach can't center. Span all desktop rows and use Margin.Top
-        // for pixel-precise placement. Grid does not clip children.
-        if (g_settings.fillOrder != L"rowFirst" && layout.rows > 1
-                && g_settings.shortGroupAlign != L"start") {
-            int lastCount = count % layout.rows;
-            if (lastCount == 0) lastCount = layout.rows;
-            if (lastCount < layout.rows) {
-                int group = i / layout.rows;
-                bool isLastGroup = (group == (count - 1) / layout.rows);
-                if (isLastGroup) {
-                    int k = i % layout.rows;  // 0-based index within this short column
-                    double unitH = (double)(g_settings.buttonHeight + g_settings.buttonSpacing);
-                    double topOff = (g_settings.shortGroupAlign == L"end")
-                        ? unitH * (rows - lastCount)
-                        : unitH * (rows - lastCount) / 2.0;
-                    Grid::SetRow(btn, deskRowOff);
-                    Grid::SetRowSpan(btn, rows);
-                    btn.Height((double)g_settings.buttonHeight);
-                    btn.VerticalAlignment(VerticalAlignment::Top);
-                    btn.Margin({ 0.0, topOff + (double)k * unitH, 0.0, 0.0 });
-                }
-            }
-        }
-
-        // Short last row (row-first): same pixel-precise approach, using Margin.Left
-        // and column span instead of Margin.Top and row span.
-        if (g_settings.fillOrder == L"rowFirst" && layout.cols > 1
-                && g_settings.shortGroupAlign != L"start") {
-            int lastCount = count % layout.cols;
-            if (lastCount == 0) lastCount = layout.cols;
-            if (lastCount < layout.cols) {
-                int group = i / layout.cols;
-                bool isLastGroup = (group == (count - 1) / layout.cols);
-                if (isLastGroup) {
-                    int k = i % layout.cols;  // 0-based index within this short row
-                    double unitW = (double)(g_settings.buttonWidth + g_settings.buttonSpacing);
-                    double leftOff = (g_settings.shortGroupAlign == L"end")
-                        ? unitW * (cols - lastCount)
-                        : unitW * (cols - lastCount) / 2.0;
-                    Grid::SetColumn(btn, deskColOff);
-                    Grid::SetColumnSpan(btn, cols);
-                    btn.Width((double)g_settings.buttonWidth);
-                    btn.HorizontalAlignment(HorizontalAlignment::Left);
-                    btn.Margin({ leftOff + (double)k * unitW, 0.0, 0.0, 0.0 });
-                }
-            }
-        }
-
         grid.Children().Append(btn);
     }
 
-    // Master button: spans all rows in its column.
-    if (hasMaster) {
-        Button masterBtn;
-        masterBtn.Name(L"VdMasterBtn");
-        masterBtn.Content(winrt::box_value(winrt::hstring(g_settings.masterButtonLabel)));
-        StyleMasterButton(masterBtn, inactiveBrush, inactiveTextBrush,
-                          hoverBrush, pressedBrush, borderBrush);
-        if (masterIsRow) {
-            masterBtn.Height((double)g_settings.masterButtonHeight);
-        } else {
-            masterBtn.Width((double)g_settings.masterButtonWidth);
-            if (rows == 1)
-                masterBtn.Height((double)g_settings.buttonHeight);
-        }
-        ToolTipService::SetToolTip(masterBtn,
-            winrt::box_value(winrt::hstring(L"Task View (Win+Tab)")));
-        if (masterIsRow) {
-            // RowSpacing already gives buttonSpacing gap between all rows.
-            // masterButtonSpacing is an additive offset on top of that natural gap.
-            double extra = (double)g_settings.masterButtonSpacing;
-            if (masterTop)    masterBtn.Margin({ 0.0, 0.0, 0.0, extra });
-            else              masterBtn.Margin({ 0.0, extra, 0.0, 0.0 });
-        }
-        auto masterClickToken = masterBtn.Click([](auto const&, auto const&) {
-            if (g_unloading) return;
-            INPUT inputs[4]{};
-            inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_LWIN;
-            inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = VK_TAB;
-            inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = VK_TAB;  inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
-            inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = VK_LWIN; inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
-            SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
-        });
-        eventStates.push_back({grid, masterBtn, masterClickToken});
-        if (masterIsRow) {
-            Grid::SetRow(masterBtn, masterRow);
-            Grid::SetColumn(masterBtn, 0);
-            if (cols > 1) Grid::SetColumnSpan(masterBtn, cols);
-        } else {
-            Grid::SetColumn(masterBtn, masterCol);
-            Grid::SetRow(masterBtn, deskRowOff);
-            if (rows > 1) Grid::SetRowSpan(masterBtn, rows);
-        }
-        grid.Children().Append(masterBtn);
-    }
-
     for (auto& state : eventStates)
-        g_buttonEventStates.push_back(std::move(state));
+        g_buttonEventStates->push_back(std::move(state));
     return grid;
 }
 
@@ -2637,7 +2689,7 @@ static Grid FindLiveSystemTrayFrameGrid() {
 // Release every delegate and mod-created boxed value before detaching a grid.
 static void ClearButtonEventState(Grid const& owner) {
     if (!owner) return;
-    for (auto it = g_buttonEventStates.begin(); it != g_buttonEventStates.end();) {
+    for (auto it = g_buttonEventStates->begin(); it != g_buttonEventStates->end();) {
         if (it->owner != owner) {
             ++it;
             continue;
@@ -2651,17 +2703,17 @@ static void ClearButtonEventState(Grid const& owner) {
         } catch (...) {
             Wh_Log(L"[Remove] Failed to clear one button's event state");
         }
-        it = g_buttonEventStates.erase(it);
+        it = g_buttonEventStates->erase(it);
     }
 }
 
 static void ClearAllButtonEventState() {
-    while (!g_buttonEventStates.empty()) {
-        auto owner = g_buttonEventStates.front().owner;
+    while (!g_buttonEventStates->empty()) {
+        auto owner = g_buttonEventStates->front().owner;
         if (owner)
             ClearButtonEventState(owner);
         else
-            g_buttonEventStates.erase(g_buttonEventStates.begin());
+            g_buttonEventStates->erase(g_buttonEventStates->begin());
     }
 }
 
@@ -2769,7 +2821,8 @@ struct SecondaryBar {
     Grid trayGrid{nullptr};    // SystemTrayFrameGrid of a secondary taskbar
     Grid buttonGrid{nullptr};  // injected VdSwitcherBar, null when not injected
 };
-[[clang::no_destroy]] static std::vector<SecondaryBar> g_secondaryBars;
+[[clang::no_destroy]] static std::optional<std::vector<SecondaryBar>>
+    g_secondaryBars{std::in_place};
 
 static bool IsTrayGridAlive(Grid const& trayGrid) {
     try {
@@ -2787,7 +2840,7 @@ static bool WantSecondaryBars() {
 // Remove injected grids from all secondary taskbars, keeping the tray-grid
 // registrations so the bars can be reinjected without rediscovery.
 static void RemoveSecondaryBars() {
-    for (auto& bar : g_secondaryBars) {
+    for (auto& bar : *g_secondaryBars) {
         if (bar.buttonGrid) {
             if (IsTrayGridAlive(bar.trayGrid))
                 RemoveButtonGridFrom(bar.trayGrid, -1);
@@ -2802,18 +2855,18 @@ static void RemoveSecondaryBars() {
 // remove, when the toggle/settings no longer want them). Full rebuild for the
 // same reason as the primary grid — see RebuildButtonGrid.
 static void RefreshSecondaryBars() {
-    if (g_secondaryBars.empty())
+    if (g_secondaryBars->empty())
         return;
     int count    = g_desktopCount.load();
     int current  = g_currentDesktop.load();
     bool wantBars = WantSecondaryBars();
-    for (auto it = g_secondaryBars.begin(); it != g_secondaryBars.end();) {
+    for (auto it = g_secondaryBars->begin(); it != g_secondaryBars->end();) {
         auto& bar = *it;
         if (!IsTrayGridAlive(bar.trayGrid)) {
             // Taskbar went away (monitor disconnected or tray rebuilt); a new
             // IconView load on that taskbar will rediscover it.
             ClearButtonEventState(bar.buttonGrid);
-            it = g_secondaryBars.erase(it);
+            it = g_secondaryBars->erase(it);
             continue;
         }
         if (bar.buttonGrid) {
@@ -2856,7 +2909,7 @@ static void RegisterSecondaryTrayFromElement(FrameworkElement const& element) {
     }).try_as<Grid>();
     if (!trayGrid) return;
 
-    for (auto& bar : g_secondaryBars)
+    for (auto& bar : *g_secondaryBars)
         if (bar.trayGrid == trayGrid) return;  // already known
 
     // Defensive: skip trays that somehow already contain our bar.
@@ -2872,9 +2925,9 @@ static void RegisterSecondaryTrayFromElement(FrameworkElement const& element) {
         InsertGridIntoTrayColumns(bar.trayGrid, grid);
         bar.buttonGrid = grid;
         Wh_Log(L"[Inject] VdSwitcherBar on secondary taskbar (%u registered)",
-               (unsigned)(g_secondaryBars.size() + 1));
+               (unsigned)(g_secondaryBars->size() + 1));
     }
-    g_secondaryBars.push_back(std::move(bar));
+    g_secondaryBars->push_back(std::move(bar));
 }
 
 // Rebuild the button grid on the UI thread. Always a full rebuild: button
@@ -3018,13 +3071,13 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
             return result;
         }
 
-        g_autoRevokerList.emplace_back();
-        auto autoRevokerIt = std::prev(g_autoRevokerList.end());
+        g_autoRevokerList->emplace_back();
+        auto autoRevokerIt = std::prev(g_autoRevokerList->end());
         *autoRevokerIt = iconView.Loaded(
             winrt::auto_revoke_t{},
             [autoRevokerIt](winrt::Windows::Foundation::IInspectable const& sender,
                             auto const&) {
-                g_autoRevokerList.erase(autoRevokerIt);
+                g_autoRevokerList->erase(autoRevokerIt);
                 try {
                     if (g_unloading)
                         return;
@@ -3179,11 +3232,16 @@ void Wh_ModUninit() {
                 Wh_Log(L"[Uninit] No live XAML root; retaining XAML state");
                 return;
             }
-            g_autoRevokerList.clear();
+            // Controlled UI-thread unload: revoke/release on this thread, then
+            // reset() the no_destroy optionals so their heap buffers are freed
+            // (a bare no_destroy container would keep its capacity forever).
+            g_autoRevokerList->clear();
             RemoveButtonGrid();
             RemoveSecondaryBars();
             ClearAllButtonEventState();
-            g_secondaryBars.clear();  // release WinRT refs on the UI thread
+            g_autoRevokerList.reset();
+            g_buttonEventStates.reset();
+            g_secondaryBars.reset();  // release WinRT refs on the UI thread
         }, hWnd);
     } else {
         // Explorer shutdown doesn't guarantee a usable XAML/UI thread. The
