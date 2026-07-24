@@ -41,6 +41,16 @@ amalgamation and has been thrown out. Replaced by:
   with a `Layout.NewItems` policy (append / ignore). Also fixed the grammar's
   per-unit wrapper flattening axis-relative sizes: a single-child group now
   passes its child's size through verbatim in both Measure and Arrange.
+- Fourth live test: "auto" ignored the taskbar height and the Task View button.
+  AvailableRows divided the WHOLE taskbar height by the item pitch, so the
+  desktop grid claimed height already spoken for by a sliver row and by
+  Adjust.PadY, and the assembled group overflowed. v1.8 reserved the sliver;
+  the v2.0 rewrite dropped it. Template now splits RowsInHeight(heightDip, ...)
+  from the AvailableRows(px, dpi, ...) convenience, documented as "reserve
+  before you divide"; the mod subtracts 2*PadY plus the Task View thickness and
+  spacing when it is a row. The cosmetic gap is deliberately NOT reserved.
+  Verified: 4 desktops + 6px sliver on a 96 DIP taskbar measured 102 (overflow)
+  and now measures 54, at 100% and 150% scaling; column placements unchanged.
 - Added Size.TaskViewGap: extra distance between the Task View button and the
   desktop buttons, emitted as a cosmetic offset on the master token
   ("master[0,8]") rather than as real spacing. Cosmetic is the point - the

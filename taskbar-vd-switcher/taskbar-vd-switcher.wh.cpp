@@ -1341,7 +1341,7 @@ void SwitchToDesktop(int targetIndex) {
 }
 
 // ============================================================
-// Unified element placement -- nested-group-layout template v2.3
+// Unified element placement -- nested-group-layout template v2.4
 // Copy-source: _templates/nested-group-layout.h. One expression, one
 // setting: Layout.Arrangement is either the word "auto" (this file picks
 // the shape and emits the expression, which the mod logs) or an explicit
@@ -1791,15 +1791,26 @@ inline double PixelsToDip(double physicalPixels, unsigned dpi) {
     return dpi ? physicalPixels * 96.0 / (double)dpi : physicalPixels;
 }
 
-// How many item rows fit in the taskbar. Pitch is one item plus one gap; the
-// trailing gap of the last row is not required, hence the + spacing.
-inline int AvailableRows(double taskbarHeightPx, unsigned dpi,
-                         double itemHeight, double spacing) {
-    double heightDip = PixelsToDip(taskbarHeightPx, dpi);
+// How many item rows fit in a height already expressed in DIPs. Pitch is one
+// item plus one gap; the trailing gap of the last row is not required, hence
+// the + spacing.
+//
+// RESERVE FIRST. This is the height available to the ITEM GRID, not the whole
+// taskbar. Anything else that occupies vertical space — outer padY, an extra
+// item shaped as a row (a sliver above or below) — must be subtracted before
+// calling, or the grid claims height that is already spoken for and the
+// assembled group overflows its host.
+inline int RowsInHeight(double heightDip, double itemHeight, double spacing) {
     double pitch = itemHeight + std::max(0.0, spacing);
     if (pitch <= 0.0 || heightDip <= 0.0)
         return 1;
     return std::max(1, (int)((heightDip + std::max(0.0, spacing)) / pitch));
+}
+
+// Convenience for the common case with nothing else reserved.
+inline int AvailableRows(double taskbarHeightPx, unsigned dpi,
+                         double itemHeight, double spacing) {
+    return RowsInHeight(PixelsToDip(taskbarHeightPx, dpi), itemHeight, spacing);
 }
 
 // ---- The auto shape ---------------------------------------------------------
@@ -2116,6 +2127,18 @@ static Brush MakeShineBrush(Brush base) {
 // Rows that fit in this taskbar. The rect is physical pixels and every XAML
 // size is a DIP, so the conversion happens before the division -- mixing them
 // is the bug flagged on PR #4855 and #4843.
+// "Last button in the grid": the Task View button is just another cell, sized
+// and shaped like a desktop button, rather than a column or sliver alongside.
+static bool TaskViewInGrid() {
+    return g_settings.taskViewPlacement == L"inGrid";
+}
+
+static bool TaskViewIsRow() {
+    return g_settings.taskViewButton && !TaskViewInGrid() &&
+           (g_settings.taskViewPlacement == L"above" ||
+            g_settings.taskViewPlacement == L"below");
+}
+
 static int AvailableRows(bool quiet = false) {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     RECT rect{};
@@ -2125,12 +2148,25 @@ static int AvailableRows(bool quiet = false) {
         return 1;
     }
     UINT dpi = GetDpiForWindow(hWnd);
-    int rows = ngl::AvailableRows((double)(rect.bottom - rect.top), dpi,
-                                  (double)g_settings.itemHeight,
-                                  (double)g_settings.itemSpacing);
+    double heightDip = ngl::PixelsToDip((double)(rect.bottom - rect.top), dpi);
+
+    // Reserve what the desktop grid does NOT get: the outer vertical padding,
+    // and a Task View button placed above or below, which is a row of its own.
+    // Without this the grid claims the whole taskbar and the assembled group
+    // overflows it. The gap is deliberately not reserved - it is cosmetic, and
+    // letting a sliver hang past the edge is the point of it.
+    double reserved = 2.0 * (double)g_settings.padY;
+    if (TaskViewIsRow())
+        reserved += (double)g_settings.taskViewSize +
+                    (double)g_settings.itemSpacing;
+
+    int rows = ngl::RowsInHeight(heightDip - reserved,
+                                 (double)g_settings.itemHeight,
+                                 (double)g_settings.itemSpacing);
     if (!quiet) {
-        Wh_Log(L"[Layout] taskbar %dpx at %udpi -> %d row(s) available",
-               (int)(rect.bottom - rect.top), dpi, rows);
+        Wh_Log(L"[Layout] taskbar %dpx at %udpi = %.0f dip, %.0f reserved "
+               L"-> %d row(s) for the desktop buttons",
+               (int)(rect.bottom - rect.top), dpi, heightDip, reserved, rows);
     }
     return rows;
 }
@@ -2176,12 +2212,6 @@ static int DesktopIndexFromToken(std::wstring const& token, int count) {
 // The Task View button answers to "master" and to the friendlier "taskview".
 static bool IsMasterToken(std::wstring const& token) {
     return ngl::TokenIs(token, L"master") || ngl::TokenIs(token, L"taskview");
-}
-
-// "Last button in the grid": the Task View button is just another cell, sized
-// and shaped like a desktop button, rather than a column or sliver alongside.
-static bool TaskViewInGrid() {
-    return g_settings.taskViewPlacement == L"inGrid";
 }
 
 static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {

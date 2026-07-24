@@ -496,15 +496,26 @@ inline double PixelsToDip(double physicalPixels, unsigned dpi) {
     return dpi ? physicalPixels * 96.0 / (double)dpi : physicalPixels;
 }
 
-// How many item rows fit in the taskbar. Pitch is one item plus one gap; the
-// trailing gap of the last row is not required, hence the + spacing.
-inline int AvailableRows(double taskbarHeightPx, unsigned dpi,
-                         double itemHeight, double spacing) {
-    double heightDip = PixelsToDip(taskbarHeightPx, dpi);
+// How many item rows fit in a height already expressed in DIPs. Pitch is one
+// item plus one gap; the trailing gap of the last row is not required, hence
+// the + spacing.
+//
+// RESERVE FIRST. This is the height available to the ITEM GRID, not the whole
+// taskbar. Anything else that occupies vertical space — outer padY, an extra
+// item shaped as a row (a sliver above or below) — must be subtracted before
+// calling, or the grid claims height that is already spoken for and the
+// assembled group overflows its host.
+inline int RowsInHeight(double heightDip, double itemHeight, double spacing) {
     double pitch = itemHeight + std::max(0.0, spacing);
     if (pitch <= 0.0 || heightDip <= 0.0)
         return 1;
     return std::max(1, (int)((heightDip + std::max(0.0, spacing)) / pitch));
+}
+
+// Convenience for the common case with nothing else reserved.
+inline int AvailableRows(double taskbarHeightPx, unsigned dpi,
+                         double itemHeight, double spacing) {
+    return RowsInHeight(PixelsToDip(taskbarHeightPx, dpi), itemHeight, spacing);
 }
 
 // ---- The auto shape ---------------------------------------------------------

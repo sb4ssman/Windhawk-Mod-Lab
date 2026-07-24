@@ -242,6 +242,17 @@ int main() {
     assert(AvailableRows(48, 96, 40, 2) == 1);
     assert(AvailableRows(0, 96, 22, 2) == 1);
 
+    // RowsInHeight takes the height the ITEM GRID actually gets. A caller with
+    // something else occupying vertical space — outer padding, or an extra item
+    // shaped as a row — must subtract it first, or the grid claims height that
+    // is already spoken for and the assembled group overflows its host.
+    assert(RowsInHeight(96, 22, 2) == 4);
+    assert(RowsInHeight(96 - (6 + 2), 22, 2) == 3);  // 6px sliver + its gap
+    assert(RowsInHeight(96 - 2 * 6, 22, 2) == 3);    // padY 6 on both sides
+    assert(RowsInHeight(-10, 22, 2) == 1);
+    // The convenience overload is the no-reservation case.
+    assert(AvailableRows(144, 144, 22, 2) == RowsInHeight(96, 22, 2));
+
     // ---- Auto shape --------------------------------------------------------
 
     // Smallest column count within the available rows, then fewest empty

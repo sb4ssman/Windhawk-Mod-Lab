@@ -239,6 +239,15 @@ XAML sizes are DIPs. Convert before dividing:
 `MulDiv(r.bottom - r.top, 96, GetDpiForWindow(hWnd))`. Mixing the two is the
 blocking bug flagged on PR #4855 and #4843.
 
+**Reserve before you divide.** `maxRows` is the height available to the ITEM
+GRID, not to the whole taskbar. Subtract everything else that occupies vertical
+space first — `Adjust.PadY` on both sides, and any extra item shaped as a row
+(a sliver above or below the grid). Skipping this lets the grid claim height
+that is already spoken for, and the assembled group overflows the taskbar: four
+22px items with a 6px sliver on a 96 DIP taskbar measures 102. A purely
+cosmetic offset is NOT reserved — letting a sliver hang past the edge is
+usually the point of it.
+
 ## 4. Size
 
 ```yaml
