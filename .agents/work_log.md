@@ -1357,3 +1357,46 @@ one session, all under the no-push-without-live-test rule:
   Windhawk.
 - VD Switcher rebuilt as v2.0 on the contract. All five gates green. Not pushed:
   awaiting the live test, per the standing rule.
+
+## 2026-07-24 (cont.) — Layout template v2.0 → v2.4, driven by four live tests
+
+VD Switcher was the guinea pig for the settings contract, and four rounds of
+live testing on real hardware drove the template from v2.0 to v2.4. Each defect
+was found by running it, not by reading it, and each was fixed in
+`_templates/nested-group-layout.h` rather than in the mod:
+
+- **v2.1** — group offsets `(1, 2)[3,0]`, parse errors that report position and
+  expectation, token vocabulary rules (identity, never the displayed label).
+  Juxtaposition deliberately left an error: a missing separator must not
+  silently become a different layout.
+- **v2.2** — axis-relative sizing `AlongAxis(thickness, span)`, because an item
+  that must match its neighbours cannot take a fixed width and height when a
+  hand-written arrangement decides which way it lands. Exposed and fixed a
+  latent bug: the grammar's per-unit wrapper was flattening axis-relative sizes
+  before the real parent saw them. Also `MissingTokens`/`AppendMissing` so a
+  newly created item is never silently unreachable.
+- **v2.3** — `TokenMatcher`. `MissingTokens` compared names as strings, so
+  `desktop1` looked missing beside expected `1` and got appended again: seven
+  buttons instead of four, using the alias the mod itself documents.
+- **v2.4** — `RowsInHeight` split from `AvailableRows`, "reserve before you
+  divide". The grid was given the whole taskbar height with nothing subtracted
+  for a sliver row or outer padding, so the assembled group overflowed (102
+  against 96 available). v1.8 had reserved the sliver; the rewrite dropped it.
+
+Mod-side in the same rounds: Task View placement now applies to hand-written
+arrangements (it was only ever appended, and appended inside the desktop block
+where it squashed), a fifth "last button in the grid" placement, a Task View
+gap emitted as a cosmetic offset so a sliver can hang past the taskbar edge, a
+`taskview` alias, and the stoplight emoji restored inline. Two stale-value bugs
+fell out of the renames: `labelFormat == L"dot"` after the option became
+`symbol` (Indicator symbols silently fell back to numbers), and a v1.8 version
+string in `Wh_ModInit`.
+
+Tooling: `compile-check.ps1` and `exit-time-destructor-audit.ps1` now pass
+Windhawk's own `WINVER/_WIN32_WINNT/NTDDI_VERSION` defines — without them
+`GetDpiForWindow` failed locally while building fine in Windhawk.
+
+VD Switcher v2.0 ends the session green on all five gates and DELIBERATELY
+UNSHIPPED: the user reversed their own "ship it" so the rest of the family can
+be migrated first, in case a later mod forces another template change. See
+memory `feedback_template_rollout_before_ship`.

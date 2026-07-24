@@ -4,131 +4,107 @@ Living todo list — current state only, pruned every session. Completed work
 (past tense) goes in [work_log.md](work_log.md). Durable rules live in
 [README.md](README.md); reference material in [knowledge/](knowledge/).
 
-## Current focus
+## Current focus — START HERE (handoff, 2026-07-24)
 
-**Settings contract v2 + layout rewrite (2026-07-24).** The old "hybrid"
-Auto/Manual layout surface was rejected by the user as an incoherent
-amalgamation and has been thrown out. Replaced by:
+**Roll the settings contract + layout template through the remaining mods.**
+VD Switcher is finished and green but deliberately NOT shipped: the user wants
+the other mods migrated first, because a snag in one of them may feed back into
+the template, and it is cheaper to change the template once than to ship VD
+Switcher twice.
 
-- `_templates/settings-profiles.md` — rewritten from a prose profile menu into
-  THE settings contract: eight nested groups (Placement, Content, Layout, Size,
-  Adjust, Surface, State, Behavior) with fixed keys, labels, defaults, and a
-  fixed assembly order. Mods append mod-specific keys after a group's canonical
-  ones; they never invent, rename, or reorder. Commit `60204b3`.
-- `_templates/nested-group-layout.h` v2.0 — one arranger behind ONE setting,
-  `Layout.Arrangement`, default value `auto`. Absorbed the shape choice
-  (`ChooseShape`), the DPI-correct row count (`AvailableRows`), and expression
-  generation. Per-item offsets ride in the expression as `1[+2,-1]`; the
-  keyed-nudge strings, four-side padding, primary axis, and face nudging are
-  gone. `smart-grid-layout.h` is marked SUPERSEDED (still embedded in
-  OmniButton, Privacy Anchor, Folder Menus).
-- Layout v2.1 additions after a user probe of the grammar: parenthesized groups
-  take an offset too (`(1, 2)[3,0]` moves the whole column), parse failures
-  report the character position and what was expected, tokens match
-  case-insensitively with `desktopN` accepted as an alias for `N`, and the
-  token-to-label map is logged next to the arrangement. Juxtaposition was
-  deliberately NOT made an implicit `|`: a missing separator stays a visible,
-  recoverable parse error rather than a silently different layout. Tokens are
-  identity, never the displayed label — that rule is now in the contract, and
-  it is why custom faces (VD Switcher custom labels, Folder Menus entry names)
-  do not become tokens.
-- Layout v2.2 from the first live test. Two real defects: the Task View button
-  rendered as a small square instead of a full column, and a hand-written
-  arrangement silently swallowed newly created desktops. Fixed at template
-  level: `AlongAxis(thickness, span)` axis-relative sizing (span 0 = match the
-  group, resolved against whichever axis the item lands on, so one pair of
-  settings covers column and sliver), and `MissingTokens` + `AppendMissing`
-  with a `Layout.NewItems` policy (append / ignore). Also fixed the grammar's
-  per-unit wrapper flattening axis-relative sizes: a single-child group now
-  passes its child's size through verbatim in both Measure and Arrange.
-- Fourth live test: "auto" ignored the taskbar height and the Task View button.
-  AvailableRows divided the WHOLE taskbar height by the item pitch, so the
-  desktop grid claimed height already spoken for by a sliver row and by
-  Adjust.PadY, and the assembled group overflowed. v1.8 reserved the sliver;
-  the v2.0 rewrite dropped it. Template now splits RowsInHeight(heightDip, ...)
-  from the AvailableRows(px, dpi, ...) convenience, documented as "reserve
-  before you divide"; the mod subtracts 2*PadY plus the Task View thickness and
-  spacing when it is a row. The cosmetic gap is deliberately NOT reserved.
-  Verified: 4 desktops + 6px sliver on a 96 DIP taskbar measured 102 (overflow)
-  and now measures 54, at 100% and 150% scaling; column placements unchanged.
-- Added Size.TaskViewGap: extra distance between the Task View button and the
-  desktop buttons, emitted as a cosmetic offset on the master token
-  ("master[0,8]") rather than as real spacing. Cosmetic is the point - the
-  group keeps its size, so a sliver below can hang past the taskbar edge and
-  show only its leading edge (the user's preferred look) instead of the group
-  growing and re-centering. Positive is always "further away" whichever side
-  it sits on. Ignored for in-grid placement and when the arrangement names
-  master (write your own offset there).
-- Third live test: with a written arrangement the Task View button ignored its
-  placement setting and got squashed. Both were the same defect - master was
-  only ever APPENDED, and appended INSIDE the auto block next to any new
-  desktops, where it becomes one cell of a stack instead of a column. The
-  manual path now splits missing desktops from a missing master: desktops join
-  the appended grid block, master goes through AddTaskViewButton so
-  before/after/above/below actually apply to a hand-written arrangement too.
-  Added a fifth placement, "Last button in the grid" (inGrid), where master is
-  sized like a desktop button and flows as one more cell - auto shapes count+1
-  cells for it, and the manual path appends it into the desktop block.
-- Layout v2.3 from the second live test. `MissingTokens` compared the expected
-  name against the placed token as plain strings, so a mod with ALIASES broke:
-  "desktop1 | desktop2 | desktop3 | master" appended "1 | 2 | 3" again and
-  produced seven buttons. It now takes an optional `TokenMatcher`; any mod with
-  a vocabulary must supply one, comparing item identity rather than the name
-  the user typed. VD Switcher also accepts "taskview" as an alias for "master"
-  (the natural thing to type given the setting is called Task View button), and
-  the stoplight emoji are back inline in the indicator-symbol descriptions.
-- Two stale-value bugs caught while renaming: `labelFormat == L"dot"` no longer
-  matched the renamed `symbol` option (indicator symbols silently fell back to
-  numbers), and Wh_ModInit still logged v1.8.
-- `_templates/verify-settings-order.ps1` — new, machine-checks a mod's settings
-  block against the contract. NOT in submission-preflight yet: only VD Switcher
-  has migrated, and wiring it in would block review fixes on the other four.
-- `compile-check.ps1` and `exit-time-destructor-audit.ps1` now pass Windhawk's
-  own `-DWINVER/_WIN32_WINNT/NTDDI_VERSION` set. Without them `GetDpiForWindow`
-  fails to compile in the lab but builds fine in Windhawk — the lab tooling was
-  making a valid mod look broken.
+### What exists now
 
-Verified platform facts behind the design: nested settings groups are supported
-and review-clean (`taskbar-elastic-pill` ships them; read as `Group.Key`), and
-the settings API is READ-ONLY (`windhawk_api.h` has no setter), so a mod can
-never fill a field in for the user — hence the `auto` sentinel plus a logged
-expansion instead of a two-field Auto/Manual split.
+Nine commits, all local, `main` ahead of `origin/main`. Nothing pushed, no PR
+touched.
 
-No maintainer pushback on settings backward compatibility exists; all eight PR
-threads were checked. The no-alias rule is self-imposed, from the reverted v1.6
-`AliasedStr`/`AliasedInt` experiment. Clean break at a major version confirmed
-by the user.
+| Commit | What |
+|---|---|
+| `60204b3` | Settings contract v2 — `_templates/settings-profiles.md` |
+| `9fa5382` | Layout v2.0 + VD Switcher rebuilt on it |
+| `7e2b02c` | v2.1 group offsets, located parse errors, token vocabulary |
+| `ab28339` | v2.2 axis-relative sizing, MissingTokens/AppendMissing |
+| `36084b4` | v2.3 TokenMatcher (alias duplication fix) |
+| `b31a5a9` | Task View placement in written arrangements + in-grid |
+| `3307b2b` | Task View gap |
+| `46132e0` | v2.4 RowsInHeight — reserve before you divide |
+| `75ab5b1` | settings-UI wording |
 
-**VD Switcher v2.0 — AWAITING LIVE TEST.** Rebuilt on the contract: every
-setting regrouped, `Layout.Arrangement` replaces layoutMode/layout/gridMode/
-smartLayout/rows/columns/primaryAxis/crossAlign, `Adjust` replaces the four
-padding sides + gridVerticalOffset, per-item offsets moved into the expression,
-face nudging dropped, Task View sizing became literal width/height.
-COMPILE_OK, EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH, SETTINGS_ORDER_OK,
-SUBMISSION_PREFLIGHT_OK. Users' 1.x settings do NOT migrate — the README says so
-under "Upgrading from 1.x". Nothing pushed; PR #4844 still waits on the live
-test.
+The two files that matter, and they are the contract, not suggestions:
 
-Live test checklist:
-- `auto` on single- and double-height taskbars; 2, 3, 4, 5 desktops
-- the logged arrangement pasted back into Arrangement and edited
-- an explicit arrangement (`1, 2 | 3, 4`) and a deliberately broken one
-  (should log and fall back to automatic)
-- per-item offset `1[+2,-1]`; group offset via Adjust
-- Task View button in all four placements; confirm it is a full-height column
-  and a full-width sliver by default, and that a fixed length centers
-- write an arrangement, then CREATE a desktop: it should be appended and logged;
-  switch Newly created desktops to Leave them out and confirm it stays out
-- Indicator symbols label format (regression: the option value was renamed)
-- all three Start positions; multi-monitor toggle
-- **DPI**: repeat the auto layout at 125% and 150% scaling (this is the
-  blocking bug class on #4855/#4843)
-- clicking switches desktops; Explorer restart and disable/re-enable are clean
+- **`_templates/settings-profiles.md`** — eight nested settings groups
+  (Placement, Content, Layout, Size, Adjust, Surface, State, Behavior), fixed
+  keys, fixed order. A mod assembles from it; it never invents, renames, or
+  reorders. Read this BEFORE touching any mod's settings block.
+- **`_templates/nested-group-layout.h` v2.4** — the one arranger, behind the one
+  `Layout.Arrangement` field.
 
-Next, in order: fold the contract into Privacy Anchor (#4843) and OmniButton
-(#4855) alongside their required review fixes — both need the DPI fix that
-`ngl::AvailableRows` now centralizes — then Clock Spacer (#4443), then flip
-`verify-settings-order.ps1` into submission-preflight.
+Enforcement: `_templates/verify-settings-order.ps1 <mod>` checks a settings
+block against the contract. It is deliberately NOT in `submission-preflight.ps1`
+yet — wiring it in now would block the review fixes owed on the unmigrated
+mods. Fold it into preflight once the family is uniform; that is the last step.
+
+### Rollout order and what each mod owes
+
+Each mod is ONE live-tested build. Never push before the user live-tests — see
+memory `feedback_never_push_without_live_test`.
+
+1. **Privacy Anchor (PR #4843)** — required review fixes: the `wstring_view`
+   use-after-free over a destroyed `hstring` (take a `std::wstring` copy);
+   `cameraHardwareDetection` default to false; rename `systemTrayDllHooks` +
+   list all three modules. Its smart-grid row math has the physical-px/DIP bug
+   that `ngl::RowsInHeight` now fixes centrally. Icon surface variant of the
+   Surface group; dynamic item set, so it needs `Layout.NewItems`.
+2. **OmniButton (PR #4855)** — the DPI bug is BLOCKING there and is the same
+   fix; also the `systemTrayDllHooks` rename. Fixed item set (wifi, volume,
+   battery, percent), so semantic tokens and NO `NewItems`. Its `itemOrder`
+   string is REPLACED by `Layout.Arrangement` — an expression already encodes
+   order and grouping, and keeping both would be two strings describing one
+   thing.
+3. **Clock Spacer (PR #4443)** — hooking-surface reduction to
+   `DateTimeIconContent::OnApplyTemplate`, remove `(pre-2604)` from a comment
+   (it confuses the symbol-cache parser), add a before/after screenshot. It
+   tracks an upstream settings language, so it is the one mod that does NOT
+   adopt the grouped keys; see the Text panel section of the contract.
+4. **Then**: flip `verify-settings-order.ps1` into `submission-preflight.ps1`,
+   and only then ship VD Switcher + the rest.
+
+### Lessons the live test bought — expect these again
+
+Four defects, all found by running it rather than reading it. Check each one in
+every mod you migrate:
+
+- **Aliases and identity.** `MissingTokens` compared names as strings, so
+  `desktop1` looked missing next to expected `1` and got appended AGAIN —
+  seven buttons instead of four. Any mod with a token vocabulary MUST pass a
+  `TokenMatcher` that compares item identity, not spelling.
+- **Axis-relative sizing.** An item that must match its neighbours (a Task View
+  button, a separator) cannot take a fixed width and height, because a
+  hand-written arrangement decides which way it lands. Use
+  `AlongAxis(thickness, span)`; span 0 fills.
+- **Reserve before you divide.** `maxRows` is the height the ITEM GRID gets,
+  not the taskbar. Subtract outer padY and any row-shaped extra item first, or
+  the group overflows. A cosmetic offset is NOT reserved.
+- **Stale string comparisons after a rename.** Renaming an option value broke
+  `labelFormat == L"dot"` silently (Indicator symbols fell back to numbers).
+  After any option rename, grep the mod for the old literal.
+
+Also: `compile-check.ps1` and `exit-time-destructor-audit.ps1` now pass
+Windhawk's own `WINVER/_WIN32_WINNT/NTDDI_VERSION` defines. Without them
+`GetDpiForWindow` fails locally while building fine in Windhawk — if a lab
+script disagrees with Windhawk, suspect the script's flags first.
+
+### VD Switcher v2.0 — done, held
+
+All five gates green: COMPILE_OK, EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH,
+SETTINGS_ORDER_OK, SUBMISSION_PREFLIGHT_OK. Live-tested through four rounds;
+the user's last word was "this is fantastic, lets ship it" before choosing to
+hold. When it does ship: it is a MAJOR version (settings keys all changed, no
+migration — the README's "Upgrading from 1.x" says so), and PR #4844 gets
+updated, not merged as-is (the user already told m417z "I am updating it").
+
+Still unverified on real hardware, worth a pass if VD Switcher is revisited:
+the in-grid Task View placement at several desktop counts, and the auto layout
+at 125%/150% scaling now that the reservation changed the shapes it picks.
 
 ---INTERRUPTED---
 
