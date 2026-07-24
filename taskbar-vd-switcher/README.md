@@ -80,21 +80,33 @@ field that does. Its default value is the word `auto`:
   ```
 
   Buttons are named by desktop number; the Task View button is `master`.
+  `desktop2` also works as a readable alias for `2`, and names are
+  case-insensitive. A separator is always required — `1 (2 | 3)` is an error,
+  not a shorthand for `1 | (2 | 3)`.
 
 Every time the layout is applied, the arrangement `auto` produced is written to
-the Windhawk log. Copy that line into the Arrangement field and you have the
-automatic layout as a starting point to edit — the automatic and manual paths
-are the same field and the same syntax.
+the Windhawk log, along with which desktop each number refers to
+(`tokens: 1=Home  2=Work`). Copy the arrangement line into the Arrangement
+field and you have the automatic layout as a starting point to edit — the
+automatic and manual paths are the same field and the same syntax. If what you
+write doesn't parse, the log says what was expected and where, and the
+automatic arrangement is used until you fix it.
 
-**Nudging one button.** Append a pixel offset to any name:
+**Nudging.** Append a pixel offset to any name to move just that button:
 
 ```text
-1[+2,-1] | 2 | 3     desktop 1 moves 2px right and 1px up
-(1, 2) | master[0,2] Task View button drops 2px
+1[+2,-1] | 2 | 3       desktop 1 moves 2px right and 1px up
+(1, 2) | master[0,2]   Task View button drops 2px
 ```
 
-The offset moves only that button. Nothing else shifts and the group's size
-does not change. To move the whole group instead, use `Adjust` → horizontal and
+A parenthesized group takes an offset too, moving everything inside it:
+
+```text
+(1, 2)[3,0] | 3        the stacked pair moves 3px right, 3 stays put
+```
+
+Offsets are cosmetic. Nothing else shifts, and the group's overall size does
+not change. To move the whole group instead, use `Adjust` → horizontal and
 vertical offset.
 
 ## Settings

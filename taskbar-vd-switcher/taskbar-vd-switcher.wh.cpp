@@ -94,21 +94,33 @@ field that does. Its default value is the word `auto`:
   ```
 
   Buttons are named by desktop number; the Task View button is `master`.
+  `desktop2` also works as a readable alias for `2`, and names are
+  case-insensitive. A separator is always required — `1 (2 | 3)` is an error,
+  not a shorthand for `1 | (2 | 3)`.
 
 Every time the layout is applied, the arrangement `auto` produced is written to
-the Windhawk log. Copy that line into the Arrangement field and you have the
-automatic layout as a starting point to edit — the automatic and manual paths
-are the same field and the same syntax.
+the Windhawk log, along with which desktop each number refers to
+(`tokens: 1=Home  2=Work`). Copy the arrangement line into the Arrangement
+field and you have the automatic layout as a starting point to edit — the
+automatic and manual paths are the same field and the same syntax. If what you
+write doesn't parse, the log says what was expected and where, and the
+automatic arrangement is used until you fix it.
 
-**Nudging one button.** Append a pixel offset to any name:
+**Nudging.** Append a pixel offset to any name to move just that button:
 
 ```text
-1[+2,-1] | 2 | 3     desktop 1 moves 2px right and 1px up
-(1, 2) | master[0,2] Task View button drops 2px
+1[+2,-1] | 2 | 3       desktop 1 moves 2px right and 1px up
+(1, 2) | master[0,2]   Task View button drops 2px
 ```
 
-The offset moves only that button. Nothing else shifts and the group's size
-does not change. To move the whole group instead, use `Adjust` → horizontal and
+A parenthesized group takes an offset too, moving everything inside it:
+
+```text
+(1, 2)[3,0] | 3        the stacked pair moves 3px right, 3 stays put
+```
+
+Offsets are cosmetic. Nothing else shifts, and the group's overall size does
+not change. To move the whole group instead, use `Adjust` → horizontal and
 vertical offset.
 
 ## Settings
@@ -1253,7 +1265,7 @@ void SwitchToDesktop(int targetIndex) {
 }
 
 // ============================================================
-// Unified element placement -- nested-group-layout template v2.0
+// Unified element placement -- nested-group-layout template v2.1
 // Copy-source: _templates/nested-group-layout.h. One expression, one
 // setting: Layout.Arrangement is either the word "auto" (this file picks
 // the shape and emits the expression, which the mod logs) or an explicit
@@ -1301,9 +1313,17 @@ struct Placement {
 
 struct Node {
     std::wstring token;            // non-empty = leaf
-    Offset offset;                 // leaf only, from the "[dx,dy]" suffix
+    Offset offset;                 // from the "[dx,dy]" suffix; leaf or group
     std::vector<Node> children;    // group children, laid along axis
     Axis axis = Axis::Horizontal;  // group axis (unused for leaves)
+};
+
+// Where an arrangement stopped making sense, and what was expected there.
+// Report both: a hand-edited expression is much easier to fix with a column
+// number than with "did not parse".
+struct ParseError {
+    size_t position = 0;
+    std::wstring expected;
 };
 
 class Parser {
@@ -1315,10 +1335,21 @@ public:
         valid_ = true;
         root = ParseExpr();
         SkipSpace();
-        return valid_ && position_ >= text_.size();
+        if (valid_ && position_ < text_.size())
+            Fail(position_, L"a separator ('|' or ',') or end of arrangement");
+        return valid_;
     }
 
+    ParseError const& Error() const { return error_; }
+
 private:
+    void Fail(size_t position, wchar_t const* expected) {
+        if (valid_) {  // keep the first failure; later ones are fallout
+            valid_ = false;
+            error_ = {position, expected};
+        }
+    }
+
     Node ParseExpr() {
         Node node;
         node.axis = Axis::Horizontal;
@@ -1350,7 +1381,10 @@ private:
             if (position_ < text_.size() && text_[position_] == L')')
                 ++position_;
             else
-                valid_ = false;
+                Fail(position_, L"a closing ')'");
+            // A group takes an offset too, moving everything inside it.
+            if (position_ < text_.size() && text_[position_] == L'[')
+                inner.offset = ParseOffset();
             return inner;
         }
 
@@ -1360,7 +1394,7 @@ private:
             ++position_;
         leaf.token = text_.substr(start, position_ - start);
         if (leaf.token.empty()) {
-            valid_ = false;
+            Fail(position_, L"a name");
             return leaf;
         }
         if (position_ < text_.size() && text_[position_] == L'[')
@@ -1377,13 +1411,13 @@ private:
         if (position_ < text_.size() && text_[position_] == L',')
             ++position_;
         else
-            valid_ = false;
+            Fail(position_, L"a ',' between the x and y offsets");
         offset.y = ParseNumber();
         SkipSpace();
         if (position_ < text_.size() && text_[position_] == L']')
             ++position_;
         else
-            valid_ = false;
+            Fail(position_, L"a closing ']'");
         return offset;
     }
 
@@ -1393,7 +1427,7 @@ private:
         double value = std::wcstod(text_.c_str() + position_, &end);
         size_t consumed = end ? (size_t)(end - (text_.c_str() + position_)) : 0;
         if (!consumed) {
-            valid_ = false;
+            Fail(position_, L"a number");
             return 0.0;
         }
         position_ += consumed;
@@ -1418,10 +1452,59 @@ private:
     std::wstring const& text_;
     size_t position_ = 0;
     bool valid_ = true;
+    ParseError error_;
 };
 
-inline bool Parse(std::wstring const& text, Node& root) {
-    return Parser(text).Run(root);
+inline bool Parse(std::wstring const& text, Node& root,
+                  ParseError* error = nullptr) {
+    Parser parser(text);
+    bool ok = parser.Run(root);
+    if (!ok && error)
+        *error = parser.Error();
+    return ok;
+}
+
+// ---- Token vocabulary -------------------------------------------------------
+//
+// A token is an item's stable IDENTITY, never its displayed label. Labels are
+// not unique, can contain the expression's own delimiters, can be empty or an
+// emoji, and renaming one would silently break an arrangement the user wrote.
+// Each mod declares its vocabulary and documents it:
+//
+//   fixed set     -> semantic names: wifi, volume, battery, percent, clock
+//   dynamic set   -> 1, 2, 3, ... because the set changes at runtime
+//   either        -> an extra named item such as "master"
+//
+// A dynamic mod may accept a readable alias for a number (desktop2 == 2). Log
+// the token-to-label map next to the arrangement so a user can tell which
+// number is which item without the arrangement depending on the labels.
+//
+// Matching is case-insensitive: someone typing "Wifi" means wifi.
+
+inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
+    size_t i = 0;
+    for (; i < token.size() && name[i]; ++i)
+        if (towlower(token[i]) != towlower(name[i]))
+            return false;
+    return i == token.size() && !name[i];
+}
+
+// "desktop2" -> 2 with prefix L"desktop"; 0 when the token does not match.
+inline int TokenIndexWithPrefix(std::wstring const& token,
+                                wchar_t const* prefix) {
+    size_t i = 0;
+    for (; prefix[i]; ++i)
+        if (i >= token.size() || towlower(token[i]) != towlower(prefix[i]))
+            return 0;
+    if (i >= token.size())
+        return 0;
+    int value = 0;
+    for (; i < token.size(); ++i) {
+        if (token[i] < L'0' || token[i] > L'9')
+            return 0;
+        value = value * 10 + (token[i] - L'0');
+    }
+    return value;
 }
 
 using SizeResolver = std::function<Size(std::wstring const&)>;
@@ -1466,6 +1549,9 @@ inline void Arrange(Node const& node, Config const& config,
     Size total = Measure(node, config, resolve);
     if (total.Empty())
         return;
+    // A group's own offset moves everything inside it and nothing outside.
+    x += node.offset.x;
+    y += node.offset.y;
     double cursor = node.axis == Axis::Horizontal ? x : y;
     for (auto const& child : node.children) {
         Size size = Measure(child, config, resolve);
@@ -1495,9 +1581,10 @@ inline void Arrange(Node const& node, Config const& config,
 // changing totalSize or any neighbor.
 inline bool Compute(std::wstring const& text, Config const& config,
                     SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize) {
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
     Node root;
-    if (!Parse(text, root))
+    if (!Parse(text, root, error))
         return false;
     Size inner = Measure(root, config, resolve);
     placements.clear();
@@ -1826,18 +1913,36 @@ static ngl::FillOrder LayoutFillOrder() {
                                               : ngl::FillOrder::Rows;
 }
 
+// This mod's token vocabulary. Desktops are dynamic, so they are numbered;
+// "desktop2" is accepted as a readable alias for "2", and the Task View button
+// is "master". Matching is case-insensitive. Tokens are identity, never the
+// button's label -- renaming a desktop never invalidates an arrangement.
+// Returns a 0-based desktop index, or -1 when the token is not a desktop.
+static int DesktopIndexFromToken(std::wstring const& token, int count) {
+    int number = ngl::TokenIndexWithPrefix(token, L"desktop");
+    if (!number) {
+        wchar_t* end = nullptr;
+        long parsed = std::wcstol(token.c_str(), &end, 10);
+        if (!end || *end || end == token.c_str())
+            return -1;
+        number = (int)parsed;
+    }
+    if (number < 1 || number > count)
+        return -1;
+    return number - 1;
+}
+
 // Size of a layout token. "master" collapses to empty when the Task View
-// button is off; desktop numbers 1..count are button-sized; anything else
-// collapses out, so a stray name in a hand-written arrangement costs nothing.
+// button is off; anything unrecognized collapses out too, so a stray name in a
+// hand-written arrangement costs nothing.
 static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
-    if (token == L"master") {
+    if (ngl::TokenIs(token, L"master")) {
         if (!g_settings.taskViewButton)
             return {};
         return {(double)g_settings.taskViewWidth,
                 (double)g_settings.taskViewHeight};
     }
-    long n = std::wcstol(token.c_str(), nullptr, 10);
-    if (n >= 1 && n <= count)
+    if (DesktopIndexFromToken(token, count) >= 0)
         return {(double)g_settings.itemWidth, (double)g_settings.itemHeight};
     return {};
 }
@@ -1882,10 +1987,14 @@ static bool ComputeButtonPlacements(int count,
     };
 
     std::wstring expression = isAuto ? makeAuto() : g_settings.arrangement;
-    bool ok = ngl::Compute(expression, config, resolve, placements, total);
+    ngl::ParseError error;
+    bool ok = ngl::Compute(expression, config, resolve, placements, total,
+                           &error);
     if (!ok) {
-        Wh_Log(L"[Layout] Arrangement \"%ls\" did not parse - using automatic",
-               expression.c_str());
+        Wh_Log(L"[Layout] Arrangement \"%ls\" - expected %ls at character %d; "
+               L"using the automatic arrangement instead",
+               expression.c_str(), error.expected.c_str(),
+               (int)error.position + 1);
         maxRows = AvailableRows(quiet);
         expression = ngl::BuildAutoExpression(count, maxRows, LayoutFillOrder());
         if (expression.empty())
@@ -2129,6 +2238,20 @@ static Grid BuildButtonGrid(int count, int current) {
     auto borderBrush       = ParseColorBrush(g_settings.borderColor);
     auto desktopNames      = ReadDesktopNames(count);
 
+    // Which token is which button, so a hand-written arrangement never has to
+    // depend on the labels themselves.
+    {
+        std::wstring map;
+        for (int i = 0; i < count; i++) {
+            if (!map.empty())
+                map += L"  ";
+            map += std::to_wstring(i + 1) + L"=" + desktopNames[i];
+        }
+        if (g_settings.taskViewButton)
+            map += L"  master=Task View";
+        Wh_Log(L"[Layout] tokens: %ls", map.c_str());
+    }
+
     for (auto const& p : placements) {
         if (p.token == L"master") {
             Button masterBtn;
@@ -2161,9 +2284,8 @@ static Grid BuildButtonGrid(int count, int current) {
             continue;
         }
 
-        long desk = std::wcstol(p.token.c_str(), nullptr, 10);
-        int idx = (int)desk - 1;  // tokens are 1-based desktop numbers
-        if (idx < 0 || idx >= count)
+        int idx = DesktopIndexFromToken(p.token, count);
+        if (idx < 0)
             continue;
 
         ToggleButton btn;

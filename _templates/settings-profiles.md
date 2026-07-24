@@ -186,9 +186,30 @@ Four items with three rows available gives 2x2, not a ragged 3+1; five items
 with four rows available gives 3x2, not 4+1. `FillOrder` decides whether that
 shape fills across or down; `Justify` aligns the ragged tail.
 
-**Per-item offsets live in the expression**, not in their own settings. One
-string, nothing to keep in sync with anything else. Items are named by their
-number (`1`, `2`, ...) plus any extra item the mod defines (`master`).
+**Offsets live in the expression**, not in their own settings. One string,
+nothing to keep in sync with anything else. `1[+2,-1]` moves one item;
+`(1, 2)[3,0]` moves a whole parenthesized group. Both are cosmetic — neither
+changes the measured size or moves a neighbor. A separator is always required:
+`1 (2 | 3)` is a parse error, not an implicit `1 | (2 | 3)`, so a missing
+separator surfaces in the log instead of silently becoming another layout.
+
+**Token vocabulary.** A token is an item's stable identity, never its displayed
+label — labels are not unique, can contain the expression's own delimiters, can
+be empty or an emoji, and renaming one would silently break an arrangement the
+user wrote. Each mod declares and documents its vocabulary:
+
+- fixed set → semantic names: `wifi`, `volume`, `battery`, `percent`, `clock`
+- dynamic set → `1`, `2`, `3`, … because the set changes at runtime
+- either → any extra named item, e.g. `master` for a Task View button
+
+A dynamic mod may accept a readable alias for a number (`desktop2` ≡ `2`).
+Matching is case-insensitive. Log the token-to-label map next to the
+arrangement (`tokens: 1=Home  2=Work  master=Task View`) so a user can tell
+which number is which item without the arrangement depending on the labels.
+
+For a mod that today has an `itemOrder` string (OmniButton, Tray Utility),
+`Layout.Arrangement` **replaces** it: an expression already encodes order and
+grouping, so keeping both would be two strings describing one thing.
 
 **DPI.** Taskbar height comes from `GetWindowRect` in physical pixels while all
 XAML sizes are DIPs. Convert before dividing:

@@ -22,6 +22,16 @@ amalgamation and has been thrown out. Replaced by:
   keyed-nudge strings, four-side padding, primary axis, and face nudging are
   gone. `smart-grid-layout.h` is marked SUPERSEDED (still embedded in
   OmniButton, Privacy Anchor, Folder Menus).
+- Layout v2.1 additions after a user probe of the grammar: parenthesized groups
+  take an offset too (`(1, 2)[3,0]` moves the whole column), parse failures
+  report the character position and what was expected, tokens match
+  case-insensitively with `desktopN` accepted as an alias for `N`, and the
+  token-to-label map is logged next to the arrangement. Juxtaposition was
+  deliberately NOT made an implicit `|`: a missing separator stays a visible,
+  recoverable parse error rather than a silently different layout. Tokens are
+  identity, never the displayed label — that rule is now in the contract, and
+  it is why custom faces (VD Switcher custom labels, Folder Menus entry names)
+  do not become tokens.
 - `_templates/verify-settings-order.ps1` — new, machine-checks a mod's settings
   block against the contract. NOT in submission-preflight yet: only VD Switcher
   has migrated, and wiring it in would block review fixes on the other four.

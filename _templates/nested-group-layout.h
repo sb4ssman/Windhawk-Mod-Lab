@@ -30,10 +30,16 @@
 // means horizontal and ',' always means vertical, at every depth — there is no
 // primary-axis setting to reason about.
 //
-// PER-ITEM OFFSET rides in the expression: "1[+2,-1] | 2 | 3" shifts item 1
-// two pixels right and one up. It is cosmetic — it moves that leaf only, and
-// changes neither the measured size nor any neighbor's position. This replaces
-// every keyed per-item offset setting; there is no second string to maintain.
+// OFFSETS ride in the expression: "1[+2,-1] | 2 | 3" shifts item 1 two pixels
+// right and one up. A parenthesized group takes one too — "(1, 2)[3,0] | 3"
+// moves that whole column. Offsets are cosmetic: they move their own leaf or
+// their own group's contents, and change neither the measured size nor any
+// neighbor's position. This replaces every keyed per-item offset setting;
+// there is no second string to maintain.
+//
+// A separator is always required: "1 (2 | 3)" is a parse error, not an
+// implicit "1 | (2 | 3)". Silently reinterpreting a missing separator would
+// turn a typo into a different layout instead of a logged, recoverable error.
 //
 // Tokens are caller-defined names resolved to pixel sizes by a callback. A
 // token that resolves to an empty size (width or height <= 0) is skipped and
@@ -88,9 +94,17 @@ struct Placement {
 
 struct Node {
     std::wstring token;            // non-empty = leaf
-    Offset offset;                 // leaf only, from the "[dx,dy]" suffix
+    Offset offset;                 // from the "[dx,dy]" suffix; leaf or group
     std::vector<Node> children;    // group children, laid along axis
     Axis axis = Axis::Horizontal;  // group axis (unused for leaves)
+};
+
+// Where an arrangement stopped making sense, and what was expected there.
+// Report both: a hand-edited expression is much easier to fix with a column
+// number than with "did not parse".
+struct ParseError {
+    size_t position = 0;
+    std::wstring expected;
 };
 
 class Parser {
@@ -102,10 +116,21 @@ public:
         valid_ = true;
         root = ParseExpr();
         SkipSpace();
-        return valid_ && position_ >= text_.size();
+        if (valid_ && position_ < text_.size())
+            Fail(position_, L"a separator ('|' or ',') or end of arrangement");
+        return valid_;
     }
 
+    ParseError const& Error() const { return error_; }
+
 private:
+    void Fail(size_t position, wchar_t const* expected) {
+        if (valid_) {  // keep the first failure; later ones are fallout
+            valid_ = false;
+            error_ = {position, expected};
+        }
+    }
+
     Node ParseExpr() {
         Node node;
         node.axis = Axis::Horizontal;
@@ -137,7 +162,10 @@ private:
             if (position_ < text_.size() && text_[position_] == L')')
                 ++position_;
             else
-                valid_ = false;
+                Fail(position_, L"a closing ')'");
+            // A group takes an offset too, moving everything inside it.
+            if (position_ < text_.size() && text_[position_] == L'[')
+                inner.offset = ParseOffset();
             return inner;
         }
 
@@ -147,7 +175,7 @@ private:
             ++position_;
         leaf.token = text_.substr(start, position_ - start);
         if (leaf.token.empty()) {
-            valid_ = false;
+            Fail(position_, L"a name");
             return leaf;
         }
         if (position_ < text_.size() && text_[position_] == L'[')
@@ -164,13 +192,13 @@ private:
         if (position_ < text_.size() && text_[position_] == L',')
             ++position_;
         else
-            valid_ = false;
+            Fail(position_, L"a ',' between the x and y offsets");
         offset.y = ParseNumber();
         SkipSpace();
         if (position_ < text_.size() && text_[position_] == L']')
             ++position_;
         else
-            valid_ = false;
+            Fail(position_, L"a closing ']'");
         return offset;
     }
 
@@ -180,7 +208,7 @@ private:
         double value = std::wcstod(text_.c_str() + position_, &end);
         size_t consumed = end ? (size_t)(end - (text_.c_str() + position_)) : 0;
         if (!consumed) {
-            valid_ = false;
+            Fail(position_, L"a number");
             return 0.0;
         }
         position_ += consumed;
@@ -205,10 +233,59 @@ private:
     std::wstring const& text_;
     size_t position_ = 0;
     bool valid_ = true;
+    ParseError error_;
 };
 
-inline bool Parse(std::wstring const& text, Node& root) {
-    return Parser(text).Run(root);
+inline bool Parse(std::wstring const& text, Node& root,
+                  ParseError* error = nullptr) {
+    Parser parser(text);
+    bool ok = parser.Run(root);
+    if (!ok && error)
+        *error = parser.Error();
+    return ok;
+}
+
+// ---- Token vocabulary -------------------------------------------------------
+//
+// A token is an item's stable IDENTITY, never its displayed label. Labels are
+// not unique, can contain the expression's own delimiters, can be empty or an
+// emoji, and renaming one would silently break an arrangement the user wrote.
+// Each mod declares its vocabulary and documents it:
+//
+//   fixed set     -> semantic names: wifi, volume, battery, percent, clock
+//   dynamic set   -> 1, 2, 3, ... because the set changes at runtime
+//   either        -> an extra named item such as "master"
+//
+// A dynamic mod may accept a readable alias for a number (desktop2 == 2). Log
+// the token-to-label map next to the arrangement so a user can tell which
+// number is which item without the arrangement depending on the labels.
+//
+// Matching is case-insensitive: someone typing "Wifi" means wifi.
+
+inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
+    size_t i = 0;
+    for (; i < token.size() && name[i]; ++i)
+        if (towlower(token[i]) != towlower(name[i]))
+            return false;
+    return i == token.size() && !name[i];
+}
+
+// "desktop2" -> 2 with prefix L"desktop"; 0 when the token does not match.
+inline int TokenIndexWithPrefix(std::wstring const& token,
+                                wchar_t const* prefix) {
+    size_t i = 0;
+    for (; prefix[i]; ++i)
+        if (i >= token.size() || towlower(token[i]) != towlower(prefix[i]))
+            return 0;
+    if (i >= token.size())
+        return 0;
+    int value = 0;
+    for (; i < token.size(); ++i) {
+        if (token[i] < L'0' || token[i] > L'9')
+            return 0;
+        value = value * 10 + (token[i] - L'0');
+    }
+    return value;
 }
 
 using SizeResolver = std::function<Size(std::wstring const&)>;
@@ -253,6 +330,9 @@ inline void Arrange(Node const& node, Config const& config,
     Size total = Measure(node, config, resolve);
     if (total.Empty())
         return;
+    // A group's own offset moves everything inside it and nothing outside.
+    x += node.offset.x;
+    y += node.offset.y;
     double cursor = node.axis == Axis::Horizontal ? x : y;
     for (auto const& child : node.children) {
         Size size = Measure(child, config, resolve);
@@ -282,9 +362,10 @@ inline void Arrange(Node const& node, Config const& config,
 // changing totalSize or any neighbor.
 inline bool Compute(std::wstring const& text, Config const& config,
                     SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize) {
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
     Node root;
-    if (!Parse(text, root))
+    if (!Parse(text, root, error))
         return false;
     Size inner = Measure(root, config, resolve);
     placements.clear();

@@ -108,13 +108,57 @@ int main() {
     assert(Near(Find(placements, L"a")->x, 1.5) &&
            Near(Find(placements, L"a")->y, 2));
 
+    // A group offset moves everything inside that group and nothing else.
+    assert(Compute(L"(a, b)[3,0] | c", config, square24, placements, total));
+    assert(Near(total.width, 48) && Near(total.height, 48));
+    assert(Near(Find(placements, L"a")->x, 3) &&
+           Near(Find(placements, L"a")->y, 0));
+    assert(Near(Find(placements, L"b")->x, 3) &&
+           Near(Find(placements, L"b")->y, 24));
+    assert(Near(Find(placements, L"c")->x, 24) &&
+           Near(Find(placements, L"c")->y, 12));
+
+    // Group and leaf offsets compose, and nesting is arbitrarily deep.
+    assert(Compute(L"((a, b)[1,0] | c)[0,2]", config, square24, placements,
+                   total));
+    assert(Near(Find(placements, L"a")->x, 1) &&
+           Near(Find(placements, L"a")->y, 2));
+    assert(Near(Find(placements, L"c")->x, 24) &&
+           Near(Find(placements, L"c")->y, 14));
+
     // ---- Parse errors ------------------------------------------------------
 
-    assert(!Compute(L"a | (b, c", config, square24, placements, total));
-    assert(!Compute(L"a | | b", config, square24, placements, total));
-    assert(!Compute(L"a,", config, square24, placements, total));
-    assert(!Compute(L"a[1] | b", config, square24, placements, total));
-    assert(!Compute(L"a[1,2 | b", config, square24, placements, total));
+    ParseError error;
+    assert(!Compute(L"a | (b, c", config, square24, placements, total, &error));
+    assert(error.expected == L"a closing ')'" && error.position == 9);
+    assert(!Compute(L"a | | b", config, square24, placements, total, &error));
+    assert(error.expected == L"a name");
+    assert(!Compute(L"a,", config, square24, placements, total, &error));
+    assert(error.expected == L"a name");
+    assert(!Compute(L"a[1] | b", config, square24, placements, total, &error));
+    assert(error.expected == L"a ',' between the x and y offsets");
+    assert(!Compute(L"a[1,2 | b", config, square24, placements, total, &error));
+    assert(error.expected == L"a closing ']'");
+    assert(!Compute(L"a[0. 2] | b", config, square24, placements, total,
+                    &error));
+    assert(error.expected == L"a ',' between the x and y offsets");
+    // A missing separator is an error, never an implicit horizontal join.
+    assert(!Compute(L"a (b | c)", config, square24, placements, total, &error));
+    assert(error.position == 2);
+
+    // ---- Token vocabulary --------------------------------------------------
+
+    // Tokens are identity and match case-insensitively; a mod maps them to
+    // sizes however it likes.
+    assert(TokenIs(L"wifi", L"wifi"));
+    assert(TokenIs(L"WiFi", L"wifi"));
+    assert(!TokenIs(L"wifi2", L"wifi"));
+    assert(!TokenIs(L"wif", L"wifi"));
+    assert(TokenIndexWithPrefix(L"desktop2", L"desktop") == 2);
+    assert(TokenIndexWithPrefix(L"Desktop12", L"desktop") == 12);
+    assert(TokenIndexWithPrefix(L"desktop", L"desktop") == 0);
+    assert(TokenIndexWithPrefix(L"desktopX", L"desktop") == 0);
+    assert(TokenIndexWithPrefix(L"2", L"desktop") == 0);
 
     // ---- Available rows (DPI) ----------------------------------------------
 
