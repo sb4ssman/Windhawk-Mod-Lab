@@ -442,6 +442,7 @@ temporarily when comparing against Windows' native tray glyphs during testing.
 #include <exception>
 #include <functional>
 #include <list>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1158,7 +1159,7 @@ struct ModSettings {
     int  slashOpacity   = 100;
     bool suppressNativeIndicators = true;
 };
-[[clang::no_destroy]] static ModSettings g_settings;
+static ModSettings g_settings;  // exit-time-safe: heap-only
 static std::atomic<bool> g_cameraHardwareDetectionEnabled{true};
 static std::atomic<bool> g_cameraItemEnabled{true};
 static std::atomic<bool> g_copilotItemEnabled{true};
@@ -1399,14 +1400,15 @@ static std::atomic<bool> g_taskbarDarkTheme{true};
 [[clang::no_destroy]] static FrameworkElement g_camSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_copilotSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_syntheticParent = nullptr;
-[[clang::no_destroy]] static lease_column::Lease g_columnLease;
+static lease_column::Lease g_columnLease;  // exit-time-safe: heap-only
 [[clang::no_destroy]] static start_placement::Lease g_startLease;
 
 struct SlotEventState {
     FrameworkElement element{nullptr};
     winrt::event_token tappedToken{};
 };
-[[clang::no_destroy]] static std::vector<SlotEventState> g_slotEventStates;
+[[clang::no_destroy]] static std::optional<std::vector<SlotEventState>>
+    g_slotEventStates{std::in_place};
 
 struct GlowAnimationState {
     FrameworkElement element{nullptr};
@@ -1414,8 +1416,8 @@ struct GlowAnimationState {
         storyboards;
     bool running = false;
 };
-[[clang::no_destroy]] static std::vector<GlowAnimationState>
-    g_glowAnimationStates;
+[[clang::no_destroy]] static std::optional<std::vector<GlowAnimationState>>
+    g_glowAnimationStates{std::in_place};
 
 struct PrivacyState {
     enum class Type { Location, Mic, Camera, Both };
@@ -1425,13 +1427,16 @@ struct PrivacyState {
     int64_t visibilityToken = 0;
     Type    type      = Type::Location;
 };
-[[clang::no_destroy]] static std::vector<PrivacyState> g_privacyStates;
+// PrivacyState holds only winrt::weak_ref and integers; weak_ref release is a
+// thread-safe in-process refcount decrement, so the normal destructor is
+// leak-free (rule 1). See lifecycle template v1.3.1.
+static std::vector<PrivacyState> g_privacyStates;  // exit-time-safe: heap-only
 
 using FrameworkElementLoadedRevoker = winrt::impl::event_revoker<
     IFrameworkElement,
     &winrt::impl::abi<IFrameworkElement>::type::remove_Loaded>;
-[[clang::no_destroy]] static std::list<FrameworkElementLoadedRevoker>
-    g_loadedRevokers;
+[[clang::no_destroy]] static std::optional<std::list<FrameworkElementLoadedRevoker>>
+    g_loadedRevokers{std::in_place};
 
 // Forward declarations
 static bool ApplyStyle();
@@ -1748,7 +1753,7 @@ static std::vector<std::wstring> ParseItemOrder(std::wstring const& s) {
 static void SetGlowActive(FrameworkElement const& glow, bool active) {
     if (!glow) return;
     glow.Visibility(active ? Visibility::Visible : Visibility::Collapsed);
-    for (auto& state : g_glowAnimationStates) {
+    for (auto& state : *g_glowAnimationStates) {
         if (state.element != glow || state.running == active) continue;
         try {
             for (auto const& storyboard : state.storyboards) {
@@ -3325,7 +3330,7 @@ static FrameworkElement MakeGlowVisual(winrt::Windows::UI::Color color) {
         }
     }
 
-    g_glowAnimationStates.push_back(std::move(animationState));
+    g_glowAnimationStates->push_back(std::move(animationState));
     return host;
 }
 
@@ -3669,7 +3674,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                 if (!g_unloading)
                     OpenSettingsForItem(itemKind);
             });
-        g_slotEventStates.push_back({slot, tappedToken});
+        g_slotEventStates->push_back({slot, tappedToken});
 
         ApplyOffset(slot, offX, offY);
 
@@ -3739,15 +3744,15 @@ static void RemoveSyntheticIcons() {
     // after the mod DLL unloads. The boxed tooltip and automation-name values on
     // the synthetic icons are implemented in this DLL, so release them before
     // removal (same crash class as folder-menus crash-on-disable).
-    for (auto& state : g_slotEventStates) {
+    for (auto& state : *g_slotEventStates) {
         if (!state.element) continue;
         try { state.element.Tapped(state.tappedToken); } catch (...) {}
     }
-    g_slotEventStates.clear();
+    g_slotEventStates->clear();
 
     // Storyboards retain their animation targets. Stop and release them before
     // removing the XAML subtree so no callback can outlive the mod DLL.
-    for (auto& state : g_glowAnimationStates) {
+    for (auto& state : *g_glowAnimationStates) {
         for (auto const& storyboard : state.storyboards) {
             try { storyboard.Stop(); } catch (...) {}
         }
@@ -3755,7 +3760,7 @@ static void RemoveSyntheticIcons() {
         state.element = nullptr;
         state.running = false;
     }
-    g_glowAnimationStates.clear();
+    g_glowAnimationStates->clear();
 
     auto clearIconState = [](FrameworkElement const& fe) {
         if (!fe) return;
@@ -3802,7 +3807,7 @@ static void RemoveSyntheticIcons() {
 }
 
 static void RemoveModUi() {
-    g_loadedRevokers.clear();
+    g_loadedRevokers->clear();
     ClearPrivacyStates();
     RemoveSyntheticIcons();
 }
@@ -3996,7 +4001,7 @@ static bool ApplyOnTaskbarThread() {
         RemoveModUi();
         g_taskbarRestarted.store(false);
     }
-    g_loadedRevokers.clear();
+    g_loadedRevokers->clear();
     ClearPrivacyStates();
     return ApplyStyle();
 }
@@ -4064,12 +4069,12 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
                                                 winrt::put_abi(iconView));
         if (!iconView) return ret;
 
-        g_loadedRevokers.emplace_back();
-        auto it = g_loadedRevokers.end(); --it;
+        g_loadedRevokers->emplace_back();
+        auto it = g_loadedRevokers->end(); --it;
         *it = iconView.Loaded(winrt::auto_revoke_t{},
             [it](winrt::Windows::Foundation::IInspectable const& sender, auto const&) {
                 try {
-                    g_loadedRevokers.erase(it);
+                    g_loadedRevokers->erase(it);
                     if (g_unloading) return;
                     auto fe = sender.try_as<FrameworkElement>();
                     if (!fe) return;
@@ -4401,6 +4406,11 @@ void Wh_ModUninit() {
     if (hWnd) {
         RunFromWindowThread(hWnd, [](void*) {
             RemoveModUi();
+            // Terminal unload: free the no_destroy optional buffers on the UI
+            // thread (RemoveModUi already revoked/cleared their elements).
+            g_slotEventStates.reset();
+            g_glowAnimationStates.reset();
+            g_loadedRevokers.reset();
         }, nullptr);
     } else {
         // No taskbar window means there is no known UI thread on which XAML
