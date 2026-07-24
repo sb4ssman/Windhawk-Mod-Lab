@@ -300,6 +300,7 @@ Does not use XAML Diagnostics. Compatible with Windows 11 Taskbar Styler.
 #include <functional>
 #include <limits>
 #include <list>
+#include <optional>
 #include <vector>
 #include <winrt/base.h>
 #include <windhawk_api.h>
@@ -577,7 +578,7 @@ struct ModSettings {
     int        percentX, percentY;
 };
 
-[[clang::no_destroy]] static ModSettings g_settings{};
+static ModSettings g_settings{};  // exit-time-safe: heap-only
 
 std::atomic<bool> g_unloading = false;
 
@@ -721,8 +722,8 @@ static std::atomic<bool> g_reapplyPending{false};
 static HANDLE g_retryThread = nullptr;
 static HANDLE g_retryStopEvent = nullptr;
 
-[[clang::no_destroy]] static std::list<FrameworkElement::Loaded_revoker>
-    g_autoRevokerList;
+[[clang::no_destroy]] static std::optional<std::list<FrameworkElement::Loaded_revoker>>
+    g_autoRevokerList{std::in_place};
 
 struct PropertySnapshot {
     DependencyObject object{nullptr};
@@ -730,23 +731,24 @@ struct PropertySnapshot {
     IInspectable localValue{nullptr};
 };
 
-[[clang::no_destroy]] static std::vector<PropertySnapshot> g_propertySnapshots;
+[[clang::no_destroy]] static std::optional<std::vector<PropertySnapshot>>
+    g_propertySnapshots{std::in_place};
 
 static void LogCurrentUiException(PCWSTR context) noexcept;
 
 static void TrackProperty(DependencyObject const& object,
                           DependencyProperty const& property) {
     if (!object || !property) return;
-    for (auto const& snapshot : g_propertySnapshots) {
+    for (auto const& snapshot : *g_propertySnapshots) {
         if (snapshot.object == object && snapshot.property == property) return;
     }
-    g_propertySnapshots.push_back(
+    g_propertySnapshots->push_back(
         {object, property, object.ReadLocalValue(property)});
 }
 
 static void RestorePropertySnapshots() {
-    for (auto it = g_propertySnapshots.rbegin();
-         it != g_propertySnapshots.rend(); ++it) {
+    for (auto it = g_propertySnapshots->rbegin();
+         it != g_propertySnapshots->rend(); ++it) {
         try {
             if (it->localValue == DependencyProperty::UnsetValue())
                 it->object.ClearValue(it->property);
@@ -756,7 +758,7 @@ static void RestorePropertySnapshots() {
             Wh_Log(L"[Cleanup] Failed to restore a XAML property");
         }
     }
-    g_propertySnapshots.clear();
+    g_propertySnapshots->clear();
 }
 
 // ── Grid geometry ─────────────────────────────────────────────────────────
@@ -1755,12 +1757,12 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
         ((IUnknown**)pThis)[1]->QueryInterface(
             winrt::guid_of<FrameworkElement>(), winrt::put_abi(iconView));
         if (!iconView) return ret;
-        g_autoRevokerList.emplace_back();
-        auto it = std::prev(g_autoRevokerList.end());
+        g_autoRevokerList->emplace_back();
+        auto it = std::prev(g_autoRevokerList->end());
         *it = iconView.Loaded(winrt::auto_revoke_t{},
             [it](IInspectable const&, RoutedEventArgs const&) {
                 try {
-                    g_autoRevokerList.erase(it);
+                    g_autoRevokerList->erase(it);
                     if (!g_unloading && (!g_applied || g_reapplyPending))
                         g_applied = ApplyPendingSettings();
                 } catch (...) {
@@ -1979,8 +1981,12 @@ void Wh_ModUninit() {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {
         if (!RunFromWindowThread(hWnd, [](void*) {
-            g_autoRevokerList.clear();
+            // Controlled UI-thread unload: revoke/restore on this thread, then
+            // reset() the no_destroy optionals to free their heap buffers.
+            g_autoRevokerList->clear();
             CleanupAndResetCurrentElements();
+            g_autoRevokerList.reset();
+            g_propertySnapshots.reset();
             g_applied = false;
         }, nullptr)) {
             Wh_Log(L"[Uninit] Taskbar dispatch failed; retaining XAML state");
