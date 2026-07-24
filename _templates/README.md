@@ -9,7 +9,7 @@ comment, and adapt only through the documented settings or callback contract.
 
 | Template | Use it for |
 |---|---|
-| `settings-profiles.md` | Canonical setting names, order, defaults, and profile boundaries |
+| `settings-profiles.md` | **THE SETTINGS CONTRACT.** Component library of nested settings groups — fixed keys, labels, defaults — plus the fixed assembly order every mod follows. Assemble from it; never invent, rename, or reorder a key |
 | `nested-group-layout.h` | **PRIMARY element-placement primitive.** Pixel-space placement from one nestable layout expression (`\|` along the primary axis, `,` across, parentheses alternate axes) with native-size items, four-side outer padding, first-class per-element nudge, and the `BuildGridExpression` bridge |
 | `smart-grid-layout.h` | Shape heuristic only: picks rows × columns (and short-group packing) for a homogeneous, dynamic-count collection. Its output feeds `BuildGridExpression`; it is no longer an arranger |
 | `visual-tree-walk.h` | Descendant walk/find/collect helpers plus the OmniButton inner-StackPanel walk |
