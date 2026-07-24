@@ -41,6 +41,16 @@ amalgamation and has been thrown out. Replaced by:
   with a `Layout.NewItems` policy (append / ignore). Also fixed the grammar's
   per-unit wrapper flattening axis-relative sizes: a single-child group now
   passes its child's size through verbatim in both Measure and Arrange.
+- Third live test: with a written arrangement the Task View button ignored its
+  placement setting and got squashed. Both were the same defect - master was
+  only ever APPENDED, and appended INSIDE the auto block next to any new
+  desktops, where it becomes one cell of a stack instead of a column. The
+  manual path now splits missing desktops from a missing master: desktops join
+  the appended grid block, master goes through AddTaskViewButton so
+  before/after/above/below actually apply to a hand-written arrangement too.
+  Added a fifth placement, "Last button in the grid" (inGrid), where master is
+  sized like a desktop button and flows as one more cell - auto shapes count+1
+  cells for it, and the manual path appends it into the desktop block.
 - Layout v2.3 from the second live test. `MissingTokens` compared the expected
   name against the placed token as plain strings, so a mod with ALIASES broke:
   "desktop1 | desktop2 | desktop3 | master" appended "1 | 2 | 3" again and

@@ -36,7 +36,7 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 - Numbered, roman-numeral, indicator-symbol, or custom-label buttons
 - Automatic grid that fits the buttons to the taskbar's height, or an arrangement you write yourself
-- Optional Task View button that matches the desktop buttons as a full column or a sliver
+- Optional Task View button as a full column, a sliver, or one more button in the grid
 - Highlights the active desktop immediately on switch
 - Buttons appear and disappear as desktops are added or removed
 - Five tray positions, plus experimental Start-adjacent and Start-overlay positions
@@ -119,16 +119,23 @@ your arrangement be the whole truth. `auto` always includes every desktop.
 
 ## The Task View button
 
-`Size` → `Task View button thickness` is how thick the button is: its **width**
-when it sits beside the desktop buttons, its **height** when it sits above or
-below them. `Task View button length` is how far it runs along them, and `0` —
-the default — means match them exactly. So out of the box it is a full-height
-column beside the buttons, or a full-width sliver above or below, depending
-only on where you put it. Give the length a value to make it shorter than the
-buttons; it is then centered by `Short row or column`.
+`Content` → `Task View button placement` decides where it goes: a column
+**before** or **after** the desktop buttons, a row **above** or **below** them,
+or the **last button in the grid**. This applies whether the layout came from
+`auto` or from an arrangement you wrote — write `master` in your arrangement
+and you place it exactly, and the setting steps aside.
 
-This works the same whether the button is placed by `auto` or by an arrangement
-you wrote — the mod sizes it against whichever axis it lands on.
+For the column and row placements, `Size` → `Task View button thickness` is how
+thick it is: its **width** as a column, its **height** as a row. `Task View
+button length` is how far it runs along the desktop buttons, and `0` — the
+default — means match them exactly, so it is a full-height column or a
+full-width sliver however many desktops you have. Give the length a value to
+make it shorter; it is then centered by `Short row or column`.
+
+**Last button in the grid** ignores both of those and sizes it like a desktop
+button, so it flows with them as one more cell — `1, 4 | 2, 5 | 3, ⊞`. Use it
+when you want the Task View button to read as part of the set rather than as a
+bar alongside it; it keeps its own label and font.
 
 ## Settings
 
@@ -149,7 +156,7 @@ you wrote — the mod sizes it against whichever axis it lands on.
 | Inactive indicator symbol | ○ | Other desktops' symbol; paste 🟢 above and 🔴 here for a stoplight |
 | Task View button | Off | Adds a button that opens Task View for previewing, creating, or closing desktops |
 | Task View button label | ⊞ | Text shown on that button |
-| Task View button placement | After | Where `auto` puts it: column before/after, or row above/below |
+| Task View button placement | After | Column before/after, row above/below, or last button in the grid |
 
 ### Layout
 
@@ -167,7 +174,7 @@ you wrote — the mod sizes it against whichever axis it lands on.
 | Button width | 20 px | |
 | Button height | 22 px | |
 | Button spacing | 2 px | Gap between buttons along each axis |
-| Task View button thickness | 14 px | Width as a column, height as a sliver |
+| Task View button thickness | 14 px | Width as a column, height as a sliver; unused in the grid placement |
 | Task View button length | 0 px | 0 matches the desktop buttons exactly |
 
 ### Adjust

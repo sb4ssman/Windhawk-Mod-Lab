@@ -50,7 +50,7 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 - Numbered, roman-numeral, indicator-symbol, or custom-label buttons
 - Automatic grid that fits the buttons to the taskbar's height, or an arrangement you write yourself
-- Optional Task View button as a full column, a sliver, or one more button in the grid
+- Optional Task View button that matches the desktop buttons as a full column or a sliver
 - Highlights the active desktop immediately on switch
 - Buttons appear and disappear as desktops are added or removed
 - Five tray positions, plus experimental Start-adjacent and Start-overlay positions
@@ -94,8 +94,8 @@ field that does. Its default value is the word `auto`:
   master | (1, 2)    Task View button left of a stacked pair
   ```
 
-  Buttons are named by desktop number; the Task View button is `master` or
-  `taskview`. `desktop2` also works as a readable alias for `2`, and names are
+  Buttons are named by desktop number; the Task View button is `master`.
+  `desktop2` also works as a readable alias for `2`, and names are
   case-insensitive. A separator is always required — `1 (2 | 3)` is an error,
   not a shorthand for `1 | (2 | 3)`.
 
@@ -133,23 +133,16 @@ your arrangement be the whole truth. `auto` always includes every desktop.
 
 ## The Task View button
 
-`Content` → `Task View button placement` decides where it goes: a column
-**before** or **after** the desktop buttons, a row **above** or **below** them,
-or the **last button in the grid**. This applies whether the layout came from
-`auto` or from an arrangement you wrote — write `master` in your arrangement
-and you place it exactly, and the setting steps aside.
+`Size` → `Task View button thickness` is how thick the button is: its **width**
+when it sits beside the desktop buttons, its **height** when it sits above or
+below them. `Task View button length` is how far it runs along them, and `0` —
+the default — means match them exactly. So out of the box it is a full-height
+column beside the buttons, or a full-width sliver above or below, depending
+only on where you put it. Give the length a value to make it shorter than the
+buttons; it is then centered by `Short row or column`.
 
-For the column and row placements, `Size` → `Task View button thickness` is how
-thick it is: its **width** as a column, its **height** as a row. `Task View
-button length` is how far it runs along the desktop buttons, and `0` — the
-default — means match them exactly, so it is a full-height column or a
-full-width sliver however many desktops you have. Give the length a value to
-make it shorter; it is then centered by `Short row or column`.
-
-**Last button in the grid** ignores both of those and sizes it like a desktop
-button, so it flows with them as one more cell — `1, 4 | 2, 5 | 3, ⊞`. Use it
-when you want the Task View button to read as part of the set rather than as a
-bar alongside it; it keeps its own label and font.
+This works the same whether the button is placed by `auto` or by an arrangement
+you wrote — the mod sizes it against whichever axis it lands on.
 
 ## Settings
 
@@ -167,10 +160,10 @@ bar alongside it; it keeps its own label and font.
 | Label format | Numbers | Numbers · Roman numerals · Indicator symbols · Custom labels |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
 | Active indicator symbol | ● | Current desktop's symbol in Indicator symbols mode |
-| Inactive indicator symbol | ○ | Other desktops' symbol; paste 🟢 above and 🔴 here for a stoplight |
+| Inactive indicator symbol | ○ | Other desktops' symbol; e.g. 🔴 with 🟢 above |
 | Task View button | Off | Adds a button that opens Task View for previewing, creating, or closing desktops |
 | Task View button label | ⊞ | Text shown on that button |
-| Task View button placement | After | Column before/after, row above/below, or last button in the grid |
+| Task View button placement | After | Where `auto` puts it: column before/after, or row above/below |
 
 ### Layout
 
@@ -188,7 +181,7 @@ bar alongside it; it keeps its own label and font.
 | Button width | 20 px | |
 | Button height | 22 px | |
 | Button spacing | 2 px | Gap between buttons along each axis |
-| Task View button thickness | 14 px | Width as a column, height as a sliver; unused in the grid placement |
+| Task View button thickness | 14 px | Width as a column, height as a sliver |
 | Task View button length | 0 px | 0 matches the desktop buttons exactly |
 
 ### Adjust
@@ -317,12 +310,11 @@ This mod builds directly on patterns established by several community mods:
     $name: Active indicator symbol
     $description: >-
       Shown for the current desktop when Label format is Indicator symbols.
-      For a stoplight look, paste 🟢 here and 🔴 below.
+      For a red/green light look, paste a green circle here and a red one
+      below.
   - InactiveSymbol: "○"
     $name: Inactive indicator symbol
-    $description: >-
-      Shown for the other desktops when Label format is Indicator symbols.
-      For a stoplight look, paste 🔴 here and 🟢 above.
+    $description: Shown for the other desktops when Label format is Indicator symbols.
   - TaskViewButton: false
     $name: Task View button
     $description: >-
@@ -333,15 +325,13 @@ This mod builds directly on patterns established by several community mods:
   - TaskViewPlacement: "after"
     $name: Task View button placement
     $description: >-
-      Where the Task View button goes when your arrangement does not name it.
-      Write "master" in the arrangement yourself to place it exactly, and this
-      is ignored.
+      Where the automatic arrangement puts the Task View button. Ignored when
+      you write your own arrangement - place the "master" name yourself.
     $options:
     - "before": "Column before the desktop buttons"
     - "after": "Column after the desktop buttons"
     - "above": "Row above the desktop buttons"
     - "below": "Row below the desktop buttons"
-    - "inGrid": "Last button in the grid, same size as the others"
   $name: Content
 
 - Layout:
@@ -351,8 +341,8 @@ This mod builds directly on patterns established by several community mods:
       "auto" fits the buttons to the available taskbar height. Anything else
       is an explicit arrangement: names side by side with "|", stacked with
       ",", grouped with parentheses - "1, 2 | 3, 4" is a 2x2 block. Buttons
-      are named by desktop number ("desktop2" also works), plus "master" or
-      "taskview" for the Task View button. Append a pixel offset to nudge one button,
+      are named by desktop number ("desktop2" also works), plus "master" for
+      the Task View button. Append a pixel offset to nudge one button,
       "1[+2,-1]", or a whole group, "(1, 2)[3,0]". Every time the layout is
       applied, the arrangement "auto" produced is written to the Windhawk log
       along with which desktop each number is, so you can paste it here and
@@ -394,9 +384,7 @@ This mod builds directly on patterns established by several community mods:
     $name: Task View button thickness (px)
     $description: >-
       How thick the Task View button is: its width when it sits beside the
-      desktop buttons, its height when it sits above or below them. Not used
-      when its placement is "Last button in the grid" - it is then sized like
-      a desktop button.
+      desktop buttons, its height when it sits above or below them.
   - TaskViewSpan: 0
     $name: Task View button length (px)
     $description: >-
@@ -1316,7 +1304,7 @@ void SwitchToDesktop(int targetIndex) {
 }
 
 // ============================================================
-// Unified element placement -- nested-group-layout template v2.3
+// Unified element placement -- nested-group-layout template v2.2
 // Copy-source: _templates/nested-group-layout.h. One expression, one
 // setting: Layout.Arrangement is either the word "auto" (this file picks
 // the shape and emits the expression, which the mod logs) or an explicit
@@ -1879,25 +1867,14 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 // A mod that appends should log that it did, so the user knows to fold the new
 // item into their arrangement when they next edit it.
 
-// Whether a token the user wrote refers to the same item as one the mod
-// expects. Defaults to a case-insensitive name match, which is WRONG for any
-// mod that accepts aliases: "desktop1" and "1" are the same button, and
-// comparing them as strings makes every aliased item look missing and get
-// appended a second time. A mod with a vocabulary must supply this.
-using TokenMatcher =
-    std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
-
 inline std::vector<std::wstring> MissingTokens(
     std::vector<std::wstring> const& expected,
-    std::vector<Placement> const& placements,
-    TokenMatcher const& same = {}) {
+    std::vector<Placement> const& placements) {
     std::vector<std::wstring> missing;
     for (auto const& token : expected) {
         bool found = false;
         for (auto const& placement : placements) {
-            bool match = same ? same(placement.token, token)
-                              : TokenIs(placement.token, token.c_str());
-            if (match) {
+            if (TokenIs(placement.token, token.c_str())) {
                 found = true;
                 break;
             }
@@ -2148,23 +2125,10 @@ static int DesktopIndexFromToken(std::wstring const& token, int count) {
 // Size of a layout token. "master" collapses to empty when the Task View
 // button is off; anything unrecognized collapses out too, so a stray name in a
 // hand-written arrangement costs nothing.
-// The Task View button answers to "master" and to the friendlier "taskview".
-static bool IsMasterToken(std::wstring const& token) {
-    return ngl::TokenIs(token, L"master") || ngl::TokenIs(token, L"taskview");
-}
-
-// "Last button in the grid": the Task View button is just another cell, sized
-// and shaped like a desktop button, rather than a column or sliver alongside.
-static bool TaskViewInGrid() {
-    return g_settings.taskViewPlacement == L"inGrid";
-}
-
 static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
-    if (IsMasterToken(token)) {
+    if (ngl::TokenIs(token, L"master")) {
         if (!g_settings.taskViewButton)
             return {};
-        if (TaskViewInGrid())
-            return {(double)g_settings.itemWidth, (double)g_settings.itemHeight};
         // Sized against whichever axis it lands on, so one pair of settings
         // covers a full-height column and a full-width sliver, wherever the
         // arrangement puts it. Span 0 means match the desktop buttons.
@@ -2180,7 +2144,7 @@ static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
 // place. Only the automatic arrangement consults this -- a hand-written
 // arrangement positions "master" itself.
 static std::wstring AddTaskViewButton(std::wstring const& grid) {
-    if (!g_settings.taskViewButton || TaskViewInGrid())
+    if (!g_settings.taskViewButton)
         return grid;
     std::wstring const& where = g_settings.taskViewPlacement;
     if (where == L"before")
@@ -2220,15 +2184,8 @@ static bool ComputeButtonPlacements(int count,
     bool isAuto = ngl::IsAutoSetting(g_settings.arrangement);
     int maxRows = AvailableRows(quiet);
     auto makeAuto = [count, maxRows]() {
-        // In-grid mode shapes count + 1 cells so the Task View button flows
-        // with the desktops instead of hanging off the side.
-        bool inGrid = g_settings.taskViewButton && TaskViewInGrid();
-        auto namer = [count](int index) -> std::wstring {
-            return index < count ? std::to_wstring(index + 1)
-                                 : std::wstring(L"master");
-        };
-        std::wstring grid = ngl::BuildAutoExpression(
-            inGrid ? count + 1 : count, maxRows, LayoutFillOrder(), namer);
+        std::wstring grid = ngl::BuildAutoExpression(count, maxRows,
+                                                     LayoutFillOrder());
         if (grid.empty())
             grid = L"1";
         return AddTaskViewButton(grid);
@@ -2251,49 +2208,16 @@ static bool ComputeButtonPlacements(int count,
 
     // A hand-written arrangement names the desktops that existed when it was
     // written. Anything created since is in no group and would vanish.
-    // Compare by item identity, not by the name typed: "desktop1" and "1" are
-    // the same button, and a plain name comparison would append a duplicate of
-    // every aliased desktop.
     if (ok && !isAuto && g_settings.newItems != L"ignore") {
-        auto sameItem = [count](std::wstring const& placed,
-                                std::wstring const& wanted) {
-            if (IsMasterToken(wanted))
-                return IsMasterToken(placed);
-            int a = DesktopIndexFromToken(placed, count);
-            return a >= 0 && a == DesktopIndexFromToken(wanted, count);
-        };
-        auto missing = ngl::MissingTokens(ExpectedTokens(count), placements,
-                                          sameItem);
-
-        // Desktops and the Task View button are appended differently. Unlisted
-        // desktops join a grid block after what the user wrote. The Task View
-        // button instead honours its placement setting, so "before" and "above"
-        // actually put it there — and so it never lands inside the desktop
-        // block, where it would be squashed into a single cell instead of
-        // staying a column or a sliver.
-        std::vector<std::wstring> missingDesktops;
-        bool missingMaster = false;
-        for (auto const& token : missing) {
-            if (IsMasterToken(token))
-                missingMaster = true;
-            else
-                missingDesktops.push_back(token);
-        }
-
-        if (!missingDesktops.empty() || missingMaster) {
-            if (TaskViewInGrid() && missingMaster)
-                missingDesktops.push_back(L"master");
-            if (!missingDesktops.empty()) {
-                expression = ngl::AppendMissing(expression, missingDesktops,
-                                                maxRows, LayoutFillOrder());
-            }
-            if (missingMaster && !TaskViewInGrid())
-                expression = AddTaskViewButton(expression);
+        auto missing = ngl::MissingTokens(ExpectedTokens(count), placements);
+        if (!missing.empty()) {
+            expression = ngl::AppendMissing(expression, missing, maxRows,
+                                            LayoutFillOrder());
             ok = ngl::Compute(expression, config, resolve, placements, total,
                               nullptr);
             if (!quiet) {
                 Wh_Log(L"[Layout] %d item(s) missing from your arrangement were "
-                       L"added; name them in Arrangement to place them "
+                       L"appended; add them to Arrangement to place them "
                        L"yourself", (int)missing.size());
             }
         }
@@ -2550,7 +2474,7 @@ static Grid BuildButtonGrid(int count, int current) {
     }
 
     for (auto const& p : placements) {
-        if (IsMasterToken(p.token)) {
+        if (ngl::TokenIs(p.token, L"master")) {
             Button masterBtn;
             masterBtn.Name(L"VdMasterBtn");
             TextBlock content;
