@@ -341,11 +341,13 @@ This mod builds directly on patterns established by several community mods:
       "auto" fits the buttons to the available taskbar height. Anything else
       is an explicit arrangement: names side by side with "|", stacked with
       ",", grouped with parentheses - "1, 2 | 3, 4" is a 2x2 block. Buttons
-      are named by desktop number, plus "master" for the Task View button.
-      Append a pixel offset to any name to nudge just that button, e.g.
-      "1[+2,-1]". Every time the layout is applied, the arrangement "auto"
-      produced is written to the Windhawk log, so you can paste it here and
-      edit it.
+      are named by desktop number ("desktop2" also works), plus "master" for
+      the Task View button. Append a pixel offset to nudge one button,
+      "1[+2,-1]", or a whole group, "(1, 2)[3,0]". Every time the layout is
+      applied, the arrangement "auto" produced is written to the Windhawk log
+      along with which desktop each number is, so you can paste it here and
+      edit it. If what you type does not parse, the log says what was expected
+      and where, and "auto" is used until you fix it.
   - FillOrder: "rows"
     $name: Fill order
     $description: Used by "auto". Whether buttons fill across rows or down columns first.
