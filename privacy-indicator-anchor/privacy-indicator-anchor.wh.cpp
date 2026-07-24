@@ -2,7 +2,7 @@
 // @id              tray-privacy-indicator-anchor
 // @name            Tray Privacy Indicator Anchor
 // @description     Permanently shows location/microphone/camera/Copilot icons in the system tray — dim when idle, bright when in use — preventing taskbar layout shifts.
-// @version         1.0
+// @version         2.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -190,223 +190,158 @@ temporarily when comparing against Windows' native tray glyphs during testing.
 
 // ==WindhawkModSettings==
 /*
-- position: beforeOmni
-  $name: Position
-  $description: Where to place the group in the Windows 11 taskbar.
-  $options:
-  - beforeIcons: Before notification icons
-  - beforeOmni: Before network, volume, and battery
-  - beforeClock: Before clock
-  - afterClock: After clock
-  - afterShowDesktop: After Show Desktop
-  - leftOfStart: Left of Start (experimental)
-  - rightOfStart: Right of Start (experimental)
+- Placement:
+  - Position: "beforeOmni"
+    $name: Position
+    $description: Where to place the group in the Windows 11 taskbar.
+    $options:
+    - "beforeIcons": "Before notification icons"
+    - "beforeOmni": "Before network, volume, and battery"
+    - "beforeClock": "Before clock"
+    - "afterClock": "After clock"
+    - "afterShowDesktop": "After Show Desktop"
+    - "leftOfStart": "Left of Start (experimental)"
+    - "rightOfStart": "Right of Start (experimental)"
+  $name: Placement
 
-- itemOrder: "location,mic,camera,copilot"
-  $name: Icon order
-  $description: >-
-    Comma-separated list of icons to show, in order. Valid tokens: location,
-    mic, camera, copilot. Remove a token to hide that icon. Reorder to change
-    layout. Camera and copilot are experimental — see mod description.
+- Content:
+  - Location: true
+    $name: Location icon
+  - Microphone: true
+    $name: Microphone icon
+  - Camera: true
+    $name: Camera icon
+    $description: Experimental. Availability depends on what the camera driver reports.
+  - Copilot: true
+    $name: Copilot icon
+    $description: Experimental. Reflects Copilot installation, policy, and process activity.
+  $name: Content
 
-- gridMode: autoSmart
-  $name: Grid mode
-  $options:
-  - autoSmart: Smart automatic
-  - singleRow: Single row
-  - singleColumn: Single column
-  - fixedRows: Fixed rows
-  - fixedColumns: Fixed columns
-  - fixedGrid: Fixed rows and columns
+- Layout:
+  - Arrangement: "auto"
+    $name: Arrangement
+    $description: >-
+      "auto" fits the enabled icons to the available taskbar height. Anything
+      else is an explicit layout: names side by side with "|", stacked with
+      ",", and grouped with parentheses - "location, mic | camera, copilot"
+      is a 2x2 block. Tokens are location, mic (or microphone), camera, and
+      copilot. Append a pixel offset to nudge one icon, "mic[+2,-1]", or a
+      whole group, "(location, mic)[3,0]". Every time "auto" is applied, its
+      generated arrangement is written to the Windhawk log so you can paste it
+      here and edit it. A parse error is logged and falls back to automatic.
+  - FillOrder: "rows"
+    $name: Fill order
+    $description: Used by "auto". Whether icons fill across rows or down columns first.
+    $options:
+    - "rows": "Fill rows first (left to right, then down)"
+    - "columns": "Fill columns first (top to bottom, then right)"
+  - Justify: "center"
+    $name: Short row or column
+    $description: Used by "auto". How a ragged last row or column is aligned.
+    $options:
+    - "start": "Start (top for columns, left for rows)"
+    - "center": "Center"
+    - "end": "End (bottom for columns, right for rows)"
+  - NewItems: "append"
+    $name: Newly enabled icons
+    $description: >-
+      What happens when you enable an icon that your own arrangement does not
+      name. Only applies to a written arrangement - "auto" always includes
+      every enabled icon.
+    $options:
+    - "append": "Add them after the arrangement"
+    - "ignore": "Leave them out until I add them"
+  $name: Layout
 
-- smartLayout: balanced
-  $name: Smart layout
-  $options:
-  - balanced: Balanced
-  - packVertical: Pack vertical
-  - packHorizontal: Pack horizontal
+- Size:
+  - ItemSize: 16
+    $name: Icon size (px)
+  - ItemSpacing: 4
+    $name: Icon spacing (px)
+    $description: Gap between icons along each axis.
+  $name: Size
 
-- gridRows: 0
-  $name: Rows (0 = auto)
+- Adjust:
+  - PadX: 0
+    $name: Horizontal padding (px)
+    $description: Space reserved on both sides of the icon group.
+  - PadY: 0
+    $name: Vertical padding (px)
+    $description: Space reserved above and below the icon group.
+  - OffsetX: 0
+    $name: Horizontal offset (px)
+    $description: Moves the whole group. Does not reserve space.
+  - OffsetY: 0
+    $name: Vertical offset (px)
+    $description: Moves the whole group up (negative) or down (positive).
+  $name: Adjust
 
-- gridColumns: 0
-  $name: Columns (0 = auto)
+- Surface:
+  - IdleOpacity: 50
+    $name: Idle opacity (%)
+    $description: 0 is invisible with space reserved; 100 is full brightness.
+  - ActiveOpacity: 100
+    $name: Active opacity (%)
+  - GlowEnabled: false
+    $name: Glow when active
+    $description: Adds emphasis behind an active icon without changing its reserved size.
+  - GlowOpacity: 40
+    $name: Glow opacity (%)
+  - SlashColor: ""
+    $name: Slash color
+    $description: >-
+      Hex (#RRGGBB or #AARRGGBB), accent / accentLight / accentDark, or
+      transparent. Empty uses the system foreground color.
+  - SlashDirection: "falling"
+    $name: Slash direction
+    $options:
+    - "falling": 'Falling (\ upper-left to lower-right)'
+    - "rising": "Rising (/ lower-left to upper-right)"
+  - SlashOpacity: 100
+    $name: Slash opacity (%)
+  - IdleColor: ""
+    $name: Idle icon color
+    $description: Hex, accent / accentLight / accentDark, or transparent. Empty uses the system foreground.
+  - ActiveColor: ""
+    $name: Active icon color
+    $description: Hex, accent / accentLight / accentDark, or transparent. Empty uses the system foreground.
+  - DisabledOpacity: 50
+    $name: Disabled icon opacity (%)
+  - DisabledColor: ""
+    $name: Disabled icon color
+    $description: Hex, accent / accentLight / accentDark, or transparent. Empty uses the system foreground.
+  - AlertWhenBlockedAndActive: true
+    $name: Emphasize blocked activity
+    $description: Keep the active color and glow beneath the slash when Windows also reports activity.
+  - GlowStyle: "radiate"
+    $name: Glow style
+    $options:
+    - "steady": "Steady halo"
+    - "pulse": "Breathing halo"
+    - "radiate": "Radiating rings"
+  - GlowColor: ""
+    $name: Glow color
+    $description: Empty follows Active icon color, then the Windows accent color.
+  - GlowSize: 220
+    $name: Glow reach (%)
+  - GlowSpeed: 1200
+    $name: Glow cycle (ms)
+  $name: Surface
 
-- fillOrder: rowFirst
-  $name: Fill order
-  $options:
-  - rowFirst: Row first
-  - columnFirst: Column first
-
-- shortGroupPosition: last
-  $name: Short row or column
-  $options:
-  - first: First
-  - last: Last
-
-- shortGroupAlign: center
-  $name: Short row or column alignment
-  $options:
-  - start: Start
-  - center: Center
-  - end: End
-
-- iconSize: 16
-  $name: Icon size (pt)
-
-- buttonSpacing: 4
-  $name: Icon spacing (px)
-  $description: Gap between icons in both directions.
-
-- idleOpacity: 50
-  $name: Idle opacity (0-100)
-  $description: >-
-    Opacity when no app is using the feature. 0 = invisible but space reserved;
-    100 = always full brightness.
-
-- idleColor: ""
-  $name: Idle icon color
-  $description: >-
-    Color used while the feature is available but idle. Hex ("#RRGGBB" or
-    "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty (default) keeps the system foreground color.
-
-- activeColor: ""
-  $name: Active icon color
-  $description: >-
-    Color applied to icons while their feature is in use. Hex ("#RRGGBB" or
-    "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or "transparent".
-    Empty (default) keeps the system foreground color at full brightness.
-
-- disabledOpacity: 50
-  $name: Disabled icon opacity (0-100)
-  $description: >-
-    Base-icon opacity when access, a device, or a service is unavailable. The
-    slash has its own opacity control.
-
-- disabledColor: ""
-  $name: Disabled icon color
-  $description: >-
-    Base-icon color while unavailable. Hex ("#RRGGBB" or "#AARRGGBB"),
-    "accent" / "accentLight" / "accentDark", or "transparent". Empty
-    (default) keeps the system foreground color.
-
-- alertWhenBlockedAndActive: 1
-  $name: Emphasize blocked activity (1=on, 0=off)
-  $description: >-
-    When Windows reports use while the feature is blocked, keep the active
-    color and glow beneath the slash. Turn off to use ordinary disabled styling.
-
-- glowEnabled: 0
-  $name: Glow when active (1=on, 0=off)
-  $description: >-
-    Adds a halo or radiating emphasis behind the icon while active. The effect
-    stays inside the reserved icon slot and does not change taskbar width.
-
-- glowStyle: "radiate"
-  $name: Glow style
-  $options:
-  - "steady": "Steady halo"
-  - "pulse": "Breathing halo"
-  - "radiate": "Radiating rings"
-
-- glowColor: ""
-  $name: Glow color
-  $description: >-
-    Hex ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" /
-    "accentDark", or "transparent". Empty follows Active icon color when set,
-    otherwise it uses the Windows accent color.
-
-- glowOpacity: 40
-  $name: Glow opacity (0-100)
-  $description: Peak strength of the halo and radiation rings.
-
-- glowSize: 220
-  $name: Glow reach (percent)
-  $description: >-
-    Maximum glow diameter as a percentage of icon size. Range: 100-300.
-
-- glowSpeed: 1200
-  $name: Glow cycle (ms)
-  $description: >-
-    Animation cycle time in milliseconds. Range is 250-5000.
-
-- slashColor: ""
-  $name: Slash color
-  $description: >-
-    Color of the slash overlay shown when a feature is disabled. Hex
-    ("#RRGGBB" or "#AARRGGBB"), "accent" / "accentLight" / "accentDark", or
-    "transparent". Leave empty (default) to use the system foreground color,
-    matching the dimmed icon.
-
-- slashDirection: "falling"
-  $name: Slash direction
-  $description: >-
-    Direction of the diagonal line drawn through the icon when disabled.
-    Falling (the default) avoids visually colliding with the icon glyphs.
-  $options:
-  - "falling": "Falling (\ upper-left to lower-right)"
-  - "rising": "Rising (/ lower-left to upper-right)"
-
-- slashOpacity: 100
-  $name: Slash opacity (0-100)
-  $description: >-
-    Opacity of the disabled slash overlay. 100 = fully visible (default).
-    Lower values make the slash more subtle.
-
-- groupPaddingLeft: 0
-  $name: Group padding left (px)
-
-- groupPaddingRight: 0
-  $name: Group padding right (px)
-
-- groupOffsetX: 0
-  $name: Group X offset (px)
-  $description: Move the entire icon group left (negative) or right (positive).
-
-- groupOffsetY: 0
-  $name: Group Y offset (px)
-  $description: Move the entire icon group up (negative) or down (positive).
-
-- locationOffsetX: 0
-  $name: Location X offset (px)
-
-- locationOffsetY: 0
-  $name: Location Y offset (px)
-
-- micOffsetX: 0
-  $name: Microphone X offset (px)
-
-- micOffsetY: 0
-  $name: Microphone Y offset (px)
-
-- cameraOffsetX: 0
-  $name: Camera X offset (px)
-
-- cameraOffsetY: 0
-  $name: Camera Y offset (px)
-
-- copilotOffsetX: 0
-  $name: Copilot X offset (px)
-
-- copilotOffsetY: 0
-  $name: Copilot Y offset (px)
-
-- cameraHardwareDetection: true
-  $name: Monitor camera hardware privacy control
-  $description: >-
-    Uses the Windows 11 CameraOcclusionInfo driver signal. This initializes the
-    default camera controller in SharedReadOnly mode but never starts preview or
-    frame capture. State changes are event-driven with a five-minute watchdog.
-    Turn off if a particular camera activates its LED/indicator or behaves
-    poorly while monitored.
-
-- suppressNativeIndicators: 1
-  $name: Suppress Windows privacy indicators (1=on, 0=off)
-  $description: >-
-    When on, hides Windows' own pop-in privacy indicators and mirrors their
-    state into this mod's stable placeholder icons. Turn off temporarily when
-    testing Windows' native glyphs and tray behavior.
+- Behavior:
+  - CameraHardwareDetection: false
+    $name: Monitor camera hardware privacy control
+    $description: >-
+      Experimental and opt-in. Uses the Windows 11 CameraOcclusionInfo driver
+      signal. This initializes the default camera controller in SharedReadOnly
+      mode but never starts preview or frame capture. Turn it off if a camera
+      activates its LED or behaves poorly while monitored.
+  - SuppressNativeIndicators: true
+    $name: Suppress Windows privacy indicators
+    $description: >-
+      Hides Windows' pop-in indicators and mirrors their state into these
+      stable placeholders. Turn off temporarily when testing native behavior.
+  $name: Behavior
 */
 // ==/WindhawkModSettings==
 
@@ -455,225 +390,712 @@ using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Media;
 
 // ============================================================
-// Smart grid layout
-// Template block: _templates/smart-grid-layout.h v1.0 (verbatim copy — keep
-// in sync with the template; Windhawk mods are single-file).
+// Nested group layout
+// Template block: _templates/nested-group-layout.h v2.4 (verbatim copy —
+// keep in sync with the template; Windhawk mods are single-file).
 // ============================================================
 
-#include <climits>
+// Copy-source template v2.0: nested group layout — pixel-space placement of
+// named items described by ONE layout expression. No Windows or WinRT
+// dependency; the caller supplies pixel sizes and the taskbar metrics.
+//
+// This is the only element arranger in the mod family. It backs a single
+// user-facing setting, `Layout.Arrangement`, whose default value is the word
+// `auto`:
+//
+//   auto            -> ChooseShape() picks rows x columns from the available
+//                      taskbar height, BuildGridExpression() emits the
+//                      equivalent expression, and the mod logs it.
+//   anything else   -> that string IS the layout.
+//
+// Because the Windhawk settings API is read-only (windhawk_api.h has no
+// setter), a mod can never fill the field in for the user. Logging the
+// expansion is the supported path: the user pastes the logged expression back
+// into the same field to take manual control. There is one field and one
+// string, so nothing can drift out of sync with anything else.
+//
+// Grammar:
+//   expr  := stack ('|' stack)*      '|' places groups side by side
+//   stack := unit (',' unit)*        ',' stacks units top to bottom
+//   unit  := leaf | '(' expr ')'     parens nest, orientation never flips
+//   leaf  := token ('[' dx ',' dy ']')?
+//
+// "1, 2 | 3, 4" is a 2x2 block. "a | b, c | d" is three columns with b over c
+// (the diamond). Nesting is arbitrary: "a | (b, (c | d)), e | f". '|' always
+// means horizontal and ',' always means vertical, at every depth — there is no
+// primary-axis setting to reason about.
+//
+// OFFSETS ride in the expression: "1[+2,-1] | 2 | 3" shifts item 1 two pixels
+// right and one up. A parenthesized group takes one too — "(1, 2)[3,0] | 3"
+// moves that whole column. Offsets are cosmetic: they move their own leaf or
+// their own group's contents, and change neither the measured size nor any
+// neighbor's position. This replaces every keyed per-item offset setting;
+// there is no second string to maintain.
+//
+// A separator is always required: "1 (2 | 3)" is a parse error, not an
+// implicit "1 | (2 | 3)". Silently reinterpreting a missing separator would
+// turn a typo into a different layout instead of a logged, recoverable error.
+//
+// Tokens are caller-defined names resolved to pixel sizes by a callback. A
+// token that resolves to an empty size (width or height <= 0) is skipped and
+// consumes no space, so absent items collapse out of the arrangement.
+//
+// PADDING vs OFFSET. Config.padX / padY are symmetric outer padding: they
+// participate in layout and are included in the returned totalSize. Group
+// offset (Adjust.OffsetX / OffsetY) is a visual translation that must NOT
+// reserve space, so it is deliberately not handled here — the mod applies it
+// to the container it places, after this arranger has sized the group.
+//
+// Every group is centered on its cross axis by Config.justify.
 
-namespace windhawk_mod_templates::smart_grid {
+#include <algorithm>
+#include <cwctype>
+#include <cstdlib>
+#include <functional>
+#include <string>
+#include <vector>
 
-enum class GridMode {
-    AutoSmart,
-    SingleRow,
-    SingleColumn,
-    FixedRows,
-    FixedColumns,
-    FixedGrid,
+namespace windhawk_mod_templates::nested_group_layout {
+
+enum class Axis { Horizontal, Vertical };  // node orientation, not a setting
+enum class Justify { Start, Center, End };
+enum class FillOrder { Rows, Columns };
+
+// An item is sized either absolutely (width x height) or RELATIVE TO THE AXIS
+// its group happens to lay out along. Axis-relative sizing exists because an
+// item like a Task View button should be "as wide as it needs and as tall as
+// the buttons beside it" when it is a column, and the mirror image when it is
+// a row — and in a hand-written arrangement the mod cannot know which it will
+// be. The parent group knows its own axis, so it resolves this at measure and
+// arrange time:
+//
+//   thickness — extent ALONG the group's axis (its width as a column, its
+//               height as a row)
+//   cross     — extent ACROSS the group's axis; 0 means fill, i.e. match
+//               whatever the rest of the group measures
+struct Size {
+    double width = 0.0;
+    double height = 0.0;
+    bool axisRelative = false;
+    double thickness = 0.0;
+    double cross = 0.0;
+
+    bool Empty() const {
+        return axisRelative ? thickness <= 0.0
+                            : (width <= 0.0 || height <= 0.0);
+    }
 };
 
-enum class SmartLayout { Balanced, PackVertical, PackHorizontal };
-enum class FillOrder { RowFirst, ColumnFirst };
-enum class ShortGroupPosition { First, Last };
-enum class ShortGroupAlign { Start, Center, End };
+// Size an item against its group's axis. cross = 0 fills the group.
+inline Size AlongAxis(double thickness, double cross = 0.0) {
+    Size size;
+    size.axisRelative = true;
+    size.thickness = thickness;
+    size.cross = cross;
+    return size;
+}
+
+// Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
+struct Offset {
+    double x = 0.0;
+    double y = 0.0;
+};
 
 struct Config {
-    GridMode mode = GridMode::AutoSmart;
-    SmartLayout smartLayout = SmartLayout::Balanced;
-    FillOrder fillOrder = FillOrder::RowFirst;
-    ShortGroupPosition shortGroupPosition = ShortGroupPosition::Last;
-    ShortGroupAlign shortGroupAlign = ShortGroupAlign::Center;
-    int rows = 0;          // exact in fixed modes; maximum in AutoSmart
-    int columns = 0;       // exact in fixed modes; maximum in AutoSmart
-    int availableRows = 1; // derive from host height / item pitch
+    double spacing = 0.0;
+    Justify justify = Justify::Center;
+    double padX = 0.0;  // reserved on BOTH left and right
+    double padY = 0.0;  // reserved on BOTH top and bottom
 };
 
-struct Layout {
+struct Placement {
+    std::wstring token;
+    double x = 0.0;
+    double y = 0.0;
+    Size size;
+};
+
+struct Node {
+    std::wstring token;            // non-empty = leaf
+    Offset offset;                 // from the "[dx,dy]" suffix; leaf or group
+    std::vector<Node> children;    // group children, laid along axis
+    Axis axis = Axis::Horizontal;  // group axis (unused for leaves)
+};
+
+// Where an arrangement stopped making sense, and what was expected there.
+// Report both: a hand-edited expression is much easier to fix with a column
+// number than with "did not parse".
+struct ParseError {
+    size_t position = 0;
+    std::wstring expected;
+};
+
+class Parser {
+public:
+    explicit Parser(std::wstring const& text) : text_(text) {}
+
+    bool Run(Node& root) {
+        position_ = 0;
+        valid_ = true;
+        root = ParseExpr();
+        SkipSpace();
+        if (valid_ && position_ < text_.size())
+            Fail(position_, L"a separator ('|' or ',') or end of arrangement");
+        return valid_;
+    }
+
+    ParseError const& Error() const { return error_; }
+
+private:
+    void Fail(size_t position, wchar_t const* expected) {
+        if (valid_) {  // keep the first failure; later ones are fallout
+            valid_ = false;
+            error_ = {position, expected};
+        }
+    }
+
+    Node ParseExpr() {
+        Node node;
+        node.axis = Axis::Horizontal;
+        node.children.push_back(ParseStack());
+        while (Peek() == L'|') {
+            ++position_;
+            node.children.push_back(ParseStack());
+        }
+        return node;
+    }
+
+    Node ParseStack() {
+        Node node;
+        node.axis = Axis::Vertical;
+        node.children.push_back(ParseUnit());
+        while (Peek() == L',') {
+            ++position_;
+            node.children.push_back(ParseUnit());
+        }
+        return node;
+    }
+
+    Node ParseUnit() {
+        SkipSpace();
+        if (position_ < text_.size() && text_[position_] == L'(') {
+            ++position_;
+            Node inner = ParseExpr();
+            SkipSpace();
+            if (position_ < text_.size() && text_[position_] == L')')
+                ++position_;
+            else
+                Fail(position_, L"a closing ')'");
+            // A group takes an offset too, moving everything inside it.
+            if (position_ < text_.size() && text_[position_] == L'[')
+                inner.offset = ParseOffset();
+            return inner;
+        }
+
+        Node leaf;
+        size_t start = position_;
+        while (position_ < text_.size() && !IsDelimiter(text_[position_]))
+            ++position_;
+        leaf.token = text_.substr(start, position_ - start);
+        if (leaf.token.empty()) {
+            Fail(position_, L"a name");
+            return leaf;
+        }
+        if (position_ < text_.size() && text_[position_] == L'[')
+            leaf.offset = ParseOffset();
+        return leaf;
+    }
+
+    // "[dx,dy]" — signs optional, spaces allowed, both components required.
+    Offset ParseOffset() {
+        ++position_;  // consume '['
+        Offset offset;
+        offset.x = ParseNumber();
+        SkipSpace();
+        if (position_ < text_.size() && text_[position_] == L',')
+            ++position_;
+        else
+            Fail(position_, L"a ',' between the x and y offsets");
+        offset.y = ParseNumber();
+        SkipSpace();
+        if (position_ < text_.size() && text_[position_] == L']')
+            ++position_;
+        else
+            Fail(position_, L"a closing ']'");
+        return offset;
+    }
+
+    double ParseNumber() {
+        SkipSpace();
+        wchar_t* end = nullptr;
+        double value = std::wcstod(text_.c_str() + position_, &end);
+        size_t consumed = end ? (size_t)(end - (text_.c_str() + position_)) : 0;
+        if (!consumed) {
+            Fail(position_, L"a number");
+            return 0.0;
+        }
+        position_ += consumed;
+        return value;
+    }
+
+    static bool IsDelimiter(wchar_t c) {
+        return c == L'|' || c == L',' || c == L'(' || c == L')' ||
+               c == L'[' || c == L']' || iswspace(c);
+    }
+
+    wchar_t Peek() {
+        SkipSpace();
+        return position_ < text_.size() ? text_[position_] : L'\0';
+    }
+
+    void SkipSpace() {
+        while (position_ < text_.size() && iswspace(text_[position_]))
+            ++position_;
+    }
+
+    std::wstring const& text_;
+    size_t position_ = 0;
+    bool valid_ = true;
+    ParseError error_;
+};
+
+inline bool Parse(std::wstring const& text, Node& root,
+                  ParseError* error = nullptr) {
+    Parser parser(text);
+    bool ok = parser.Run(root);
+    if (!ok && error)
+        *error = parser.Error();
+    return ok;
+}
+
+// ---- Token vocabulary -------------------------------------------------------
+//
+// A token is an item's stable IDENTITY, never its displayed label. Labels are
+// not unique, can contain the expression's own delimiters, can be empty or an
+// emoji, and renaming one would silently break an arrangement the user wrote.
+// Each mod declares its vocabulary and documents it:
+//
+//   fixed set     -> semantic names: wifi, volume, battery, percent, clock
+//   dynamic set   -> 1, 2, 3, ... because the set changes at runtime
+//   either        -> an extra named item such as "master"
+//
+// A dynamic mod may accept a readable alias for a number (desktop2 == 2). Log
+// the token-to-label map next to the arrangement so a user can tell which
+// number is which item without the arrangement depending on the labels.
+//
+// Matching is case-insensitive: someone typing "Wifi" means wifi.
+
+inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
+    size_t i = 0;
+    for (; i < token.size() && name[i]; ++i)
+        if (towlower(token[i]) != towlower(name[i]))
+            return false;
+    return i == token.size() && !name[i];
+}
+
+// "desktop2" -> 2 with prefix L"desktop"; 0 when the token does not match.
+inline int TokenIndexWithPrefix(std::wstring const& token,
+                                wchar_t const* prefix) {
+    size_t i = 0;
+    for (; prefix[i]; ++i)
+        if (i >= token.size() || towlower(token[i]) != towlower(prefix[i]))
+            return 0;
+    if (i >= token.size())
+        return 0;
+    int value = 0;
+    for (; i < token.size(); ++i) {
+        if (token[i] < L'0' || token[i] > L'9')
+            return 0;
+        value = value * 10 + (token[i] - L'0');
+    }
+    return value;
+}
+
+using SizeResolver = std::function<Size(std::wstring const&)>;
+
+inline Size Measure(Node const& node, Config const& config,
+                    SizeResolver const& resolve) {
+    if (!node.token.empty())
+        return resolve(node.token);
+
+    // The grammar wraps every unit in a group, so most groups have a single
+    // child. Such a group IS its child — pass the size through verbatim, or an
+    // axis-relative child would be flattened into a concrete size by its own
+    // wrapper before the real parent ever sees it.
+    {
+        Node const* only = nullptr;
+        int visible = 0;
+        for (auto const& child : node.children) {
+            if (Measure(child, config, resolve).Empty())
+                continue;
+            only = &child;
+            if (++visible > 1)
+                break;
+        }
+        if (visible == 1)
+            return Measure(*only, config, resolve);
+    }
+
+    double main = 0.0;
+    double cross = 0.0;
+    double fillFallback = 0.0;
+    int placed = 0;
+    for (auto const& child : node.children) {
+        Size size = Measure(child, config, resolve);
+        if (size.Empty())
+            continue;
+        double childMain, childCross;
+        if (size.axisRelative) {
+            childMain = size.thickness;
+            // A filling item takes its cross extent FROM the group, so it must
+            // not drive the group's cross size — otherwise it would size itself.
+            childCross = size.cross;
+            fillFallback = std::max(fillFallback, size.thickness);
+        } else {
+            childMain =
+                node.axis == Axis::Horizontal ? size.width : size.height;
+            childCross =
+                node.axis == Axis::Horizontal ? size.height : size.width;
+        }
+        main += (placed ? config.spacing : 0.0) + childMain;
+        cross = std::max(cross, childCross);
+        ++placed;
+    }
+    if (!placed)
+        return {};
+    // Degenerate case: every child fills, so nothing established a cross size.
+    // Fall back to the largest thickness rather than collapsing the group.
+    if (cross <= 0.0)
+        cross = fillFallback;
+    return node.axis == Axis::Horizontal ? Size{main, cross}
+                                         : Size{cross, main};
+}
+
+// Resolve a child's size against its parent group's axis, so an axis-relative
+// item becomes concrete width x height.
+inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
+    if (!size.axisRelative)
+        return size;
+    double groupCross =
+        axis == Axis::Horizontal ? groupTotal.height : groupTotal.width;
+    double cross = size.cross > 0.0 ? size.cross : groupCross;
+    return axis == Axis::Horizontal ? Size{size.thickness, cross}
+                                    : Size{cross, size.thickness};
+}
+
+inline void Arrange(Node const& node, Config const& config,
+                    SizeResolver const& resolve, double x, double y,
+                    std::vector<Placement>& out,
+                    Size const* resolvedSize = nullptr) {
+    if (!node.token.empty()) {
+        Size size = resolvedSize ? *resolvedSize : resolve(node.token);
+        if (!size.Empty())
+            out.push_back(
+                {node.token, x + node.offset.x, y + node.offset.y, size});
+        return;
+    }
+
+    Size total = Measure(node, config, resolve);
+    if (total.Empty())
+        return;
+    // A group's own offset moves everything inside it and nothing outside.
+    x += node.offset.x;
+    y += node.offset.y;
+
+    // Single-child group: forward the size the real parent already resolved,
+    // so axis-relative sizing survives the grammar's per-unit wrapper.
+    {
+        Node const* only = nullptr;
+        int visible = 0;
+        for (auto const& child : node.children) {
+            if (Measure(child, config, resolve).Empty())
+                continue;
+            only = &child;
+            if (++visible > 1)
+                break;
+        }
+        if (visible == 1) {
+            Arrange(*only, config, resolve, x, y, out, resolvedSize);
+            return;
+        }
+    }
+
+    double cursor = node.axis == Axis::Horizontal ? x : y;
+    for (auto const& child : node.children) {
+        Size measured = Measure(child, config, resolve);
+        if (measured.Empty())
+            continue;
+        Size size = ConcreteSize(measured, node.axis, total);
+        double unused = node.axis == Axis::Horizontal
+                            ? total.height - size.height
+                            : total.width - size.width;
+        double crossOffset = config.justify == Justify::Center ? unused / 2.0
+                             : config.justify == Justify::End  ? unused
+                                                               : 0.0;
+        if (node.axis == Axis::Horizontal) {
+            Arrange(child, config, resolve, cursor, y + crossOffset, out,
+                    &size);
+            cursor += size.width + config.spacing;
+        } else {
+            Arrange(child, config, resolve, x + crossOffset, cursor, out,
+                    &size);
+            cursor += size.height + config.spacing;
+        }
+    }
+}
+
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+// placements come back in expression order; totalSize is the group's bounding
+// box INCLUDING outer padding. A per-item offset shifts its leaf without
+// changing totalSize or any neighbor.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
+    Node root;
+    if (!Parse(text, root, error))
+        return false;
+    Size inner = Measure(root, config, resolve);
+    placements.clear();
+    if (inner.Empty()) {
+        // No visible items: an empty group has no padded box either.
+        totalSize = {};
+        return true;
+    }
+    if (inner.axisRelative) {
+        // The whole arrangement is one axis-relative item, so there is no group
+        // for it to fill against; square it off on its own thickness.
+        double cross = inner.cross > 0.0 ? inner.cross : inner.thickness;
+        inner = Size{inner.thickness, cross};
+    }
+    Arrange(root, config, resolve, config.padX, config.padY, placements,
+            &inner);
+    totalSize = {inner.width + config.padX * 2.0,
+                 inner.height + config.padY * 2.0};
+    return true;
+}
+
+// ---- Taskbar metrics --------------------------------------------------------
+//
+// The taskbar rect comes from GetWindowRect in PHYSICAL pixels while every XAML
+// size is a DIP. Dividing one by the other is the DPI bug flagged on PR #4855
+// (blocking) and #4843. The mod supplies the raw numbers:
+//
+//   RECT r{}; GetWindowRect(hTaskbarWnd, &r);
+//   int rows = AvailableRows(r.bottom - r.top, GetDpiForWindow(hTaskbarWnd),
+//                            itemHeight, spacing);
+
+inline double PixelsToDip(double physicalPixels, unsigned dpi) {
+    return dpi ? physicalPixels * 96.0 / (double)dpi : physicalPixels;
+}
+
+// How many item rows fit in a height already expressed in DIPs. Pitch is one
+// item plus one gap; the trailing gap of the last row is not required, hence
+// the + spacing.
+//
+// RESERVE FIRST. This is the height available to the ITEM GRID, not the whole
+// taskbar. Anything else that occupies vertical space — outer padY, an extra
+// item shaped as a row (a sliver above or below) — must be subtracted before
+// calling, or the grid claims height that is already spoken for and the
+// assembled group overflows its host.
+inline int RowsInHeight(double heightDip, double itemHeight, double spacing) {
+    double pitch = itemHeight + std::max(0.0, spacing);
+    if (pitch <= 0.0 || heightDip <= 0.0)
+        return 1;
+    return std::max(1, (int)((heightDip + std::max(0.0, spacing)) / pitch));
+}
+
+// Convenience for the common case with nothing else reserved.
+inline int AvailableRows(double taskbarHeightPx, unsigned dpi,
+                         double itemHeight, double spacing) {
+    return RowsInHeight(PixelsToDip(taskbarHeightPx, dpi), itemHeight, spacing);
+}
+
+// ---- The auto shape ---------------------------------------------------------
+//
+// Deterministic, not scored. Take the smallest column count reachable within
+// the available rows — that is what "use the taskbar's height" means — and
+// among the row counts that produce it, the one with the fewest empty slots.
+// So 4 items with 3 rows available gives 2x2 rather than a ragged 3+1, and 5
+// items with 4 rows available gives 3x2 rather than 4+1.
+
+struct Shape {
     int rows = 1;
     int columns = 1;
 };
 
-// A short group may need to span its complete axis so a half-cell offset can
-// be expressed with Margin. Multiply offsetUnits by item-size-plus-spacing.
-struct Cell {
-    int row = 0;
-    int column = 0;
-    int rowSpan = 1;
-    int columnSpan = 1;
-    double topOffsetUnits = 0.0;
-    double leftOffsetUnits = 0.0;
+inline Shape ChooseShape(int count, int maxRows) {
+    if (count <= 0)
+        return {0, 0};
+    int limit = std::max(1, std::min(maxRows, count));
+    Shape best{1, count};
+    int bestWaste = 0;
+    bool first = true;
+    for (int rows = 1; rows <= limit; ++rows) {
+        int columns = (count + rows - 1) / rows;
+        int waste = rows * columns - count;
+        if (first || columns < best.columns ||
+            (columns == best.columns && waste < bestWaste)) {
+            first = false;
+            best = {rows, columns};
+            bestWaste = waste;
+        }
+    }
+    return best;
+}
+
+// ---- Expression generation --------------------------------------------------
+//
+// Turn a rows x columns shape into an expression so the auto path and the
+// manual path are the same code below this point. Positions fill row-major
+// (left to right, then down) for FillOrder::Rows or column-major (top to
+// bottom, then right) for FillOrder::Columns. Grid positions past `count` are
+// simply absent, so a ragged final row or column yields fewer tokens and the
+// result is always a valid expression. Justify aligns that ragged group.
+//
+// Tokens come from namer(index); the default names items by 1-based number,
+// matching what a user reads on screen. The caller's SizeResolver must map
+// those same names back to pixel sizes.
+
+using TokenNamer = std::function<std::wstring(int index)>;
+
+inline std::wstring BuildGridExpression(int count, int rows, int columns,
+                                        FillOrder fill,
+                                        TokenNamer const& namer = {}) {
+    if (count <= 0 || rows <= 0 || columns <= 0)
+        return {};
+
+    auto name = [&](int index) -> std::wstring {
+        return namer ? namer(index) : std::to_wstring(index + 1);
+    };
+
+    // '|' groups are columns, ',' units are rows, always.
+    std::wstring expr;
+    for (int column = 0; column < columns; ++column) {
+        std::wstring stack;
+        for (int row = 0; row < rows; ++row) {
+            int index = fill == FillOrder::Rows ? row * columns + column
+                                                : column * rows + row;
+            if (index < 0 || index >= count)
+                continue;
+            if (!stack.empty())
+                stack += L", ";
+            stack += name(index);
+        }
+        if (stack.empty())
+            continue;
+        if (!expr.empty())
+            expr += L" | ";
+        expr += stack;
+    }
+    return expr;
+}
+
+inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
+                                        TokenNamer const& namer = {}) {
+    Shape shape = ChooseShape(count, maxRows);
+    return BuildGridExpression(count, shape.rows, shape.columns, fill, namer);
+}
+
+// ---- Items the arrangement forgot -------------------------------------------
+//
+// A hand-written arrangement names the items that existed when it was written.
+// When the set is dynamic — a desktop is added, a folder appears — the new item
+// is in no group, resolves to nothing, and silently vanishes from the taskbar.
+// That is a trap, so a mod with a dynamic set offers a policy:
+//
+//   Append (default) — arrange the unlisted items automatically and put that
+//                      block after everything the user wrote, so a new item is
+//                      always reachable and the written block stays intact.
+//   Ignore           — the arrangement is the whole truth; unlisted items stay
+//                      off the taskbar until the user adds them.
+//
+// A mod that appends should log that it did, so the user knows to fold the new
+// item into their arrangement when they next edit it.
+
+// Whether a token the user wrote refers to the same item as one the mod
+// expects. Defaults to a case-insensitive name match, which is WRONG for any
+// mod that accepts aliases: "desktop1" and "1" are the same button, and
+// comparing them as strings makes every aliased item look missing and get
+// appended a second time. A mod with a vocabulary must supply this.
+using TokenMatcher =
+    std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
+
+inline std::vector<std::wstring> MissingTokens(
+    std::vector<std::wstring> const& expected,
+    std::vector<Placement> const& placements,
+    TokenMatcher const& same = {}) {
+    std::vector<std::wstring> missing;
+    for (auto const& token : expected) {
+        bool found = false;
+        for (auto const& placement : placements) {
+            bool match = same ? same(placement.token, token)
+                              : TokenIs(placement.token, token.c_str());
+            if (match) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            missing.push_back(token);
+    }
+    return missing;
+}
+
+inline std::wstring AppendMissing(std::wstring const& expression,
+                                  std::vector<std::wstring> const& missing,
+                                  int maxRows, FillOrder fill) {
+    if (missing.empty())
+        return expression;
+    auto namer = [&missing](int index) { return missing[index]; };
+    std::wstring block = BuildAutoExpression((int)missing.size(), maxRows, fill,
+                                             namer);
+    if (block.empty())
+        return expression;
+    if (expression.empty())
+        return block;
+    return L"(" + expression + L") | (" + block + L")";
+}
+
+// ---- The one setting --------------------------------------------------------
+//
+// Resolve `Layout.Arrangement` to the expression to arrange. Empty or the word
+// "auto" (any case, surrounding space ignored) means generate one. The caller
+// logs the result when wasAuto is true so the user can paste it back into the
+// same field and edit it.
+
+struct Arrangement {
+    std::wstring expression;
+    bool wasAuto = false;
 };
 
-inline int ScoreCandidate(int rows, int columns, int count,
-                          SmartLayout preference) {
-    int waste = rows * columns - count;
-    int widePenalty = columns > rows ? (columns - rows) * 2 : 0;
-    int score = waste * 10 + widePenalty;
-
-    if (preference == SmartLayout::PackVertical)
-        score -= rows * 20;
-    else if (preference == SmartLayout::PackHorizontal)
-        score += rows * 20;
-    else
-        score -= rows * 3;
-
-    return score;
+inline bool IsAutoSetting(std::wstring const& setting) {
+    size_t first = setting.find_first_not_of(L" \t\r\n");
+    if (first == std::wstring::npos)
+        return true;
+    size_t last = setting.find_last_not_of(L" \t\r\n");
+    std::wstring trimmed = setting.substr(first, last - first + 1);
+    if (trimmed.size() != 4)
+        return false;
+    for (size_t i = 0; i < 4; ++i)
+        if (towlower(trimmed[i]) != L"auto"[i])
+            return false;
+    return true;
 }
 
-inline Layout ComputeLayout(int count, Config const& config) {
-    count = std::max(1, count);
-    Layout result;
-    int availableRows = std::clamp(config.availableRows, 1, count);
-    if (config.rows > 0 && config.mode == GridMode::AutoSmart)
-        availableRows = std::min(availableRows, config.rows);
-
-    switch (config.mode) {
-        case GridMode::SingleRow:
-            result = {1, count};
-            break;
-        case GridMode::SingleColumn:
-            result = {count, 1};
-            break;
-        case GridMode::FixedRows:
-            result.rows = std::clamp(config.rows, 1, count);
-            result.columns = (count + result.rows - 1) / result.rows;
-            break;
-        case GridMode::FixedColumns:
-            result.columns = std::clamp(config.columns, 1, count);
-            result.rows = (count + result.columns - 1) / result.columns;
-            break;
-        case GridMode::FixedGrid:
-            result.rows = std::clamp(config.rows, 1, count);
-            result.columns = config.columns > 0
-                ? std::clamp(config.columns, 1, count)
-                : (count + result.rows - 1) / result.rows;
-            if (result.rows * result.columns < count)
-                result.rows = (count + result.columns - 1) / result.columns;
-            break;
-        case GridMode::AutoSmart: {
-            int bestScore = INT_MAX;
-            int firstRows = availableRows > 1 && count > 1 &&
-                            config.smartLayout != SmartLayout::PackHorizontal
-                ? 2 : 1;
-            for (int rows = firstRows; rows <= availableRows; ++rows) {
-                int columns = (count + rows - 1) / rows;
-                if (config.columns > 0 && columns > config.columns)
-                    continue;
-                int score = ScoreCandidate(rows, columns, count,
-                                           config.smartLayout);
-                if (score < bestScore) {
-                    bestScore = score;
-                    result = {rows, columns};
-                }
-            }
-            if (bestScore == INT_MAX) {
-                result.columns = std::clamp(config.columns, 1, count);
-                result.rows = (count + result.columns - 1) / result.columns;
-            }
-            break;
-        }
-    }
-
-    result.rows = std::clamp(result.rows, 1, count);
-    result.columns = std::max(1, result.columns);
-    while (result.rows * result.columns < count) {
-        if (config.mode == GridMode::FixedColumns)
-            ++result.rows;
-        else
-            ++result.columns;
-    }
-    return result;
+inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
+                                      int maxRows, FillOrder fill,
+                                      TokenNamer const& namer = {}) {
+    if (IsAutoSetting(setting))
+        return {BuildAutoExpression(count, maxRows, fill, namer), true};
+    return {setting, false};
 }
 
-inline double AlignOffset(int capacity, int itemCount,
-                          ShortGroupAlign alignment) {
-    int unused = std::max(0, capacity - itemCount);
-    if (alignment == ShortGroupAlign::Center)
-        return unused / 2.0;
-    if (alignment == ShortGroupAlign::End)
-        return static_cast<double>(unused);
-    return 0.0;
-}
+}  // namespace windhawk_mod_templates::nested_group_layout
 
-inline Cell GetCell(int index, int count, Layout const& layout,
-                    Config const& config) {
-    Cell cell;
-    index = std::clamp(index, 0, std::max(0, count - 1));
-
-    if (config.fillOrder == FillOrder::RowFirst) {
-        int groupCount = (count + layout.columns - 1) / layout.columns;
-        int shortCount = count % layout.columns;
-        if (!shortCount) shortCount = layout.columns;
-        int group;
-        int itemInGroup;
-        if (shortCount < layout.columns &&
-            config.shortGroupPosition == ShortGroupPosition::First) {
-            if (index < shortCount) {
-                group = 0;
-                itemInGroup = index;
-            } else {
-                int adjusted = index - shortCount;
-                group = 1 + adjusted / layout.columns;
-                itemInGroup = adjusted % layout.columns;
-            }
-        } else {
-            group = index / layout.columns;
-            itemInGroup = index % layout.columns;
-        }
-        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
-            ? 0 : groupCount - 1;
-        bool isShort = shortCount < layout.columns && group == shortGroup;
-
-        cell.row = group;
-        cell.column = itemInGroup;
-        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
-            cell.column = 0;
-            cell.columnSpan = layout.columns;
-            cell.leftOffsetUnits = AlignOffset(layout.columns, shortCount,
-                                               config.shortGroupAlign) +
-                                   itemInGroup;
-        }
-    } else {
-        int groupCount = (count + layout.rows - 1) / layout.rows;
-        int shortCount = count % layout.rows;
-        if (!shortCount) shortCount = layout.rows;
-        int group;
-        int itemInGroup;
-        if (shortCount < layout.rows &&
-            config.shortGroupPosition == ShortGroupPosition::First) {
-            if (index < shortCount) {
-                group = 0;
-                itemInGroup = index;
-            } else {
-                int adjusted = index - shortCount;
-                group = 1 + adjusted / layout.rows;
-                itemInGroup = adjusted % layout.rows;
-            }
-        } else {
-            group = index / layout.rows;
-            itemInGroup = index % layout.rows;
-        }
-        int shortGroup = config.shortGroupPosition == ShortGroupPosition::First
-            ? 0 : groupCount - 1;
-        bool isShort = shortCount < layout.rows && group == shortGroup;
-
-        cell.row = itemInGroup;
-        cell.column = group;
-        if (isShort && config.shortGroupAlign != ShortGroupAlign::Start) {
-            cell.row = 0;
-            cell.rowSpan = layout.rows;
-            cell.topOffsetUnits = AlignOffset(layout.rows, shortCount,
-                                              config.shortGroupAlign) +
-                                  itemInGroup;
-        }
-    }
-    return cell;
-}
-
-} // namespace windhawk_mod_templates::smart_grid
-
-namespace grid = windhawk_mod_templates::smart_grid;
+namespace ngl = windhawk_mod_templates::nested_group_layout;
 
 // ============================================================
 // Injected SystemTrayFrameGrid column
@@ -1113,58 +1535,57 @@ namespace start_placement = windhawk_mod_templates::start_placement;
 // ============================================================
 
 struct ModSettings {
+    // Placement
     std::wstring position = L"beforeOmni";
-    std::wstring itemOrder = L"location,mic,camera,copilot";
-    bool cameraHardwareDetection = true;
-    grid::GridMode gridMode = grid::GridMode::AutoSmart;
-    grid::SmartLayout smartLayout = grid::SmartLayout::Balanced;
-    int  gridRows    = 0;
-    int  gridColumns = 0;
-    grid::FillOrder          fillOrder          = grid::FillOrder::RowFirst;
-    grid::ShortGroupPosition shortGroupPosition = grid::ShortGroupPosition::Last;
-    grid::ShortGroupAlign    shortGroupAlign    = grid::ShortGroupAlign::Center;
-    int  iconSize      = 16;
-    int  buttonSpacing = 4;
-    int  idleOpacity   = 50;
+    // Content
+    bool location = true;
+    bool microphone = true;
+    bool camera = true;
+    bool copilot = true;
+    // Layout
+    std::wstring arrangement = L"auto";
+    std::wstring fillOrder = L"rows";
+    std::wstring justify = L"center";
+    std::wstring newItems = L"append";
+    // Size
+    int itemSize = 16;
+    int itemSpacing = 4;
+    // Adjust
+    int padX = 0;
+    int padY = 0;
+    int offsetX = 0;
+    int offsetY = 0;
+    // Surface: canonical icon-surface fields first.
+    int idleOpacity = 50;
+    int activeOpacity = 100;
+    bool glowEnabled = false;
+    int glowOpacity = 40;
+    bool slashColorSet = false;
+    winrt::Windows::UI::Color slashColorValue{};
+    std::wstring slashDirection = L"falling";
+    int slashOpacity = 100;
+    // Surface: Privacy Anchor extensions.
     bool idleColorSet = false;
     winrt::Windows::UI::Color idleColorValue{};
-    int  disabledOpacity = 50;
+    bool activeColorSet = false;
+    winrt::Windows::UI::Color activeColorValue{};
+    int disabledOpacity = 50;
     bool disabledColorSet = false;
     winrt::Windows::UI::Color disabledColorValue{};
     bool alertWhenBlockedAndActive = true;
-    int  groupPaddingLeft = 0;
-    int  groupPaddingRight = 0;
-    int  groupOffsetX = 0;
-    int  groupOffsetY = 0;
-    int  locationOffsetX = 0;
-    int  locationOffsetY = 0;
-    int  micOffsetX   = 0;
-    int  micOffsetY   = 0;
-    int  cameraOffsetX = 0;
-    int  cameraOffsetY = 0;
-    int  copilotOffsetX = 0;
-    int  copilotOffsetY = 0;
-    bool activeColorSet = false;
-    winrt::Windows::UI::Color activeColorValue{};
-    bool glowEnabled    = false;
     std::wstring glowStyle = L"radiate";
     bool glowColorSet = false;
     winrt::Windows::UI::Color glowColorValue{};
-    int  glowOpacity    = 40;
-    int  glowSize       = 220;
-    int  glowSpeed      = 1200;
-    bool slashColorSet  = false;   // false = system theme
-    winrt::Windows::UI::Color slashColorValue{};
-    std::wstring slashDirection = L"falling";
-    int  slashOpacity   = 100;
+    int glowSize = 220;
+    int glowSpeed = 1200;
+    // Behavior
+    bool cameraHardwareDetection = false;
     bool suppressNativeIndicators = true;
 };
 static ModSettings g_settings;  // exit-time-safe: heap-only
-static std::atomic<bool> g_cameraHardwareDetectionEnabled{true};
+static std::atomic<bool> g_cameraHardwareDetectionEnabled{false};
 static std::atomic<bool> g_cameraItemEnabled{true};
 static std::atomic<bool> g_copilotItemEnabled{true};
-
-static std::vector<std::wstring> ParseItemOrder(std::wstring const& s);
 
 static std::wstring GetStringSetting(PCWSTR name) {
     PCWSTR raw = Wh_GetStringSetting(name);
@@ -1225,82 +1646,60 @@ static bool ParseColorToken(const wchar_t* s, winrt::Windows::UI::Color& out) {
 
 static void LoadSettings() {
     auto clamp = [](int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); };
-    g_settings.position  = GetStringSetting(L"position");
-    g_settings.itemOrder = GetStringSetting(L"itemOrder");
+    auto Bool = [](PCWSTR name) { return Wh_GetIntSetting(name) != 0; };
+
+    g_settings.position = GetStringSetting(L"Placement.Position");
+
+    g_settings.location = Bool(L"Content.Location");
+    g_settings.microphone = Bool(L"Content.Microphone");
+    g_settings.camera = Bool(L"Content.Camera");
+    g_settings.copilot = Bool(L"Content.Copilot");
+
+    g_settings.arrangement = GetStringSetting(L"Layout.Arrangement");
+    g_settings.fillOrder = GetStringSetting(L"Layout.FillOrder");
+    g_settings.justify = GetStringSetting(L"Layout.Justify");
+    g_settings.newItems = GetStringSetting(L"Layout.NewItems");
+
+    g_settings.itemSize = clamp(Wh_GetIntSetting(L"Size.ItemSize"), 8, 48);
+    g_settings.itemSpacing = clamp(Wh_GetIntSetting(L"Size.ItemSpacing"), 0, 40);
+
+    g_settings.padX = clamp(Wh_GetIntSetting(L"Adjust.PadX"), 0, 40);
+    g_settings.padY = clamp(Wh_GetIntSetting(L"Adjust.PadY"), 0, 40);
+    g_settings.offsetX = clamp(Wh_GetIntSetting(L"Adjust.OffsetX"), -40, 40);
+    g_settings.offsetY = clamp(Wh_GetIntSetting(L"Adjust.OffsetY"), -40, 40);
+
+    g_settings.idleOpacity = clamp(Wh_GetIntSetting(L"Surface.IdleOpacity"), 0, 100);
+    g_settings.activeOpacity = clamp(Wh_GetIntSetting(L"Surface.ActiveOpacity"), 0, 100);
+    g_settings.glowEnabled = Bool(L"Surface.GlowEnabled");
+    g_settings.glowOpacity = clamp(Wh_GetIntSetting(L"Surface.GlowOpacity"), 0, 100);
+    g_settings.slashColorSet = ParseColorToken(
+        GetStringSetting(L"Surface.SlashColor").c_str(), g_settings.slashColorValue);
+    g_settings.slashDirection = GetStringSetting(L"Surface.SlashDirection");
+    g_settings.slashOpacity = clamp(Wh_GetIntSetting(L"Surface.SlashOpacity"), 0, 100);
+    g_settings.idleColorSet = ParseColorToken(
+        GetStringSetting(L"Surface.IdleColor").c_str(), g_settings.idleColorValue);
+    g_settings.activeColorSet = ParseColorToken(
+        GetStringSetting(L"Surface.ActiveColor").c_str(), g_settings.activeColorValue);
+    g_settings.disabledOpacity = clamp(Wh_GetIntSetting(L"Surface.DisabledOpacity"), 0, 100);
+    g_settings.disabledColorSet = ParseColorToken(
+        GetStringSetting(L"Surface.DisabledColor").c_str(), g_settings.disabledColorValue);
+    g_settings.alertWhenBlockedAndActive = Bool(L"Surface.AlertWhenBlockedAndActive");
+    g_settings.glowStyle = GetStringSetting(L"Surface.GlowStyle");
+    if (g_settings.glowStyle != L"steady" && g_settings.glowStyle != L"pulse")
+        g_settings.glowStyle = L"radiate";
+    g_settings.glowColorSet = ParseColorToken(
+        GetStringSetting(L"Surface.GlowColor").c_str(), g_settings.glowColorValue);
+    g_settings.glowSize = clamp(Wh_GetIntSetting(L"Surface.GlowSize"), 100, 300);
+    g_settings.glowSpeed = clamp(Wh_GetIntSetting(L"Surface.GlowSpeed"), 250, 5000);
+
     g_settings.cameraHardwareDetection =
-        Wh_GetIntSetting(L"cameraHardwareDetection") != 0;
+        Bool(L"Behavior.CameraHardwareDetection");
+    g_settings.suppressNativeIndicators =
+        Bool(L"Behavior.SuppressNativeIndicators");
     g_cameraHardwareDetectionEnabled.store(
         g_settings.cameraHardwareDetection);
-    auto enabledItems = ParseItemOrder(g_settings.itemOrder);
-    g_cameraItemEnabled.store(
-        std::find(enabledItems.begin(), enabledItems.end(), L"camera") !=
-        enabledItems.end());
-    g_copilotItemEnabled.store(
-        std::find(enabledItems.begin(), enabledItems.end(), L"copilot") !=
-        enabledItems.end());
-    { std::wstring s = GetStringSetting(L"gridMode");
-      if      (s == L"singleRow")    g_settings.gridMode = grid::GridMode::SingleRow;
-      else if (s == L"singleColumn") g_settings.gridMode = grid::GridMode::SingleColumn;
-      else if (s == L"fixedRows")    g_settings.gridMode = grid::GridMode::FixedRows;
-      else if (s == L"fixedColumns") g_settings.gridMode = grid::GridMode::FixedColumns;
-      else if (s == L"fixedGrid")    g_settings.gridMode = grid::GridMode::FixedGrid;
-      else                            g_settings.gridMode = grid::GridMode::AutoSmart; }
-    { std::wstring s = GetStringSetting(L"smartLayout");
-      if      (s == L"packVertical")   g_settings.smartLayout = grid::SmartLayout::PackVertical;
-      else if (s == L"packHorizontal") g_settings.smartLayout = grid::SmartLayout::PackHorizontal;
-      else                              g_settings.smartLayout = grid::SmartLayout::Balanced; }
-    g_settings.gridRows    = clamp(Wh_GetIntSetting(L"gridRows"), 0, 10);
-    g_settings.gridColumns = clamp(Wh_GetIntSetting(L"gridColumns"), 0, 10);
-    { std::wstring s = GetStringSetting(L"fillOrder");
-      // "colFirst" accepted as a legacy spelling of "columnFirst"
-      g_settings.fillOrder = (s == L"columnFirst" || s == L"colFirst")
-                           ? grid::FillOrder::ColumnFirst : grid::FillOrder::RowFirst; }
-    { std::wstring s = GetStringSetting(L"shortGroupPosition");
-      g_settings.shortGroupPosition = (s == L"first")
-                                    ? grid::ShortGroupPosition::First
-                                    : grid::ShortGroupPosition::Last; }
-    { std::wstring s = GetStringSetting(L"shortGroupAlign");
-      if      (s == L"start") g_settings.shortGroupAlign = grid::ShortGroupAlign::Start;
-      else if (s == L"end")   g_settings.shortGroupAlign = grid::ShortGroupAlign::End;
-      else                    g_settings.shortGroupAlign = grid::ShortGroupAlign::Center; }
-    g_settings.iconSize             = clamp(Wh_GetIntSetting(L"iconSize"), 8, 48);
-    g_settings.idleOpacity          = clamp(Wh_GetIntSetting(L"idleOpacity"), 0, 100);
-    g_settings.disabledOpacity      = clamp(Wh_GetIntSetting(L"disabledOpacity"), 0, 100);
-    g_settings.alertWhenBlockedAndActive =
-        Wh_GetIntSetting(L"alertWhenBlockedAndActive") != 0;
-    g_settings.groupPaddingLeft     = clamp(Wh_GetIntSetting(L"groupPaddingLeft"), -40, 40);
-    g_settings.groupPaddingRight    = clamp(Wh_GetIntSetting(L"groupPaddingRight"), -40, 40);
-    g_settings.buttonSpacing        = clamp(Wh_GetIntSetting(L"buttonSpacing"), 0, 40);
-    g_settings.groupOffsetX         = clamp(Wh_GetIntSetting(L"groupOffsetX"), -40, 40);
-    g_settings.groupOffsetY         = clamp(Wh_GetIntSetting(L"groupOffsetY"), -40, 40);
-    g_settings.locationOffsetX      = clamp(Wh_GetIntSetting(L"locationOffsetX"), -40, 40);
-    g_settings.locationOffsetY      = clamp(Wh_GetIntSetting(L"locationOffsetY"), -40, 40);
-    g_settings.micOffsetX           = clamp(Wh_GetIntSetting(L"micOffsetX"), -40, 40);
-    g_settings.micOffsetY           = clamp(Wh_GetIntSetting(L"micOffsetY"), -40, 40);
-    g_settings.cameraOffsetX        = clamp(Wh_GetIntSetting(L"cameraOffsetX"), -40, 40);
-    g_settings.cameraOffsetY        = clamp(Wh_GetIntSetting(L"cameraOffsetY"), -40, 40);
-    g_settings.copilotOffsetX       = clamp(Wh_GetIntSetting(L"copilotOffsetX"), -40, 40);
-    g_settings.copilotOffsetY       = clamp(Wh_GetIntSetting(L"copilotOffsetY"), -40, 40);
-    g_settings.glowEnabled          = Wh_GetIntSetting(L"glowEnabled") != 0;
-    g_settings.glowOpacity          = clamp(Wh_GetIntSetting(L"glowOpacity"), 0, 100);
-    g_settings.glowSize             = clamp(Wh_GetIntSetting(L"glowSize"), 100, 300);
-    g_settings.glowSpeed            = clamp(Wh_GetIntSetting(L"glowSpeed"), 250, 5000);
-    { std::wstring s = GetStringSetting(L"glowStyle");
-      g_settings.glowStyle = (s == L"steady" || s == L"pulse")
-                           ? s : L"radiate"; }
-    g_settings.idleColorSet = ParseColorToken(
-        GetStringSetting(L"idleColor").c_str(), g_settings.idleColorValue);
-    g_settings.activeColorSet = ParseColorToken(
-        GetStringSetting(L"activeColor").c_str(), g_settings.activeColorValue);
-    g_settings.disabledColorSet = ParseColorToken(
-        GetStringSetting(L"disabledColor").c_str(), g_settings.disabledColorValue);
-    g_settings.glowColorSet = ParseColorToken(
-        GetStringSetting(L"glowColor").c_str(), g_settings.glowColorValue);
-    g_settings.slashColorSet = ParseColorToken(
-        GetStringSetting(L"slashColor").c_str(), g_settings.slashColorValue);
-    g_settings.slashDirection = GetStringSetting(L"slashDirection");
-    g_settings.slashOpacity   = clamp(Wh_GetIntSetting(L"slashOpacity"), 0, 100);
-    g_settings.suppressNativeIndicators = Wh_GetIntSetting(L"suppressNativeIndicators") != 0;
+    g_cameraItemEnabled.store(g_settings.camera);
+    g_copilotItemEnabled.store(g_settings.copilot);
 }
 
 // ============================================================
@@ -1718,32 +2117,160 @@ static bool IsPrivacyText(std::wstring_view text) {
 }
 
 // ============================================================
-// Icon order parsing
+// Unified icon layout
 // ============================================================
 
-static std::vector<std::wstring> ParseItemOrder(std::wstring const& s) {
-    std::vector<std::wstring> result;
-    size_t start = 0;
-    while (start <= s.size()) {
-        size_t end = s.find(L',', start);
-        if (end == std::wstring::npos) end = s.size();
-        size_t ts = start, te = end;
-        while (ts < te && std::iswspace(s[ts])) ts++;
-        while (te > ts && std::iswspace(s[te - 1])) te--;
-        if (ts < te) {
-            std::wstring token = s.substr(ts, te - ts);
-            for (auto& c : token) c = std::towlower(c);
-            if (token == L"location" || token == L"mic" || token == L"camera" || token == L"copilot") {
-                // Deduplicate
-                bool already = false;
-                for (auto& r : result) if (r == token) { already = true; break; }
-                if (!already) result.push_back(token);
-            }
-        }
-        if (end == s.size()) break;
-        start = end + 1;
+static bool IsMicrophoneToken(std::wstring const& token) {
+    return ngl::TokenIs(token, L"mic") ||
+           ngl::TokenIs(token, L"microphone");
+}
+
+static bool TryResolvePrivacyToken(std::wstring const& token,
+                                   PrivacyItemKind& kind) {
+    if (ngl::TokenIs(token, L"location")) {
+        kind = PrivacyItemKind::Location;
+        return true;
     }
-    return result;
+    if (IsMicrophoneToken(token)) {
+        kind = PrivacyItemKind::Microphone;
+        return true;
+    }
+    if (ngl::TokenIs(token, L"camera")) {
+        kind = PrivacyItemKind::Camera;
+        return true;
+    }
+    if (ngl::TokenIs(token, L"copilot")) {
+        kind = PrivacyItemKind::Copilot;
+        return true;
+    }
+    return false;
+}
+
+static bool PrivacyItemEnabled(PrivacyItemKind kind) {
+    switch (kind) {
+        case PrivacyItemKind::Location: return g_settings.location;
+        case PrivacyItemKind::Microphone: return g_settings.microphone;
+        case PrivacyItemKind::Camera: return g_settings.camera;
+        case PrivacyItemKind::Copilot: return g_settings.copilot;
+    }
+    return false;
+}
+
+static std::vector<std::wstring> EnabledPrivacyTokens() {
+    std::vector<std::wstring> tokens;
+    if (g_settings.location) tokens.push_back(L"location");
+    if (g_settings.microphone) tokens.push_back(L"mic");
+    if (g_settings.camera) tokens.push_back(L"camera");
+    if (g_settings.copilot) tokens.push_back(L"copilot");
+    return tokens;
+}
+
+static bool SamePrivacyItem(std::wstring const& placed,
+                            std::wstring const& expected) {
+    PrivacyItemKind placedKind;
+    PrivacyItemKind expectedKind;
+    return TryResolvePrivacyToken(placed, placedKind) &&
+           TryResolvePrivacyToken(expected, expectedKind) &&
+           placedKind == expectedKind;
+}
+
+static ngl::Size ResolvePrivacyLayoutToken(std::wstring const& token) {
+    PrivacyItemKind kind;
+    if (!TryResolvePrivacyToken(token, kind) || !PrivacyItemEnabled(kind))
+        return {};
+    return {(double)g_settings.itemSize, (double)g_settings.itemSize};
+}
+
+static ngl::FillOrder PrivacyFillOrder() {
+    return g_settings.fillOrder == L"columns" ? ngl::FillOrder::Columns
+                                               : ngl::FillOrder::Rows;
+}
+
+static ngl::Config PrivacyLayoutConfig() {
+    ngl::Config config;
+    config.spacing = (double)g_settings.itemSpacing;
+    config.justify = g_settings.justify == L"start" ? ngl::Justify::Start
+                   : g_settings.justify == L"end"   ? ngl::Justify::End
+                                                     : ngl::Justify::Center;
+    config.padX = (double)g_settings.padX;
+    config.padY = (double)g_settings.padY;
+    return config;
+}
+
+static int AvailablePrivacyRows() {
+    HWND window = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+    RECT rect{};
+    if (!window || !GetWindowRect(window, &rect)) {
+        Wh_Log(L"[Layout] No taskbar window - assuming a single row");
+        return 1;
+    }
+
+    UINT dpi = GetDpiForWindow(window);
+    double heightDip = ngl::PixelsToDip(
+        (double)(rect.bottom - rect.top), dpi);
+    double reserved = 2.0 * (double)g_settings.padY;
+    int rows = ngl::RowsInHeight(
+        heightDip - reserved, (double)g_settings.itemSize,
+        (double)g_settings.itemSpacing);
+    Wh_Log(L"[Layout] taskbar %dpx at %udpi = %.0f dip, %.0f reserved "
+           L"-> %d row(s) for privacy icons",
+           (int)(rect.bottom - rect.top), dpi, heightDip, reserved, rows);
+    return rows;
+}
+
+static bool ComputePrivacyPlacements(
+    std::vector<std::wstring> const& enabledTokens,
+    std::vector<ngl::Placement>& placements, ngl::Size& total) {
+    int maxRows = AvailablePrivacyRows();
+    auto fill = PrivacyFillOrder();
+    auto namer = [&enabledTokens](int index) {
+        return enabledTokens[index];
+    };
+    auto arrangement = ngl::ResolveArrangement(
+        g_settings.arrangement, (int)enabledTokens.size(), maxRows, fill,
+        namer);
+    std::wstring expression = arrangement.expression;
+    ngl::ParseError error;
+    bool ok = ngl::Compute(expression, PrivacyLayoutConfig(),
+                           ResolvePrivacyLayoutToken, placements, total,
+                           &error);
+    if (!ok) {
+        Wh_Log(L"[Layout] Arrangement \"%ls\" - expected %ls at character %d; "
+               L"using the automatic arrangement instead",
+               expression.c_str(), error.expected.c_str(),
+               (int)error.position + 1);
+        arrangement = ngl::ResolveArrangement(
+            L"auto", (int)enabledTokens.size(), maxRows, fill, namer);
+        expression = arrangement.expression;
+        ok = ngl::Compute(expression, PrivacyLayoutConfig(),
+                          ResolvePrivacyLayoutToken, placements, total,
+                          nullptr);
+    }
+
+    if (ok && !arrangement.wasAuto && g_settings.newItems != L"ignore") {
+        auto missing = ngl::MissingTokens(enabledTokens, placements,
+                                          SamePrivacyItem);
+        if (!missing.empty()) {
+            expression = ngl::AppendMissing(expression, missing, maxRows, fill);
+            ok = ngl::Compute(expression, PrivacyLayoutConfig(),
+                              ResolvePrivacyLayoutToken, placements, total,
+                              nullptr);
+            Wh_Log(L"[Layout] %d newly enabled icon(s) missing from your "
+                   L"arrangement were added",
+                   (int)missing.size());
+        }
+    }
+
+    Wh_Log(L"[Layout] tokens: location=Location  mic=Microphone  "
+           L"camera=Camera  copilot=Copilot");
+    Wh_Log(L"[Layout] %d enabled icon(s), arrangement = \"%ls\"%ls, "
+           L"size %.0fx%.0f",
+           (int)enabledTokens.size(), expression.c_str(),
+           arrangement.wasAuto
+               ? L" (auto - paste this into Arrangement to edit it)"
+               : L"",
+           total.width, total.height);
+    return ok;
 }
 
 // ============================================================
@@ -1772,6 +2299,7 @@ static void SetGlowActive(FrameworkElement const& glow, bool active) {
 static void UpdateSyntheticOpacity() {
     if (!g_syntheticGrid) return;
     double idleOpacity = g_settings.idleOpacity / 100.0;
+    double activeOpacity = g_settings.activeOpacity / 100.0;
     double disabledOpacity = g_settings.disabledOpacity / 100.0;
     bool isDark = g_taskbarDarkTheme.load();
     winrt::Windows::UI::Color neutralColor = isDark
@@ -1813,7 +2341,7 @@ static void UpdateSyntheticOpacity() {
             (!disabled || g_settings.alertWhenBlockedAndActive);
 
         if (emphasizedActivity) {
-            icon.Opacity(1.0);
+            icon.Opacity(activeOpacity);
             applyColor(icon, g_settings.activeColorSet,
                        g_settings.activeColorValue);
         } else if (disabled) {
@@ -3218,7 +3746,7 @@ static TextBlock MakeIconTextBlock(const wchar_t* glyph) {
     TextBlock tb;
     tb.Text(glyph);
     tb.FontFamily(FontFamily(L"Segoe MDL2 Assets"));
-    tb.FontSize((double)g_settings.iconSize);
+    tb.FontSize((double)g_settings.itemSize);
     tb.VerticalAlignment(VerticalAlignment::Center);
     tb.HorizontalAlignment(HorizontalAlignment::Center);
     tb.TextWrapping(TextWrapping::NoWrap);
@@ -3235,7 +3763,7 @@ static FrameworkElement MakeGlowVisual(winrt::Windows::UI::Color color) {
     using winrt::Windows::UI::Xaml::Shapes::Ellipse;
 
     Grid host;
-    double iconSize = static_cast<double>(g_settings.iconSize);
+    double iconSize = static_cast<double>(g_settings.itemSize);
     double reach = g_settings.glowSize / 100.0;
     double strength = g_settings.glowOpacity / 100.0;
     host.Width(iconSize);
@@ -3369,11 +3897,16 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         }))
         return true;
 
-    auto activeItems = ParseItemOrder(g_settings.itemOrder);
-    if (activeItems.empty()) {
-        Wh_Log(L"[Inject] itemOrder has no valid tokens");
+    auto enabledTokens = EnabledPrivacyTokens();
+    if (enabledTokens.empty()) {
+        Wh_Log(L"[Inject] All privacy icons are disabled");
         return true;
     }
+
+    std::vector<ngl::Placement> placements;
+    ngl::Size total;
+    if (!ComputePrivacyPlacements(enabledTokens, placements, total))
+        return false;
 
     bool startPosition = g_settings.position == L"leftOfStart" ||
                          g_settings.position == L"rightOfStart";
@@ -3399,120 +3932,64 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     // ── Build the anchor bar ────────────────────────────────────
     Grid bar;
     bar.Name(L"PrivacyAnchorBar");
+    bar.Width(total.width);
+    bar.Height(total.height);
     bar.VerticalAlignment(VerticalAlignment::Center);
     bar.HorizontalAlignment(HorizontalAlignment::Center);
-    bar.Margin({ (double)g_settings.groupPaddingLeft, 0.0,
-                 (double)g_settings.groupPaddingRight, 0.0 });
-    ApplyOffset(bar, g_settings.groupOffsetX, g_settings.groupOffsetY);
-
-    int N = (int)activeItems.size();
-
-    // Grid shape from the canonical group-layout settings profile.
-    grid::Config cfg;
-    cfg.mode               = g_settings.gridMode;
-    cfg.smartLayout        = g_settings.smartLayout;
-    cfg.fillOrder          = g_settings.fillOrder;
-    cfg.shortGroupPosition = g_settings.shortGroupPosition;
-    cfg.shortGroupAlign    = g_settings.shortGroupAlign;
-    cfg.rows               = g_settings.gridRows;
-    cfg.columns            = g_settings.gridColumns;
-
-    // Row capacity from the taskbar height and icon pitch: a single column on
-    // double-height taskbars, more columns when the stack doesn't fit.
-    {
-        int taskbarH = 48;
-        HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-        RECT rc{};
-        if (hWnd && GetWindowRect(hWnd, &rc))
-            taskbarH = (int)(rc.bottom - rc.top);
-        int pitch = g_settings.iconSize + std::max(0, g_settings.buttonSpacing);
-        cfg.availableRows = std::max(1,
-            (taskbarH + std::max(0, g_settings.buttonSpacing)) / std::max(1, pitch));
-    }
-
-    grid::Layout layout = grid::ComputeLayout(N, cfg);
-    int rows = layout.rows;
-    int cols = layout.columns;
-
-    for (int r = 0; r < rows; r++) {
-        RowDefinition rd;
-        rd.Height({ (double)g_settings.iconSize, GridUnitType::Pixel });
-        bar.RowDefinitions().Append(rd);
-    }
-    for (int c = 0; c < cols; c++) {
-        ColumnDefinition bcd;
-        bcd.Width({ (double)g_settings.iconSize, GridUnitType::Pixel });
-        bar.ColumnDefinitions().Append(bcd);
-    }
-    if (g_settings.buttonSpacing > 0) {
-        bar.ColumnSpacing((double)g_settings.buttonSpacing);
-        bar.RowSpacing((double)g_settings.buttonSpacing);
-    }
-    if (startPosition) {
-        bar.Width(cols * g_settings.iconSize +
-                  std::max(0, cols - 1) * g_settings.buttonSpacing);
-        bar.Height(rows * g_settings.iconSize +
-                   std::max(0, rows - 1) * g_settings.buttonSpacing);
-    }
+    // Adjust.OffsetX/Y is cosmetic and does not participate in measurement.
+    ApplyOffset(bar, g_settings.offsetX, g_settings.offsetY);
 
     g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
     g_locSlot = nullptr; g_micSlot = nullptr; g_camSlot = nullptr; g_copilotSlot = nullptr;
     g_locGlowIcon = nullptr; g_micGlowIcon = nullptr; g_camGlowIcon = nullptr; g_copilotGlowIcon = nullptr;
     g_locSlashIcon = nullptr; g_micSlashIcon = nullptr; g_camSlashIcon = nullptr; g_copilotSlashIcon = nullptr;
 
-    for (int i = 0; i < N; i++) {
-        const auto& token = activeItems[i];
+    for (auto const& placement : placements) {
+        const auto& token = placement.token;
+        PrivacyItemKind itemKind;
+        if (!TryResolvePrivacyToken(token, itemKind) ||
+            !PrivacyItemEnabled(itemKind))
+            continue;
         const wchar_t* glyph    = L"";
         const wchar_t* iconFont = L"Segoe MDL2 Assets";
         bool  isActive, isDisabled;
         PrivacyBlockReason blockReason;
-        PrivacyItemKind itemKind;
-        int   offX, offY;
         const wchar_t* label;
         const wchar_t* idleLabel     = L"Not requested";
 
-        if (token == L"location") {
+        if (itemKind == PrivacyItemKind::Location) {
             glyph        = L"\xE37A";
             isActive     = g_locActive.load() || g_locUsage.load();
             isDisabled   = g_locDisabled.load();
             blockReason  = g_locBlockReason.load();
-            itemKind     = PrivacyItemKind::Location;
-            offX         = g_settings.locationOffsetX;
-            offY         = g_settings.locationOffsetY;
             label        = L"Location";
-        } else if (token == L"mic") {
+        } else if (itemKind == PrivacyItemKind::Microphone) {
             glyph        = L"\xE720";
             isActive     = g_micActive.load() || g_micUsage.load();
             isDisabled   = g_micDisabled.load();
             blockReason  = g_micBlockReason.load();
-            itemKind     = PrivacyItemKind::Microphone;
-            offX         = g_settings.micOffsetX;
-            offY         = g_settings.micOffsetY;
             label        = L"Microphone";
-        } else if (token == L"camera") {
+        } else if (itemKind == PrivacyItemKind::Camera) {
             glyph        = L"\xE722";
             isActive     = g_camActive.load() || g_camUsage.load();
             isDisabled   = g_camDisabled.load();
             blockReason  = g_camBlockReason.load();
-            itemKind     = PrivacyItemKind::Camera;
-            offX         = g_settings.cameraOffsetX;
-            offY         = g_settings.cameraOffsetY;
             label        = L"Camera";
         } else {  // copilot
             isActive      = g_copilotActive.load();
             isDisabled    = g_copilotDisabled.load();
             blockReason   = g_copilotBlockReason.load();
-            itemKind      = PrivacyItemKind::Copilot;
-            offX          = g_settings.copilotOffsetX;
-            offY          = g_settings.copilotOffsetY;
             label         = L"Copilot";
             idleLabel     = L"Installed (not running)";
         }
 
         // Wrap glow + icon + slash overlay in a 1-cell Grid so they overlap (back to front)
         Grid slot;
-        slot.HorizontalAlignment(HorizontalAlignment::Center);
-        slot.VerticalAlignment(VerticalAlignment::Center);
+        slot.Width(placement.size.width);
+        slot.Height(placement.size.height);
+        slot.HorizontalAlignment(HorizontalAlignment::Left);
+        slot.VerticalAlignment(VerticalAlignment::Top);
+        slot.Margin({placement.x, placement.y, 0.0, 0.0});
 
         winrt::Windows::UI::Color glowColor;
         if (g_settings.glowColorSet) {
@@ -3533,7 +4010,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         FrameworkElement glowFe = MakeGlowVisual(glowColor);
         slot.Children().Append(glowFe);
 
-        if (token == L"copilot") {
+        if (itemKind == PrivacyItemKind::Copilot) {
             bool isDark = g_taskbarDarkTheme.load();
             winrt::Windows::UI::Color neutralColor = isDark
                 ? winrt::Windows::UI::Color{255, 255, 255, 255}
@@ -3618,8 +4095,8 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                 return p.try_as<FrameworkElement>();
             };
 
-            auto ip = tryMakePath((double)g_settings.iconSize);
-            if (!ip) ip = makeStar((double)g_settings.iconSize);
+            auto ip = tryMakePath((double)g_settings.itemSize);
+            if (!ip) ip = makeStar((double)g_settings.itemSize);
             iconFe = ip; slot.Children().Append(ip);
         } else {
             auto tb = MakeIconTextBlock(glyph);
@@ -3629,7 +4106,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         }
 
         // Slash overlay — diagonal line across the icon, direction from settings
-        double sz = (double)g_settings.iconSize;
+        double sz = (double)g_settings.itemSize;
         bool falling = (g_settings.slashDirection == L"falling");
         winrt::Windows::UI::Xaml::Shapes::Line slashLine;
         if (falling) {
@@ -3676,28 +4153,18 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
             });
         g_slotEventStates->push_back({slot, tappedToken});
 
-        ApplyOffset(slot, offX, offY);
-
-        if (token == L"location")      { g_locSlot = slot; g_locIcon     = iconFe; g_locGlowIcon     = glowFe; g_locSlashIcon     = slashLine; }
-        else if (token == L"mic")      { g_micSlot = slot; g_micIcon     = iconFe; g_micGlowIcon     = glowFe; g_micSlashIcon     = slashLine; }
-        else if (token == L"camera")   { g_camSlot = slot; g_camIcon     = iconFe; g_camGlowIcon     = glowFe; g_camSlashIcon     = slashLine; }
-        else /* copilot */             { g_copilotSlot = slot; g_copilotIcon = iconFe; g_copilotGlowIcon = glowFe; g_copilotSlashIcon = slashLine; }
-
-        grid::Cell placement = grid::GetCell(i, N, layout, cfg);
-        Grid::SetRow(slot, placement.row);
-        Grid::SetColumn(slot, placement.column);
-        if (placement.rowSpan > 1) Grid::SetRowSpan(slot, placement.rowSpan);
-        if (placement.columnSpan > 1) Grid::SetColumnSpan(slot, placement.columnSpan);
-        if (placement.rowSpan > 1)
-            slot.VerticalAlignment(VerticalAlignment::Top);
-        if (placement.columnSpan > 1)
-            slot.HorizontalAlignment(HorizontalAlignment::Left);
-        if (placement.topOffsetUnits || placement.leftOffsetUnits) {
-            double pitch = g_settings.iconSize + g_settings.buttonSpacing;
-            auto margin = slot.Margin();
-            margin.Left += placement.leftOffsetUnits * pitch;
-            margin.Top += placement.topOffsetUnits * pitch;
-            slot.Margin(margin);
+        if (itemKind == PrivacyItemKind::Location) {
+            g_locSlot = slot; g_locIcon = iconFe;
+            g_locGlowIcon = glowFe; g_locSlashIcon = slashLine;
+        } else if (itemKind == PrivacyItemKind::Microphone) {
+            g_micSlot = slot; g_micIcon = iconFe;
+            g_micGlowIcon = glowFe; g_micSlashIcon = slashLine;
+        } else if (itemKind == PrivacyItemKind::Camera) {
+            g_camSlot = slot; g_camIcon = iconFe;
+            g_camGlowIcon = glowFe; g_camSlashIcon = slashLine;
+        } else {
+            g_copilotSlot = slot; g_copilotIcon = iconFe;
+            g_copilotGlowIcon = glowFe; g_copilotSlashIcon = slashLine;
         }
 
         bar.Children().Append(slot);
@@ -3708,7 +4175,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
                         ? start_placement::Side::Left
                         : start_placement::Side::Right;
         if (!start_placement::Acquire(
-                root, bar, side, g_settings.buttonSpacing,
+                root, bar, side, g_settings.itemSpacing,
                 g_startLease)) {
             Wh_Log(L"[Inject] Start anchor unavailable: %s",
                    g_settings.position.c_str());
@@ -3735,7 +4202,8 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     g_syntheticGrid   = bar;
 
     UpdateSyntheticState();
-    Wh_Log(L"[Inject] PrivacyAnchorBar: %d icons, %d cols, %d rows", N, cols, rows);
+    Wh_Log(L"[Inject] PrivacyAnchorBar: %d icon(s), %.0fx%.0f",
+           (int)placements.size(), total.width, total.height);
     return true;
 }
 
@@ -3832,7 +4300,9 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
 
     auto tb = child.try_as<TextBlock>();
     if (!tb) return;
-    std::wstring_view text = tb.Text();
+    // Text() returns a temporary hstring. Own a copy before taking views or
+    // indexing; a view of the destroyed temporary is a use-after-free.
+    std::wstring text = tb.Text().c_str();
 
     // Log unknown glyphs so new privacy indicator types can be identified during testing.
     if (!text.empty() && text.length() == 1 && !IsPrivacyGlyph(text[0])) {
@@ -3856,7 +4326,7 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
                 if (g_unloading) return;
                 auto tbRef = sender.try_as<TextBlock>();
                 if (!tbRef) return;
-                std::wstring_view newText = tbRef.Text();
+                std::wstring newText = tbRef.Text().c_str();
                 if (!newText.empty() && newText.length() == 1 && !IsPrivacyGlyph(newText[0])) {
                     Wh_Log(L"[Privacy] Unknown glyph change: U+%04X", (unsigned)newText[0]);
                     return;
@@ -4132,14 +4602,15 @@ static bool HookTaskbarDllSymbols() {
 }
 
 static bool HookSystemTraySymbols(HMODULE h) {
-    WindhawkUtils::SYMBOL_HOOK systemTrayDllHooks[] = {{
+    // SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll
+    WindhawkUtils::SYMBOL_HOOK systemTrayModuleHooks[] = {{
         {LR"(public: __cdecl winrt::SystemTray::implementation::IconView::IconView(void))"},
         &IconView_IconView_Original,
         IconView_IconView_Hook,
         false,
     }};
     return WindhawkUtils::HookSymbols(
-        h, systemTrayDllHooks, ARRAYSIZE(systemTrayDllHooks));
+        h, systemTrayModuleHooks, ARRAYSIZE(systemTrayModuleHooks));
 }
 
 static void HandleLoadedModuleIfSystemTray(HMODULE module,
@@ -4423,12 +4894,14 @@ void Wh_ModUninit() {
 
 void Wh_ModSettingsChanged() {
     LoadSettings();
-    Wh_Log(L"[Settings] order=%s rows=%d cols=%d suppressNative=%d cameraHardware=%d cameraItem=%d copilotItem=%d glow=%d/%s opacity=%d reach=%d speed=%d",
-           g_settings.itemOrder.c_str(), g_settings.gridRows,
-           g_settings.gridColumns, g_settings.suppressNativeIndicators ? 1 : 0,
+    Wh_Log(L"[Settings] arrangement=%s enabled=%d/%d/%d/%d "
+           L"suppressNative=%d cameraHardware=%d glow=%d/%s "
+           L"opacity=%d reach=%d speed=%d",
+           g_settings.arrangement.c_str(),
+           g_settings.location ? 1 : 0, g_settings.microphone ? 1 : 0,
+           g_settings.camera ? 1 : 0, g_settings.copilot ? 1 : 0,
+           g_settings.suppressNativeIndicators ? 1 : 0,
            g_cameraHardwareDetectionEnabled.load() ? 1 : 0,
-           g_cameraItemEnabled.load() ? 1 : 0,
-           g_copilotItemEnabled.load() ? 1 : 0,
            g_settings.glowEnabled ? 1 : 0, g_settings.glowStyle.c_str(),
            g_settings.glowOpacity, g_settings.glowSize,
            g_settings.glowSpeed);
