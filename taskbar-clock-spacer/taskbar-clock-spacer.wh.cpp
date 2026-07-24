@@ -304,7 +304,11 @@ struct SpacerState {
 // Wh_ModUninit is not called when Explorer terminates. Without this the vector's
 // destructor runs on the shutdown thread and releases XAML weak references off
 // their UI thread.
-[[clang::no_destroy]] static std::vector<SpacerState> g_states;
+// SpacerState holds only winrt::weak_ref and integers; weak_ref release is an
+// in-process refcount decrement, safe from any thread at shutdown, so the normal
+// destructor is correct and leak-free. A bare no_destroy here would only leak
+// the vector buffer on every unload (m417z, #4443).
+static std::vector<SpacerState> g_states;  // exit-time-safe: heap-only
 
 // ============================================================
 // XAML helpers
