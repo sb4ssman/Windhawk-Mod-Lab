@@ -1330,3 +1330,30 @@ one session, all under the no-push-without-live-test rule:
 - Started Step 3: curate the definitive `[[clang::no_destroy]]` resolution into
   the lifecycle template, then distribute it to #4443/#4843/#4855 one
   live-tested build at a time (VD Switcher already done).
+
+## 2026-07-24 — Settings contract v2, layout rewrite, VD Switcher v2.0
+
+- User rejected the "hybrid" Auto/Manual layout surface outright: the smart part
+  was not smart, the granular control was miserable, and the keyed nudge strings
+  had to be kept in sync with the layout expression. Thrown out and redesigned
+  from the bigger picture — templates and settings first.
+- Verified two platform facts that drove the design: nested settings groups work
+  and are review-clean (`taskbar-elastic-pill`, read as `Group.Key`), and the
+  Windhawk settings API is read-only, so no mod can write a computed value into
+  its own field. That killed "smart auto-fills the manual box" and produced the
+  single `Layout.Arrangement` field with an `auto` default plus a logged
+  expansion.
+- Checked all eight PR threads for maintainer pushback on settings backward
+  compatibility: none exists. The no-alias rule came from our own reverted v1.6
+  `AliasedStr`/`AliasedInt` experiment. Clean break confirmed with the user.
+- `settings-profiles.md` rewritten as the settings contract (commit `60204b3`);
+  `nested-group-layout.h` rewritten to v2.0; `smart-grid-layout.h` marked
+  SUPERSEDED; `verify-settings-order.ps1` added; layout tests rewritten and
+  passing (build with `-static`, or the test exe cannot find Windhawk's `.whl`
+  runtime).
+- Fixed a real gap in the lab tooling: `compile-check.ps1` and
+  `exit-time-destructor-audit.ps1` did not pass Windhawk's own Windows version
+  defines, so `GetDpiForWindow` failed to compile locally while building fine in
+  Windhawk.
+- VD Switcher rebuilt as v2.0 on the contract. All five gates green. Not pushed:
+  awaiting the live test, per the standing rule.

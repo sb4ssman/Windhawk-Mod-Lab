@@ -2,7 +2,7 @@
 // @id              taskbar-vd-switcher
 // @name            Taskbar Virtual Desktop Switcher
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
-// @version         1.8
+// @version         2.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -17,7 +17,7 @@
 A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
 
 ![Three desktops with lower master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/simple3wlowmaster.png)
-*Three desktops with the optional Task View master button as a lower sliver.*
+*Three desktops with the optional Task View button as a lower sliver.*
 
 ![Default tray placement — three numbered buttons, first active](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/simple3.png)
 *Default tray placement: three desktops in a row, desktop 1 active.*
@@ -26,10 +26,10 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 *Compact tray placement with two desktops.*
 
 ![Four desktops with master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/simple4wmaster.png)
-*Four desktops with the optional Task View master button.*
+*Four desktops with the optional Task View button.*
 
 ![Taller taskbar with right-side grid and lower master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/gridonrightwlowermaster.png)
-*Taller taskbar: a dense grid with the master button as a lower sliver.*
+*Taller taskbar: a dense grid with the Task View button as a lower sliver.*
 
 ![Left of Start button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/left-of-start.png)
 *Start placement: switcher reserved to the left of Start.*
@@ -48,69 +48,155 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 ## Features
 
-- Numbered, roman-numeral, customizable indicator-symbol, or custom-label buttons
-- Smart grid layout with balanced, vertical-pack, horizontal-pack, and fixed override modes
+- Numbered, roman-numeral, indicator-symbol, or custom-label buttons
+- Automatic grid that fits the buttons to the taskbar's height, or an arrangement you write yourself
 - Highlights the active desktop immediately on switch
-- Buttons appear/disappear as desktops are added or removed
-- Five placement positions within the system tray, plus experimental Start-adjacent and Start-overlay positions
-- Start placement modes: left of Start, over Start, and right of Start
+- Buttons appear and disappear as desktops are added or removed
+- Five tray positions, plus experimental Start-adjacent and Start-overlay positions
 - Configurable size, spacing, colors, opacity, and shine effect
-- Per-state text color, font size/family, corner radius, bold, and border
+- Per-state text color, font size and family, corner radius, bold, and border
 - Native checked states that can be targeted by Windows 11 Taskbar Styler
 - Tooltip on each button shows the desktop's display name
 - Option to hide the bar entirely when only one desktop exists
 - Experimental option to also show the switcher on secondary monitors' taskbars
 
+## Upgrading from 1.x
+
+Version 2.0 reorganizes every setting into groups — Placement, Content, Layout,
+Size, Adjust, Surface, State, Behavior — so this mod matches the rest of the
+family. Windhawk cannot carry values across renamed keys, so **your previous
+customizations are not migrated; re-apply them once after updating.**
+
+The layout settings collapsed into a single **Arrangement** field. Grid mode,
+smart layout, rows, columns, primary axis, cross alignment, the four padding
+sides, the vertical offset, and both nudge strings are gone; see below for what
+replaced them.
+
+## The Arrangement field
+
+`Layout` → `Arrangement` decides how the buttons are placed, and it is the only
+field that does. Its default value is the word `auto`:
+
+- **`auto`** fits the buttons to the available taskbar height. `Fill order`
+  chooses whether they fill across rows or down columns; `Short row or column`
+  aligns a ragged last group. The shape itself is worked out for you: the mod
+  takes the narrowest grid that fits the height, preferring the one that wastes
+  the fewest slots — four desktops on a double-height taskbar become a 2×2
+  block, not a lopsided 3+1.
+- **Anything else** is an arrangement you write. Names sit side by side with
+  `|` and stack with `,`, and parentheses group them:
+
+  ```text
+  1, 2 | 3, 4        a 2x2 block
+  1 | 2 | 3 | 4      a single row
+  1, 2, 3, 4         a single column
+  master | (1, 2)    Task View button left of a stacked pair
+  ```
+
+  Buttons are named by desktop number; the Task View button is `master`.
+
+Every time the layout is applied, the arrangement `auto` produced is written to
+the Windhawk log. Copy that line into the Arrangement field and you have the
+automatic layout as a starting point to edit — the automatic and manual paths
+are the same field and the same syntax.
+
+**Nudging one button.** Append a pixel offset to any name:
+
+```text
+1[+2,-1] | 2 | 3     desktop 1 moves 2px right and 1px up
+(1, 2) | master[0,2] Task View button drops 2px
+```
+
+The offset moves only that button. Nothing else shifts and the group's size
+does not change. To move the whole group instead, use `Adjust` → horizontal and
+vertical offset.
+
 ## Settings
+
+### Placement
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Position | After clock | Where to place the switcher: system tray positions, left/right of Start, or over Start |
-| Grid mode | Smart automatic | Smart, single row/column, fixed rows, fixed columns, or fixed grid |
-| Smart layout | Balanced | Balanced, pack vertical, or pack horizontal |
-| Fill order | Row-first | Row-first or column-first |
-| Rows | 0 (auto) | Fixed rows, or max rows for smart mode when set |
-| Columns | 0 (auto) | Fixed columns, or max columns for smart mode when set |
-| Short group alignment | Center | Align a shorter last row/column to start, center, or end |
-| Button width | 20 px | Width of each button |
-| Button height | 22 px | Height of each button |
-| Button spacing | 2 px | Gap between buttons in the grid |
+| Position | After clock | Tray position, or left of / over / right of Start |
+| Show on all taskbars | Off | Experimental; also injects into secondary monitors' taskbars |
+
+### Content
+
+| Setting | Default | Description |
+|---------|---------|-------------|
 | Label format | Numbers | Numbers · Roman numerals · Indicator symbols · Custom labels |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
-| Active indicator | ● | Current desktop's symbol in Indicator symbols mode; e.g. 🟢 for a red/green light look |
-| Inactive indicator | ○ | Other desktops' symbol in Indicator symbols mode; e.g. 🔴 |
-| Font size | 10 pt | Button label size |
-| Indicator font family | *(native)* | Font family for desktop labels and indicator symbols |
-| Active text color | *(native)* | Current desktop's label color |
-| Inactive text color | *(native)* | Other desktops' label color |
-| Active color | `accent` | Current desktop background; empty keeps the native surface |
-| Inactive color | *(native)* | Other desktop backgrounds; empty keeps the native button surface |
-| Hover background color | *(automatic)* | Forces one shared hover color; empty brightens each button's current background, native surfaces keep native hover |
-| Click background color | *(automatic)* | Forces one shared pressed color; empty darkens each button's current background, native surfaces keep native pressed |
-| Border color | *(native)* | Button border color |
-| Border thickness | 0 px | Button border width |
-| Corner radius | 4 px | Rounded corners (0 = square, 4 = Windows default) |
-| Opacity | 100 | 0–100; lower values let the taskbar show through |
+| Active indicator symbol | ● | Current desktop's symbol in Indicator symbols mode |
+| Inactive indicator symbol | ○ | Other desktops' symbol; e.g. 🔴 with 🟢 above |
+| Task View button | Off | Adds a button that opens Task View for previewing, creating, or closing desktops |
+| Task View button label | ⊞ | Text shown on that button |
+| Task View button placement | After | Where `auto` puts it: column before/after, or row above/below |
+
+### Layout
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Arrangement | `auto` | `auto`, or an arrangement you write — see above |
+| Fill order | Fill rows first | Used by `auto` |
+| Short row or column | Center | Used by `auto`; start, center, or end |
+
+### Size
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Button width | 20 px | |
+| Button height | 22 px | |
+| Button spacing | 2 px | Gap between buttons along each axis |
+| Task View button width | 14 px | |
+| Task View button height | 22 px | Set to about 6 for a thin sliver |
+
+### Adjust
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Horizontal padding | 0 px | Reserved on both sides of the group |
+| Vertical padding | 0 px | Reserved above and below the group |
+| Horizontal offset | 0 px | Moves the group; reserves no space |
+| Vertical offset | 0 px | Moves the group up (negative) or down (positive) |
+
+### Surface
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Font size | 10 pt | |
+| Font family | *(native)* | For desktop labels and indicator symbols |
+| Hover background color | *(automatic)* | Empty brightens each button's own background |
+| Click background color | *(automatic)* | Empty darkens each button's own background |
+| Border color | *(native)* | |
+| Border thickness | 0 px | |
+| Corner radius | 4 px | 0 = square, 4 = Windows default |
+| Opacity | 100 | Lower values let the taskbar show through |
 | Shine effect | Off | Gradient highlight on buttons with custom colors |
-| Active bold | Off | Bold the current desktop's label |
-| Padding left | 0 px | Extra space to the left of the button grid |
-| Padding right | 2 px | Extra space to the right of the button grid |
-| Hide when single | Off | Don't show the bar when only one desktop exists |
-| Show on all taskbars | Off | Experimental: also inject into secondary monitors' taskbars (tray positions only; may need an Explorer restart after enabling) |
-| Task View button | Off | Optional button that opens Task View for previewing, creating, or closing desktops |
-| Task View button label | ⊞ | Text shown on the Task View button |
-| Task View font family | *(native)* | Independent font family for the Task View label |
-| Task View button position | After | Column before/after desktop buttons, or sliver row above/below |
-| Task View button sliver height | 6 px | Height of the Task View button when used as a sliver row |
-| Task View button column width | 14 px | Width of the Task View button when used as a side column |
+| Task View font family | *(native)* | Independent font for the Task View label |
+
+### State
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Active desktop text color | *(native)* | |
+| Inactive button text color | *(native)* | |
+| Active desktop color | `accent` | Empty keeps the plain native surface |
+| Inactive button color | *(native)* | |
+| Bold the active desktop label | Off | |
+
+### Behavior
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Hide when only one desktop | Off | |
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
 honored), the generics `accent`, `accentLight`, and `accentDark` for the
 Windows accent shades, or `transparent` for a fully transparent surface —
 nothing drawn, element still present and clickable. Leaving a color empty
 keeps the native behavior described for that setting — including the Active
-color, where empty means the current desktop's button keeps the plain native
-surface with no highlight at all.
+desktop color, where empty means the current desktop's button keeps the plain
+native surface with no highlight at all.
 
 ## Taskbar Styler
 
@@ -150,299 +236,196 @@ This mod builds directly on patterns established by several community mods:
 
 // ==WindhawkModSettings==
 /*
-- position: "afterClock"
-  $name: Position
-  $description: Where in the system tray to inject the VD buttons
-  $options:
-  - "afterClock": "After clock (before Show Desktop)"
-  - "beforeClock": "Before clock (after OmniButton)"
-  - "beforeOmni": "Before OmniButton (wifi/vol/bat)"
-  - "beforeIcons": "Before notification icons"
-  - "afterShowDesktop": "After Show Desktop strip"
-  - "nextToStart": "Left of Start button (experimental)"
-  - "overStart": "Over Start button (experimental)"
-  - "rightOfStart": "Right of Start button (experimental)"
+- Placement:
+  - Position: "afterClock"
+    $name: Position
+    $description: Where to place the switcher on the taskbar.
+    $options:
+    - "beforeIcons": "Before notification icons"
+    - "beforeOmni": "Before network, volume, and battery"
+    - "beforeClock": "Before clock"
+    - "afterClock": "After clock"
+    - "afterShowDesktop": "After Show Desktop"
+    - "leftOfStart": "Left of Start (experimental)"
+    - "overStart": "Over Start (experimental)"
+    - "rightOfStart": "Right of Start (experimental)"
+  - AllTaskbars: false
+    $name: Show on all taskbars
+    $description: >-
+      Experimental. Also injects the switcher into secondary monitors'
+      taskbars, in the same position. Tray positions only - the Start
+      positions stay on the primary taskbar. Secondary taskbars are
+      discovered as their tray icons load, so after enabling this you may
+      need to restart Explorer before the buttons appear on other monitors.
+  $name: Placement
 
-- layoutMode: auto
-  $name: Layout mode
-  $description: >-
-    Auto arranges the buttons for you from the grid settings below and writes
-    the equivalent layout expression to the Windhawk log each time it applies.
-    Manual uses the Layout expression you type, ignoring the grid settings.
-    Switch to Manual and paste the logged expression to fine-tune Auto's result.
-  $options:
-  - auto: Auto (grid settings below)
-  - manual: Manual (layout expression)
+- Content:
+  - LabelFormat: "number"
+    $name: Label format
+    $options:
+    - "number": "Numbers  1  2  3"
+    - "roman": "Roman numerals  I  II  III"
+    - "symbol": "Indicator symbols  ●  ○  ○"
+    - "custom": "Custom labels"
+  - CustomLabels: ""
+    $name: Custom labels
+    $description: >-
+      Comma-separated, e.g. "H,W,M". Used when Label format is Custom. Falls
+      back to numbers if labels run out.
+  - ActiveSymbol: "●"
+    $name: Active indicator symbol
+    $description: >-
+      Shown for the current desktop when Label format is Indicator symbols.
+      For a red/green light look, paste a green circle here and a red one
+      below.
+  - InactiveSymbol: "○"
+    $name: Inactive indicator symbol
+    $description: Shown for the other desktops when Label format is Indicator symbols.
+  - TaskViewButton: false
+    $name: Task View button
+    $description: >-
+      Adds a button that opens Task View (Win+Tab), where you can preview all
+      desktops and create or close them.
+  - TaskViewLabel: "⊞"
+    $name: Task View button label
+  - TaskViewPlacement: "after"
+    $name: Task View button placement
+    $description: >-
+      Where the automatic arrangement puts the Task View button. Ignored when
+      you write your own arrangement - place the "master" name yourself.
+    $options:
+    - "before": "Column before the desktop buttons"
+    - "after": "Column after the desktop buttons"
+    - "above": "Row above the desktop buttons"
+    - "below": "Row below the desktop buttons"
+  $name: Content
 
-- layout: ""
-  $name: Layout expression
-  $description: >-
-    Used in Manual mode. Names separated by "|" sit side by side along the
-    primary axis; names separated by "," stack across it; parentheses nest.
-    Buttons are named by desktop number (1, 2, 3, ...) plus "master" for the
-    Task View button. Example: "1, 2 | 3, 4" is a 2x2 block. Empty falls back
-    to the automatic arrangement.
+- Layout:
+  - Arrangement: "auto"
+    $name: Arrangement
+    $description: >-
+      "auto" fits the buttons to the available taskbar height. Anything else
+      is an explicit arrangement: names side by side with "|", stacked with
+      ",", grouped with parentheses - "1, 2 | 3, 4" is a 2x2 block. Buttons
+      are named by desktop number, plus "master" for the Task View button.
+      Append a pixel offset to any name to nudge just that button, e.g.
+      "1[+2,-1]". Every time the layout is applied, the arrangement "auto"
+      produced is written to the Windhawk log, so you can paste it here and
+      edit it.
+  - FillOrder: "rows"
+    $name: Fill order
+    $description: Used by "auto". Whether buttons fill across rows or down columns first.
+    $options:
+    - "rows": "Fill rows first (left to right, then down)"
+    - "columns": "Fill columns first (top to bottom, then right)"
+  - Justify: "center"
+    $name: Short row or column
+    $description: Used by "auto". How a ragged last row or column is aligned.
+    $options:
+    - "start": "Start (top for columns, left for rows)"
+    - "center": "Center"
+    - "end": "End (bottom for columns, right for rows)"
+  $name: Layout
 
-- primaryAxis: horizontal
-  $name: Primary axis
-  $description: >-
-    Direction the top-level groups advance. Horizontal lays groups out as
-    columns; Vertical lays them as rows.
-  $options:
-  - horizontal: Horizontal (columns)
-  - vertical: Vertical (rows)
+- Size:
+  - ItemWidth: 20
+    $name: Button width (px)
+  - ItemHeight: 22
+    $name: Button height (px)
+  - ItemSpacing: 2
+    $name: Button spacing (px)
+    $description: Gap between buttons along each axis.
+  - TaskViewWidth: 14
+    $name: Task View button width (px)
+  - TaskViewHeight: 22
+    $name: Task View button height (px)
+    $description: >-
+      For a thin sliver above or below the desktop buttons, set this to
+      about 6.
+  $name: Size
 
-- gridMode: autoSmart
-  $name: Grid mode
-  $description: >-
-    Used in Auto layout mode. Chooses how the button grid shape is selected.
-    Auto smart picks a compact balanced layout that fits the available taskbar
-    height. Fixed modes use the Rows and/or Columns settings below.
-  $options:
-  - autoSmart: Smart automatic
-  - singleRow: Single row
-  - singleColumn: Single column
-  - fixedRows: Fixed rows
-  - fixedColumns: Fixed columns
-  - fixedGrid: Fixed rows and columns
+- Adjust:
+  - PadX: 0
+    $name: Horizontal padding (px)
+    $description: Space reserved on both sides of the button group.
+  - PadY: 0
+    $name: Vertical padding (px)
+    $description: Space reserved above and below the button group.
+  - OffsetX: 0
+    $name: Horizontal offset (px)
+    $description: Moves the whole group. Does not reserve space.
+  - OffsetY: 0
+    $name: Vertical offset (px)
+    $description: Moves the whole group up (negative) or down (positive) from centered.
+  $name: Adjust
 
-- smartLayout: balanced
-  $name: Smart layout
-  $description: >-
-    Used when Grid mode is Smart automatic. Balanced avoids awkward 3+1 layouts
-    when a cleaner 2x2 is possible. Vertical pack uses available height.
-    Horizontal pack prefers fewer rows.
-  $options:
-  - balanced: Balanced
-  - packVertical: Pack vertical
-  - packHorizontal: Pack horizontal
+- Surface:
+  - FontSize: 10
+    $name: Font size (pt)
+  - FontFamily: ""
+    $name: Font family
+    $description: >-
+      Font for the desktop labels and indicator symbols. Empty uses the
+      native font. For example, Segoe UI Emoji.
+  - HoverBackgroundColor: ""
+    $name: Hover background color
+    $description: >-
+      Hex (#RRGGBB or #AARRGGBB), accent / accentLight / accentDark, or
+      transparent, to force one shared hover color. Empty brightens each
+      button's own background; buttons on the native surface keep the native
+      hover.
+  - PressedBackgroundColor: ""
+    $name: Click background color
+    $description: >-
+      Hex, accent / accentLight / accentDark, or transparent, to force one
+      shared pressed color. Empty darkens each button's own background;
+      buttons on the native surface keep the native pressed state.
+  - BorderColor: ""
+    $name: Border color
+    $description: Hex, accent / accentLight / accentDark, or transparent. Empty uses the native border.
+  - BorderThickness: 0
+    $name: Border thickness (px)
+  - CornerRadius: 4
+    $name: Corner radius (px)
+    $description: 0 is square; 4 is the Windows default.
+  - Opacity: 100
+    $name: Opacity (%)
+    $description: 100 is fully opaque; lower values let the taskbar show through.
+  - ShineEffect: false
+    $name: Shine effect
+    $description: Adds a gradient highlight to buttons with a custom color.
+  - TaskViewFontFamily: ""
+    $name: Task View font family
+    $description: Font for the Task View button label. Empty uses the native font.
+  $name: Surface
 
-- fillOrder: rowFirst
-  $name: Fill order
-  $description: Whether desktop buttons fill across rows first or down columns first.
-  $options:
-  - rowFirst: Row-first (left to right, then down)
-  - columnFirst: Column-first (top to bottom, then right)
+- State:
+  - ActiveTextColor: ""
+    $name: Active desktop text color
+    $description: Hex, accent / accentLight / accentDark, or transparent. Empty uses the native text color.
+  - InactiveTextColor: ""
+    $name: Inactive button text color
+    $description: Hex, accent / accentLight / accentDark, or transparent. Empty uses the native text color.
+  - ActiveBackgroundColor: "accent"
+    $name: Active desktop color
+    $description: >-
+      Background for the current desktop's button. Hex, accent / accentLight
+      / accentDark, or transparent. Empty keeps the native button surface,
+      matching the other buttons.
+  - InactiveBackgroundColor: ""
+    $name: Inactive button color
+    $description: >-
+      Background for the other desktops' buttons. Hex, accent / accentLight /
+      accentDark, or transparent. Empty keeps the native button surface.
+  - ActiveBold: false
+    $name: Bold the active desktop label
+  $name: State
 
-- buttonRows: 0
-  $name: Rows (0 = auto)
-  $description: >-
-    In Fixed rows and Fixed grid modes: sets the exact row count. In Smart
-    automatic mode: acts as a maximum cap (0 = uncapped). Ignored in Single
-    row and Single column modes.
-
-- buttonColumns: 0
-  $name: Columns (0 = auto)
-  $description: >-
-    In Fixed columns and Fixed grid modes: sets the exact column count. In Smart
-    automatic mode: filters out layouts that would exceed this many columns (0 =
-    no limit). Ignored in Single row and Single column modes. In row-first fill,
-    3 columns with 4 desktops gives a 3+1 layout.
-
-- crossAlign: "center"
-  $name: Cross-axis alignment
-  $description: >-
-    How each group centers its items across the primary axis, including a short
-    last row or column. Center keeps a ragged group visually balanced.
-  $options:
-  - "start": "Start (top for columns, left for rows)"
-  - "center": "Center"
-  - "end": "End (bottom for columns, right for rows)"
-
-- buttonWidth: 20
-  $name: Button width (px)
-
-- buttonHeight: 22
-  $name: Button height (px)
-
-- buttonSpacing: 2
-  $name: Button spacing (px)
-  $description: Gap between buttons along each axis
-
-- nudge: ""
-  $name: Per-button nudge
-  $description: >-
-    Fine cosmetic offsets applied to whole buttons after placement, as
-    name:dx,dy in pixels, separated by ";" or new lines. Positive dx moves
-    right, positive dy moves down. Example: "1:+3,-1; master:0,-2".
-
-- contentNudge: ""
-  $name: Per-button content nudge
-  $description: >-
-    Like Per-button nudge, but shifts only the label/glyph inside a button,
-    not the button itself. Useful to optically center a tall glyph. Same
-    name:dx,dy format. Example: "master:0,1".
-
-- labelFormat: "number"
-  $name: Label format
-  $options:
-  - "number": "Numbers  1  2  3"
-  - "roman": "Roman numerals  I  II  III"
-  - "dot": "Indicator symbols  ●  ○  ○"
-  - "custom": "Custom labels"
-
-- customLabels: ""
-  $name: Custom labels (comma-separated, e.g. "H,W,M")
-  $description: Used when label format is Custom. Falls back to numbers if labels run out.
-
-- activeIndicator: "●"
-  $name: Active indicator symbol
-  $description: >-
-    Symbol or text shown for the current desktop when Label format is Indicator
-    symbols. For a red/green light look, paste 🟢 here and 🔴 below.
-
-- inactiveIndicator: "○"
-  $name: Inactive indicator symbol
-  $description: >-
-    Symbol or text shown for other desktops when Label format is Indicator
-    symbols. For a red/green light look, paste 🔴 here and 🟢 above.
-
-- fontSize: 10
-  $name: Font size (pt)
-
-- fontFamily: ""
-  $name: Indicator font family
-  $description: Font family for desktop labels and indicator symbols. Empty uses the native font. For example, Segoe UI Emoji.
-
-- activeTextColor: ""
-  $name: Active desktop text color
-  $description: Hex (#RRGGBB or #AARRGGBB), accent / accentLight / accentDark, or transparent. Empty uses the native text brush.
-
-- inactiveTextColor: ""
-  $name: Inactive button text color
-  $description: Hex (#RRGGBB or #AARRGGBB), accent / accentLight / accentDark, or transparent. Empty uses the native text brush.
-
-- activeColor: "accent"
-  $name: Active desktop color
-  $description: >-
-    Background for the current desktop's button. Enter a hex color (e.g.
-    "#4488FF"), accent / accentLight / accentDark for the Windows accent
-    shades, or transparent. Empty keeps the native button surface, matching
-    the other buttons.
-
-- inactiveColor: ""
-  $name: Inactive button color
-  $description: >-
-    Background for the other desktops' buttons. Hex, accent / accentLight /
-    accentDark, or transparent. Empty keeps the native button surface.
-
-- hoverBackgroundColor: ""
-  $name: Hover background color
-  $description: >-
-    Hex, accent / accentLight / accentDark, or transparent, to force one
-    shared hover color on all buttons. Empty brightens each button's current
-    background; buttons on the native surface keep the native hover behavior.
-
-- pressedBackgroundColor: ""
-  $name: Click background color
-  $description: >-
-    Hex, accent / accentLight / accentDark, or transparent, to force one
-    shared pressed color on all buttons. Empty darkens each button's current
-    background; buttons on the native surface keep the native pressed
-    behavior.
-
-- borderColor: ""
-  $name: Button border color
-  $description: Hex (#RRGGBB or #AARRGGBB), accent / accentLight / accentDark, or transparent. Empty uses the native border brush.
-
-- borderThickness: 0
-  $name: Button border thickness (px)
-
-- cornerRadius: 4
-  $name: Corner radius (px)
-  $description: Rounded corners on buttons (0 = square, 4 = Windows default)
-
-- buttonOpacity: 100
-  $name: Button opacity (0–100)
-  $description: 100 = fully opaque; lower values let the taskbar show through
-
-- shineEffect: false
-  $name: Shine effect
-  $description: Adds a subtle gradient highlight. Applies when a custom color is set.
-
-- activeBold: false
-  $name: Bold active desktop label
-
-- paddingLeft: 0
-  $name: Padding left (px)
-  $description: Space between the left edge of the button group and its neighbor
-
-- paddingTop: 0
-  $name: Padding top (px)
-  $description: Space above the button group
-
-- paddingRight: 2
-  $name: Padding right (px)
-  $description: Space between the right edge of the button group and its neighbor
-
-- paddingBottom: 0
-  $name: Padding bottom (px)
-  $description: Space below the button group
-
-- gridVerticalOffset: 0
-  $name: Vertical offset (px)
-  $description: >-
-    Nudge the entire button grid up (negative) or down (positive) from its
-    centered position. 0 = auto-centered. Applies after automatic centering,
-    so it works in combination with all grid and sliver settings.
-
-- hideWhenSingle: false
-  $name: Hide when only one desktop
-  $description: Don't show the button bar when there is only one virtual desktop
-
-- multiMonitor: false
-  $name: Show on all taskbars (experimental)
-  $description: >-
-    Also injects the switcher into secondary monitors' taskbars, in the same
-    tray position. Tray positions only - the Start positions stay on the
-    primary taskbar. Secondary taskbars are discovered as their tray icons
-    load, so after enabling this you may need to restart Explorer (or toggle
-    the mod off and on) before the buttons appear on other monitors.
-
-- showMasterButton: false
-  $name: Show Task View button
-  $description: >-
-    Adds a button that opens Task View (Win+Tab), where you can preview all
-    desktops and create or close them.
-
-- masterButtonLabel: "⊞"
-  $name: Task View button label
-  $description: Text shown on the Task View button.
-
-- masterButtonFontFamily: ""
-  $name: Task View font family
-  $description: Font family for the Task View button label. Empty uses the native font.
-
-- masterButtonPosition: "after"
-  $name: Task View button position
-  $options:
-  - "before": "Column before desktop buttons"
-  - "after": "Column after desktop buttons"
-  - "bottom": "Sliver below desktop buttons"
-  - "top": "Sliver above desktop buttons"
-
-- masterButtonHeight: 6
-  $name: Sliver height (px)
-  $description: >-
-    Row height of the Task View button when placed above or below the desktop buttons
-    (Top or Bottom positions). Larger values cause the sliver to peek further past
-    the taskbar edge. Not used in Before or After (column) positions.
-
-- masterButtonWidth: 14
-  $name: Task View column width (px)
-  $description: >-
-    Column width of the Task View button when placed before or after the desktop
-    buttons (Before or After positions). Not used in Top or Bottom (sliver) positions.
-
-- masterButtonSpacing: 0
-  $name: Sliver gap offset (px)
-  $description: >-
-    Only applies to Top or Bottom (sliver) positions. Extra space added between the
-    sliver button and the desktop buttons, beyond the normal button spacing. 0 =
-    no extra gap. Positive = sliver button retreats from desktop buttons (larger
-    gap, smaller sliver). Negative = sliver button advances toward or overlaps the
-    desktop buttons. Does not affect desktop button centering. To control how far
-    the sliver peeks past the taskbar edge, adjust Sliver height.
+- Behavior:
+  - HideWhenSingle: false
+    $name: Hide when only one desktop
+    $description: Don't show the buttons when there is only one virtual desktop.
+  $name: Behavior
 */
 // ==/WindhawkModSettings==
 
@@ -490,54 +473,54 @@ using winrt::Windows::UI::Xaml::Controls::Primitives::ToggleButton;
 // Settings
 // ============================================================
 
+// Field names mirror the settings contract in _templates/settings-profiles.md:
+// one nested group per concern, canonical keys in canonical order.
 struct ModSettings {
-    std::wstring position      = L"afterClock";
-    int buttonWidth            = 20;
-    int buttonHeight           = 22;
-    int buttonSpacing          = 2;
-    int buttonRows             = 0;
-    int buttonColumns          = 0;
-    std::wstring activeColor   = L"accent";
-    std::wstring inactiveColor = L"";
+    // Placement
+    std::wstring position          = L"afterClock";
+    bool         allTaskbars       = false;
+    // Content
+    std::wstring labelFormat       = L"number";
+    std::wstring customLabels      = L"";
+    std::wstring activeSymbol      = L"●";
+    std::wstring inactiveSymbol    = L"○";
+    bool         taskViewButton    = false;
+    std::wstring taskViewLabel     = L"⊞";
+    std::wstring taskViewPlacement = L"after";
+    // Layout
+    std::wstring arrangement       = L"auto";
+    std::wstring fillOrder         = L"rows";
+    std::wstring justify           = L"center";
+    // Size
+    int          itemWidth         = 20;
+    int          itemHeight        = 22;
+    int          itemSpacing       = 2;
+    int          taskViewWidth     = 14;
+    int          taskViewHeight    = 22;
+    // Adjust
+    int          padX              = 0;
+    int          padY              = 0;
+    int          offsetX           = 0;
+    int          offsetY           = 0;
+    // Surface
+    int          fontSize          = 10;
+    std::wstring fontFamily        = L"";
     std::wstring hoverBackgroundColor;
     std::wstring pressedBackgroundColor;
-    int buttonOpacity          = 100;
-    bool shineEffect           = false;
-    std::wstring labelFormat      = L"number";
-    std::wstring customLabels     = L"";
-    std::wstring activeIndicator  = L"●";
-    std::wstring inactiveIndicator= L"○";
-    std::wstring activeTextColor  = L"";
-    std::wstring inactiveTextColor= L"";
-    int fontSize                  = 10;
-    std::wstring fontFamily       = L"";
-    int cornerRadius              = 4;
-    bool activeBold               = false;
-    int borderThickness           = 0;
-    std::wstring borderColor      = L"";
-    bool hideWhenSingle           = false;
-    bool multiMonitor             = false;
-    int paddingLeft               = 0;
-    int paddingTop                = 0;
-    int paddingRight              = 2;
-    int paddingBottom             = 0;
-    std::wstring layoutMode          = L"auto";
-    std::wstring layout              = L"";
-    std::wstring primaryAxis         = L"horizontal";
-    std::wstring gridMode            = L"autoSmart";
-    std::wstring smartLayout         = L"balanced";
-    std::wstring fillOrder           = L"rowFirst";
-    std::wstring crossAlign          = L"center";
-    std::wstring nudge               = L"";
-    std::wstring contentNudge        = L"";
-    bool         showMasterButton     = false;
-    std::wstring masterButtonLabel    = L"⊞"; // ⊞
-    std::wstring masterButtonFontFamily = L"";
-    std::wstring masterButtonPosition = L"after";
-    int          masterButtonHeight   = 6;
-    int          masterButtonWidth    = 14;
-    int          masterButtonSpacing  = 0;
-    int          gridVerticalOffset   = 0;
+    std::wstring borderColor       = L"";
+    int          borderThickness   = 0;
+    int          cornerRadius      = 4;
+    int          opacity           = 100;
+    bool         shineEffect       = false;
+    std::wstring taskViewFontFamily = L"";
+    // State
+    std::wstring activeTextColor   = L"";
+    std::wstring inactiveTextColor = L"";
+    std::wstring activeBackgroundColor   = L"accent";
+    std::wstring inactiveBackgroundColor = L"";
+    bool         activeBold        = false;
+    // Behavior
+    bool         hideWhenSingle    = false;
 };
 // ModSettings holds only std::wstring/int/bool, so its destructor is safe to
 // run at process shutdown; no [[clang::no_destroy]] needed, and adding it would
@@ -551,65 +534,64 @@ static void LoadSettings() {
         Wh_FreeStringSetting(p);
         return r;
     };
-    g_settings.position       = Str(L"position");
-    g_settings.buttonWidth    = Wh_GetIntSetting(L"buttonWidth");
-    g_settings.buttonHeight   = Wh_GetIntSetting(L"buttonHeight");
-    g_settings.buttonSpacing  = Wh_GetIntSetting(L"buttonSpacing");
-    g_settings.buttonRows     = std::max(Wh_GetIntSetting(L"buttonRows"), 0);
-    g_settings.buttonColumns  = std::max(Wh_GetIntSetting(L"buttonColumns"), 0);
-    g_settings.activeColor    = Str(L"activeColor");
-    g_settings.inactiveColor  = Str(L"inactiveColor");
-    g_settings.hoverBackgroundColor = Str(L"hoverBackgroundColor");
-    g_settings.pressedBackgroundColor = Str(L"pressedBackgroundColor");
-    g_settings.buttonOpacity  = Wh_GetIntSetting(L"buttonOpacity");
-    g_settings.shineEffect    = Wh_GetIntSetting(L"shineEffect") != 0;
-    g_settings.labelFormat       = Str(L"labelFormat");
-    g_settings.customLabels      = Str(L"customLabels");
-    g_settings.activeIndicator   = Str(L"activeIndicator");
-    g_settings.inactiveIndicator = Str(L"inactiveIndicator");
-    g_settings.activeTextColor   = Str(L"activeTextColor");
-    g_settings.inactiveTextColor = Str(L"inactiveTextColor");
-    g_settings.fontSize          = Wh_GetIntSetting(L"fontSize");
-    g_settings.fontFamily        = Str(L"fontFamily");
-    g_settings.cornerRadius      = Wh_GetIntSetting(L"cornerRadius");
-    g_settings.activeBold        = Wh_GetIntSetting(L"activeBold") != 0;
-    g_settings.borderThickness   = Wh_GetIntSetting(L"borderThickness");
-    g_settings.borderColor       = Str(L"borderColor");
-    g_settings.hideWhenSingle    = Wh_GetIntSetting(L"hideWhenSingle") != 0;
-    g_settings.multiMonitor      = Wh_GetIntSetting(L"multiMonitor") != 0;
-    g_settings.paddingLeft       = Wh_GetIntSetting(L"paddingLeft");
-    g_settings.paddingTop        = Wh_GetIntSetting(L"paddingTop");
-    g_settings.paddingRight      = Wh_GetIntSetting(L"paddingRight");
-    g_settings.paddingBottom     = Wh_GetIntSetting(L"paddingBottom");
-    g_settings.layoutMode           = Str(L"layoutMode");
-    g_settings.layout               = Str(L"layout");
-    g_settings.primaryAxis          = Str(L"primaryAxis");
-    g_settings.gridMode             = Str(L"gridMode");
-    g_settings.smartLayout          = Str(L"smartLayout");
-    g_settings.fillOrder            = Str(L"fillOrder");
-    g_settings.crossAlign           = Str(L"crossAlign");
-    g_settings.nudge                = Str(L"nudge");
-    g_settings.contentNudge         = Str(L"contentNudge");
-    g_settings.showMasterButton     = Wh_GetIntSetting(L"showMasterButton") != 0;
-    g_settings.masterButtonLabel    = Str(L"masterButtonLabel");
-    g_settings.masterButtonFontFamily = Str(L"masterButtonFontFamily");
-    g_settings.masterButtonPosition = Str(L"masterButtonPosition");
-    g_settings.masterButtonHeight   = std::max(1, Wh_GetIntSetting(L"masterButtonHeight"));
-    g_settings.masterButtonWidth    = std::max(1, Wh_GetIntSetting(L"masterButtonWidth"));
-    g_settings.masterButtonSpacing  = Wh_GetIntSetting(L"masterButtonSpacing");
-    g_settings.gridVerticalOffset   = Wh_GetIntSetting(L"gridVerticalOffset");
+    auto Int = [](const wchar_t* k) { return Wh_GetIntSetting(k); };
+    auto Bool = [](const wchar_t* k) { return Wh_GetIntSetting(k) != 0; };
+
+    g_settings.position          = Str(L"Placement.Position");
+    g_settings.allTaskbars       = Bool(L"Placement.AllTaskbars");
+
+    g_settings.labelFormat       = Str(L"Content.LabelFormat");
+    g_settings.customLabels      = Str(L"Content.CustomLabels");
+    g_settings.activeSymbol      = Str(L"Content.ActiveSymbol");
+    g_settings.inactiveSymbol    = Str(L"Content.InactiveSymbol");
+    g_settings.taskViewButton    = Bool(L"Content.TaskViewButton");
+    g_settings.taskViewLabel     = Str(L"Content.TaskViewLabel");
+    g_settings.taskViewPlacement = Str(L"Content.TaskViewPlacement");
+
+    g_settings.arrangement       = Str(L"Layout.Arrangement");
+    g_settings.fillOrder         = Str(L"Layout.FillOrder");
+    g_settings.justify           = Str(L"Layout.Justify");
+
+    g_settings.itemWidth         = std::max(1, Int(L"Size.ItemWidth"));
+    g_settings.itemHeight        = std::max(1, Int(L"Size.ItemHeight"));
+    g_settings.itemSpacing       = std::max(0, Int(L"Size.ItemSpacing"));
+    g_settings.taskViewWidth     = std::max(1, Int(L"Size.TaskViewWidth"));
+    g_settings.taskViewHeight    = std::max(1, Int(L"Size.TaskViewHeight"));
+
+    g_settings.padX              = std::max(0, Int(L"Adjust.PadX"));
+    g_settings.padY              = std::max(0, Int(L"Adjust.PadY"));
+    g_settings.offsetX           = Int(L"Adjust.OffsetX");
+    g_settings.offsetY           = Int(L"Adjust.OffsetY");
+
+    g_settings.fontSize          = Int(L"Surface.FontSize");
+    g_settings.fontFamily        = Str(L"Surface.FontFamily");
+    g_settings.hoverBackgroundColor   = Str(L"Surface.HoverBackgroundColor");
+    g_settings.pressedBackgroundColor = Str(L"Surface.PressedBackgroundColor");
+    g_settings.borderColor       = Str(L"Surface.BorderColor");
+    g_settings.borderThickness   = Int(L"Surface.BorderThickness");
+    g_settings.cornerRadius      = Int(L"Surface.CornerRadius");
+    g_settings.opacity           = Int(L"Surface.Opacity");
+    g_settings.shineEffect       = Bool(L"Surface.ShineEffect");
+    g_settings.taskViewFontFamily = Str(L"Surface.TaskViewFontFamily");
+
+    g_settings.activeTextColor   = Str(L"State.ActiveTextColor");
+    g_settings.inactiveTextColor = Str(L"State.InactiveTextColor");
+    g_settings.activeBackgroundColor   = Str(L"State.ActiveBackgroundColor");
+    g_settings.inactiveBackgroundColor = Str(L"State.InactiveBackgroundColor");
+    g_settings.activeBold        = Bool(L"State.ActiveBold");
+
+    g_settings.hideWhenSingle    = Bool(L"Behavior.HideWhenSingle");
 
     auto shownColor = [](std::wstring const& value) {
         return value.empty() ? L"<empty/automatic>" : value.c_str();
     };
     Wh_Log(L"[Settings] colors active=%ls inactive=%ls hover=%ls pressed=%ls border=%ls",
-           shownColor(g_settings.activeColor),
-           shownColor(g_settings.inactiveColor),
+           shownColor(g_settings.activeBackgroundColor),
+           shownColor(g_settings.inactiveBackgroundColor),
            shownColor(g_settings.hoverBackgroundColor),
            shownColor(g_settings.pressedBackgroundColor),
            shownColor(g_settings.borderColor));
 }
-
 // ============================================================
 // Globals
 // ============================================================
@@ -1271,21 +1253,25 @@ void SwitchToDesktop(int targetIndex) {
 }
 
 // ============================================================
-// Unified element placement — nested-group-layout template v1.2
-// Copy-source: _templates/nested-group-layout.h. Pixel-space placement from
-// one nestable layout expression, four-side outer padding, first-class
-// per-element nudge, and the BuildGridExpression bridge (smart-grid shape ->
-// expression). This is the single arranger; Auto mode generates an expression
-// from the grid settings, Manual mode uses the user's expression, and both end
-// at Compute.
+// Unified element placement -- nested-group-layout template v2.0
+// Copy-source: _templates/nested-group-layout.h. One expression, one
+// setting: Layout.Arrangement is either the word "auto" (this file picks
+// the shape and emits the expression, which the mod logs) or an explicit
+// expression. Per-item offsets ride in that same string as "1[+2,-1]".
 // ============================================================
 
+#include <algorithm>
 #include <cwctype>
+#include <cstdlib>
+#include <functional>
+#include <string>
+#include <vector>
 
 namespace windhawk_mod_templates::nested_group_layout {
 
-enum class Axis { Horizontal, Vertical };
-enum class CrossAlign { Start, Center, End };
+enum class Axis { Horizontal, Vertical };  // node orientation, not a setting
+enum class Justify { Start, Center, End };
+enum class FillOrder { Rows, Columns };
 
 struct Size {
     double width = 0.0;
@@ -1293,28 +1279,17 @@ struct Size {
     bool Empty() const { return width <= 0.0 || height <= 0.0; }
 };
 
-// Cosmetic per-element nudge, applied to a leaf's final position without
-// affecting measurement or the placement of any other item.
+// Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
 struct Offset {
     double x = 0.0;
     double y = 0.0;
 };
 
-// Outer margin around the whole arranged group. Each side is individually
-// addressable for granular control; padding never participates in a group's
-// internal cross-axis centering.
-struct Padding {
-    double left = 0.0;
-    double top = 0.0;
-    double right = 0.0;
-    double bottom = 0.0;
-};
-
 struct Config {
-    Axis primaryAxis = Axis::Horizontal;
     double spacing = 0.0;
-    CrossAlign crossAlign = CrossAlign::Center;
-    Padding padding{};
+    Justify justify = Justify::Center;
+    double padX = 0.0;  // reserved on BOTH left and right
+    double padY = 0.0;  // reserved on BOTH top and bottom
 };
 
 struct Placement {
@@ -1326,71 +1301,108 @@ struct Placement {
 
 struct Node {
     std::wstring token;            // non-empty = leaf
+    Offset offset;                 // leaf only, from the "[dx,dy]" suffix
     std::vector<Node> children;    // group children, laid along axis
     Axis axis = Axis::Horizontal;  // group axis (unused for leaves)
 };
 
 class Parser {
 public:
-    Parser(std::wstring const& text, Axis axis)
-        : text_(text), axis_(axis) {}
+    explicit Parser(std::wstring const& text) : text_(text) {}
 
     bool Run(Node& root) {
         position_ = 0;
         valid_ = true;
-        root = ParseExpr(axis_);
+        root = ParseExpr();
         SkipSpace();
         return valid_ && position_ >= text_.size();
     }
 
 private:
-    Node ParseExpr(Axis axis) {
+    Node ParseExpr() {
         Node node;
-        node.axis = axis;
-        node.children.push_back(ParseStack(axis));
+        node.axis = Axis::Horizontal;
+        node.children.push_back(ParseStack());
         while (Peek() == L'|') {
             ++position_;
-            node.children.push_back(ParseStack(axis));
+            node.children.push_back(ParseStack());
         }
         return node;
     }
 
-    Node ParseStack(Axis axis) {
+    Node ParseStack() {
         Node node;
-        node.axis = axis == Axis::Horizontal ? Axis::Vertical
-                                             : Axis::Horizontal;
-        node.children.push_back(ParseUnit(axis));
+        node.axis = Axis::Vertical;
+        node.children.push_back(ParseUnit());
         while (Peek() == L',') {
             ++position_;
-            node.children.push_back(ParseUnit(axis));
+            node.children.push_back(ParseUnit());
         }
         return node;
     }
 
-    Node ParseUnit(Axis axis) {
+    Node ParseUnit() {
         SkipSpace();
         if (position_ < text_.size() && text_[position_] == L'(') {
             ++position_;
-            Node inner = ParseExpr(axis);
+            Node inner = ParseExpr();
             SkipSpace();
-            if (position_ < text_.size() && text_[position_] == L')') {
+            if (position_ < text_.size() && text_[position_] == L')')
                 ++position_;
-            } else {
+            else
                 valid_ = false;
-            }
             return inner;
         }
+
         Node leaf;
         size_t start = position_;
-        while (position_ < text_.size() &&
-               text_[position_] != L'|' && text_[position_] != L',' &&
-               text_[position_] != L'(' && text_[position_] != L')' &&
-               !iswspace(text_[position_]))
+        while (position_ < text_.size() && !IsDelimiter(text_[position_]))
             ++position_;
         leaf.token = text_.substr(start, position_ - start);
-        if (leaf.token.empty())
+        if (leaf.token.empty()) {
             valid_ = false;
+            return leaf;
+        }
+        if (position_ < text_.size() && text_[position_] == L'[')
+            leaf.offset = ParseOffset();
         return leaf;
+    }
+
+    // "[dx,dy]" — signs optional, spaces allowed, both components required.
+    Offset ParseOffset() {
+        ++position_;  // consume '['
+        Offset offset;
+        offset.x = ParseNumber();
+        SkipSpace();
+        if (position_ < text_.size() && text_[position_] == L',')
+            ++position_;
+        else
+            valid_ = false;
+        offset.y = ParseNumber();
+        SkipSpace();
+        if (position_ < text_.size() && text_[position_] == L']')
+            ++position_;
+        else
+            valid_ = false;
+        return offset;
+    }
+
+    double ParseNumber() {
+        SkipSpace();
+        wchar_t* end = nullptr;
+        double value = std::wcstod(text_.c_str() + position_, &end);
+        size_t consumed = end ? (size_t)(end - (text_.c_str() + position_)) : 0;
+        if (!consumed) {
+            valid_ = false;
+            return 0.0;
+        }
+        position_ += consumed;
+        return value;
+    }
+
+    static bool IsDelimiter(wchar_t c) {
+        return c == L'|' || c == L',' || c == L'(' || c == L')' ||
+               c == L'[' || c == L']' || iswspace(c);
     }
 
     wchar_t Peek() {
@@ -1404,19 +1416,15 @@ private:
     }
 
     std::wstring const& text_;
-    Axis axis_;
     size_t position_ = 0;
     bool valid_ = true;
 };
 
-inline bool Parse(std::wstring const& text, Axis primaryAxis, Node& root) {
-    return Parser(text, primaryAxis).Run(root);
+inline bool Parse(std::wstring const& text, Node& root) {
+    return Parser(text).Run(root);
 }
 
 using SizeResolver = std::function<Size(std::wstring const&)>;
-// Optional per-element nudge. Return {0,0} (or leave the resolver empty) for
-// no offset. Only leaf tokens are offset.
-using OffsetResolver = std::function<Offset(std::wstring const&)>;
 
 inline Size Measure(Node const& node, Config const& config,
                     SizeResolver const& resolve) {
@@ -1445,15 +1453,13 @@ inline Size Measure(Node const& node, Config const& config,
 }
 
 inline void Arrange(Node const& node, Config const& config,
-                    SizeResolver const& resolve,
-                    OffsetResolver const& offset, double x, double y,
+                    SizeResolver const& resolve, double x, double y,
                     std::vector<Placement>& out) {
     if (!node.token.empty()) {
         Size size = resolve(node.token);
-        if (!size.Empty()) {
-            Offset nudge = offset ? offset(node.token) : Offset{};
-            out.push_back({node.token, x + nudge.x, y + nudge.y, size});
-        }
+        if (!size.Empty())
+            out.push_back(
+                {node.token, x + node.offset.x, y + node.offset.y, size});
         return;
     }
 
@@ -1468,84 +1474,134 @@ inline void Arrange(Node const& node, Config const& config,
         double unused = node.axis == Axis::Horizontal
                             ? total.height - size.height
                             : total.width - size.width;
-        double crossOffset =
-            config.crossAlign == CrossAlign::Center ? unused / 2.0
-            : config.crossAlign == CrossAlign::End  ? unused
-                                                    : 0.0;
+        double crossOffset = config.justify == Justify::Center ? unused / 2.0
+                             : config.justify == Justify::End  ? unused
+                                                               : 0.0;
         if (node.axis == Axis::Horizontal) {
-            Arrange(child, config, resolve, offset, cursor, y + crossOffset,
-                    out);
+            Arrange(child, config, resolve, cursor, y + crossOffset, out);
             cursor += size.width + config.spacing;
         } else {
-            Arrange(child, config, resolve, offset, x + crossOffset, cursor,
-                    out);
+            Arrange(child, config, resolve, x + crossOffset, cursor, out);
             cursor += size.height + config.spacing;
         }
     }
 }
 
-// Parse + measure + arrange in one call. Returns false only on a parse
-// error. placements come back in expression order; totalSize is the group's
-// bounding size INCLUDING outer padding. Per-element nudge shifts a leaf
-// inside its slot and does not change totalSize or any neighbor.
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+// placements come back in expression order; totalSize is the group's bounding
+// box INCLUDING outer padding. A per-item offset shifts its leaf without
+// changing totalSize or any neighbor.
 inline bool Compute(std::wstring const& text, Config const& config,
                     SizeResolver const& resolve,
-                    OffsetResolver const& offset,
                     std::vector<Placement>& placements, Size& totalSize) {
     Node root;
-    if (!Parse(text, config.primaryAxis, root))
+    if (!Parse(text, root))
         return false;
     Size inner = Measure(root, config, resolve);
     placements.clear();
     if (inner.Empty()) {
+        // No visible items: an empty group has no padded box either.
         totalSize = {};
         return true;
     }
-    Arrange(root, config, resolve, offset, config.padding.left,
-            config.padding.top, placements);
-    totalSize = {inner.width + config.padding.left + config.padding.right,
-                 inner.height + config.padding.top + config.padding.bottom};
+    Arrange(root, config, resolve, config.padX, config.padY, placements);
+    totalSize = {inner.width + config.padX * 2.0,
+                 inner.height + config.padY * 2.0};
     return true;
 }
 
-inline bool Compute(std::wstring const& text, Config const& config,
-                    SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize) {
-    return Compute(text, config, resolve, OffsetResolver{}, placements,
-                   totalSize);
+// ---- Taskbar metrics --------------------------------------------------------
+//
+// The taskbar rect comes from GetWindowRect in PHYSICAL pixels while every XAML
+// size is a DIP. Dividing one by the other is the DPI bug flagged on PR #4855
+// (blocking) and #4843. The mod supplies the raw numbers:
+//
+//   RECT r{}; GetWindowRect(hTaskbarWnd, &r);
+//   int rows = AvailableRows(r.bottom - r.top, GetDpiForWindow(hTaskbarWnd),
+//                            itemHeight, spacing);
+
+inline double PixelsToDip(double physicalPixels, unsigned dpi) {
+    return dpi ? physicalPixels * 96.0 / (double)dpi : physicalPixels;
 }
 
-// Turn a rows x columns grid into an expression, so a shape heuristic can feed
-// this arranger instead of being a second placement engine. Positions fill
-// row-major when rowMajor is true (index = row*columns + column) or
-// column-major otherwise. Grid positions whose index is >= count are left
-// empty, so a ragged final row/column just yields fewer tokens; the result is
-// always a valid expression. The token for each item comes from namer(index).
-using GridTokenNamer = std::function<std::wstring(int index)>;
+// How many item rows fit in the taskbar. Pitch is one item plus one gap; the
+// trailing gap of the last row is not required, hence the + spacing.
+inline int AvailableRows(double taskbarHeightPx, unsigned dpi,
+                         double itemHeight, double spacing) {
+    double heightDip = PixelsToDip(taskbarHeightPx, dpi);
+    double pitch = itemHeight + std::max(0.0, spacing);
+    if (pitch <= 0.0 || heightDip <= 0.0)
+        return 1;
+    return std::max(1, (int)((heightDip + std::max(0.0, spacing)) / pitch));
+}
+
+// ---- The auto shape ---------------------------------------------------------
+//
+// Deterministic, not scored. Take the smallest column count reachable within
+// the available rows — that is what "use the taskbar's height" means — and
+// among the row counts that produce it, the one with the fewest empty slots.
+// So 4 items with 3 rows available gives 2x2 rather than a ragged 3+1, and 5
+// items with 4 rows available gives 3x2 rather than 4+1.
+
+struct Shape {
+    int rows = 1;
+    int columns = 1;
+};
+
+inline Shape ChooseShape(int count, int maxRows) {
+    if (count <= 0)
+        return {0, 0};
+    int limit = std::max(1, std::min(maxRows, count));
+    Shape best{1, count};
+    int bestWaste = 0;
+    bool first = true;
+    for (int rows = 1; rows <= limit; ++rows) {
+        int columns = (count + rows - 1) / rows;
+        int waste = rows * columns - count;
+        if (first || columns < best.columns ||
+            (columns == best.columns && waste < bestWaste)) {
+            first = false;
+            best = {rows, columns};
+            bestWaste = waste;
+        }
+    }
+    return best;
+}
+
+// ---- Expression generation --------------------------------------------------
+//
+// Turn a rows x columns shape into an expression so the auto path and the
+// manual path are the same code below this point. Positions fill row-major
+// (left to right, then down) for FillOrder::Rows or column-major (top to
+// bottom, then right) for FillOrder::Columns. Grid positions past `count` are
+// simply absent, so a ragged final row or column yields fewer tokens and the
+// result is always a valid expression. Justify aligns that ragged group.
+//
+// Tokens come from namer(index); the default names items by 1-based number,
+// matching what a user reads on screen. The caller's SizeResolver must map
+// those same names back to pixel sizes.
+
+using TokenNamer = std::function<std::wstring(int index)>;
 
 inline std::wstring BuildGridExpression(int count, int rows, int columns,
-                                        Axis primaryAxis, bool rowMajor,
-                                        GridTokenNamer const& namer = {}) {
+                                        FillOrder fill,
+                                        TokenNamer const& namer = {}) {
     if (count <= 0 || rows <= 0 || columns <= 0)
         return {};
 
     auto name = [&](int index) -> std::wstring {
-        return namer ? namer(index) : std::to_wstring(index);
-    };
-    auto indexAt = [&](int row, int column) -> int {
-        return rowMajor ? row * columns + column : column * rows + row;
+        return namer ? namer(index) : std::to_wstring(index + 1);
     };
 
-    int outerCount = primaryAxis == Axis::Horizontal ? columns : rows;
-    int innerCount = primaryAxis == Axis::Horizontal ? rows : columns;
-
+    // '|' groups are columns, ',' units are rows, always.
     std::wstring expr;
-    for (int outer = 0; outer < outerCount; ++outer) {
+    for (int column = 0; column < columns; ++column) {
         std::wstring stack;
-        for (int inner = 0; inner < innerCount; ++inner) {
-            int row = primaryAxis == Axis::Horizontal ? inner : outer;
-            int column = primaryAxis == Axis::Horizontal ? outer : inner;
-            int index = indexAt(row, column);
+        for (int row = 0; row < rows; ++row) {
+            int index = fill == FillOrder::Rows ? row * columns + column
+                                                : column * rows + row;
             if (index < 0 || index >= count)
                 continue;
             if (!stack.empty())
@@ -1561,7 +1617,47 @@ inline std::wstring BuildGridExpression(int count, int rows, int columns,
     return expr;
 }
 
-} // namespace windhawk_mod_templates::nested_group_layout
+inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
+                                        TokenNamer const& namer = {}) {
+    Shape shape = ChooseShape(count, maxRows);
+    return BuildGridExpression(count, shape.rows, shape.columns, fill, namer);
+}
+
+// ---- The one setting --------------------------------------------------------
+//
+// Resolve `Layout.Arrangement` to the expression to arrange. Empty or the word
+// "auto" (any case, surrounding space ignored) means generate one. The caller
+// logs the result when wasAuto is true so the user can paste it back into the
+// same field and edit it.
+
+struct Arrangement {
+    std::wstring expression;
+    bool wasAuto = false;
+};
+
+inline bool IsAutoSetting(std::wstring const& setting) {
+    size_t first = setting.find_first_not_of(L" \t\r\n");
+    if (first == std::wstring::npos)
+        return true;
+    size_t last = setting.find_last_not_of(L" \t\r\n");
+    std::wstring trimmed = setting.substr(first, last - first + 1);
+    if (trimmed.size() != 4)
+        return false;
+    for (size_t i = 0; i < 4; ++i)
+        if (towlower(trimmed[i]) != L"auto"[i])
+            return false;
+    return true;
+}
+
+inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
+                                      int maxRows, FillOrder fill,
+                                      TokenNamer const& namer = {}) {
+    if (IsAutoSetting(setting))
+        return {BuildAutoExpression(count, maxRows, fill, namer), true};
+    return {setting, false};
+}
+
+}  // namespace windhawk_mod_templates::nested_group_layout
 
 namespace ngl = windhawk_mod_templates::nested_group_layout;
 
@@ -1643,8 +1739,8 @@ static std::wstring ToRoman(int n) {
 
 static std::wstring GetButtonLabel(int idx, int current) {
     if (g_settings.labelFormat == L"dot")
-        return (idx == current) ? g_settings.activeIndicator
-                                : g_settings.inactiveIndicator;
+        return (idx == current) ? g_settings.activeSymbol
+                                : g_settings.inactiveSymbol;
     if (g_settings.labelFormat == L"roman")
         return ToRoman(idx + 1);
     if (g_settings.labelFormat == L"custom" && !g_settings.customLabels.empty()) {
@@ -1690,283 +1786,129 @@ static Brush MakeShineBrush(Brush base) {
     return b;
 }
 
-// Layout calculation result — explicit rows/cols and offset for the short last group.
-struct GridLayout {
-    int rows        = 1;
-    int cols        = 1;
-    int shortOffset = 0;  // start row (column-first) or start column (row-first) for partial last group
-};
+// ---- Layout glue: settings -> the one arranger ------------------------------
 
-static int GetAvailableRows(int count, bool logDetails = true) {
-    int rows = count;
-    RECT r{};
+// Rows that fit in this taskbar. The rect is physical pixels and every XAML
+// size is a DIP, so the conversion happens before the division -- mixing them
+// is the bug flagged on PR #4855 and #4843.
+static int AvailableRows(bool quiet = false) {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    if (hWnd && GetWindowRect(hWnd, &r)) {
-        int taskbarH = (int)(r.bottom - r.top);
-        bool sliverMode = g_settings.showMasterButton &&
-                          (g_settings.masterButtonPosition == L"top" ||
-                           g_settings.masterButtonPosition == L"bottom");
-        // masterButtonSpacing is a button-within-row visual offset, not a layout dimension.
-        int sliverTotal = g_settings.masterButtonHeight
-                        + std::max(0, g_settings.buttonSpacing);
-        if (sliverMode)
-            taskbarH -= sliverTotal;
-        int denom = std::max(1, g_settings.buttonHeight + std::max(0, g_settings.buttonSpacing));
-        rows = std::max(1, taskbarH / denom);
-        if (logDetails) {
-            Wh_Log(L"[Layout] taskbarH=%d sliver=%d denom=%d -> %d rows available",
-                   taskbarH + (sliverMode ? sliverTotal : 0),
-                   sliverMode ? 1 : 0, denom, rows);
-        }
-    } else {
-        if (logDetails)
-            Wh_Log(L"[Layout] No taskbar window — using count=%d as row limit", count);
+    RECT rect{};
+    if (!hWnd || !GetWindowRect(hWnd, &rect)) {
+        if (!quiet)
+            Wh_Log(L"[Layout] No taskbar window - assuming a single row");
+        return 1;
     }
-    rows = std::min(rows, count);
-    if (g_settings.buttonRows > 0)
-        rows = std::min(rows, g_settings.buttonRows);
-    return std::max(rows, 1);
-}
-
-static int LayoutScore(int rows, int cols, int count, int maxRows) {
-    int capacity = rows * cols;
-    int waste = capacity - count;
-    // Only penalize wide layouts (cols > rows). Tall layouts (rows > cols) are
-    // desirable in a taskbar — don't penalize them.
-    int widePenalty = cols > rows ? (cols - rows) * 2 : 0;
-    int score = waste * 10 + widePenalty;
-
-    if (g_settings.smartLayout == L"packVertical")
-        score -= rows * 20;
-    else if (g_settings.smartLayout == L"packHorizontal")
-        score += rows * 20;
-    else {
-        // Balanced default: prefer more rows (use available height) without waste.
-        // Examples:
-        //   4 buttons, 4 rows available -> 4x1 single column
-        //   4 buttons, 3 rows available -> 2x2 (waste-free square beats 3+1 waste)
-        //   5 buttons, 4 rows available -> 3x2 then 2x2... see scoring
-        score -= rows * 3;
+    UINT dpi = GetDpiForWindow(hWnd);
+    int rows = ngl::AvailableRows((double)(rect.bottom - rect.top), dpi,
+                                  (double)g_settings.itemHeight,
+                                  (double)g_settings.itemSpacing);
+    if (!quiet) {
+        Wh_Log(L"[Layout] taskbar %dpx at %udpi -> %d row(s) available",
+               (int)(rect.bottom - rect.top), dpi, rows);
     }
-    return score;
-}
-
-static GridLayout ComputeLayout(int count, bool logDetails = true) {
-    GridLayout L;
-    int maxRows = GetAvailableRows(count, logDetails);
-
-    if (g_settings.gridMode == L"singleRow") {
-        L.rows = 1;
-        L.cols = count;
-    } else if (g_settings.gridMode == L"singleColumn") {
-        L.rows = count;
-        L.cols = 1;
-    } else if (g_settings.gridMode == L"fixedRows") {
-        L.rows = std::min(std::max(g_settings.buttonRows, 1), count);
-        L.cols = (count + L.rows - 1) / L.rows;
-    } else if (g_settings.gridMode == L"fixedColumns") {
-        L.cols = std::min(std::max(g_settings.buttonColumns, 1), count);
-        L.rows = (count + L.cols - 1) / L.cols;
-    } else if (g_settings.gridMode == L"fixedGrid") {
-        L.rows = std::min(std::max(g_settings.buttonRows, 1), count);
-        L.cols = (g_settings.buttonColumns > 0)
-            ? std::min(g_settings.buttonColumns, count)
-            : (count + L.rows - 1) / L.rows;
-        if (L.rows * L.cols < count)
-            L.rows = (count + L.cols - 1) / L.cols;
-    } else {
-        int bestRows = 1, bestCols = count, bestScore = INT_MAX;
-        int firstRows = (maxRows > 1 && count > 1 && g_settings.smartLayout != L"packHorizontal")
-            ? 2
-            : 1;
-        for (int rows = firstRows; rows <= maxRows; rows++) {
-            int cols = (count + rows - 1) / rows;
-            if (g_settings.buttonColumns > 0 && cols > g_settings.buttonColumns)
-                continue;
-            int score = LayoutScore(rows, cols, count, maxRows);
-            if (score < bestScore) {
-                bestScore = score;
-                bestRows = rows;
-                bestCols = cols;
-            }
-        }
-        if (bestScore == INT_MAX && g_settings.buttonColumns > 0) {
-            bestCols = std::min(g_settings.buttonColumns, count);
-            bestRows = (count + bestCols - 1) / bestCols;
-        }
-        L.rows = bestRows;
-        L.cols = bestCols;
-    }
-
-    L.rows = std::max(1, std::min(L.rows, count));
-    L.cols = std::max(1, L.cols);
-    while (L.rows * L.cols < count) {
-        if (g_settings.gridMode == L"fixedColumns")
-            L.rows++;
-        else
-            L.cols++;
-    }
-
-    if (logDetails) {
-        Wh_Log(L"[Layout] count=%d -> %dx%d (mode=%s)", count, L.rows, L.cols,
-               g_settings.gridMode.c_str());
-    }
-
-    // Cross-axis alignment (including a short last row/column) is handled by the
-    // nested-group arranger's crossAlign, so there is no explicit short offset.
-    return L;
-}
-
-// ---- Unified placement glue: settings -> nested-group engine ----------------
-
-static ngl::Axis LayoutPrimaryAxis() {
-    return g_settings.primaryAxis == L"vertical" ? ngl::Axis::Vertical
-                                                 : ngl::Axis::Horizontal;
+    return rows;
 }
 
 static ngl::Config MakeLayoutConfig() {
-    ngl::Config c;
-    c.primaryAxis = LayoutPrimaryAxis();
-    c.spacing = (double)std::max(0, g_settings.buttonSpacing);
-    c.crossAlign = g_settings.crossAlign == L"start" ? ngl::CrossAlign::Start
-                 : g_settings.crossAlign == L"end"   ? ngl::CrossAlign::End
-                                                     : ngl::CrossAlign::Center;
-    c.padding = {(double)g_settings.paddingLeft, (double)g_settings.paddingTop,
-                 (double)g_settings.paddingRight, (double)g_settings.paddingBottom};
-    return c;
+    ngl::Config config;
+    config.spacing = (double)g_settings.itemSpacing;
+    config.justify = g_settings.justify == L"start" ? ngl::Justify::Start
+                   : g_settings.justify == L"end"   ? ngl::Justify::End
+                                                    : ngl::Justify::Center;
+    config.padX = (double)g_settings.padX;
+    config.padY = (double)g_settings.padY;
+    return config;
 }
 
-static bool MasterIsSliver() {
-    return g_settings.masterButtonPosition == L"bottom" ||
-           g_settings.masterButtonPosition == L"top";
+static ngl::FillOrder LayoutFillOrder() {
+    return g_settings.fillOrder == L"columns" ? ngl::FillOrder::Columns
+                                              : ngl::FillOrder::Rows;
 }
 
-// Size of a layout token. "master" collapses to empty when hidden; desktop
-// number tokens 1..count are button-sized; anything else collapses out.
+// Size of a layout token. "master" collapses to empty when the Task View
+// button is off; desktop numbers 1..count are button-sized; anything else
+// collapses out, so a stray name in a hand-written arrangement costs nothing.
 static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
     if (token == L"master") {
-        if (!g_settings.showMasterButton)
+        if (!g_settings.taskViewButton)
             return {};
-        double w = (double)g_settings.masterButtonWidth;
-        double h = MasterIsSliver() ? (double)g_settings.masterButtonHeight
-                                    : (double)g_settings.buttonHeight;
-        return {w, h};
+        return {(double)g_settings.taskViewWidth,
+                (double)g_settings.taskViewHeight};
     }
     long n = std::wcstol(token.c_str(), nullptr, 10);
     if (n >= 1 && n <= count)
-        return {(double)g_settings.buttonWidth, (double)g_settings.buttonHeight};
+        return {(double)g_settings.itemWidth, (double)g_settings.itemHeight};
     return {};
 }
 
-// Parse "name:dx,dy; name:dx,dy" (';' or newline separated) into name->offset.
-static std::vector<std::pair<std::wstring, ngl::Offset>> ParseNudgeSpec(
-    std::wstring const& spec) {
-    std::vector<std::pair<std::wstring, ngl::Offset>> result;
-    size_t i = 0;
-    while (i < spec.size()) {
-        size_t end = spec.find_first_of(L";\r\n", i);
-        if (end == std::wstring::npos)
-            end = spec.size();
-        std::wstring entry = spec.substr(i, end - i);
-        i = end + 1;
-        size_t colon = entry.find(L':');
-        if (colon == std::wstring::npos)
-            continue;
-        std::wstring name = entry.substr(0, colon);
-        // trim spaces around name
-        size_t a = name.find_first_not_of(L" \t");
-        size_t b = name.find_last_not_of(L" \t");
-        if (a == std::wstring::npos)
-            continue;
-        name = name.substr(a, b - a + 1);
-        std::wstring rest = entry.substr(colon + 1);
-        size_t comma = rest.find(L',');
-        if (comma == std::wstring::npos)
-            continue;
-        ngl::Offset off;
-        off.x = std::wcstod(rest.substr(0, comma).c_str(), nullptr);
-        off.y = std::wcstod(rest.substr(comma + 1).c_str(), nullptr);
-        result.push_back({name, off});
-    }
-    return result;
+// Wrap the generated desktop grid with the Task View button in its configured
+// place. Only the automatic arrangement consults this -- a hand-written
+// arrangement positions "master" itself.
+static std::wstring AddTaskViewButton(std::wstring const& grid) {
+    if (!g_settings.taskViewButton)
+        return grid;
+    std::wstring const& where = g_settings.taskViewPlacement;
+    if (where == L"before")
+        return L"master | (" + grid + L")";
+    if (where == L"above")
+        return L"master, (" + grid + L")";
+    if (where == L"below")
+        return L"(" + grid + L"), master";
+    return L"(" + grid + L") | master";  // "after"
 }
 
-static ngl::Offset LookupNudge(
-    std::vector<std::pair<std::wstring, ngl::Offset>> const& table,
-    std::wstring const& token) {
-    for (auto const& [name, off] : table)
-        if (name == token)
-            return off;
-    return {};
-}
-
-// Build the auto (smart-grid generated) desktop expression, then wrap the
-// master token per its configured position.
-static std::wstring BuildAutoExpression(int count) {
-    auto layout = ComputeLayout(count);
-    bool rowMajor = g_settings.fillOrder == L"rowFirst";
-    auto namer = [](int index) -> std::wstring {
-        return std::to_wstring(index + 1);
-    };
-    std::wstring grid = ngl::BuildGridExpression(
-        count, layout.rows, layout.cols, LayoutPrimaryAxis(), rowMajor, namer);
-    if (grid.empty())
-        grid = L"1";
-
-    if (g_settings.showMasterButton) {
-        std::wstring const& pos = g_settings.masterButtonPosition;
-        if (pos == L"before")
-            grid = L"master | (" + grid + L")";
-        else if (pos == L"top")
-            grid = L"master, (" + grid + L")";
-        else if (pos == L"bottom")
-            grid = L"(" + grid + L"), master";
-        else  // "after" (default)
-            grid = L"(" + grid + L") | master";
-    }
-    return grid;
-}
-
-// Compute the final pixel placements and the padded group size. Manual mode
-// uses the user's expression, falling back to Auto if it is empty or invalid.
+// Resolve Layout.Arrangement to placements. "auto" generates the expression
+// and logs it so it can be pasted back into the same field and edited; an
+// explicit arrangement is used as written, falling back to automatic if it
+// does not parse. quiet suppresses the log for repeated measure-only calls
+// from the Start-placement layout callback.
 static bool ComputeButtonPlacements(int count,
                                     std::vector<ngl::Placement>& placements,
-                                    ngl::Size& total) {
-    ngl::Config cfg = MakeLayoutConfig();
-    auto resolve = [count](std::wstring const& t) {
-        return ResolveLayoutToken(t, count);
-    };
-    auto nudges = ParseNudgeSpec(g_settings.nudge);
-    auto offset = [nudges](std::wstring const& t) {
-        return LookupNudge(nudges, t);
+                                    ngl::Size& total, bool quiet = false) {
+    ngl::Config config = MakeLayoutConfig();
+    auto resolve = [count](std::wstring const& token) {
+        return ResolveLayoutToken(token, count);
     };
 
-    bool manual = g_settings.layoutMode == L"manual" && !g_settings.layout.empty();
-    std::wstring expr = manual ? g_settings.layout : BuildAutoExpression(count);
-    bool ok = ngl::Compute(expr, cfg, resolve, offset, placements, total);
-    if (!ok && manual) {
-        Wh_Log(L"[Layout] Manual expression rejected, using automatic layout");
-        expr = BuildAutoExpression(count);
-        ok = ngl::Compute(expr, cfg, resolve, offset, placements, total);
+    bool isAuto = ngl::IsAutoSetting(g_settings.arrangement);
+    int maxRows = isAuto ? AvailableRows(quiet) : 1;
+    auto makeAuto = [count, maxRows]() {
+        std::wstring grid = ngl::BuildAutoExpression(count, maxRows,
+                                                     LayoutFillOrder());
+        if (grid.empty())
+            grid = L"1";
+        return AddTaskViewButton(grid);
+    };
+
+    std::wstring expression = isAuto ? makeAuto() : g_settings.arrangement;
+    bool ok = ngl::Compute(expression, config, resolve, placements, total);
+    if (!ok) {
+        Wh_Log(L"[Layout] Arrangement \"%ls\" did not parse - using automatic",
+               expression.c_str());
+        maxRows = AvailableRows(quiet);
+        expression = ngl::BuildAutoExpression(count, maxRows, LayoutFillOrder());
+        if (expression.empty())
+            expression = L"1";
+        expression = AddTaskViewButton(expression);
+        ok = ngl::Compute(expression, config, resolve, placements, total);
     }
-    Wh_Log(L"[Layout] count=%d mode=%ls expr=\"%ls\" size=%.0fx%.0f",
-           count, g_settings.layoutMode.c_str(), expr.c_str(),
-           total.width, total.height);
+    if (!quiet) {
+        Wh_Log(L"[Layout] %d desktop(s), arrangement = \"%ls\"%ls, size %.0fx%.0f",
+               count, expression.c_str(),
+               isAuto ? L" (auto - paste this into Arrangement to edit it)" : L"",
+               total.width, total.height);
+    }
     return ok;
 }
 
-static double EstimateButtonGridWidth(int count) {
-    std::vector<ngl::Placement> p;
-    ngl::Size t;
-    ComputeButtonPlacements(count, p, t);
-    return t.width;
-}
-
-static double EstimateButtonGridHeight(int count) {
-    std::vector<ngl::Placement> p;
-    ngl::Size t;
-    ComputeButtonPlacements(count, p, t);
-    return t.height;
+// Measure only -- called from the Start-placement layout callback, so it must
+// not log on every layout pass.
+static ngl::Size EstimateButtonGridSize(int count) {
+    std::vector<ngl::Placement> placements;
+    ngl::Size total;
+    ComputeButtonPlacements(count, placements, total, /*quiet=*/true);
+    return total;
 }
 
 static void SetControlBrushResource(Control const& control,
@@ -2150,18 +2092,9 @@ static void StyleMasterButton(Button& btn,
     Brush inactiveBrush, Brush inactiveTextBrush,
     Brush hoverBrush, Brush pressedBrush, Brush borderBrush)
 {
-    StyleButtonGeometry(btn, g_settings.masterButtonFontFamily);
+    StyleButtonGeometry(btn, g_settings.taskViewFontFamily);
     ApplyMasterButtonState(btn, inactiveBrush, inactiveTextBrush,
                            hoverBrush, pressedBrush, borderBrush);
-}
-
-static void ApplyContentNudge(FrameworkElement const& content, ngl::Offset off) {
-    if (off.x == 0.0 && off.y == 0.0)
-        return;
-    TranslateTransform tt;
-    tt.X(off.x);
-    tt.Y(off.y);
-    content.RenderTransform(tt);
 }
 
 static Grid BuildButtonGrid(int count, int current) {
@@ -2169,27 +2102,26 @@ static Grid BuildButtonGrid(int count, int current) {
     ngl::Size total;
     ComputeButtonPlacements(count, placements, total);
 
-    auto contentNudges = ParseNudgeSpec(g_settings.contentNudge);
-
     Grid grid;
     std::vector<ButtonEventState> eventStates;
     grid.Name(L"VdSwitcherBar");
     // Absolute placement: one implicit cell, each button positioned by Margin
     // from the group's top-left. The group is sized to the arranger's padded
-    // box (4-side padding included) and centered in the tray slot. Spacing,
-    // rows/columns, and short-group centering are all baked into the placements
-    // by the nested-group arranger.
+    // box and centered in the tray slot; spacing, shape, per-item offsets, and
+    // short-group justification are already baked into the placements.
     grid.Width(total.width);
     grid.Height(total.height);
     grid.HorizontalAlignment(HorizontalAlignment::Center);
     grid.VerticalAlignment(VerticalAlignment::Center);
-    if (g_settings.gridVerticalOffset != 0)
-        grid.Margin({0.0, (double)g_settings.gridVerticalOffset, 0.0, 0.0});
-    if (g_settings.buttonOpacity < 100)
-        grid.Opacity(std::max(0.0, std::min(1.0, g_settings.buttonOpacity / 100.0)));
+    // Adjust.OffsetX/Y translate the whole group without reserving space.
+    if (g_settings.offsetX != 0 || g_settings.offsetY != 0)
+        grid.Margin({(double)g_settings.offsetX, (double)g_settings.offsetY,
+                     0.0, 0.0});
+    if (g_settings.opacity < 100)
+        grid.Opacity(std::max(0.0, std::min(1.0, g_settings.opacity / 100.0)));
 
-    auto activeBrush       = ParseColorBrush(g_settings.activeColor);
-    auto inactiveBrush     = ParseColorBrush(g_settings.inactiveColor);
+    auto activeBrush       = ParseColorBrush(g_settings.activeBackgroundColor);
+    auto inactiveBrush     = ParseColorBrush(g_settings.inactiveBackgroundColor);
     auto activeTextBrush   = ParseColorBrush(g_settings.activeTextColor);
     auto inactiveTextBrush = ParseColorBrush(g_settings.inactiveTextColor);
     auto hoverBrush        = ParseColorBrush(g_settings.hoverBackgroundColor);
@@ -2202,10 +2134,9 @@ static Grid BuildButtonGrid(int count, int current) {
             Button masterBtn;
             masterBtn.Name(L"VdMasterBtn");
             TextBlock content;
-            content.Text(winrt::hstring(g_settings.masterButtonLabel));
+            content.Text(winrt::hstring(g_settings.taskViewLabel));
             content.HorizontalAlignment(HorizontalAlignment::Center);
             content.VerticalAlignment(VerticalAlignment::Center);
-            ApplyContentNudge(content, LookupNudge(contentNudges, L"master"));
             masterBtn.Content(content);
             StyleMasterButton(masterBtn, inactiveBrush, inactiveTextBrush,
                               hoverBrush, pressedBrush, borderBrush);
@@ -2241,7 +2172,6 @@ static Grid BuildButtonGrid(int count, int current) {
         content.Text(winrt::hstring(GetButtonLabel(idx, current)));
         content.HorizontalAlignment(HorizontalAlignment::Center);
         content.VerticalAlignment(VerticalAlignment::Center);
-        ApplyContentNudge(content, LookupNudge(contentNudges, p.token));
         btn.Content(content);
         StyleDesktopButton(btn, idx == current, activeBrush, inactiveBrush,
                            activeTextBrush, inactiveTextBrush,
@@ -2296,8 +2226,8 @@ static Grid BuildButtonGrid(int count, int current) {
 
 static bool PositionIsStartMode() {
     const auto& pos = g_settings.position;
-    return pos == L"nextToStart" || pos == L"aboveStart" || pos == L"overStart" ||
-           pos == L"belowStart"  || pos == L"rightOfStart";
+    return pos == L"leftOfStart" || pos == L"overStart" ||
+           pos == L"rightOfStart";
 }
 
 static FrameworkElement FindStartButton(FrameworkElement root) {
@@ -2379,17 +2309,17 @@ static void PositionButtonGridNearStart() {
         return;
 
     int count = g_desktopCount.load();
-    double gridW = EstimateButtonGridWidth(count);
-    double gridH = EstimateButtonGridHeight(count);
-    double outerGridW = gridW + (double)g_settings.paddingLeft +
-                        (double)g_settings.paddingRight;
+    // The arranger's total already includes Adjust.PadX/PadY on both sides.
+    ngl::Size gridSize = EstimateButtonGridSize(count);
+    double gridW = gridSize.width;
+    double gridH = gridSize.height;
     const auto& pos = g_settings.position;
 
     bool startHidden = (g_startOverlayStart.Visibility() == Visibility::Collapsed);
     double startW = g_startOverlayStart.ActualWidth();
     double startH = g_startOverlayStart.ActualHeight();
     if (startW <= 0.0 && !startHidden) startW = 44.0;
-    if (startH <= 0.0) startH = std::max((double)g_settings.buttonHeight, gridH);
+    if (startH <= 0.0) startH = std::max((double)g_settings.itemHeight, gridH);
 
     // x changes when TaskbarFrameRepeater.Margin.Left is pushed (start button moves with it).
     // y is unaffected by horizontal margin changes and is always valid for vertical centering.
@@ -2407,11 +2337,10 @@ static void PositionButtonGridNearStart() {
     double left = 0.0;
     double top  = 0.0;
 
-    if (pos == L"overStart" || pos == L"aboveStart" || pos == L"belowStart") {
-        // Grid overlays the Start button. Legacy above/below values are treated
-        // as this mode; use gridVerticalOffset for vertical nudging.
+    if (pos == L"overStart") {
+        // Grid overlays the Start button. Adjust.OffsetY nudges it vertically.
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX + (double)g_settings.paddingLeft;
+        left = anchorX;
         top  = y + (startH - gridH) / 2.0;
         if (left < 0.0) left = 0.0;
         SetStartButtonVisualOffset(0.0);
@@ -2420,12 +2349,12 @@ static void PositionButtonGridNearStart() {
         // itself before taskbar items. TaskbarFrameRepeater.Margin.Left moves
         // Start too, so counter-shift Start visually back to its stable anchor.
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX + startW + (double)g_settings.paddingLeft;
+        left = anchorX + startW;
         top  = y + (startH - gridH) / 2.0;
         if (left < 0.0) left = 0.0;
 
         if (g_taskItemsPanel) {
-            double push = outerGridW + (double)g_settings.buttonSpacing;
+            double push = gridW + (double)g_settings.itemSpacing;
             SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
             if (!startHidden)
                 SetStartButtonVisualOffset(-push);
@@ -2433,23 +2362,25 @@ static void PositionButtonGridNearStart() {
             SetStartButtonVisualOffset(0.0);
         }
     } else {
-        // nextToStart: anchor VD grid at the left edge; push TaskbarFrameRepeater
-        // rightward so Start button and task items don't overlap the VD grid.
+        // leftOfStart: anchor the grid at the left edge; push TaskbarFrameRepeater
+        // rightward so Start button and task items don't overlap the grid.
         // y from TransformToVisual is unaffected by Margin.Left changes, so it
         // stays valid for vertical centering even after we push the panel right.
-        left = (double)g_settings.paddingLeft;
+        left = 0.0;
         top  = y + (startH - gridH) / 2.0;
         SetStartButtonVisualOffset(0.0);
 
         if (g_taskItemsPanel) {
             double neededLeft = g_taskItemsPanelOriginalMargin.Left +
-                                outerGridW + (double)g_settings.buttonSpacing;
+                                gridW + (double)g_settings.itemSpacing;
             SetTaskItemsLeftMargin(neededLeft);
         }
     }
 
-    // gridVerticalOffset nudges the grid in all overlay modes
-    top += (double)g_settings.gridVerticalOffset;
+    // Adjust.OffsetX/Y nudge the grid in every Start mode. In tray positions
+    // BuildButtonGrid applies them as the group's margin instead.
+    left += (double)g_settings.offsetX;
+    top  += (double)g_settings.offsetY;
 
     double rootW = GetElementActualWidth(g_startOverlayRoot);
     double rootH = GetElementActualHeight(g_startOverlayRoot);
@@ -2833,7 +2764,7 @@ static bool IsTrayGridAlive(Grid const& trayGrid) {
 }
 
 static bool WantSecondaryBars() {
-    return g_settings.multiMonitor && !PositionIsStartMode() &&
+    return g_settings.allTaskbars && !PositionIsStartMode() &&
            !(g_settings.hideWhenSingle && g_desktopCount.load() <= 1);
 }
 
@@ -3056,7 +2987,7 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
         if (g_unloading) return result;
         // Once the primary grid exists this hook is only needed to discover
         // secondary taskbars, which only matters with the multi-monitor toggle on.
-        if (g_buttonGrid && !g_settings.multiMonitor) return result;
+        if (g_buttonGrid && !g_settings.allTaskbars) return result;
 
         // Defer until the element is live in the XAML tree. Calling ApplyAllSettings
         // immediately from the constructor fires before the XamlRoot is stable, causing
@@ -3085,7 +3016,7 @@ void* WINAPI IconView_IconView_Hook(void* pThis) {
                         ApplyAllSettingsOnWindowThread();
                     // The sender's XamlRoot identifies the taskbar hosting this icon —
                     // register it if it is a secondary taskbar.
-                    if (g_settings.multiMonitor) {
+                    if (g_settings.allTaskbars) {
                         if (auto fe = sender.try_as<FrameworkElement>())
                             RegisterSecondaryTrayFromElement(fe);
                     }

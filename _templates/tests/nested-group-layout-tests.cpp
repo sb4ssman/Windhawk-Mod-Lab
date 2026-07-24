@@ -17,13 +17,14 @@ static Placement const* Find(std::vector<Placement> const& placements,
 
 int main() {
     Config config;
-    config.primaryAxis = Axis::Horizontal;
     config.spacing = 0.0;
 
     auto square24 = [](std::wstring const&) -> Size { return {24, 24}; };
 
+    // ---- Arrangement -------------------------------------------------------
+
     // The diamond: a | b,c | d — three columns, middle stacked, sides
-    // vertically centered.
+    // vertically centered. '|' is always horizontal, ',' always vertical.
     std::vector<Placement> placements;
     Size total;
     assert(Compute(L"a | b, c | d", config, square24, placements, total));
@@ -38,130 +39,139 @@ int main() {
     assert(Near(Find(placements, L"d")->x, 48) &&
            Near(Find(placements, L"d")->y, 12));
 
-    // Vertical primary axis transposes the same expression.
-    config.primaryAxis = Axis::Vertical;
-    assert(Compute(L"a | b, c | d", config, square24, placements, total));
-    assert(Near(total.width, 48) && Near(total.height, 72));
-    assert(Near(Find(placements, L"a")->x, 12) &&
-           Near(Find(placements, L"a")->y, 0));
-    assert(Near(Find(placements, L"b")->x, 0) &&
-           Near(Find(placements, L"b")->y, 24));
-    assert(Near(Find(placements, L"c")->x, 24) &&
-           Near(Find(placements, L"c")->y, 24));
-    config.primaryAxis = Axis::Horizontal;
+    // A 2x2 block, the canonical auto shape for four items on a tall taskbar.
+    assert(Compute(L"1, 2 | 3, 4", config, square24, placements, total));
+    assert(Near(total.width, 48) && Near(total.height, 48));
+    assert(Near(Find(placements, L"3")->x, 24) &&
+           Near(Find(placements, L"3")->y, 0));
 
-    // Spacing applies between placed items on every axis.
+    // Spacing applies between siblings on both axes, never outside the group.
     config.spacing = 4.0;
     assert(Compute(L"a | b, c", config, square24, placements, total));
     assert(Near(total.width, 52) && Near(total.height, 52));
-    assert(Near(Find(placements, L"b")->x, 28));
     assert(Near(Find(placements, L"c")->y, 28));
     config.spacing = 0.0;
 
-    // Absent tokens (empty size) collapse out entirely.
-    auto sparse = [](std::wstring const& token) -> Size {
-        if (token == L"gone")
-            return {};
-        return {24, 24};
+    // A token that resolves to an empty size collapses out and consumes no
+    // space — this is how an absent item (hidden master button) disappears.
+    auto skipB = [](std::wstring const& token) -> Size {
+        return token == L"b" ? Size{} : Size{24, 24};
     };
-    assert(Compute(L"a | gone | b", config, sparse, placements, total));
+    assert(Compute(L"a | b | c", config, skipB, placements, total));
     assert(placements.size() == 2);
-    assert(Near(total.width, 48) && Near(total.height, 24));
-    assert(Near(Find(placements, L"b")->x, 24));
+    assert(Near(total.width, 48));
+    assert(Near(Find(placements, L"c")->x, 24));
 
-    // Nesting with parentheses: c|d is a horizontal pair inside b's stack.
-    assert(Compute(L"a | b, (c | d)", config, square24, placements, total));
-    assert(Near(total.width, 72) && Near(total.height, 48));
-    assert(Near(Find(placements, L"b")->x, 36) &&  // centered over the c|d pair
-           Near(Find(placements, L"b")->y, 0));
-    assert(Near(Find(placements, L"c")->x, 24) &&
-           Near(Find(placements, L"c")->y, 24));
+    // Nesting keeps the same orientation meaning at every depth.
+    assert(Compute(L"a | (b, (c | d))", config, square24, placements, total));
+    assert(placements.size() == 4);
     assert(Near(Find(placements, L"d")->x, 48) &&
            Near(Find(placements, L"d")->y, 24));
 
-    // Cross alignment start/end instead of centered.
-    config.crossAlign = CrossAlign::Start;
+    // ---- Justify -----------------------------------------------------------
+
+    // A short column is centered by default and can be pinned to either end.
+    config.justify = Justify::Start;
     assert(Compute(L"a | b, c", config, square24, placements, total));
     assert(Near(Find(placements, L"a")->y, 0));
-    config.crossAlign = CrossAlign::End;
+    config.justify = Justify::End;
     assert(Compute(L"a | b, c", config, square24, placements, total));
     assert(Near(Find(placements, L"a")->y, 24));
-    config.crossAlign = CrossAlign::Center;
+    config.justify = Justify::Center;
+    assert(Compute(L"a | b, c", config, square24, placements, total));
+    assert(Near(Find(placements, L"a")->y, 12));
 
-    // Mixed sizes still center per group.
-    auto mixed = [](std::wstring const& token) -> Size {
-        if (token == L"wide")
-            return {48, 24};
-        return {24, 24};
-    };
-    assert(Compute(L"wide | a, b", config, mixed, placements, total));
-    assert(Near(total.width, 72) && Near(total.height, 48));
-    assert(Near(Find(placements, L"wide")->x, 0) &&
-           Near(Find(placements, L"wide")->y, 12));
+    // ---- Padding -----------------------------------------------------------
 
-    // Parse failures: unbalanced parentheses and empty/trailing units report
-    // false instead of silently accepting a different layout.
-    assert(!Compute(L"a | (b, c", config, square24, placements, total));
-    assert(!Compute(L"a ) b", config, square24, placements, total));
-    assert(!Compute(L"a |", config, square24, placements, total));
-    assert(!Compute(L"a,,b", config, square24, placements, total));
-    assert(!Compute(L"", config, square24, placements, total));
-
-    // v1.2 — four-side outer padding. Each side is independent; the box grows
-    // by left+right / top+bottom and every item shifts by (left, top).
-    config.padding = {10, 5, 20, 40};  // left, top, right, bottom
+    // padX/padY are symmetric, participate in layout, and shift every item.
+    config.padX = 3.0;
+    config.padY = 5.0;
     assert(Compute(L"a | b", config, square24, placements, total));
-    assert(Near(total.width, 24 + 24 + 10 + 20) &&    // 78
-           Near(total.height, 24 + 5 + 40));           // 69
-    assert(Near(Find(placements, L"a")->x, 10) &&
+    assert(Near(total.width, 54) && Near(total.height, 34));
+    assert(Near(Find(placements, L"a")->x, 3) &&
            Near(Find(placements, L"a")->y, 5));
-    assert(Near(Find(placements, L"b")->x, 34));        // 10 + 24
-    config.padding = {};
+    config.padX = 0.0;
+    config.padY = 0.0;
 
-    // v1.2 — first-class per-element nudge. Only the named leaf moves, and it
-    // moves within its slot: totalSize and neighbors are unaffected.
-    auto nudgeB = [](std::wstring const& token) -> Offset {
-        if (token == L"b")
-            return {3, -2};
-        return {};
-    };
-    assert(Compute(L"a | b | c", config, square24, nudgeB, placements, total));
-    assert(Near(total.width, 72) && Near(total.height, 24));  // unchanged
-    assert(Near(Find(placements, L"a")->x, 0));
-    assert(Near(Find(placements, L"b")->x, 27) &&              // 24 + 3
-           Near(Find(placements, L"b")->y, -2));
-    assert(Near(Find(placements, L"c")->x, 48));               // unmoved
+    // ---- Per-item offset in the expression ---------------------------------
 
-    // Padding and nudge compose.
-    config.padding = {10, 10, 0, 0};
-    assert(Compute(L"a | b", config, square24, nudgeB, placements, total));
-    assert(Near(Find(placements, L"a")->x, 10));
-    assert(Near(Find(placements, L"b")->x, 10 + 24 + 3));       // 37
-    config.padding = {};
+    // "[dx,dy]" moves only its own leaf: neighbors and totalSize are unchanged.
+    assert(Compute(L"a[+2,-1] | b | c", config, square24, placements, total));
+    assert(Near(total.width, 72) && Near(total.height, 24));
+    assert(Near(Find(placements, L"a")->x, 2) &&
+           Near(Find(placements, L"a")->y, -1));
+    assert(Near(Find(placements, L"b")->x, 24) &&
+           Near(Find(placements, L"b")->y, 0));
 
-    // v1.2 — BuildGridExpression bridge. A single row is a flat '|' chain.
-    assert(BuildGridExpression(4, 1, 4, Axis::Horizontal, true) ==
-           L"0 | 1 | 2 | 3");
-    // 2x2 row-major, horizontal primary: columns are the outer groups, so
-    // column 0 stacks items 0 and 2, column 1 stacks 1 and 3.
-    assert(BuildGridExpression(4, 2, 2, Axis::Horizontal, true) ==
-           L"0, 2 | 1, 3");
-    // 2x2 column-major fills each column fully before the next.
-    assert(BuildGridExpression(4, 2, 2, Axis::Horizontal, false) ==
-           L"0, 1 | 2, 3");
-    // Ragged: 3 items in a 2x2 row-major grid drops the empty last cell
-    // without leaving a dangling separator.
-    assert(BuildGridExpression(3, 2, 2, Axis::Horizontal, true) ==
-           L"0, 2 | 1");
-    // Vertical primary transposes: rows are the outer groups.
-    assert(BuildGridExpression(4, 2, 2, Axis::Vertical, true) ==
-           L"0, 1 | 2, 3");
-    // A generated expression round-trips through the arranger.
-    std::wstring generated =
-        BuildGridExpression(4, 2, 2, Axis::Horizontal, true);
-    assert(Compute(generated, config, square24, placements, total));
+    // Signs, decimals, and internal spaces are all accepted.
+    assert(Compute(L"a[ 1.5 , 2 ] | b", config, square24, placements, total));
+    assert(Near(Find(placements, L"a")->x, 1.5) &&
+           Near(Find(placements, L"a")->y, 2));
+
+    // ---- Parse errors ------------------------------------------------------
+
+    assert(!Compute(L"a | (b, c", config, square24, placements, total));
+    assert(!Compute(L"a | | b", config, square24, placements, total));
+    assert(!Compute(L"a,", config, square24, placements, total));
+    assert(!Compute(L"a[1] | b", config, square24, placements, total));
+    assert(!Compute(L"a[1,2 | b", config, square24, placements, total));
+
+    // ---- Available rows (DPI) ----------------------------------------------
+
+    // 48 physical px at 96 dpi is 48 DIPs: two 22-DIP items with 2 spacing.
+    assert(AvailableRows(48, 96, 22, 2) == 2);
+    // The same taskbar at 150% is 72 physical px but still 48 DIPs — mixing
+    // the two is the bug flagged on #4855, so the answer must not change.
+    assert(AvailableRows(72, 144, 22, 2) == 2);
+    assert(AvailableRows(48, 96, 40, 2) == 1);
+    assert(AvailableRows(0, 96, 22, 2) == 1);
+
+    // ---- Auto shape --------------------------------------------------------
+
+    // Smallest column count within the available rows, then fewest empty
+    // slots. Four items with three rows available is 2x2, not a ragged 3+1.
+    assert(ChooseShape(4, 3).rows == 2 && ChooseShape(4, 3).columns == 2);
+    // Five with four rows is 3x2 (one empty), not 4+1 (three empty).
+    assert(ChooseShape(5, 4).rows == 3 && ChooseShape(5, 4).columns == 2);
+    // A single-height taskbar keeps everything on one row.
+    assert(ChooseShape(4, 1).rows == 1 && ChooseShape(4, 1).columns == 4);
+    // Enough height for every item is a single column.
+    assert(ChooseShape(4, 4).rows == 4 && ChooseShape(4, 4).columns == 1);
+    assert(ChooseShape(1, 4).rows == 1 && ChooseShape(1, 4).columns == 1);
+    assert(ChooseShape(0, 4).rows == 0);
+
+    // ---- Expression generation ---------------------------------------------
+
+    // Row-first fills left to right then down; column-first fills down then
+    // right. Both emit columns as '|' groups and rows as ',' units.
+    assert(BuildGridExpression(4, 2, 2, FillOrder::Rows) == L"1, 3 | 2, 4");
+    assert(BuildGridExpression(4, 2, 2, FillOrder::Columns) == L"1, 2 | 3, 4");
+    // A ragged shape simply emits fewer tokens and stays a valid expression.
+    assert(BuildGridExpression(5, 3, 2, FillOrder::Rows) == L"1, 3, 5 | 2, 4");
+    assert(BuildGridExpression(3, 1, 3, FillOrder::Rows) == L"1 | 2 | 3");
+    assert(BuildGridExpression(0, 1, 1, FillOrder::Rows).empty());
+
+    // A namer supplies the caller's own token vocabulary.
+    auto namer = [](int index) { return L"d" + std::to_wstring(index + 1); };
+    assert(BuildGridExpression(2, 1, 2, FillOrder::Rows, namer) == L"d1 | d2");
+
+    // Generated expressions round-trip through the parser.
+    assert(Compute(BuildAutoExpression(4, 3, FillOrder::Rows), config, square24,
+                   placements, total));
     assert(placements.size() == 4);
     assert(Near(total.width, 48) && Near(total.height, 48));
+
+    // ---- The one setting ---------------------------------------------------
+
+    // Empty or "auto" (any case, any surrounding space) generates a shape;
+    // anything else is taken literally, so smart and manual are one field.
+    assert(ResolveArrangement(L"auto", 4, 3, FillOrder::Rows).wasAuto);
+    assert(ResolveArrangement(L"  AUTO ", 4, 3, FillOrder::Rows).wasAuto);
+    assert(ResolveArrangement(L"", 4, 3, FillOrder::Rows).wasAuto);
+    assert(ResolveArrangement(L"auto", 4, 3, FillOrder::Rows).expression ==
+           L"1, 3 | 2, 4");
+    auto manual = ResolveArrangement(L"1 | 2", 4, 3, FillOrder::Rows);
+    assert(!manual.wasAuto && manual.expression == L"1 | 2");
 
     return 0;
 }

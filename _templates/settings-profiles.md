@@ -179,10 +179,12 @@ expression. There is no mode toggle, because there is only one field.
 
 **The `auto` shape rule.** Deterministic, not scored. Compute `maxRows` from the
 taskbar height **in DIPs** (never raw `GetWindowRect` pixels — see the DPI note
-below) divided by the item pitch. Then pick the row count `r <= maxRows` that
-minimizes empty slots `r * ceil(n/r) - n`, breaking ties toward more rows.
-Four items with three rows available gives 2x2, not 3+1. `FillOrder` decides
-whether that shape fills across or down; `Justify` aligns the ragged tail.
+below) divided by the item pitch. Then take the **smallest column count
+reachable within those rows** — that is what "use the available height" means —
+and among the row counts producing it, the one with the **fewest empty slots**.
+Four items with three rows available gives 2x2, not a ragged 3+1; five items
+with four rows available gives 3x2, not 4+1. `FillOrder` decides whether that
+shape fills across or down; `Justify` aligns the ragged tail.
 
 **Per-item offsets live in the expression**, not in their own settings. One
 string, nothing to keep in sync with anything else. Items are named by their

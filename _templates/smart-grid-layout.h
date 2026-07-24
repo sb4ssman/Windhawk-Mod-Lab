@@ -1,5 +1,16 @@
 #pragma once
 
+// SUPERSEDED by nested-group-layout.h v2.0, which now owns the shape choice
+// (ChooseShape), the DPI-correct row count (AvailableRows), and expression
+// generation. Do not copy this file into a new mod. It stays only because
+// OmniButton, Privacy Anchor, and Folder Menus still embed it; delete it once
+// the last of those migrates.
+//
+// The shape rule also changed: this file scores candidates (waste + wide
+// penalty + pack bias), which produced the awkward results that motivated the
+// rewrite. v2.0 is deterministic — smallest column count within the available
+// rows, then fewest empty slots.
+//
 // Copy-source template v1.2: pure layout math for repeated taskbar items.
 // This file intentionally has no WinRT dependency.
 // v1.1: minColumns + PackUnits for items spanning multiple horizontal cells

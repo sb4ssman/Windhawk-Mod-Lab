@@ -31,8 +31,13 @@ $outputDll = Join-Path ([IO.Path]::GetTempPath()) (
     'windhawk-link-check-' + [guid]::NewGuid().ToString('N') + '.dll')
 
 try {
+    # The -D set mirrors Windhawk's own Compiler\compile_flags.txt. The Windows
+    # version macros matter: without them modern APIs that Windhawk builds fine
+    # (GetDpiForWindow, for one) fail here and look like mod bugs.
     & $clang -std=c++23 -target x86_64-w64-mingw32 -shared `
         -DUNICODE -D_UNICODE -DWH_MOD -DWH_EDITING `
+        -DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00 -D_WIN32_IE=0x0A00 `
+        -DNTDDI_VERSION=0x0A000008 -D__USE_MINGW_ANSI_STDIO=0 `
         "-DWH_MOD_ID=L`"$modName`"" "-DWH_MOD_VERSION=L`"0.0`"" `
         -I $include -include windows.h -include windhawk_api.h `
         $sourceFile.FullName @compilerOptions -o $outputDll

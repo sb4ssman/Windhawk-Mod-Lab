@@ -10,8 +10,8 @@ comment, and adapt only through the documented settings or callback contract.
 | Template | Use it for |
 |---|---|
 | `settings-profiles.md` | **THE SETTINGS CONTRACT.** Component library of nested settings groups — fixed keys, labels, defaults — plus the fixed assembly order every mod follows. Assemble from it; never invent, rename, or reorder a key |
-| `nested-group-layout.h` | **PRIMARY element-placement primitive.** Pixel-space placement from one nestable layout expression (`\|` along the primary axis, `,` across, parentheses alternate axes) with native-size items, four-side outer padding, first-class per-element nudge, and the `BuildGridExpression` bridge |
-| `smart-grid-layout.h` | Shape heuristic only: picks rows × columns (and short-group packing) for a homogeneous, dynamic-count collection. Its output feeds `BuildGridExpression`; it is no longer an arranger |
+| `nested-group-layout.h` | **THE element-placement primitive.** One expression (`\|` horizontal, `,` vertical, parens nest), per-item offsets written inline as `1[+2,-1]`, symmetric padding, the deterministic `auto` shape, DPI-correct `AvailableRows`, and `ResolveArrangement` behind the single `Layout.Arrangement` setting |
+| `smart-grid-layout.h` | **SUPERSEDED** by the above. Kept only while OmniButton, Privacy Anchor, and Folder Menus still embed it; do not copy into anything new |
 | `visual-tree-walk.h` | Descendant walk/find/collect helpers plus the OmniButton inner-StackPanel walk |
 | `button-surface.h` | Hex/accent colors, native-default clearing, hover/pressed resources, border, opacity, and shine |
 | `injected-grid-column.h` | Reversible `SystemTrayFrameGrid` column insertion with marker-based cleanup |
@@ -23,35 +23,53 @@ comment, and adapt only through the documented settings or callback contract.
 | `submission-preflight.ps1` | Automated compile, README/gallery, diff, symbol-hook, and upstream-validator gate |
 | `exit-time-destructor-audit.ps1` | Clang gate for unsafe namespace-scope destructors in injected mods |
 | `verify-readme-sync.ps1` | Normalized folder README versus embedded Windhawk README parity check |
+| `verify-settings-order.ps1` | Machine-checks a mod's settings block against `settings-profiles.md`: the eight groups, their order, canonical key names and order, mod-specific keys only after canonical ones, and retired keys staying dead |
 
-`tests/smart-grid-layout-tests.cpp` covers balanced selection, half-cell
-centering, both fill orders, and first/last short-group placement.
-`tests/nested-group-layout-tests.cpp` covers the diamond arrangement, both
-primary axes, spacing, absent-token collapse, nesting, cross alignment, parse
-failure, four-side outer padding, per-element nudge, and the
-`BuildGridExpression` bridge (single row, both fill orders, ragged grids, axis
-transpose, and a generated expression round-tripping through the arranger). The
-pure layout tests and the WinRT templates are syntax-checked independently.
+`verify-settings-order.ps1` is deliberately **not** in `submission-preflight.ps1`
+yet — only VD Switcher has migrated, so wiring it in would block review fixes on
+the four mods that have not. Run it by hand as each mod migrates, and fold it
+into preflight once the family is uniform.
 
-### Unified element placement (v1.2)
+`tests/nested-group-layout-tests.cpp` covers the diamond arrangement, spacing,
+absent-token collapse, nesting, all three justifications, symmetric padding,
+per-item offsets parsed from the expression, five parse failures, DPI-correct
+`AvailableRows`, the `ChooseShape` rule, both fill orders, ragged grids, a
+custom namer, a generated expression round-tripping through the arranger, and
+`ResolveArrangement`'s auto detection. Build and run with Windhawk's clang:
 
-There is one arranger. A mod chooses element positions in exactly one of two
-ways, and both end at the same `Compute` call:
+```powershell
+& "C:\Program Files\Windhawk\Compiler\bin\clang++.exe" -std=c++23 `
+  -target x86_64-w64-mingw32 -static -Wall -o "$env:TEMP\ngl-tests.exe" `
+  _templates\tests\nested-group-layout-tests.cpp; & "$env:TEMP\ngl-tests.exe"
+```
 
-* **Manual layout** — the user authors the expression string directly.
-* **Auto layout** — `smart_grid::ComputeLayout` picks rows × columns from the
-  item count and height budget, then `nested_group_layout::BuildGridExpression`
-  turns that grid into the equivalent expression string.
+`-static` is required — without it the test exe looks for the runtime under
+Windhawk's `.whl` names and cannot start. `tests/smart-grid-layout-tests.cpp`
+belongs to the superseded header and stays until the last mod migrates off it.
 
-Because both paths produce a string that the same engine parses, measures, and
-arranges, centering, per-element nudge, four-side outer padding, and
-absent-item collapse behave identically regardless of how the shape was chosen.
-This is what lets a mod expose a single "Layout: Auto / Manual" toggle that only
-swaps which settings group is active. Per-element nudge is a cosmetic offset
-applied to a leaf inside its slot (it never moves a neighbor or resizes the
-group); outer padding is applied once around the whole arranged group and each
-of its four sides is independently addressable. Do NOT reintroduce a second
-placement engine — a shape heuristic emits an expression, it does not place.
+### Unified element placement (v2.0)
+
+There is one arranger and, in the settings, **one field**: `Layout.Arrangement`,
+whose default value is the word `auto`.
+
+* `auto` — `ChooseShape` picks rows × columns from the item count and the
+  DPI-correct height budget, and `BuildGridExpression` turns that into the
+  expression. The mod logs it.
+* anything else — that string IS the layout.
+
+`ResolveArrangement` implements exactly that, so both paths end at the same
+`Compute` call and there is no mode toggle to reason about. The Windhawk
+settings API is read-only, so a mod can never write the generated expression
+into the field for the user; logging it is the supported way to hand it over
+for editing.
+
+Per-item offsets ride **in the expression** as `1[+2,-1]` — one string, nothing
+to keep in sync. They are cosmetic: a leaf moves inside its slot, never a
+neighbor, never the group size. Outer padding is symmetric (`padX`, `padY`) and
+participates in layout; group offset is a visual translation that must not
+reserve space, so the mod applies it to the container and the arranger never
+sees it. Do NOT reintroduce a second placement engine, a second offset syntax,
+or a four-sided anything.
 
 ## The six audited mods
 

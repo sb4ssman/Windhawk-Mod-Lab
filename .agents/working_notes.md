@@ -6,7 +6,69 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
----INTERRUPTED--- 
+**Settings contract v2 + layout rewrite (2026-07-24).** The old "hybrid"
+Auto/Manual layout surface was rejected by the user as an incoherent
+amalgamation and has been thrown out. Replaced by:
+
+- `_templates/settings-profiles.md` — rewritten from a prose profile menu into
+  THE settings contract: eight nested groups (Placement, Content, Layout, Size,
+  Adjust, Surface, State, Behavior) with fixed keys, labels, defaults, and a
+  fixed assembly order. Mods append mod-specific keys after a group's canonical
+  ones; they never invent, rename, or reorder. Commit `60204b3`.
+- `_templates/nested-group-layout.h` v2.0 — one arranger behind ONE setting,
+  `Layout.Arrangement`, default value `auto`. Absorbed the shape choice
+  (`ChooseShape`), the DPI-correct row count (`AvailableRows`), and expression
+  generation. Per-item offsets ride in the expression as `1[+2,-1]`; the
+  keyed-nudge strings, four-side padding, primary axis, and face nudging are
+  gone. `smart-grid-layout.h` is marked SUPERSEDED (still embedded in
+  OmniButton, Privacy Anchor, Folder Menus).
+- `_templates/verify-settings-order.ps1` — new, machine-checks a mod's settings
+  block against the contract. NOT in submission-preflight yet: only VD Switcher
+  has migrated, and wiring it in would block review fixes on the other four.
+- `compile-check.ps1` and `exit-time-destructor-audit.ps1` now pass Windhawk's
+  own `-DWINVER/_WIN32_WINNT/NTDDI_VERSION` set. Without them `GetDpiForWindow`
+  fails to compile in the lab but builds fine in Windhawk — the lab tooling was
+  making a valid mod look broken.
+
+Verified platform facts behind the design: nested settings groups are supported
+and review-clean (`taskbar-elastic-pill` ships them; read as `Group.Key`), and
+the settings API is READ-ONLY (`windhawk_api.h` has no setter), so a mod can
+never fill a field in for the user — hence the `auto` sentinel plus a logged
+expansion instead of a two-field Auto/Manual split.
+
+No maintainer pushback on settings backward compatibility exists; all eight PR
+threads were checked. The no-alias rule is self-imposed, from the reverted v1.6
+`AliasedStr`/`AliasedInt` experiment. Clean break at a major version confirmed
+by the user.
+
+**VD Switcher v2.0 — AWAITING LIVE TEST.** Rebuilt on the contract: every
+setting regrouped, `Layout.Arrangement` replaces layoutMode/layout/gridMode/
+smartLayout/rows/columns/primaryAxis/crossAlign, `Adjust` replaces the four
+padding sides + gridVerticalOffset, per-item offsets moved into the expression,
+face nudging dropped, Task View sizing became literal width/height.
+COMPILE_OK, EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH, SETTINGS_ORDER_OK,
+SUBMISSION_PREFLIGHT_OK. Users' 1.x settings do NOT migrate — the README says so
+under "Upgrading from 1.x". Nothing pushed; PR #4844 still waits on the live
+test.
+
+Live test checklist:
+- `auto` on single- and double-height taskbars; 2, 3, 4, 5 desktops
+- the logged arrangement pasted back into Arrangement and edited
+- an explicit arrangement (`1, 2 | 3, 4`) and a deliberately broken one
+  (should log and fall back to automatic)
+- per-item offset `1[+2,-1]`; group offset via Adjust
+- Task View button in all four placements, sliver look via TaskViewHeight ~6
+- all three Start positions; multi-monitor toggle
+- **DPI**: repeat the auto layout at 125% and 150% scaling (this is the
+  blocking bug class on #4855/#4843)
+- clicking switches desktops; Explorer restart and disable/re-enable are clean
+
+Next, in order: fold the contract into Privacy Anchor (#4843) and OmniButton
+(#4855) alongside their required review fixes — both need the DPI fix that
+`ngl::AvailableRows` now centralizes — then Clock Spacer (#4443), then flip
+`verify-settings-order.ps1` into submission-preflight.
+
+---INTERRUPTED---
 
 
 What's rebuilt

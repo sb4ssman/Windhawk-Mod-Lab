@@ -70,6 +70,8 @@ $ErrorActionPreference = 'Continue'
 $compilerOutput = & $clang -std=c++23 -target x86_64-w64-mingw32 -fsyntax-only `
     -Wexit-time-destructors `
     -DUNICODE -D_UNICODE -DWH_MOD -DWH_EDITING `
+    -DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00 -D_WIN32_IE=0x0A00 `
+    -DNTDDI_VERSION=0x0A000008 -D__USE_MINGW_ANSI_STDIO=0 `
     "-DWH_MOD_ID=L`"$modName`"" '-DWH_MOD_VERSION=L"0.0"' `
     -I $include -include windows.h -include windhawk_api.h `
     $sourceFile.FullName 2>&1
