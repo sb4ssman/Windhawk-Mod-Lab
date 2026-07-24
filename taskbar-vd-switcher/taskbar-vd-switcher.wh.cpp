@@ -50,6 +50,7 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 - Numbered, roman-numeral, indicator-symbol, or custom-label buttons
 - Automatic grid that fits the buttons to the taskbar's height, or an arrangement you write yourself
+- Optional Task View button that matches the desktop buttons as a full column or a sliver
 - Highlights the active desktop immediately on switch
 - Buttons appear and disappear as desktops are added or removed
 - Five tray positions, plus experimental Start-adjacent and Start-overlay positions
@@ -123,6 +124,26 @@ Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole group instead, use `Adjust` → horizontal and
 vertical offset.
 
+**Desktops you create later.** An arrangement you write names the desktops that
+existed when you wrote it. Create another one and it is in no group, so by
+default it is appended after your arrangement rather than vanishing — the log
+says when that happened, so you can fold it in when you next edit. Set
+`Layout` → `Newly created desktops` to *Leave them out* if you would rather
+your arrangement be the whole truth. `auto` always includes every desktop.
+
+## The Task View button
+
+`Size` → `Task View button thickness` is how thick the button is: its **width**
+when it sits beside the desktop buttons, its **height** when it sits above or
+below them. `Task View button length` is how far it runs along them, and `0` —
+the default — means match them exactly. So out of the box it is a full-height
+column beside the buttons, or a full-width sliver above or below, depending
+only on where you put it. Give the length a value to make it shorter than the
+buttons; it is then centered by `Short row or column`.
+
+This works the same whether the button is placed by `auto` or by an arrangement
+you wrote — the mod sizes it against whichever axis it lands on.
+
 ## Settings
 
 ### Placement
@@ -151,6 +172,7 @@ vertical offset.
 | Arrangement | `auto` | `auto`, or an arrangement you write — see above |
 | Fill order | Fill rows first | Used by `auto` |
 | Short row or column | Center | Used by `auto`; start, center, or end |
+| Newly created desktops | Add them after | Or leave them out; only applies to a written arrangement |
 
 ### Size
 
@@ -159,8 +181,8 @@ vertical offset.
 | Button width | 20 px | |
 | Button height | 22 px | |
 | Button spacing | 2 px | Gap between buttons along each axis |
-| Task View button width | 14 px | |
-| Task View button height | 22 px | Set to about 6 for a thin sliver |
+| Task View button thickness | 14 px | Width as a column, height as a sliver |
+| Task View button length | 0 px | 0 matches the desktop buttons exactly |
 
 ### Adjust
 
@@ -337,6 +359,15 @@ This mod builds directly on patterns established by several community mods:
     - "start": "Start (top for columns, left for rows)"
     - "center": "Center"
     - "end": "End (bottom for columns, right for rows)"
+  - NewItems: "append"
+    $name: Newly created desktops
+    $description: >-
+      What happens when you create a desktop that your own arrangement does not
+      name. Only applies when you have written an arrangement - "auto" always
+      includes every desktop.
+    $options:
+    - "append": "Add them after the arrangement"
+    - "ignore": "Leave them out until I add them"
   $name: Layout
 
 - Size:
@@ -347,13 +378,17 @@ This mod builds directly on patterns established by several community mods:
   - ItemSpacing: 2
     $name: Button spacing (px)
     $description: Gap between buttons along each axis.
-  - TaskViewWidth: 14
-    $name: Task View button width (px)
-  - TaskViewHeight: 22
-    $name: Task View button height (px)
+  - TaskViewSize: 14
+    $name: Task View button thickness (px)
     $description: >-
-      For a thin sliver above or below the desktop buttons, set this to
-      about 6.
+      How thick the Task View button is: its width when it sits beside the
+      desktop buttons, its height when it sits above or below them.
+  - TaskViewSpan: 0
+    $name: Task View button length (px)
+    $description: >-
+      How far it runs along the desktop buttons. 0 matches them exactly - a
+      full-height column beside them, or a full-width sliver above or below.
+      Any other value is a fixed length, centered by Short row or column.
   $name: Size
 
 - Adjust:
@@ -503,12 +538,13 @@ struct ModSettings {
     std::wstring arrangement       = L"auto";
     std::wstring fillOrder         = L"rows";
     std::wstring justify           = L"center";
+    std::wstring newItems          = L"append";
     // Size
     int          itemWidth         = 20;
     int          itemHeight        = 22;
     int          itemSpacing       = 2;
-    int          taskViewWidth     = 14;
-    int          taskViewHeight    = 22;
+    int          taskViewSize      = 14;
+    int          taskViewSpan      = 0;
     // Adjust
     int          padX              = 0;
     int          padY              = 0;
@@ -563,12 +599,13 @@ static void LoadSettings() {
     g_settings.arrangement       = Str(L"Layout.Arrangement");
     g_settings.fillOrder         = Str(L"Layout.FillOrder");
     g_settings.justify           = Str(L"Layout.Justify");
+    g_settings.newItems          = Str(L"Layout.NewItems");
 
     g_settings.itemWidth         = std::max(1, Int(L"Size.ItemWidth"));
     g_settings.itemHeight        = std::max(1, Int(L"Size.ItemHeight"));
     g_settings.itemSpacing       = std::max(0, Int(L"Size.ItemSpacing"));
-    g_settings.taskViewWidth     = std::max(1, Int(L"Size.TaskViewWidth"));
-    g_settings.taskViewHeight    = std::max(1, Int(L"Size.TaskViewHeight"));
+    g_settings.taskViewSize      = std::max(1, Int(L"Size.TaskViewSize"));
+    g_settings.taskViewSpan      = std::max(0, Int(L"Size.TaskViewSpan"));
 
     g_settings.padX              = std::max(0, Int(L"Adjust.PadX"));
     g_settings.padY              = std::max(0, Int(L"Adjust.PadY"));
@@ -1265,7 +1302,7 @@ void SwitchToDesktop(int targetIndex) {
 }
 
 // ============================================================
-// Unified element placement -- nested-group-layout template v2.1
+// Unified element placement -- nested-group-layout template v2.2
 // Copy-source: _templates/nested-group-layout.h. One expression, one
 // setting: Layout.Arrangement is either the word "auto" (this file picks
 // the shape and emits the expression, which the mod logs) or an explicit
@@ -1285,11 +1322,39 @@ enum class Axis { Horizontal, Vertical };  // node orientation, not a setting
 enum class Justify { Start, Center, End };
 enum class FillOrder { Rows, Columns };
 
+// An item is sized either absolutely (width x height) or RELATIVE TO THE AXIS
+// its group happens to lay out along. Axis-relative sizing exists because an
+// item like a Task View button should be "as wide as it needs and as tall as
+// the buttons beside it" when it is a column, and the mirror image when it is
+// a row — and in a hand-written arrangement the mod cannot know which it will
+// be. The parent group knows its own axis, so it resolves this at measure and
+// arrange time:
+//
+//   thickness — extent ALONG the group's axis (its width as a column, its
+//               height as a row)
+//   cross     — extent ACROSS the group's axis; 0 means fill, i.e. match
+//               whatever the rest of the group measures
 struct Size {
     double width = 0.0;
     double height = 0.0;
-    bool Empty() const { return width <= 0.0 || height <= 0.0; }
+    bool axisRelative = false;
+    double thickness = 0.0;
+    double cross = 0.0;
+
+    bool Empty() const {
+        return axisRelative ? thickness <= 0.0
+                            : (width <= 0.0 || height <= 0.0);
+    }
 };
+
+// Size an item against its group's axis. cross = 0 fills the group.
+inline Size AlongAxis(double thickness, double cross = 0.0) {
+    Size size;
+    size.axisRelative = true;
+    size.thickness = thickness;
+    size.cross = cross;
+    return size;
+}
 
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
 struct Offset {
@@ -1514,32 +1579,77 @@ inline Size Measure(Node const& node, Config const& config,
     if (!node.token.empty())
         return resolve(node.token);
 
+    // The grammar wraps every unit in a group, so most groups have a single
+    // child. Such a group IS its child — pass the size through verbatim, or an
+    // axis-relative child would be flattened into a concrete size by its own
+    // wrapper before the real parent ever sees it.
+    {
+        Node const* only = nullptr;
+        int visible = 0;
+        for (auto const& child : node.children) {
+            if (Measure(child, config, resolve).Empty())
+                continue;
+            only = &child;
+            if (++visible > 1)
+                break;
+        }
+        if (visible == 1)
+            return Measure(*only, config, resolve);
+    }
+
     double main = 0.0;
     double cross = 0.0;
+    double fillFallback = 0.0;
     int placed = 0;
     for (auto const& child : node.children) {
         Size size = Measure(child, config, resolve);
         if (size.Empty())
             continue;
-        double childMain =
-            node.axis == Axis::Horizontal ? size.width : size.height;
-        double childCross =
-            node.axis == Axis::Horizontal ? size.height : size.width;
+        double childMain, childCross;
+        if (size.axisRelative) {
+            childMain = size.thickness;
+            // A filling item takes its cross extent FROM the group, so it must
+            // not drive the group's cross size — otherwise it would size itself.
+            childCross = size.cross;
+            fillFallback = std::max(fillFallback, size.thickness);
+        } else {
+            childMain =
+                node.axis == Axis::Horizontal ? size.width : size.height;
+            childCross =
+                node.axis == Axis::Horizontal ? size.height : size.width;
+        }
         main += (placed ? config.spacing : 0.0) + childMain;
         cross = std::max(cross, childCross);
         ++placed;
     }
     if (!placed)
         return {};
+    // Degenerate case: every child fills, so nothing established a cross size.
+    // Fall back to the largest thickness rather than collapsing the group.
+    if (cross <= 0.0)
+        cross = fillFallback;
     return node.axis == Axis::Horizontal ? Size{main, cross}
                                          : Size{cross, main};
 }
 
+// Resolve a child's size against its parent group's axis, so an axis-relative
+// item becomes concrete width x height.
+inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
+    if (!size.axisRelative)
+        return size;
+    double groupCross =
+        axis == Axis::Horizontal ? groupTotal.height : groupTotal.width;
+    double cross = size.cross > 0.0 ? size.cross : groupCross;
+    return axis == Axis::Horizontal ? Size{size.thickness, cross}
+                                    : Size{cross, size.thickness};
+}
+
 inline void Arrange(Node const& node, Config const& config,
                     SizeResolver const& resolve, double x, double y,
-                    std::vector<Placement>& out) {
+                    std::vector<Placement>& out,
+                    Size const* resolvedSize = nullptr) {
     if (!node.token.empty()) {
-        Size size = resolve(node.token);
+        Size size = resolvedSize ? *resolvedSize : resolve(node.token);
         if (!size.Empty())
             out.push_back(
                 {node.token, x + node.offset.x, y + node.offset.y, size});
@@ -1552,11 +1662,31 @@ inline void Arrange(Node const& node, Config const& config,
     // A group's own offset moves everything inside it and nothing outside.
     x += node.offset.x;
     y += node.offset.y;
+
+    // Single-child group: forward the size the real parent already resolved,
+    // so axis-relative sizing survives the grammar's per-unit wrapper.
+    {
+        Node const* only = nullptr;
+        int visible = 0;
+        for (auto const& child : node.children) {
+            if (Measure(child, config, resolve).Empty())
+                continue;
+            only = &child;
+            if (++visible > 1)
+                break;
+        }
+        if (visible == 1) {
+            Arrange(*only, config, resolve, x, y, out, resolvedSize);
+            return;
+        }
+    }
+
     double cursor = node.axis == Axis::Horizontal ? x : y;
     for (auto const& child : node.children) {
-        Size size = Measure(child, config, resolve);
-        if (size.Empty())
+        Size measured = Measure(child, config, resolve);
+        if (measured.Empty())
             continue;
+        Size size = ConcreteSize(measured, node.axis, total);
         double unused = node.axis == Axis::Horizontal
                             ? total.height - size.height
                             : total.width - size.width;
@@ -1564,10 +1694,12 @@ inline void Arrange(Node const& node, Config const& config,
                              : config.justify == Justify::End  ? unused
                                                                : 0.0;
         if (node.axis == Axis::Horizontal) {
-            Arrange(child, config, resolve, cursor, y + crossOffset, out);
+            Arrange(child, config, resolve, cursor, y + crossOffset, out,
+                    &size);
             cursor += size.width + config.spacing;
         } else {
-            Arrange(child, config, resolve, x + crossOffset, cursor, out);
+            Arrange(child, config, resolve, x + crossOffset, cursor, out,
+                    &size);
             cursor += size.height + config.spacing;
         }
     }
@@ -1593,7 +1725,14 @@ inline bool Compute(std::wstring const& text, Config const& config,
         totalSize = {};
         return true;
     }
-    Arrange(root, config, resolve, config.padX, config.padY, placements);
+    if (inner.axisRelative) {
+        // The whole arrangement is one axis-relative item, so there is no group
+        // for it to fill against; square it off on its own thickness.
+        double cross = inner.cross > 0.0 ? inner.cross : inner.thickness;
+        inner = Size{inner.thickness, cross};
+    }
+    Arrange(root, config, resolve, config.padX, config.padY, placements,
+            &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
     return true;
@@ -1708,6 +1847,55 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
                                         TokenNamer const& namer = {}) {
     Shape shape = ChooseShape(count, maxRows);
     return BuildGridExpression(count, shape.rows, shape.columns, fill, namer);
+}
+
+// ---- Items the arrangement forgot -------------------------------------------
+//
+// A hand-written arrangement names the items that existed when it was written.
+// When the set is dynamic — a desktop is added, a folder appears — the new item
+// is in no group, resolves to nothing, and silently vanishes from the taskbar.
+// That is a trap, so a mod with a dynamic set offers a policy:
+//
+//   Append (default) — arrange the unlisted items automatically and put that
+//                      block after everything the user wrote, so a new item is
+//                      always reachable and the written block stays intact.
+//   Ignore           — the arrangement is the whole truth; unlisted items stay
+//                      off the taskbar until the user adds them.
+//
+// A mod that appends should log that it did, so the user knows to fold the new
+// item into their arrangement when they next edit it.
+
+inline std::vector<std::wstring> MissingTokens(
+    std::vector<std::wstring> const& expected,
+    std::vector<Placement> const& placements) {
+    std::vector<std::wstring> missing;
+    for (auto const& token : expected) {
+        bool found = false;
+        for (auto const& placement : placements) {
+            if (TokenIs(placement.token, token.c_str())) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            missing.push_back(token);
+    }
+    return missing;
+}
+
+inline std::wstring AppendMissing(std::wstring const& expression,
+                                  std::vector<std::wstring> const& missing,
+                                  int maxRows, FillOrder fill) {
+    if (missing.empty())
+        return expression;
+    auto namer = [&missing](int index) { return missing[index]; };
+    std::wstring block = BuildAutoExpression((int)missing.size(), maxRows, fill,
+                                             namer);
+    if (block.empty())
+        return expression;
+    if (expression.empty())
+        return block;
+    return L"(" + expression + L") | (" + block + L")";
 }
 
 // ---- The one setting --------------------------------------------------------
@@ -1825,7 +2013,7 @@ static std::wstring ToRoman(int n) {
 }
 
 static std::wstring GetButtonLabel(int idx, int current) {
-    if (g_settings.labelFormat == L"dot")
+    if (g_settings.labelFormat == L"symbol")
         return (idx == current) ? g_settings.activeSymbol
                                 : g_settings.inactiveSymbol;
     if (g_settings.labelFormat == L"roman")
@@ -1939,8 +2127,11 @@ static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
     if (ngl::TokenIs(token, L"master")) {
         if (!g_settings.taskViewButton)
             return {};
-        return {(double)g_settings.taskViewWidth,
-                (double)g_settings.taskViewHeight};
+        // Sized against whichever axis it lands on, so one pair of settings
+        // covers a full-height column and a full-width sliver, wherever the
+        // arrangement puts it. Span 0 means match the desktop buttons.
+        return ngl::AlongAxis((double)g_settings.taskViewSize,
+                              (double)g_settings.taskViewSpan);
     }
     if (DesktopIndexFromToken(token, count) >= 0)
         return {(double)g_settings.itemWidth, (double)g_settings.itemHeight};
@@ -1963,11 +2154,23 @@ static std::wstring AddTaskViewButton(std::wstring const& grid) {
     return L"(" + grid + L") | master";  // "after"
 }
 
+// Every token this mod expects to be on screen right now.
+static std::vector<std::wstring> ExpectedTokens(int count) {
+    std::vector<std::wstring> tokens;
+    for (int i = 1; i <= count; i++)
+        tokens.push_back(std::to_wstring(i));
+    if (g_settings.taskViewButton)
+        tokens.push_back(L"master");
+    return tokens;
+}
+
 // Resolve Layout.Arrangement to placements. "auto" generates the expression
 // and logs it so it can be pasted back into the same field and edited; an
 // explicit arrangement is used as written, falling back to automatic if it
-// does not parse. quiet suppresses the log for repeated measure-only calls
-// from the Start-placement layout callback.
+// does not parse. A desktop created after the arrangement was written is
+// appended (or left out) per Layout.NewItems, so a new desktop is never
+// silently unreachable. quiet suppresses the log for repeated measure-only
+// calls from the Start-placement layout callback.
 static bool ComputeButtonPlacements(int count,
                                     std::vector<ngl::Placement>& placements,
                                     ngl::Size& total, bool quiet = false) {
@@ -1977,7 +2180,7 @@ static bool ComputeButtonPlacements(int count,
     };
 
     bool isAuto = ngl::IsAutoSetting(g_settings.arrangement);
-    int maxRows = isAuto ? AvailableRows(quiet) : 1;
+    int maxRows = AvailableRows(quiet);
     auto makeAuto = [count, maxRows]() {
         std::wstring grid = ngl::BuildAutoExpression(count, maxRows,
                                                      LayoutFillOrder());
@@ -1995,13 +2198,29 @@ static bool ComputeButtonPlacements(int count,
                L"using the automatic arrangement instead",
                expression.c_str(), error.expected.c_str(),
                (int)error.position + 1);
-        maxRows = AvailableRows(quiet);
-        expression = ngl::BuildAutoExpression(count, maxRows, LayoutFillOrder());
-        if (expression.empty())
-            expression = L"1";
-        expression = AddTaskViewButton(expression);
-        ok = ngl::Compute(expression, config, resolve, placements, total);
+        isAuto = true;
+        expression = makeAuto();
+        ok = ngl::Compute(expression, config, resolve, placements, total,
+                          nullptr);
     }
+
+    // A hand-written arrangement names the desktops that existed when it was
+    // written. Anything created since is in no group and would vanish.
+    if (ok && !isAuto && g_settings.newItems != L"ignore") {
+        auto missing = ngl::MissingTokens(ExpectedTokens(count), placements);
+        if (!missing.empty()) {
+            expression = ngl::AppendMissing(expression, missing, maxRows,
+                                            LayoutFillOrder());
+            ok = ngl::Compute(expression, config, resolve, placements, total,
+                              nullptr);
+            if (!quiet) {
+                Wh_Log(L"[Layout] %d item(s) missing from your arrangement were "
+                       L"appended; add them to Arrangement to place them "
+                       L"yourself", (int)missing.size());
+            }
+        }
+    }
+
     if (!quiet) {
         Wh_Log(L"[Layout] %d desktop(s), arrangement = \"%ls\"%ls, size %.0fx%.0f",
                count, expression.c_str(),
@@ -2253,7 +2472,7 @@ static Grid BuildButtonGrid(int count, int current) {
     }
 
     for (auto const& p : placements) {
-        if (p.token == L"master") {
+        if (ngl::TokenIs(p.token, L"master")) {
             Button masterBtn;
             masterBtn.Name(L"VdMasterBtn");
             TextBlock content;
@@ -3210,7 +3429,7 @@ static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileNam
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] VD Switcher v1.8");
+    Wh_Log(L"[Init] VD Switcher v2.0");
     LoadSettings();
     DetectExplorerBuild();
 

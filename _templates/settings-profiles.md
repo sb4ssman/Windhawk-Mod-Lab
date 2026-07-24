@@ -174,8 +174,31 @@ expression. There is no mode toggle, because there is only one field.
     - start: Start
     - center: Center
     - end: End
+  - NewItems: append
+    $name: Newly created items
+    $description: >-
+      What happens to an item your arrangement does not name. Only applies to
+      a written arrangement - "auto" always includes everything.
+    $options:
+    - append: Add them after the arrangement
+    - ignore: Leave them out until I add them
   $name: Layout
 ```
+
+`NewItems` is required for any mod whose item set is dynamic, and omitted for a
+fixed set. Without it, creating a desktop or a folder that the user's written
+arrangement does not name makes that item silently unreachable — it resolves to
+nothing and disappears. `MissingTokens` + `AppendMissing` implement the append
+policy; log when items were appended so the user knows to fold them in.
+
+**Sizing an item against its group.** An item that should match its neighbours
+— a Task View button that is a full-height column beside the buttons, or a
+full-width sliver above them — cannot be given a fixed width and height,
+because in a hand-written arrangement the mod does not know which way it will
+land. Return `AlongAxis(thickness, span)` from the size resolver instead:
+`thickness` runs along the group's axis and `span` across it, with `span = 0`
+meaning "match the rest of the group". One pair of settings then covers both
+orientations wherever the user puts the item.
 
 **The `auto` shape rule.** Deterministic, not scored. Compute `maxRows` from the
 taskbar height **in DIPs** (never raw `GetWindowRect` pixels — see the DPI note

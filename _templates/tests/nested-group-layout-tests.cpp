@@ -146,6 +146,62 @@ int main() {
     assert(!Compute(L"a (b | c)", config, square24, placements, total, &error));
     assert(error.position == 2);
 
+    // ---- Axis-relative sizing ----------------------------------------------
+
+    // "bar" sizes itself against whichever axis its group lays out along:
+    // 6px thick, filling the cross axis. As a column it is 6 wide and as tall
+    // as the buttons beside it; as a row it is 6 tall and as wide as them.
+    auto withBar = [](std::wstring const& token) -> Size {
+        return token == L"bar" ? AlongAxis(6) : Size{24, 24};
+    };
+    assert(Compute(L"(a, b) | bar", config, withBar, placements, total));
+    assert(Near(total.width, 30) && Near(total.height, 48));
+    assert(Near(Find(placements, L"bar")->size.width, 6) &&
+           Near(Find(placements, L"bar")->size.height, 48));
+    assert(Near(Find(placements, L"bar")->x, 24) &&
+           Near(Find(placements, L"bar")->y, 0));
+
+    assert(Compute(L"(a | b), bar", config, withBar, placements, total));
+    assert(Near(total.width, 48) && Near(total.height, 30));
+    assert(Near(Find(placements, L"bar")->size.width, 48) &&
+           Near(Find(placements, L"bar")->size.height, 6));
+
+    // A fixed cross extent opts out of filling.
+    auto shortBar = [](std::wstring const& token) -> Size {
+        return token == L"bar" ? AlongAxis(6, 10) : Size{24, 24};
+    };
+    assert(Compute(L"(a, b) | bar", config, shortBar, placements, total));
+    assert(Near(Find(placements, L"bar")->size.height, 10));
+    // ...and is justified across the group like anything else.
+    assert(Near(Find(placements, L"bar")->y, 19));
+
+    // Degenerate: nothing but filling items still produces a visible group,
+    // and a lone filling item squares off on its own thickness.
+    auto onlyBars = [](std::wstring const&) -> Size { return AlongAxis(6); };
+    assert(Compute(L"bar | bar2", config, onlyBars, placements, total));
+    assert(!total.Empty());
+    assert(Compute(L"bar", config, onlyBars, placements, total));
+    assert(Near(total.width, 6) && Near(total.height, 6));
+    assert(Near(Find(placements, L"bar")->size.width, 6) &&
+           Near(Find(placements, L"bar")->size.height, 6));
+
+    // ---- Items the arrangement forgot --------------------------------------
+
+    std::vector<std::wstring> expected{L"1", L"2", L"3", L"4"};
+    assert(Compute(L"1 | 2", config, square24, placements, total));
+    auto missing = MissingTokens(expected, placements);
+    assert(missing.size() == 2 && missing[0] == L"3" && missing[1] == L"4");
+
+    // Appending keeps the written block intact and arranges the rest.
+    assert(AppendMissing(L"1 | 2", missing, 1, FillOrder::Rows) ==
+           L"(1 | 2) | (3 | 4)");
+    assert(AppendMissing(L"1 | 2", missing, 2, FillOrder::Rows) ==
+           L"(1 | 2) | (3, 4)");
+    // Nothing missing is a no-op, and matching is case-insensitive.
+    assert(AppendMissing(L"1 | 2", {}, 1, FillOrder::Rows) == L"1 | 2");
+    assert(Compute(L"Master | 1", config, square24, placements, total));
+    assert(MissingTokens({L"master"}, placements).empty());
+
     // ---- Token vocabulary --------------------------------------------------
 
     // Tokens are identity and match case-insensitively; a mod maps them to

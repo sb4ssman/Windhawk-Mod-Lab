@@ -66,11 +66,39 @@ enum class Axis { Horizontal, Vertical };  // node orientation, not a setting
 enum class Justify { Start, Center, End };
 enum class FillOrder { Rows, Columns };
 
+// An item is sized either absolutely (width x height) or RELATIVE TO THE AXIS
+// its group happens to lay out along. Axis-relative sizing exists because an
+// item like a Task View button should be "as wide as it needs and as tall as
+// the buttons beside it" when it is a column, and the mirror image when it is
+// a row — and in a hand-written arrangement the mod cannot know which it will
+// be. The parent group knows its own axis, so it resolves this at measure and
+// arrange time:
+//
+//   thickness — extent ALONG the group's axis (its width as a column, its
+//               height as a row)
+//   cross     — extent ACROSS the group's axis; 0 means fill, i.e. match
+//               whatever the rest of the group measures
 struct Size {
     double width = 0.0;
     double height = 0.0;
-    bool Empty() const { return width <= 0.0 || height <= 0.0; }
+    bool axisRelative = false;
+    double thickness = 0.0;
+    double cross = 0.0;
+
+    bool Empty() const {
+        return axisRelative ? thickness <= 0.0
+                            : (width <= 0.0 || height <= 0.0);
+    }
 };
+
+// Size an item against its group's axis. cross = 0 fills the group.
+inline Size AlongAxis(double thickness, double cross = 0.0) {
+    Size size;
+    size.axisRelative = true;
+    size.thickness = thickness;
+    size.cross = cross;
+    return size;
+}
 
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
 struct Offset {
@@ -295,32 +323,77 @@ inline Size Measure(Node const& node, Config const& config,
     if (!node.token.empty())
         return resolve(node.token);
 
+    // The grammar wraps every unit in a group, so most groups have a single
+    // child. Such a group IS its child — pass the size through verbatim, or an
+    // axis-relative child would be flattened into a concrete size by its own
+    // wrapper before the real parent ever sees it.
+    {
+        Node const* only = nullptr;
+        int visible = 0;
+        for (auto const& child : node.children) {
+            if (Measure(child, config, resolve).Empty())
+                continue;
+            only = &child;
+            if (++visible > 1)
+                break;
+        }
+        if (visible == 1)
+            return Measure(*only, config, resolve);
+    }
+
     double main = 0.0;
     double cross = 0.0;
+    double fillFallback = 0.0;
     int placed = 0;
     for (auto const& child : node.children) {
         Size size = Measure(child, config, resolve);
         if (size.Empty())
             continue;
-        double childMain =
-            node.axis == Axis::Horizontal ? size.width : size.height;
-        double childCross =
-            node.axis == Axis::Horizontal ? size.height : size.width;
+        double childMain, childCross;
+        if (size.axisRelative) {
+            childMain = size.thickness;
+            // A filling item takes its cross extent FROM the group, so it must
+            // not drive the group's cross size — otherwise it would size itself.
+            childCross = size.cross;
+            fillFallback = std::max(fillFallback, size.thickness);
+        } else {
+            childMain =
+                node.axis == Axis::Horizontal ? size.width : size.height;
+            childCross =
+                node.axis == Axis::Horizontal ? size.height : size.width;
+        }
         main += (placed ? config.spacing : 0.0) + childMain;
         cross = std::max(cross, childCross);
         ++placed;
     }
     if (!placed)
         return {};
+    // Degenerate case: every child fills, so nothing established a cross size.
+    // Fall back to the largest thickness rather than collapsing the group.
+    if (cross <= 0.0)
+        cross = fillFallback;
     return node.axis == Axis::Horizontal ? Size{main, cross}
                                          : Size{cross, main};
 }
 
+// Resolve a child's size against its parent group's axis, so an axis-relative
+// item becomes concrete width x height.
+inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
+    if (!size.axisRelative)
+        return size;
+    double groupCross =
+        axis == Axis::Horizontal ? groupTotal.height : groupTotal.width;
+    double cross = size.cross > 0.0 ? size.cross : groupCross;
+    return axis == Axis::Horizontal ? Size{size.thickness, cross}
+                                    : Size{cross, size.thickness};
+}
+
 inline void Arrange(Node const& node, Config const& config,
                     SizeResolver const& resolve, double x, double y,
-                    std::vector<Placement>& out) {
+                    std::vector<Placement>& out,
+                    Size const* resolvedSize = nullptr) {
     if (!node.token.empty()) {
-        Size size = resolve(node.token);
+        Size size = resolvedSize ? *resolvedSize : resolve(node.token);
         if (!size.Empty())
             out.push_back(
                 {node.token, x + node.offset.x, y + node.offset.y, size});
@@ -333,11 +406,31 @@ inline void Arrange(Node const& node, Config const& config,
     // A group's own offset moves everything inside it and nothing outside.
     x += node.offset.x;
     y += node.offset.y;
+
+    // Single-child group: forward the size the real parent already resolved,
+    // so axis-relative sizing survives the grammar's per-unit wrapper.
+    {
+        Node const* only = nullptr;
+        int visible = 0;
+        for (auto const& child : node.children) {
+            if (Measure(child, config, resolve).Empty())
+                continue;
+            only = &child;
+            if (++visible > 1)
+                break;
+        }
+        if (visible == 1) {
+            Arrange(*only, config, resolve, x, y, out, resolvedSize);
+            return;
+        }
+    }
+
     double cursor = node.axis == Axis::Horizontal ? x : y;
     for (auto const& child : node.children) {
-        Size size = Measure(child, config, resolve);
-        if (size.Empty())
+        Size measured = Measure(child, config, resolve);
+        if (measured.Empty())
             continue;
+        Size size = ConcreteSize(measured, node.axis, total);
         double unused = node.axis == Axis::Horizontal
                             ? total.height - size.height
                             : total.width - size.width;
@@ -345,10 +438,12 @@ inline void Arrange(Node const& node, Config const& config,
                              : config.justify == Justify::End  ? unused
                                                                : 0.0;
         if (node.axis == Axis::Horizontal) {
-            Arrange(child, config, resolve, cursor, y + crossOffset, out);
+            Arrange(child, config, resolve, cursor, y + crossOffset, out,
+                    &size);
             cursor += size.width + config.spacing;
         } else {
-            Arrange(child, config, resolve, x + crossOffset, cursor, out);
+            Arrange(child, config, resolve, x + crossOffset, cursor, out,
+                    &size);
             cursor += size.height + config.spacing;
         }
     }
@@ -374,7 +469,14 @@ inline bool Compute(std::wstring const& text, Config const& config,
         totalSize = {};
         return true;
     }
-    Arrange(root, config, resolve, config.padX, config.padY, placements);
+    if (inner.axisRelative) {
+        // The whole arrangement is one axis-relative item, so there is no group
+        // for it to fill against; square it off on its own thickness.
+        double cross = inner.cross > 0.0 ? inner.cross : inner.thickness;
+        inner = Size{inner.thickness, cross};
+    }
+    Arrange(root, config, resolve, config.padX, config.padY, placements,
+            &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
     return true;
@@ -489,6 +591,55 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
                                         TokenNamer const& namer = {}) {
     Shape shape = ChooseShape(count, maxRows);
     return BuildGridExpression(count, shape.rows, shape.columns, fill, namer);
+}
+
+// ---- Items the arrangement forgot -------------------------------------------
+//
+// A hand-written arrangement names the items that existed when it was written.
+// When the set is dynamic — a desktop is added, a folder appears — the new item
+// is in no group, resolves to nothing, and silently vanishes from the taskbar.
+// That is a trap, so a mod with a dynamic set offers a policy:
+//
+//   Append (default) — arrange the unlisted items automatically and put that
+//                      block after everything the user wrote, so a new item is
+//                      always reachable and the written block stays intact.
+//   Ignore           — the arrangement is the whole truth; unlisted items stay
+//                      off the taskbar until the user adds them.
+//
+// A mod that appends should log that it did, so the user knows to fold the new
+// item into their arrangement when they next edit it.
+
+inline std::vector<std::wstring> MissingTokens(
+    std::vector<std::wstring> const& expected,
+    std::vector<Placement> const& placements) {
+    std::vector<std::wstring> missing;
+    for (auto const& token : expected) {
+        bool found = false;
+        for (auto const& placement : placements) {
+            if (TokenIs(placement.token, token.c_str())) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            missing.push_back(token);
+    }
+    return missing;
+}
+
+inline std::wstring AppendMissing(std::wstring const& expression,
+                                  std::vector<std::wstring> const& missing,
+                                  int maxRows, FillOrder fill) {
+    if (missing.empty())
+        return expression;
+    auto namer = [&missing](int index) { return missing[index]; };
+    std::wstring block = BuildAutoExpression((int)missing.size(), maxRows, fill,
+                                             namer);
+    if (block.empty())
+        return expression;
+    if (expression.empty())
+        return block;
+    return L"(" + expression + L") | (" + block + L")";
 }
 
 // ---- The one setting --------------------------------------------------------

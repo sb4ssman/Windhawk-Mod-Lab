@@ -36,6 +36,7 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 - Numbered, roman-numeral, indicator-symbol, or custom-label buttons
 - Automatic grid that fits the buttons to the taskbar's height, or an arrangement you write yourself
+- Optional Task View button that matches the desktop buttons as a full column or a sliver
 - Highlights the active desktop immediately on switch
 - Buttons appear and disappear as desktops are added or removed
 - Five tray positions, plus experimental Start-adjacent and Start-overlay positions
@@ -109,6 +110,26 @@ Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole group instead, use `Adjust` → horizontal and
 vertical offset.
 
+**Desktops you create later.** An arrangement you write names the desktops that
+existed when you wrote it. Create another one and it is in no group, so by
+default it is appended after your arrangement rather than vanishing — the log
+says when that happened, so you can fold it in when you next edit. Set
+`Layout` → `Newly created desktops` to *Leave them out* if you would rather
+your arrangement be the whole truth. `auto` always includes every desktop.
+
+## The Task View button
+
+`Size` → `Task View button thickness` is how thick the button is: its **width**
+when it sits beside the desktop buttons, its **height** when it sits above or
+below them. `Task View button length` is how far it runs along them, and `0` —
+the default — means match them exactly. So out of the box it is a full-height
+column beside the buttons, or a full-width sliver above or below, depending
+only on where you put it. Give the length a value to make it shorter than the
+buttons; it is then centered by `Short row or column`.
+
+This works the same whether the button is placed by `auto` or by an arrangement
+you wrote — the mod sizes it against whichever axis it lands on.
+
 ## Settings
 
 ### Placement
@@ -137,6 +158,7 @@ vertical offset.
 | Arrangement | `auto` | `auto`, or an arrangement you write — see above |
 | Fill order | Fill rows first | Used by `auto` |
 | Short row or column | Center | Used by `auto`; start, center, or end |
+| Newly created desktops | Add them after | Or leave them out; only applies to a written arrangement |
 
 ### Size
 
@@ -145,8 +167,8 @@ vertical offset.
 | Button width | 20 px | |
 | Button height | 22 px | |
 | Button spacing | 2 px | Gap between buttons along each axis |
-| Task View button width | 14 px | |
-| Task View button height | 22 px | Set to about 6 for a thin sliver |
+| Task View button thickness | 14 px | Width as a column, height as a sliver |
+| Task View button length | 0 px | 0 matches the desktop buttons exactly |
 
 ### Adjust
 

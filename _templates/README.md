@@ -10,7 +10,7 @@ comment, and adapt only through the documented settings or callback contract.
 | Template | Use it for |
 |---|---|
 | `settings-profiles.md` | **THE SETTINGS CONTRACT.** Component library of nested settings groups — fixed keys, labels, defaults — plus the fixed assembly order every mod follows. Assemble from it; never invent, rename, or reorder a key |
-| `nested-group-layout.h` | **THE element-placement primitive.** One expression (`\|` horizontal, `,` vertical, parens nest), per-item offsets written inline as `1[+2,-1]`, symmetric padding, the deterministic `auto` shape, DPI-correct `AvailableRows`, and `ResolveArrangement` behind the single `Layout.Arrangement` setting |
+| `nested-group-layout.h` | **THE element-placement primitive.** One expression (`\|` horizontal, `,` vertical, parens nest), inline offsets on items and groups (`1[+2,-1]`, `(1, 2)[3,0]`), located parse errors, axis-relative sizing (`AlongAxis`) for items that must match their neighbours, `MissingTokens`/`AppendMissing` so a newly created item is never silently unreachable, symmetric padding, the deterministic `auto` shape, DPI-correct `AvailableRows`, and `ResolveArrangement` behind the single `Layout.Arrangement` setting |
 | `smart-grid-layout.h` | **SUPERSEDED** by the above. Kept only while OmniButton, Privacy Anchor, and Folder Menus still embed it; do not copy into anything new |
 | `visual-tree-walk.h` | Descendant walk/find/collect helpers plus the OmniButton inner-StackPanel walk |
 | `button-surface.h` | Hex/accent colors, native-default clearing, hover/pressed resources, border, opacity, and shine |

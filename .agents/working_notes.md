@@ -32,6 +32,18 @@ amalgamation and has been thrown out. Replaced by:
   identity, never the displayed label — that rule is now in the contract, and
   it is why custom faces (VD Switcher custom labels, Folder Menus entry names)
   do not become tokens.
+- Layout v2.2 from the first live test. Two real defects: the Task View button
+  rendered as a small square instead of a full column, and a hand-written
+  arrangement silently swallowed newly created desktops. Fixed at template
+  level: `AlongAxis(thickness, span)` axis-relative sizing (span 0 = match the
+  group, resolved against whichever axis the item lands on, so one pair of
+  settings covers column and sliver), and `MissingTokens` + `AppendMissing`
+  with a `Layout.NewItems` policy (append / ignore). Also fixed the grammar's
+  per-unit wrapper flattening axis-relative sizes: a single-child group now
+  passes its child's size through verbatim in both Measure and Arrange.
+- Two stale-value bugs caught while renaming: `labelFormat == L"dot"` no longer
+  matched the renamed `symbol` option (indicator symbols silently fell back to
+  numbers), and Wh_ModInit still logged v1.8.
 - `_templates/verify-settings-order.ps1` — new, machine-checks a mod's settings
   block against the contract. NOT in submission-preflight yet: only VD Switcher
   has migrated, and wiring it in would block review fixes on the other four.
@@ -67,7 +79,11 @@ Live test checklist:
 - an explicit arrangement (`1, 2 | 3, 4`) and a deliberately broken one
   (should log and fall back to automatic)
 - per-item offset `1[+2,-1]`; group offset via Adjust
-- Task View button in all four placements, sliver look via TaskViewHeight ~6
+- Task View button in all four placements; confirm it is a full-height column
+  and a full-width sliver by default, and that a fixed length centers
+- write an arrangement, then CREATE a desktop: it should be appended and logged;
+  switch Newly created desktops to Leave them out and confirm it stays out
+- Indicator symbols label format (regression: the option value was renamed)
 - all three Start positions; multi-monitor toggle
 - **DPI**: repeat the auto layout at 125% and 150% scaling (this is the
   blocking bug class on #4855/#4843)
