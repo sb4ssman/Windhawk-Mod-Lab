@@ -6,52 +6,59 @@ Living todo list — current state only, pruned every session. Completed work
 
 ## Current focus
 
-**Taskbar Folder Menus v0.7** (PR #4485, commit `18fe50eb`) and **Tray Utility
-Customizer v1.1** (PR #4841, commit `20aaf8e5`) were updated upstream on
-2026-07-23 with explicit user approval after a live test. Both address every
-required and optional maintainer review item; all four CI jobs are green on
-each, and a review reply is posted on both. Versions were intentionally not
-bumped — neither mod is published upstream yet, so 0.7 and 1.1 remain the
-proposed initial versions. Await maintainer review; do not change either PR
-without fresh explicit approval.
+**MERGED 2026-07-23:** Taskbar Folder Menus (PR #4485) and Tray Utility
+Customizer (PR #4841) are now in the official catalog. No further action.
 
-OmniButton Customizer v1.0 is submitted as PR #4855 on branch
-`add-omnibutton-customizer` (base upstream/main, one file:
-`mods/omnibutton-customizer.wh.cpp`). This replaces the mislabeled reuse of the
-legacy Vertical OmniButton PR #3859, which is now CLOSED with a redirect to
-#4855; the stale `sb4ssman-vertical-omnibutton` branch is deleted. Await
-maintainer review; do not change the PR without fresh explicit approval.
+**Active work: cross-cutting `[[clang::no_destroy]]` resolution.** The
+2026-07-23 review wave requests the same no_destroy fix on every remaining open
+mod (#4843, #4844, #4855) — it was also the merge-gate on the two that merged.
+Curate the definitive resolution into the lifecycle template, then distribute to
+each affected mod one live-tested build at a time. VD Switcher already has the
+fix (in the unified-placement rebuild, `7c1e4b8`, pending its live test).
 
-## Open upstream PRs — re-audited 2026-07-23
+VD Switcher rebuild on unified nested-group placement is committed at `7c1e4b8`
+(compiles + audit-green, preliminary user test "looking OK"); READMEs + version
+bump are deferred until the full live test. See work_log 2026-07-23.
 
-All six are CI green and were submitted/updated with explicit user approval.
-All six are currently open, mergeable, and `CLEAN`, and every PR branch is a
-clean one-file diff against `upstream/main`. Do not change a PR without fresh
-explicit approval, and never push a review fix before a fresh live test.
+## Open upstream PRs — reconciled 2026-07-24
 
-- OmniButton Customizer v1.0 — PR #4855: no comments/reviews; passive wait.
-- Privacy Indicator Anchor v1.0 — PR #4843: no comments/reviews; passive wait.
-- Taskbar Clock Spacer v1.1 — PR #4443: maintainer explicitly said it can be
-  merged as the standalone mod; integration PR m417z/my-windhawk-mods #68 is
-  already closed. Passive wait.
-- Taskbar Folder Menus v0.7 — PR #4485: UPDATED 2026-07-23, commit `18fe50eb`.
-  The 2026-07-21 review is fully answered: optional-backed no-destroy state with
-  controlled reset (`g_loadedRevokers` removed outright), no IconView/
-  multi-module startup path, a single apply in `Wh_ModAfterInit`, and
-  SRW-guarded retry-handle handoff. CI green; reply posted. Passive wait.
-- Tray Utility Customizer v1.1 — PR #4841: UPDATED 2026-07-23, commit
-  `20aaf8e5`. Both required items plus every optional item are addressed —
-  no-destroy ownership, the MainStack host-leaf phantom-straggler gap, retry
-  synchronization, settings recovery via the retry path, token revocation,
-  parser rejection, and metadata cleanup — while retaining language-neutral
-  detection. CI green; reply posted. Passive wait.
-- Taskbar VD Switcher v1.8 — PR #4844: required `g_settings` no-destroy removal
-  is already present in pushed commit `c5995bd3`, CI is green, and the
-  maintainer reply was posted 2026-07-23 (confirming Claude introduced the
-  annotation). Committed publicly to converting `g_autoRevokerList`,
-  `g_buttonEventStates`, and `g_secondaryBars` to optional-backed no-destroy
-  with `reset()` in the NEXT LIVE-TESTED update — not before a live test.
-  Passive wait.
+Two merged; four open, each now carrying a 2026-07-23 maintainer review. Never
+push a review fix before a fresh live test.
+
+- Taskbar Folder Menus v0.7 — PR #4485: **MERGED** (`18fe50eb`).
+- Tray Utility Customizer v1.1 — PR #4841: **MERGED** (`20aaf8e5`).
+- Taskbar VD Switcher v1.8 — PR #4844: OPEN. User replied 2026-07-24 "I am
+  updating it, we can hold off on the merge... working [the other comments]
+  too." The unified-placement rebuild (`7c1e4b8`) already includes the
+  no_destroy conversion; awaits full live test, READMEs, version bump before the
+  PR is updated.
+- Taskbar Clock Spacer v1.1 — PR #4443: OPEN, ACTION REQUIRED. Review asks: (1)
+  why hook everything vs just `DateTimeIconContent::OnApplyTemplate`; (2) remove
+  `(pre-2604)` from a comment (breaks symbol-cache parser); (3) drop no_destroy
+  on `g_states` (weak_ref release is thread-safe; bare container leaks buffer);
+  (4) add before/after screenshot; optional off-thread-cleanup + scan-thread
+  race notes.
+- Privacy Indicator Anchor v1.0 — PR #4843: OPEN, ACTION REQUIRED. Two real
+  bugs: (1) use-after-free — `wstring_view` over a destroyed `hstring` temporary
+  on the hot scan path (take a `std::wstring` copy); (2) `cameraHardwareDetection`
+  defaults true → touches camera on every Explorer start, make it opt-in false.
+  Plus: no_destroy fix; rename `systemTrayDllHooks` (3 modules) + comment; DPI
+  mixing (physical px ÷ DIP pitch) in row math. Optional: mic-monitor cleanup
+  race, StringSetting RAII, Copilot poll cadence.
+- OmniButton Customizer v1.0 — PR #4855: OPEN, ACTION REQUIRED. (1) DPI bug
+  (BLOCKING) — `ResolveGeometry` mixes physical px and DIPs → grid clips above
+  100% scaling; fix with `MulDiv` + `GetDpiForWindow`. (2) rename
+  `systemTrayDllHooks` (3 modules) + comment. Plus: no_destroy fix; test at
+  varied DPI. Optional: retry-thread race, IsWindow revalidation, dup
+  LoadColorSetting, slotWidth<16 clamp, unused params/includes.
+
+### Cross-cutting themes from the 2026-07-23 review wave
+- **`[[clang::no_destroy]]`** — requested on all four open mods; merge-gate on
+  the two merged. Being resolved via the lifecycle template (this session).
+- **DPI mixing (physical px vs DIPs)** — real bug on #4855 (blocking) and #4843;
+  lives in the smart-grid `GetAvailableRows` heuristic shared across mods. The
+  unified-placement rollout should centralize a DIP-correct height.
+- **`SYMBOL_HOOK` array naming** — must name every target module; #4843, #4855.
 
 Follow-ups:
 

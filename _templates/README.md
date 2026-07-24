@@ -82,12 +82,15 @@ visual settings family.
    before staging a template adoption to a PR.
 8. Complete `submission-checklist.md`; compilation is not a substitute for the
    three documentation layers, current screenshots, or focused live testing.
-9. Namespace-scope ownership follows lifecycle v1.3's three-way rule:
-   heap-only settings/leases destruct normally; direct nullable XAML/WinRT
-   handles use intentional `no_destroy`; XAML-owning containers use
-   `no_destroy optional<container>`, with event revocation followed by
-   `reset()` on controlled UI-thread unload. Retain engaged no-destroy state
-   when no UI thread can be reached during process teardown.
+9. Namespace-scope ownership follows lifecycle v1.3.1's rule: heap-only
+   settings/leases/containers destruct normally (never annotated — that only
+   leaks the buffer on unload); direct nullable XAML/WinRT handles use
+   intentional `no_destroy`; containers of STRONG XAML/WinRT refs use
+   `no_destroy optional<container>`, with event revocation followed by `reset()`
+   on controlled UI-thread unload, retaining engaged state when no UI thread is
+   reachable at teardown. `no_destroy` is NOT a tool to dodge off-thread release:
+   `winrt::weak_ref` (and plain heap) release safely from any thread, so those
+   containers stay unannotated (rule 1).
 10. Treat every taskbar UI callback as an exception boundary. Keep the v1.2
     `RunFromWindowThread` dispatcher verbatim, catch WinRT/C++ exceptions in
     native hooks and XAML event/property callbacks, and verify a live XAML root

@@ -1,4 +1,7 @@
-// Copy-source template v1.3: Windows 11 taskbar XAML lifecycle.
+// Copy-source template v1.3.1: Windows 11 taskbar XAML lifecycle.
+// v1.3.1: clarify that no_destroy is ONLY for strong XAML/WinRT-owning
+// containers. weak_ref and plain-heap containers are thread-safe to destroy and
+// must stay unannotated (m417z clarification across the 2026-07-23 PR reviews).
 // v1.3: make no_destroy ownership explicit, free container storage on
 // controlled unload, and serialize retry-handle ownership. Wh_ModAfterInit
 // performs one immediate apply; bounded retries are reserved for taskbar
@@ -61,18 +64,31 @@ static SRWLOCK g_templateRetryLock = SRWLOCK_INIT;
 // framework has torn down or from the shutdown thread. Classify every
 // namespace-scope owner instead of applying no_destroy broadly:
 //
-// 1. Heap-only C++ state (settings, strings, numeric leases) destructs normally.
-//    Do NOT annotate it; its destructor is safe and should free its storage.
+// 1. Heap-only C++ state destructs normally — do NOT annotate it. This covers
+//    settings, strings, numeric leases, AND containers whose elements are
+//    trivially destructible or only own heap (e.g. std::wstring). Its
+//    destructor is safe at process shutdown, and suppressing it LEAKS the
+//    storage on every normal unload (disable/reload). A settings struct of
+//    strings/ints/bools/arrays is trivially safe — never no_destroy it.
 //
-// 2. Direct nullable XAML/WinRT handles use no_destroy and are explicitly set
-//    to nullptr by RemoveModUi on the taskbar UI thread.
+// 2. Direct nullable XAML/WinRT handles (Grid/FrameworkElement = nullptr,
+//    DispatcherTimer, etc.) use no_destroy and are explicitly set to nullptr by
+//    RemoveModUi on the taskbar UI thread.
 //
-// 3. Containers that own XAML/WinRT references, event revokers, weak_ref
-//    objects, Storyboards, or delegates use a no_destroy optional<container>.
-//    Revoke/clear their elements on settings changes. On controlled Wh_ModUninit,
-//    call reset() on the UI thread after revocation so the container's heap
-//    buffer is also freed. If the UI thread is unavailable, intentionally keep
-//    the engaged optional and its XAML state alive.
+// 3. Containers that own STRONG XAML/WinRT references, event revokers,
+//    Storyboards, or delegates use a no_destroy optional<container>. These are
+//    the objects that must not be released off the UI thread after framework
+//    teardown. Revoke/clear their elements on settings changes. On controlled
+//    Wh_ModUninit, call reset() on the UI thread after revocation so the
+//    container's heap buffer is also freed. If the UI thread is unavailable,
+//    intentionally keep the engaged optional and its XAML state alive.
+//
+//    Do NOT reach for no_destroy just to avoid an off-thread release: a
+//    container of winrt::weak_ref (or plain heap) is safe to destroy from ANY
+//    thread — weak_ref release is only an in-process control-block decrement.
+//    Such containers fall under rule 1: leave them unannotated and release their
+//    elements on unload. (m417z, PR #4443: bare no_destroy there leaked the
+//    buffer for no benefit.)
 //
 // static ModSettings g_settings;  // exit-time-safe: heap-only
 // [[clang::no_destroy]] static FrameworkElement g_ownedRoot = nullptr;

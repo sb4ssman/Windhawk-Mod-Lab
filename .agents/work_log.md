@@ -1309,3 +1309,24 @@ one session, all under the no-push-without-live-test rule:
   unchanged until they re-adopt; tray-utility still links clean. Next: adopt the
   unified system in VD Switcher (the user-chosen guinea pig) and hand off a
   build for a live test before anything is pushed.
+
+## 2026-07-24 — Two merges, review wave, and the no_destroy resolution
+
+- PR #4485 (Folder Menus v0.7) and PR #4841 (Tray Utility Customizer v1.1) were
+  MERGED upstream on 2026-07-23 after the review-fix pushes. Both are now in the
+  official catalog.
+- The four remaining open PRs each got a fresh 2026-07-23 maintainer review.
+  Cross-cutting requests: fix `[[clang::no_destroy]]` usage (all four), a
+  physical-px-vs-DIP mixing bug in the smart-grid row heuristic (#4855 blocking,
+  #4843), and `SYMBOL_HOOK` array naming that must list every target module
+  (#4843, #4855). Per-mod bugs: #4843 has a use-after-free (`wstring_view` over a
+  destroyed `hstring`) and a camera-touching default; #4855 has the blocking DPI
+  clip; #4443 wants a hooking-surface reduction, a symbol-cache comment fix, and
+  a screenshot.
+- User replied on #4844 (2026-07-24): "I am updating it, we can hold off on the
+  merge... working [the other comments] too." VD Switcher's no_destroy fix is
+  already in the unified-placement rebuild (`7c1e4b8`), pending its live test.
+- Reconciled working_notes to the merged/open split and the review action items.
+- Started Step 3: curate the definitive `[[clang::no_destroy]]` resolution into
+  the lifecycle template, then distribute it to #4443/#4843/#4855 one
+  live-tested build at a time (VD Switcher already done).
