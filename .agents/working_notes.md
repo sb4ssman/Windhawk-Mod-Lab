@@ -41,6 +41,14 @@ amalgamation and has been thrown out. Replaced by:
   with a `Layout.NewItems` policy (append / ignore). Also fixed the grammar's
   per-unit wrapper flattening axis-relative sizes: a single-child group now
   passes its child's size through verbatim in both Measure and Arrange.
+- Layout v2.3 from the second live test. `MissingTokens` compared the expected
+  name against the placed token as plain strings, so a mod with ALIASES broke:
+  "desktop1 | desktop2 | desktop3 | master" appended "1 | 2 | 3" again and
+  produced seven buttons. It now takes an optional `TokenMatcher`; any mod with
+  a vocabulary must supply one, comparing item identity rather than the name
+  the user typed. VD Switcher also accepts "taskview" as an alias for "master"
+  (the natural thing to type given the setting is called Task View button), and
+  the stoplight emoji are back inline in the indicator-symbol descriptions.
 - Two stale-value bugs caught while renaming: `labelFormat == L"dot"` no longer
   matched the renamed `symbol` option (indicator symbols silently fell back to
   numbers), and Wh_ModInit still logged v1.8.

@@ -80,8 +80,8 @@ field that does. Its default value is the word `auto`:
   master | (1, 2)    Task View button left of a stacked pair
   ```
 
-  Buttons are named by desktop number; the Task View button is `master`.
-  `desktop2` also works as a readable alias for `2`, and names are
+  Buttons are named by desktop number; the Task View button is `master` or
+  `taskview`. `desktop2` also works as a readable alias for `2`, and names are
   case-insensitive. A separator is always required — `1 (2 | 3)` is an error,
   not a shorthand for `1 | (2 | 3)`.
 
@@ -146,7 +146,7 @@ you wrote — the mod sizes it against whichever axis it lands on.
 | Label format | Numbers | Numbers · Roman numerals · Indicator symbols · Custom labels |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
 | Active indicator symbol | ● | Current desktop's symbol in Indicator symbols mode |
-| Inactive indicator symbol | ○ | Other desktops' symbol; e.g. 🔴 with 🟢 above |
+| Inactive indicator symbol | ○ | Other desktops' symbol; paste 🟢 above and 🔴 here for a stoplight |
 | Task View button | Off | Adds a button that opens Task View for previewing, creating, or closing desktops |
 | Task View button label | ⊞ | Text shown on that button |
 | Task View button placement | After | Where `auto` puts it: column before/after, or row above/below |

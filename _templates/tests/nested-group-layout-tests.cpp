@@ -202,6 +202,22 @@ int main() {
     assert(Compute(L"Master | 1", config, square24, placements, total));
     assert(MissingTokens({L"master"}, placements).empty());
 
+    // A mod with aliases MUST supply a matcher: "desktop1" and "1" are the same
+    // button, and the default name comparison would report it missing and
+    // append a duplicate.
+    assert(Compute(L"desktop1 | desktop2", config, square24, placements, total));
+    assert(MissingTokens({L"1", L"2"}, placements).size() == 2);  // the trap
+    auto sameItem = [](std::wstring const& placed, std::wstring const& want) {
+        int a = TokenIndexWithPrefix(placed, L"desktop");
+        if (!a)
+            a = TokenIs(placed, L"1") ? 1 : TokenIs(placed, L"2") ? 2 : 0;
+        int b = TokenIndexWithPrefix(want, L"desktop");
+        if (!b)
+            b = TokenIs(want, L"1") ? 1 : TokenIs(want, L"2") ? 2 : 0;
+        return a && a == b;
+    };
+    assert(MissingTokens({L"1", L"2"}, placements, sameItem).empty());
+
     // ---- Token vocabulary --------------------------------------------------
 
     // Tokens are identity and match case-insensitively; a mod maps them to

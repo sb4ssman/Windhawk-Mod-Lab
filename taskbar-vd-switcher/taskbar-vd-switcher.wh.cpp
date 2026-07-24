@@ -94,8 +94,8 @@ field that does. Its default value is the word `auto`:
   master | (1, 2)    Task View button left of a stacked pair
   ```
 
-  Buttons are named by desktop number; the Task View button is `master`.
-  `desktop2` also works as a readable alias for `2`, and names are
+  Buttons are named by desktop number; the Task View button is `master` or
+  `taskview`. `desktop2` also works as a readable alias for `2`, and names are
   case-insensitive. A separator is always required — `1 (2 | 3)` is an error,
   not a shorthand for `1 | (2 | 3)`.
 
@@ -160,7 +160,7 @@ you wrote — the mod sizes it against whichever axis it lands on.
 | Label format | Numbers | Numbers · Roman numerals · Indicator symbols · Custom labels |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
 | Active indicator symbol | ● | Current desktop's symbol in Indicator symbols mode |
-| Inactive indicator symbol | ○ | Other desktops' symbol; e.g. 🔴 with 🟢 above |
+| Inactive indicator symbol | ○ | Other desktops' symbol; paste 🟢 above and 🔴 here for a stoplight |
 | Task View button | Off | Adds a button that opens Task View for previewing, creating, or closing desktops |
 | Task View button label | ⊞ | Text shown on that button |
 | Task View button placement | After | Where `auto` puts it: column before/after, or row above/below |
@@ -310,11 +310,12 @@ This mod builds directly on patterns established by several community mods:
     $name: Active indicator symbol
     $description: >-
       Shown for the current desktop when Label format is Indicator symbols.
-      For a red/green light look, paste a green circle here and a red one
-      below.
+      For a stoplight look, paste 🟢 here and 🔴 below.
   - InactiveSymbol: "○"
     $name: Inactive indicator symbol
-    $description: Shown for the other desktops when Label format is Indicator symbols.
+    $description: >-
+      Shown for the other desktops when Label format is Indicator symbols.
+      For a stoplight look, paste 🔴 here and 🟢 above.
   - TaskViewButton: false
     $name: Task View button
     $description: >-
@@ -341,8 +342,8 @@ This mod builds directly on patterns established by several community mods:
       "auto" fits the buttons to the available taskbar height. Anything else
       is an explicit arrangement: names side by side with "|", stacked with
       ",", grouped with parentheses - "1, 2 | 3, 4" is a 2x2 block. Buttons
-      are named by desktop number ("desktop2" also works), plus "master" for
-      the Task View button. Append a pixel offset to nudge one button,
+      are named by desktop number ("desktop2" also works), plus "master" or
+      "taskview" for the Task View button. Append a pixel offset to nudge one button,
       "1[+2,-1]", or a whole group, "(1, 2)[3,0]". Every time the layout is
       applied, the arrangement "auto" produced is written to the Windhawk log
       along with which desktop each number is, so you can paste it here and
@@ -1304,7 +1305,7 @@ void SwitchToDesktop(int targetIndex) {
 }
 
 // ============================================================
-// Unified element placement -- nested-group-layout template v2.2
+// Unified element placement -- nested-group-layout template v2.3
 // Copy-source: _templates/nested-group-layout.h. One expression, one
 // setting: Layout.Arrangement is either the word "auto" (this file picks
 // the shape and emits the expression, which the mod logs) or an explicit
@@ -1867,14 +1868,25 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 // A mod that appends should log that it did, so the user knows to fold the new
 // item into their arrangement when they next edit it.
 
+// Whether a token the user wrote refers to the same item as one the mod
+// expects. Defaults to a case-insensitive name match, which is WRONG for any
+// mod that accepts aliases: "desktop1" and "1" are the same button, and
+// comparing them as strings makes every aliased item look missing and get
+// appended a second time. A mod with a vocabulary must supply this.
+using TokenMatcher =
+    std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
+
 inline std::vector<std::wstring> MissingTokens(
     std::vector<std::wstring> const& expected,
-    std::vector<Placement> const& placements) {
+    std::vector<Placement> const& placements,
+    TokenMatcher const& same = {}) {
     std::vector<std::wstring> missing;
     for (auto const& token : expected) {
         bool found = false;
         for (auto const& placement : placements) {
-            if (TokenIs(placement.token, token.c_str())) {
+            bool match = same ? same(placement.token, token)
+                              : TokenIs(placement.token, token.c_str());
+            if (match) {
                 found = true;
                 break;
             }
@@ -2125,8 +2137,13 @@ static int DesktopIndexFromToken(std::wstring const& token, int count) {
 // Size of a layout token. "master" collapses to empty when the Task View
 // button is off; anything unrecognized collapses out too, so a stray name in a
 // hand-written arrangement costs nothing.
+// The Task View button answers to "master" and to the friendlier "taskview".
+static bool IsMasterToken(std::wstring const& token) {
+    return ngl::TokenIs(token, L"master") || ngl::TokenIs(token, L"taskview");
+}
+
 static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
-    if (ngl::TokenIs(token, L"master")) {
+    if (IsMasterToken(token)) {
         if (!g_settings.taskViewButton)
             return {};
         // Sized against whichever axis it lands on, so one pair of settings
@@ -2208,8 +2225,19 @@ static bool ComputeButtonPlacements(int count,
 
     // A hand-written arrangement names the desktops that existed when it was
     // written. Anything created since is in no group and would vanish.
+    // Compare by item identity, not by the name typed: "desktop1" and "1" are
+    // the same button, and a plain name comparison would append a duplicate of
+    // every aliased desktop.
     if (ok && !isAuto && g_settings.newItems != L"ignore") {
-        auto missing = ngl::MissingTokens(ExpectedTokens(count), placements);
+        auto sameItem = [count](std::wstring const& placed,
+                                std::wstring const& wanted) {
+            if (IsMasterToken(wanted))
+                return IsMasterToken(placed);
+            int a = DesktopIndexFromToken(placed, count);
+            return a >= 0 && a == DesktopIndexFromToken(wanted, count);
+        };
+        auto missing = ngl::MissingTokens(ExpectedTokens(count), placements,
+                                          sameItem);
         if (!missing.empty()) {
             expression = ngl::AppendMissing(expression, missing, maxRows,
                                             LayoutFillOrder());
@@ -2474,7 +2502,7 @@ static Grid BuildButtonGrid(int count, int current) {
     }
 
     for (auto const& p : placements) {
-        if (ngl::TokenIs(p.token, L"master")) {
+        if (IsMasterToken(p.token)) {
             Button masterBtn;
             masterBtn.Name(L"VdMasterBtn");
             TextBlock content;

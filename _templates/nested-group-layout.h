@@ -609,14 +609,25 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 // A mod that appends should log that it did, so the user knows to fold the new
 // item into their arrangement when they next edit it.
 
+// Whether a token the user wrote refers to the same item as one the mod
+// expects. Defaults to a case-insensitive name match, which is WRONG for any
+// mod that accepts aliases: "desktop1" and "1" are the same button, and
+// comparing them as strings makes every aliased item look missing and get
+// appended a second time. A mod with a vocabulary must supply this.
+using TokenMatcher =
+    std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
+
 inline std::vector<std::wstring> MissingTokens(
     std::vector<std::wstring> const& expected,
-    std::vector<Placement> const& placements) {
+    std::vector<Placement> const& placements,
+    TokenMatcher const& same = {}) {
     std::vector<std::wstring> missing;
     for (auto const& token : expected) {
         bool found = false;
         for (auto const& placement : placements) {
-            if (TokenIs(placement.token, token.c_str())) {
+            bool match = same ? same(placement.token, token)
+                              : TokenIs(placement.token, token.c_str());
+            if (match) {
                 found = true;
                 break;
             }
