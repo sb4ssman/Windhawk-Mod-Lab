@@ -41,6 +41,14 @@ amalgamation and has been thrown out. Replaced by:
   with a `Layout.NewItems` policy (append / ignore). Also fixed the grammar's
   per-unit wrapper flattening axis-relative sizes: a single-child group now
   passes its child's size through verbatim in both Measure and Arrange.
+- Added Size.TaskViewGap: extra distance between the Task View button and the
+  desktop buttons, emitted as a cosmetic offset on the master token
+  ("master[0,8]") rather than as real spacing. Cosmetic is the point - the
+  group keeps its size, so a sliver below can hang past the taskbar edge and
+  show only its leading edge (the user's preferred look) instead of the group
+  growing and re-centering. Positive is always "further away" whichever side
+  it sits on. Ignored for in-grid placement and when the arrangement names
+  master (write your own offset there).
 - Third live test: with a written arrangement the Task View button ignored its
   placement setting and got squashed. Both were the same defect - master was
   only ever APPENDED, and appended INSIDE the auto block next to any new

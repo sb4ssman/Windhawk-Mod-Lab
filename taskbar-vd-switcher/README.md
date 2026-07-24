@@ -132,10 +132,22 @@ default — means match them exactly, so it is a full-height column or a
 full-width sliver however many desktops you have. Give the length a value to
 make it shorter; it is then centered by `Short row or column`.
 
-**Last button in the grid** ignores both of those and sizes it like a desktop
-button, so it flows with them as one more cell — `1, 4 | 2, 5 | 3, ⊞`. Use it
-when you want the Task View button to read as part of the set rather than as a
-bar alongside it; it keeps its own label and font.
+`Task View button gap` puts extra distance between it and the desktop buttons,
+on top of the normal spacing — positive pushes it further away whichever side
+it is on, negative pulls it closer or over them. It moves the button **without
+resizing the group**, which is the useful part: push a sliver below far enough
+and it hangs past the bottom of the taskbar so only its leading edge shows,
+rather than the whole group growing and re-centering. On a column, a few pixels
+of gap simply sets it apart from the set.
+
+**Last button in the grid** ignores thickness, length, and gap, and sizes it
+like a desktop button so it flows with them as one more cell — `1, 4 | 2, 5 |
+3, ⊞`. Use it when you want the Task View button to read as part of the set
+rather than as a bar alongside it; it keeps its own label and font.
+
+All of this applies when the arrangement does not name the button. Write
+`master` yourself and you are placing it — add your own offset there if you
+want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 ## Settings
 
@@ -176,6 +188,7 @@ bar alongside it; it keeps its own label and font.
 | Button spacing | 2 px | Gap between buttons along each axis |
 | Task View button thickness | 14 px | Width as a column, height as a sliver; unused in the grid placement |
 | Task View button length | 0 px | 0 matches the desktop buttons exactly |
+| Task View button gap | 0 px | Extra distance from the desktop buttons; moves it without resizing the group |
 
 ### Adjust
 

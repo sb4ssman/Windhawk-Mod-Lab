@@ -146,10 +146,22 @@ default — means match them exactly, so it is a full-height column or a
 full-width sliver however many desktops you have. Give the length a value to
 make it shorter; it is then centered by `Short row or column`.
 
-**Last button in the grid** ignores both of those and sizes it like a desktop
-button, so it flows with them as one more cell — `1, 4 | 2, 5 | 3, ⊞`. Use it
-when you want the Task View button to read as part of the set rather than as a
-bar alongside it; it keeps its own label and font.
+`Task View button gap` puts extra distance between it and the desktop buttons,
+on top of the normal spacing — positive pushes it further away whichever side
+it is on, negative pulls it closer or over them. It moves the button **without
+resizing the group**, which is the useful part: push a sliver below far enough
+and it hangs past the bottom of the taskbar so only its leading edge shows,
+rather than the whole group growing and re-centering. On a column, a few pixels
+of gap simply sets it apart from the set.
+
+**Last button in the grid** ignores thickness, length, and gap, and sizes it
+like a desktop button so it flows with them as one more cell — `1, 4 | 2, 5 |
+3, ⊞`. Use it when you want the Task View button to read as part of the set
+rather than as a bar alongside it; it keeps its own label and font.
+
+All of this applies when the arrangement does not name the button. Write
+`master` yourself and you are placing it — add your own offset there if you
+want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 ## Settings
 
@@ -190,6 +202,7 @@ bar alongside it; it keeps its own label and font.
 | Button spacing | 2 px | Gap between buttons along each axis |
 | Task View button thickness | 14 px | Width as a column, height as a sliver; unused in the grid placement |
 | Task View button length | 0 px | 0 matches the desktop buttons exactly |
+| Task View button gap | 0 px | Extra distance from the desktop buttons; moves it without resizing the group |
 
 ### Adjust
 
@@ -403,6 +416,16 @@ This mod builds directly on patterns established by several community mods:
       How far it runs along the desktop buttons. 0 matches them exactly - a
       full-height column beside them, or a full-width sliver above or below.
       Any other value is a fixed length, centered by Short row or column.
+  - TaskViewGap: 0
+    $name: Task View button gap (px)
+    $description: >-
+      Extra distance between the Task View button and the desktop buttons, on
+      top of the normal button spacing. Positive pushes it further away,
+      negative pulls it closer or over them. It moves without resizing the
+      group, so a sliver can hang past the edge of the taskbar and show only
+      its leading edge. Not used when its placement is "Last button in the
+      grid", or when you name it in your own arrangement - write your own
+      offset there, like "master[0,3]".
   $name: Size
 
 - Adjust:
@@ -559,6 +582,7 @@ struct ModSettings {
     int          itemSpacing       = 2;
     int          taskViewSize      = 14;
     int          taskViewSpan      = 0;
+    int          taskViewGap       = 0;
     // Adjust
     int          padX              = 0;
     int          padY              = 0;
@@ -620,6 +644,7 @@ static void LoadSettings() {
     g_settings.itemSpacing       = std::max(0, Int(L"Size.ItemSpacing"));
     g_settings.taskViewSize      = std::max(1, Int(L"Size.TaskViewSize"));
     g_settings.taskViewSpan      = std::max(0, Int(L"Size.TaskViewSpan"));
+    g_settings.taskViewGap       = Int(L"Size.TaskViewGap");
 
     g_settings.padX              = std::max(0, Int(L"Adjust.PadX"));
     g_settings.padY              = std::max(0, Int(L"Adjust.PadY"));
@@ -2179,17 +2204,36 @@ static ngl::Size ResolveLayoutToken(std::wstring const& token, int count) {
 // Wrap the generated desktop grid with the Task View button in its configured
 // place. Only the automatic arrangement consults this -- a hand-written
 // arrangement positions "master" itself.
+// The Task View token, carrying Size.TaskViewGap as a cosmetic offset away
+// from the desktop buttons. Positive is always "further away", whichever side
+// it sits on. Cosmetic on purpose: the group keeps its size, so a sliver can
+// hang past the taskbar edge and show only its leading edge instead of the
+// whole group growing and re-centering.
+static std::wstring MasterToken() {
+    int gap = g_settings.taskViewGap;
+    if (!gap)
+        return L"master";
+    std::wstring const& where = g_settings.taskViewPlacement;
+    int dx = 0, dy = 0;
+    if (where == L"before")     dx = -gap;
+    else if (where == L"above") dy = -gap;
+    else if (where == L"below") dy = gap;
+    else                        dx = gap;  // "after"
+    return L"master[" + std::to_wstring(dx) + L"," + std::to_wstring(dy) + L"]";
+}
+
 static std::wstring AddTaskViewButton(std::wstring const& grid) {
     if (!g_settings.taskViewButton || TaskViewInGrid())
         return grid;
     std::wstring const& where = g_settings.taskViewPlacement;
+    std::wstring master = MasterToken();
     if (where == L"before")
-        return L"master | (" + grid + L")";
+        return master + L" | (" + grid + L")";
     if (where == L"above")
-        return L"master, (" + grid + L")";
+        return master + L", (" + grid + L")";
     if (where == L"below")
-        return L"(" + grid + L"), master";
-    return L"(" + grid + L") | master";  // "after"
+        return L"(" + grid + L"), " + master;
+    return L"(" + grid + L") | " + master;  // "after"
 }
 
 // Every token this mod expects to be on screen right now.
