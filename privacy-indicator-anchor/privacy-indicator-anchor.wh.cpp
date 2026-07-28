@@ -4473,7 +4473,14 @@ static bool ApplyOnTaskbarThread() {
     }
     g_loadedRevokers->clear();
     ClearPrivacyStates();
-    return ApplyStyle();
+    bool applied = ApplyStyle();
+    // ClearPrivacyStates resets the cached background results while the XAML
+    // tree is rebuilt. Reconnect the existing monitor path afterward so a
+    // state that was already blocked (and therefore emits no new registry
+    // change) is restored instead of remaining "Not requested".
+    if (applied)
+        RequestStateRefresh(RefreshAll);
+    return applied;
 }
 
 static void ApplyStyleOnWindowThread() {

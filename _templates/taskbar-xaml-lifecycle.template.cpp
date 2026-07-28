@@ -58,6 +58,33 @@ static HANDLE g_templateRetryThread = nullptr;
 static HANDLE g_templateRetryStopEvent = nullptr;
 static SRWLOCK g_templateRetryLock = SRWLOCK_INIT;
 
+// SYSTEM-HOOK CONTRACT (crash class found 2026-07-26 in OmniButton, and it
+// took Explorer down): a WH_CALLWNDPROC / WH_GETMESSAGE / CBT hook proc is a
+// HOSTILE INPUT SURFACE. It is invoked for EVERY message sent to EVERY window
+// on the hooked thread — for the taskbar UI thread that is thousands of
+// messages a second, from Windows and from every other mod.
+//
+//   VALIDATE THE DISCRIMINATOR BEFORE TOUCHING ANYTHING ELSE.
+//
+// Marshalling work onto the UI thread means sending a private registered
+// message whose lParam is a pointer to your own dispatch struct. For every
+// OTHER message, lParam is something else entirely — a flag, an integer, a
+// pointer into a structure you do not own. So:
+//
+//   if (call->message == ourRegisteredMessage) {        // FIRST
+//       auto* dispatch = (Dispatch*)call->lParam;       // only now
+//       ...
+//   }
+//
+// Reversing those two lines — casting lParam and reading a field out of it in
+// order to decide whether the message is yours — dereferences arbitrary memory
+// on the first unrelated message that arrives, which is immediately. A null
+// check on the cast pointer proves nothing; the value is not null, it is
+// simply not yours. This is a crash, not a glitch, and it kills explorer.exe.
+//
+// The same rule covers any callback Windows hands you: establish that the
+// event is the one you asked for before dereferencing anything it carries.
+//
 // PROCESS-SHUTDOWN CONTRACT (crash class found 2026-07-19 in Privacy
 // Indicator Anchor): Explorer shutdown doesn't guarantee Wh_ModUninit. Never
 // let CRT global destruction release namespace-scope state after the XAML

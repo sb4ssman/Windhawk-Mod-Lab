@@ -12,7 +12,7 @@ the other mods migrated first, because a snag in one of them may feed back into
 the template, and it is cheaper to change the template once than to ship VD
 Switcher twice.
 
-### Privacy Anchor — local candidate awaiting live test
+### Privacy Anchor — live-confirmed local candidate
 
 The first rollout build is now in the working tree, uncommitted and unpushed.
 It adopts the grouped settings contract and the exact nested-group layout v2.4
@@ -30,10 +30,574 @@ before `RowsInHeight` after reserving `Adjust.PadY`. All optional review ideas
 and unrelated implementation changes are deliberately excluded: the original
 working detection, monitoring, cleanup, hook, and placement guts stay intact.
 
+The user live-confirmed the rebuilt mod, including the follow-up location fix:
+after the XAML rebuild clears cached privacy state, the existing `RefreshAll`
+monitor path is requested again so an already-denied location state does not
+remain "Not requested." The full rework is commit `92e767e`; that nine-line
+location reconnection remains uncommitted. Nothing is pushed. READMEs,
+screenshots, preflight, and PR update remain intentionally deferred.
+
+### OmniButton — local candidate awaiting live test
+
+The next rollout build is in the working tree, uncommitted and unpushed. It
+replaces `itemOrder` plus the smart/fixed-grid settings with the grouped
+Placement/Content/Layout/Size/Adjust/Surface contract and the exact
+nested-group layout v2.4 body. Its vocabulary is `wifi`, `volume`, `battery`,
+`percent`; expression offsets replace all eight keyed per-item nudge settings.
+The first live test proved that percentage availability makes the native item
+set dynamic, correcting the earlier fixed-set assumption: all four items now
+have Content switches and `Layout.NewItems` handles an enabled percentage that
+appears after a written arrangement was saved. Placement truthfully exposes
+only the native fixed position while the OmniButton remains an anchor.
+
+The original native `ControlCenterButton` discovery, presenters, per-item
+styling, property restoration, hooks, retry path, and lifecycle remain the
+implementation guts. Battery and percentage are now always independent
+arrangement items; the coupled/independent selector and coupled layout branch
+were removed because the arranger can express the useful pairings directly.
+`Content.Percent` remains the fourth plain boolean icon toggle. It reconnects
+the archived working battery-percentage component: the toggle updates Windows'
+existing `HKCU\...\Explorer\Advanced\TaskbarBatteryPercent` setting and
+broadcasts `WM_SETTINGCHANGE`, while unload restores the value that existed
+before the mod touched it. Windows may require the next Explorer start to
+materialize the change.
+
+The availability monitor remains attached and reapplies only when Windows adds
+or removes the percentage child, preventing the transient uncontrolled
+percentage seen in live-test screenshot 2. Placement uses each battery child's
+measured native origin instead of assuming that the percentage begins exactly
+after the glyph. The `ControlCenterButton` content-alignment lease is restored
+for the double-height vertical-centering report, and its native padding is now
+leased and zeroed: `Adjust.PadX` is the sole padding owner, so native padding
+cannot shrink the exact arranged footprint and clip the percentage at its edge.
+
+The taskbar-height probe converts physical pixels to DIPs before
+`RowsInHeight`, and the three possible system-tray modules are named above a
+neutral hook array as required by PR #4855.
+
+The second live-test attempt did not reach the mod: Windhawk rejected the
+single-choice informational Placement dropdown because its installed schema
+requires `$options` to have at least two entries. The exact schema rule was
+added to `verify-settings-order.ps1`. The subsequent live test exposed the
+percentage/padding behavior above.
+
+**Audit 2026-07-25 — the real cause of "wifi and volume coloring does nothing".**
+Not a Codex regression; the same defect is in the committed v1.0. Glyph
+TextBlocks were resolved once, on the single pass that discovered the items
+host, and every retry gate stood down at that moment: `ApplyAllSettings`
+returned `g_omniStackPanel != nullptr`, so `g_applied` went true, so the retry
+thread broke out, the IconView `Loaded` handler no-opped, and
+`OnLayoutUpdatedImpl` only re-applied when a *presenter* was missing — never
+when a *glyph* was. A slot's `SystemTray.IconView` template expands after its
+ContentPresenter appears, so wifi and volume were styled against a null
+TextBlock forever. Battery escaped it because `g_batteryGlyphFE` is only found
+after `WalkSetupBatteryInnerPanel` succeeds, which already implies an expanded
+template. Opacity still worked on all four, because `ApplyItemStyle` puts
+opacity on the element, not the TextBlock — that asymmetry is the confirming
+signature if it ever recurs.
+
+Fixed by making success mean *styled*, not *found*: `AllGlyphsResolved()` gates
+`ApplyAllSettings`'s return, so the bounded retry thread and the IconView
+`Loaded` handler stay live until every found item has its glyph. LayoutUpdated
+tops the styling up in place (no teardown), bounded by `kMaxGlyphTopUps` = 60
+passes so a template that never yields a glyph cannot cost a subtree walk per
+frame forever. `ResolveGlyphTB` logs each glyph's resolved class/name once, and
+logs the give-up.
+
+Also in this pass: `Placement` is now a `Status` note whose `$name` reads
+"Placement: not available in this mod" and whose description says the box does
+nothing (the user wants the line kept in Placement's slot at the top);
+`Layout.NewItems` retitled to name the battery percentage, which is the only
+item that can actually arrive late; and both README layers were rewritten from
+the settings block — they were still pure v1.0, documenting `itemOrder`,
+`gridMode`, coupled battery mode, and eight nudge keys that no longer exist.
+The stale `batt-percent-coupled.png` caption is gone from the gallery.
+
+Note `verify-readme-sync.ps1` only compares the two README copies to each
+other, so two identically-stale copies pass. It did. Consider adding a
+README-vs-settings-block check when `verify-settings-order.ps1` folds into
+`submission-preflight.ps1`.
+
+**Live log 2026-07-25 — what the OmniButton actually contains.** Fresh paste,
+default settings, 48px taskbar @ 96dpi. Exactly THREE native slots, no
+`Unknown slot index` lines, so the item set is settled on this hardware:
+
+| Native slot | Class | Size | Contains |
+|---|---|---|---|
+| 0 | ContentPresenter | 28x48 | wifi -> TextBlock `InnerTextBlock` |
+| 1 | ContentPresenter | 24x48 | volume -> TextBlock `InnerTextBlock` |
+| 2 | ContentPresenter | 65x48 | battery group -> inner horizontal StackPanel |
+
+The battery group's inner panel holds TWO children: `[0]` a **Grid** 20x16 (the
+battery drawing — NOT a font glyph) and `[1]` TextBlock `BatteryTextBlock`
+("100%", 29.6x16). So four mod items map to three native slots.
+
+All four glyphs resolved on the first pass with no misses, which confirms the
+`AllGlyphsResolved` plumbing but does NOT prove it fixed the color bug — a
+fresh paste finds the taskbar already built. The failing path is an Explorer
+restart / cold boot, where the mod loads before the templates expand. Colors
+were still empty in that run, so **whether coloring works is untested.**
+
+Battery resolved to an unnamed TextBlock found by the `FindFirstTextBlock`
+fallback INSIDE that Grid. We do not know what that TextBlock is. A
+`LogItemSubtree` probe now dumps the battery Grid's subtree once per apply;
+the next log answers whether battery color/size/font are reachable at all or
+are three dead settings.
+
+**The percentage was clipped because it is text in a glyph-sized box.** From
+the log: `pctCell=(34.0,24.0) center=(0.00,5.00)`. `centerX` is computed as
+`max(0, (cellWidth - desiredWidth)/2)`, so centerX = 0 proves the percentage's
+desired width met or exceeded its 32px cell (`Size.ItemWidth`). One number
+cannot describe both a 20x16 battery icon and a string that is 29.6px at "100%"
+and narrower at "9%". Fixed by measuring: `MeasureNaturalWidth` runs before the
+arrangement resolves, `OmniItemSize()` is now the single source of cell size
+for the arranger, the missing-token pass, and the per-item centering, and
+`PrepareSlot`/`PrepareIndependentItem` take each item's own placement size
+instead of a shared `g_settings.itemWidth`. A free `ActualWidth` check in the
+LayoutUpdated monitor re-applies if the value later outgrows the reserved cell
+(80% -> 100%); re-applying re-measures, so it cannot loop.
+
+`Adjust.PadX` default was **2**, which the contract says is 0 and which nothing
+in the code needed — reverted to 0. If the cluster then crowds the clock, PadX
+is exactly the knob for it; that is a one-line revert.
+
+### 2026-07-26 live test — the percent toggle wrote the wrong registry value
+
+**VERIFIED BY READING THE LIVE REGISTRY**, not inferred:
+
+```
+HKCU\...\Explorer\Advanced
+  IsBatteryPercentageEnabled = 1   <- what Settings > Power & battery reflects
+  TaskbarBatteryPercent      = 1   <- what the mod wrote
+```
+
+The mod wrote a value Windows 11 does not read, for its whole life, and logged
+`[Battery] TaskbarBatteryPercent set to 1` every time — a success line proving
+only that it wrote *something somewhere*. That is the whole of "the percent
+toggle doesn't interface with the real settings."
+
+Fixed via the new `os-setting-bridge.h`: writes both names, snapshots both
+before the first write, and on restore DELETES whichever the mod invented
+rather than zeroing it. Lesson recorded in `settings-profiles.md` under
+"Settings that drive a WINDOWS setting": never infer a registry name, verify
+against the live registry with the OS UI open and watch which value moves.
+
+**The ActualWidth re-measure check I added on 07-25 could never fire.** A
+TextBlock arranged into a slot narrower than its content reports
+`ActualWidth == the slot`, so comparing it against the reserved cell compares a
+number to itself. Replaced with: a sticky `g_percentWidestDesired` that
+survives the element reset a re-apply performs; a correction inside the
+arrangement pass (where `PrepareIndependentItem` already computes the TRUE
+desired width) that widens the cell and asks for exactly one re-apply; and text
+-change detection (`Text()` is a free read, unlike Measure) for 9% -> 100%.
+
+STILL UNCONFIRMED whether this fixes the visible clipping — the 07-26 test was
+run before these changes. The log now prints
+`[Layout] percentage "100%" measures X, widest seen Y -> cell Z (ItemWidth 32)`
+and, if the cell was too small, `percentage really needs X but was given Y`.
+Those two lines settle it; get them from the next run before theorizing further.
+
+### Template extraction 2026-07-26 — three new reusable pieces
+
+Both came out of the OmniButton defects above, and both are family-wide.
+
+**NEW: `_templates/native-glyph-surface.h` v1.0.** Styling a native item the
+mod does not own. Every mod had grown its own "walk down to the styleable leaf
+and set Foreground/FontSize/FontFamily", and they were all wrong the same way:
+they assume the leaf is a TextBlock. The OmniButton's battery is a Grid of
+SHAPES — that is how it draws a fill level and a charging bolt — and a blind
+"first TextBlock anywhere below" search still finds *a* TextBlock under it and
+binds to it, so the settings look wired and do nothing.
+
+So it PROBES and reports. `Probe()` returns a `Surface` with a `Kind`
+(TextGlyph / Shapes / Opaque / None) and `Supports()` capabilities; the mod
+offers only the settings that can apply. Precedence is deliberate: host is
+itself a TextBlock -> descendant named `InnerTextBlock` -> any Shape
+descendants -> any TextBlock at all, flagged as a guess. **Shapes must outrank
+an unnamed TextBlock**; the reverse is the bug being replaced. Colors go to
+Fill/Stroke for shapes, and only where the shape already paints that one, so
+recoloring cannot add an outline or a blob that was never there. The template
+owns no snapshot store — it takes the mod's `TrackFn` so the existing lease
+stays the single restore path.
+
+**`nested-group-layout.h` -> v2.5**: additive `ContentAlong(measured, minimum,
+cross)` plus the doctrine. Item-size settings describe a GLYPH; they cannot
+describe TEXT. Measure with `MeasureNatural`, reserve through `ContentAlong`.
+
+Both doctrines are now in `settings-profiles.md` (Size, and "Offer only the
+controls the item can honor" under Surface) and both templates are registered
+in `_templates/README.md`.
+
+**Template parity — roll these out one live-tested build at a time:**
+
+| Mod | nested-group-layout | native-glyph-surface | os-setting-bridge |
+|---|---|---|---|
+| OmniButton | v2.5, verified | adopted | adopted |
+| Privacy Anchor | STALE (pre-v2.5) | hand-rolled walk — candidate | — |
+| VD Switcher | STALE (pre-v2.5) | n/a, owns its buttons | — |
+| Tray Utility | STALE (pre-v2.5) | n/a so far | candidate (the "always show these icons" idea is exactly this) |
+| Clock Spacer | no embed | hand-rolled walk — candidate | — |
+
+### 2026-07-26 — COORDINATE-SPACE MIX in the battery group (found in the log)
+
+`[Geometry]` across two runs shows every battery-group item landing exactly
+**+4px right** of where the arrangement put it, at both PadX=0 and PadX=4:
+
+| | arrangement | rendered right edge | delta |
+|---|---|---|---|
+| battery (padX 0) | 26 | 30.0 | +4 |
+| percent (padX 0) | 62.6 | 66.6 | +4 |
+| battery (padX 4) | 30 | 34.0 | +4 |
+| percent (padX 4) | 66.6 | 70.6 | +4 |
+
+Cause: `ReadNaturalOrigin(child, g_batteryInnerPanel, …)` measured each child's
+natural origin against the INNER PANEL, while `layout.placement[].x` is in the
+ITEMS HOST's space. Two different origins subtracted from each other; the gap
+is the inner panel's own inset, constant at 4px on this build. Fixed by
+measuring against `sp` — the same space the arrangement uses.
+
+Measuring against `sp` also folds in the battery presenter's vertical offset
+(applied earlier), because `TransformToVisual` reports where the child actually
+is; the per-child offset is then simply (target - current), so nothing is
+double-counted.
+
+**This is the third distinct cause behind one symptom**, and the reason three
+earlier fixes each looked right and changed nothing:
+1. cell too narrow for text        -> real, fixed (content sizing)
+2. zero margin at the button edge  -> real, fixed (PadX default)
+3. coordinate-space mix            -> real, fixed here
+Only #3 was constant across every run. The lesson stands and sharpens: when a
+symptom survives a correct-looking fix, the model is wrong somewhere, and only
+comparing INTENDED vs RENDERED numbers side by side exposes where.
+
+STATUS: **VERIFIED FIXED 2026-07-26.** User screenshots show the full "100%"
+rendered, in both the auto 2x2 and a written row, with no clipping. The clip is
+closed. It took three real causes; only #3 was present in every run.
+
+### 2026-07-26 — "why is the OmniButton's area so enormous?" It was ItemWidth
+
+Reported immediately after the clip was fixed: with the items in a row, the
+button is huge around them, **`Adjust.PadX` has no effect on the gaps, and it
+cannot be made negative.**
+
+Both observations were correct, and neither was a bug in the code — they were a
+bad default plus two wrong clamps.
+
+- The gap between icons is `Size.ItemWidth` (was 32) minus the glyph's real
+  width (~16). That is **16px of dead space per item, contributed by the
+  arrangement itself.** In a 2x2 block nobody notices; in a single row it is
+  half the button.
+- `Adjust.PadX` is OUTER padding. It reserves space at the two ends of the
+  group and can never change the distance between two items. No value of it
+  ever will. The user reaching for it first is the design's fault, not theirs.
+- `Size.ItemSpacing` was clamped to 0..40, so the one setting that *could*
+  pull items together refused to go negative — even though `ngl` handles a
+  negative gap natively.
+
+Fix (all three, template-first):
+1. `Size.ItemWidth` gains **0 = fit each item to its own content**, and 0 is
+   now the default. Same content-sizing path the percentage already used, via
+   `ngs::MeasureNatural`, generalized from one special-cased item to all four.
+   No slack — a glyph does not grow, and padding it re-adds the dead space.
+2. `Size.ItemSpacing` clamps to **-16..40**.
+3. Every one of the three `$description`s now names the right knob, so the
+   wrong one points at the correct one.
+
+Mechanics worth keeping: measurements are sticky-widest-seen (a first measure
+can land before the template expands and honestly report 0), fall back to 24 so
+a group is never arranged at zero width, and set `g_cellsNeedRemeasure` for ONE
+bounded re-arrange (`kMaxRemeasures = 3`) when a fallback was used. Styles are
+now applied BEFORE measuring — otherwise cells are reserved at the native glyph
+size and then painted at the user's chosen size.
+
+Doctrine written into `_templates/settings-profiles.md` §4 Size.
+
+STATUS: compiled, all five gates green, **not yet live-tested.**
+
+### 2026-07-26 — battery composition text corrected
+
+The settings block and both READMEs said the battery "is drawn from *shapes*".
+The live probe disproved that: it is **two unnamed TextBlocks, both 20x16 — a
+layered outline+fill glyph pair.** Dropping BatterySize/BatteryFontFamily is
+still right, but for a different reason: resizing one of a stacked pair pulls
+the two apart. Color has the same hazard and is now documented as best-effort
+that may reach only one layer. All three places corrected.
+
+### SOLVED 2026-07-26 — the percentage clip was PadX, and I caused it
+
+`[Geometry]` settled it in one run:
+
+```
+button=67.0  sp=67.0  battPresenter=67.0  innerPanel=67.0  percent=29.6
+right edge in button space:  sp=67.0  battery=30.0  percent=66.6
+```
+
+**Content ends at 66.6 in a button 67.0 wide — 0.4px of margin.** Nothing
+overflows, which is exactly why every overflow check correctly stayed quiet
+through three rounds of investigation. The content is flush against the
+button's edge, and the OmniButton has ROUNDED CORNERS, so the curve (plus
+antialiasing) shaves the last glyph of the bottom-right item — the "%".
+
+**Root cause is mine.** The user asked "why is there a horizontal padding of
++2 by default?"; I checked the contract, saw the canonical default is 0,
+"corrected" it, and removed the very thing that was holding the content off the
+edge. The honest answer to the question was: because this mod zeroes the
+button's native padding (`control.Padding(0)` — "Adjust.PadX is the sole
+padding owner"), so the group has to provide its own.
+
+Fixed: `PadX` defaults to **4** (2 was never quite enough — the 07-25 log shows
+it clipping at padX=2 as well). At 4 the group is 75 wide and the percentage
+ends at 66.6, leaving ~8px of clearance. The setting `$description` and both
+READMEs now say WHY, so it does not read as an arbitrary number to the next
+person who audits it against the contract.
+
+Doctrine added to `settings-profiles.md` under Adjust: **a mod that zeroes its
+host's native padding MUST supply its own**, with this as the worked example,
+and an explicit "do not 'correct' such a default back to 0 on the grounds that
+the contract says 0". A deviation from a canonical default belongs in the
+setting's own `$description` where the next reader meets it before changing it.
+
+LESSON: three rounds went into the arrangement arithmetic because the symptom
+looked like an overflow. It was never an overflow — it was zero margin. When
+every bounds check says "fits" and the user still sees a clip, measure the
+RENDERED edges against the HOST's edges, not the model against itself.
+
+### LIVE LOG 2026-07-26 (post-crash-fix) — STABLE, and the clip is NOT the math
+
+Enable/disable is now stable; no crash. The percentage width arithmetic is
+**provably correct** in this run and the clip is still visible, so the cause is
+somewhere the arrangement model does not describe:
+
+```
+percent TextBlock natural  = 29.6 wide ("100%")
+early measure              = 33.0  -> cell 35   (ceil+2)
+late measure (centerX=1)   = 33.0  -> agrees, correction did NOT fire (right)
+arrangement total          = 67    (col A 32 + col B 35)
+pctCell                    = x 32, width 35; content at 33, ends at 66 < 67
+widening path              = did NOT fire, 65 <= 67 (right)
+```
+
+Every number checks out, nothing overflows the group by calculation, and the
+belt-and-braces widening correctly declined to fire. **So the clip happens
+above the items host**, and the user's other observation is the lead: hovering
+shows EMPTY SPACE inside the highlighted button area while the percentage is
+cut on the right. Empty space + right-edge clip means the button's rendered
+box and the arranged content are not aligned the way the model assumes.
+
+Added `[Geometry]` — after a final `UpdateLayout`, it logs the real
+`ActualWidth` of button / items host / battery presenter / inner panel /
+percentage, plus each one's RIGHT EDGE transformed into the BUTTON's own
+coordinate space. That names the mismatch instead of costing a fourth theory.
+Three width theories have now failed; measure, do not reason.
+
+**Battery is NOT shape-drawn — correction to the 07-26 finding.** The probe
+shows the battery Grid contains TWO unnamed TextBlocks, both 20x16 (the classic
+layered outline+fill glyph pair), so `Probe` returns TextGlyph via the unnamed
+fallback and reports color/fontSize/fontFamily all true. Dropping BatterySize
+and BatteryFontFamily is still the right call, but for a BETTER reason than the
+one recorded earlier: it is a PAIR of layered glyphs and the mod styles only
+the first, so resizing or re-fonting one would misalign it against the other.
+Battery COLOR has the same hazard — recolouring one layer of two. Watch for it
+when the battery-color question comes back up.
+
+### CRASH 2026-07-26 — the template refactor took Explorer down. FIXED.
+
+**My bug, introduced in the taskbar-host extraction.** `RunFromWindowThread`'s
+CALLWNDPROC hook proc did this:
+
+```cpp
+auto* dispatch = reinterpret_cast<Dispatch*>(call->lParam);   // cast FIRST
+if (dispatch && call->message == RegisterWindowMessageW(dispatch->messageName))
+```
+
+A `WH_CALLWNDPROC` hook sees EVERY message sent to EVERY window on the
+taskbar's UI thread. `lParam` for all of those is arbitrary — an integer, a
+flag, a pointer to something else. This cast it to `Dispatch*` and then
+DEREFERENCED it (`dispatch->messageName`) to read a `PCWSTR`, and handed that
+to `RegisterWindowMessageW`, **before** establishing that the message was ours.
+`dispatch &&` only checks non-null; it says nothing about validity. Access
+violation, Explorer down.
+
+The pre-refactor code checked `call->message == dispatchMessage` FIRST, against
+a `static UINT` built from a literal, and only then touched lParam. Making the
+message name a parameter is what tempted the reordering — the lambda is
+captureless and could not see the local. Fixed with a namespace-scope
+`g_dispatchMessage` set before the hook is installed: message compared first,
+lParam touched only inside that branch. The rule is now written into the
+template in capitals.
+
+**Why the layout still applied in the user's screenshot:** the UI-thread paths
+(`Wh_ModInit` when already on that thread, and the IconView `Loaded` handler)
+take the `threadId == GetCurrentThreadId()` fast path and never install the
+hook. Only the RETRY THREAD marshals, and that is what crashed. So the
+arrangement was applied by the direct path, then Explorer died on the first
+retry-thread dispatch.
+
+LESSON, for every future hook proc: a system-wide hook is a hostile input
+surface. Validate the discriminator before touching anything else the callback
+hands you. Written into `taskbar-xaml-lifecycle.template.cpp` as the
+SYSTEM-HOOK CONTRACT, next to the process-shutdown contract.
+
+**Family-wide audit, 2026-07-26 — everything else is CLEAN.** Every
+`SetWindowsHookEx` in the lab was checked for the same cast-before-compare
+hazard:
+
+| Mod | Verdict |
+|---|---|
+| Privacy Anchor | SAFE — message compared first |
+| Tray Utility | SAFE |
+| Clock Spacer | SAFE (`(Param*)` style) |
+| Folder Menus | SAFE |
+| VD Switcher | SAFE |
+| `taskbar-xaml-lifecycle.template.cpp` | SAFE |
+| OmniButton | was the ONLY hazard, and only because the refactor introduced it |
+
+So this was not a latent family problem — it was one reordering in one
+extraction. The rest of the guts the user described as "stable and
+referenceable" are exactly that, and the diff against `HEAD` confirms it:
+`Wh_ModUninit`, `ApplyOnTaskbarWindowThread`, and the rebuild path are
+structurally identical to the stable version, and every function that
+disappeared since then is one the templates deliberately replaced
+(glyph/color/settings helpers, and the old smart-grid layout functions retired
+in the 2.0 settings rework). Nothing was dropped by accident.
+
+Also hardened: `g_dispatchMessage` is now `std::atomic<UINT>` with
+acquire/release. The pre-template code got single-initialisation for free from
+a function-local `static UINT` magic static, which a parameterised template
+cannot use; the atomic restores the same guarantee across the retry thread and
+the UI thread.
+
+### TASKBAR POSITION — investigated 2026-07-26, VERIFIED against the catalog
+
+The user asked what happens if the taskbar is moved. Windows 11 only supports
+the bottom, but the catalog has TWO m417z mods that move it, so both are real
+compatibility targets — checked in the actual upstream `mods/` tree, not assumed:
+
+- **`taskbar-on-top.wh.cpp`** (m417z, v1.1.7) — bottom to top.
+  **SUPPORTED, no work needed.** Everything in this family positions relative
+  to the taskbar's own XAML tree, never to screen coordinates. Still worth a
+  live test, but there is nothing to special-case.
+- **`taskbar-vertical.wh.cpp`** (m417z, v1.3.13, funded by AuthLite) — left or
+  right. **NOT COMPATIBLE, BY CONSTRUCTION.** Read its source: at line ~2169 it
+  walks the IDENTICAL path this family walks —
+  `ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel`
+  — and applies `RotateTransform` to `RenderTransform` on those children.
+  OmniButton positions by writing a `TranslateTransform` to `RenderTransform`
+  on the same elements. One dependency property, two owners, last writer wins.
+  No amount of cooperation fixes that. Its own readme already documents the
+  same class of conflict for `taskbar-multirow`.
+
+**Resolution: detect and stand down, do not attempt to support rotation.**
+`taskbar_host::GetMetrics` now returns orientation, DPI, and the CONSTRAINED
+extent in DIPs (the taskbar's thickness whichever way it runs);
+`LayoutModelApplies` is false for a vertical taskbar. Detection is the
+taskbar's own rect aspect — never sniffing for a specific mod, because the
+aspect is the condition that actually matters and holds however it got that
+way. OmniButton checks it before touching anything, leaves the taskbar exactly
+as found, logs once, and returns "applied" so the retry loop retires. An
+Explorer rebuild re-evaluates if the user disables the vertical mod.
+
+Bonus: `AvailableOmniRows` used `rect.bottom - rect.top` as the height, which
+on a vertical taskbar is the SCREEN height — it would have computed ~45 rows.
+That is now `metrics.constrainedDip`, and the px/DIP conversion PR #4855
+flagged lives in the template rather than in each mod.
+
+Documented in `settings-profiles.md` ("Taskbar position, and living with the
+rest of the ecosystem") and in both OmniButton READMEs, m417z-style: name the
+mod, say why, say what happens.
+
+**Only OmniButton has this so far.** Every other mod in the family still has
+the old unguarded row math and will misbehave on a vertical taskbar — roll the
+check out with each mod's live-tested build.
+
+### UNIFORMITY ROLLOUT — items 1-5 DONE 2026-07-26
+
+The user asked for all five. Four new templates, one adoption, one new gate.
+OmniButton now embeds EIGHT templates, all verified verbatim.
+
+| # | Template | What moved out of the mod |
+|---|---|---|
+| 1 | **`property-lease.h`** (new) | `TrackProperty` / `RestorePropertySnapshots` / snapshot struct. Documents the two details that look like style and are not: FIRST WRITE WINS (a later snapshot would capture the mod's own value) and RESTORE IN REVERSE (later mutations depend on earlier ones). Held as `optional<Lease>` + no_destroy, reset on the UI thread. |
+| 2 | **`taskbar-host.h`** (new) | `FindCurrentProcessTaskbarWnd`, `RunFromWindowThread`, `GetTaskbarXamlRoot` + the runtime-disassembled offset, the five taskbar.dll symbol hooks, and a stoppable bounded `RetryLoop`. The mod keeps only its rebuild callback. |
+| 3 | **`settings-io.h`** (new) | Load/clamp helpers, an RAII string holder, and TABLE-DRIVEN `$options` matching — the `_wcsicmp` chain it replaces is what silently broke Indicator symbols after an option rename. |
+| 4 | **`color-tokens.h`** (new) | The one token parser. Three copies existed (button-surface, OmniButton, Privacy Anchor) agreeing by luck. |
+| 5 | `visual-tree-walk.h` (existing) | `FindChildRecursive` now delegates to `vtw::FindDescendant`. |
+
+**NEW GATE: `verify-template-parity.ps1 <mod>`.** Compares every embedded
+template namespace body against its source; skips templates a mod does not use,
+so only real drift fails. It found drift on its first run that was not on
+anyone's list:
+
+```
+omnibutton-customizer     TEMPLATE_PARITY_OK (8 embedded, 3 not used)
+privacy-indicator-anchor  DRIFT: nested-group-layout.h, start-placement.h
+taskbar-vd-switcher       DRIFT: nested-group-layout.h
+tray-utility-customizer   DRIFT: nested-group-layout.h
+taskbar-clock-spacer      OK (embeds none)
+```
+
+`start-placement.h` drift in Privacy Anchor was previously UNKNOWN — the
+nested-group-layout drift was expected (pre-v2.5), that one was not. Investigate
+when Privacy Anchor comes up for its next live-tested build; do not re-embed
+into a mod that is not being tested.
+
+Fold this gate into `submission-preflight.ps1` alongside
+`verify-settings-order.ps1` once the family is uniform.
+
+### THE UNIFORMITY GAP — user, 2026-07-26
+
+The user's standing position, in their words: the mods "all do something
+different and nuanced, but they all have similar guts, and a need for similar
+settings". Hand-rolled code is acceptable ONLY where it expresses a mod's
+genuine nuance — OmniButton cannot be repositioned, Tray Utility commandeers an
+existing space, VD Switcher creates its own buttons. Everything else should be
+the same template in every mod. "I feel like you get it, but we just don't HAVE
+it yet."
+
+What is templated now: layout (`nested-group-layout.h`), native-item styling
+(`native-glyph-surface.h`), OS settings (`os-setting-bridge.h`), owned button
+surfaces (`button-surface.h`), tree walking (`visual-tree-walk.h`), lifecycle
+(`taskbar-xaml-lifecycle.template.cpp`), placement
+(`injected-grid-column.h` / `start-placement.h`).
+
+Items 1-5 are DONE for OmniButton — see the rollout section above. What remains
+is DISTRIBUTION, not extraction: every other mod still hand-rolls all five, and
+each may only adopt them as part of its own live-tested build.
+
+Remaining genuinely-unextracted pieces, for later:
+
+- **`button-surface.h` still carries its own color parser.** It should delegate
+  to `color-tokens.h`, but it is embedded in VD Switcher and others, so the
+  change waits for a mod that is being tested.
+- **The IconView-Loaded / LoadLibraryExW injection kick.** Shared in shape
+  across the tray mods but genuinely varies in which module it hooks; may be
+  nuance rather than duplication. Decide when a second mod needs it.
+- **`smart-grid-layout.h`** is still embedded in Privacy Anchor and Folder
+  Menus and is superseded by `nested-group-layout.h`. Delete when the last
+  adopter migrates.
+
+"STALE" is only the additive `ContentAlong` block; nothing existing changed, so
+no behavior moved under those mods. Re-embed as each one comes up for its next
+live-tested build — never re-embed into a mod that is not being tested. Verify
+with the parity check: match `namespace windhawk_mod_templates::<ns> { ... }`
+in template and mod and compare the bodies.
+
+Per user 2026-07-26: display-scaling testing is still owed on OmniButton once
+the underlying issues are resolved.
+
+Open question for the next live test: `[Layout] Unknown slot index N: <class>`
+in the log answers whether anything besides wifi/volume/battery can appear in
+the items host. Wifi and volume are identified purely positionally (slot 0 and
+slot 1); battery alone is found by class search. If Windows ever inserts an
+item ahead of them, both are silently mislabeled. Not changed — the two slots
+are indistinguishable by class, so identifying them properly needs a UWPSpy
+look at what actually distinguishes them.
+
 Current local gates: `SETTINGS_ORDER_OK`, `COMPILE_OK`,
-`EXIT_TIME_DESTRUCTOR_AUDIT_OK`, nested-layout tests pass, and copied template
-bodies match. READMEs, screenshots, preflight, commit, and PR update are
-intentionally deferred until the user live-tests this exact build.
+`EXIT_TIME_DESTRUCTOR_AUDIT_OK`, `README_MATCH`,
+`NESTED_TEMPLATE_BODY_MATCH`, and `git diff --check` is clean. Screenshots,
+preflight, commit, and PR update are intentionally deferred until the user
+live-tests this exact build.
 
 ### What exists now
 
@@ -143,6 +707,24 @@ VD Switcher rebuild on unified nested-group placement is committed at `7c1e4b8`
 (compiles + audit-green, preliminary user test "looking OK"); READMEs + version
 bump are deferred until the full live test. See work_log 2026-07-23.
 
+### Fork CI — inherited upstream workflow (2026-07-25)
+
+`sb4ssman/windhawk-mods` has been failing a nightly **Deploy static content**
+run since the 07-23 fork-`main` reset. It is upstream's own `.github/deploy.yml`
+(`schedule: '2 0 * * *'` + `push: main`), inherited by the fork; the reset
+force-push counted as a push to `main` and woke the schedule up with it. It
+fails at "Clone last deployed content" with exit 128 because that step clones
+`--branch pages` from `github.repository` — the fork, which has no `pages`
+branch. Harmless: fork-scoped ephemeral token, never touches upstream, and PR
+checks are unaffected (`pr_validation.yml` / `mod_compatibility_check.yml` are
+`pull_request`-only and run in the base repo).
+
+Fix is `gh workflow disable "Deploy static content" --repo sb4ssman/windhawk-mods`
+— a repo-side setting, **no commit**. Do NOT delete the workflow file: fork
+`main` must stay hash-identical to `upstream/main`, and a deletion commit
+re-plants the landmine the 07-23 reset cleared. Left for the user to run; the
+agent's attempt was blocked by the permission classifier.
+
 ## Open upstream PRs — reconciled 2026-07-24
 
 Two merged; four open, each now carrying a 2026-07-23 maintainer review. Never
@@ -168,12 +750,18 @@ push a review fix before a fresh live test.
   Plus: no_destroy fix; rename `systemTrayDllHooks` (3 modules) + comment; DPI
   mixing (physical px ÷ DIP pitch) in row math. Optional: mic-monitor cleanup
   race, StringSetting RAII, Copilot poll cadence.
-- OmniButton Customizer v1.0 — PR #4855: OPEN, ACTION REQUIRED. (1) DPI bug
-  (BLOCKING) — `ResolveGeometry` mixes physical px and DIPs → grid clips above
-  100% scaling; fix with `MulDiv` + `GetDpiForWindow`. (2) rename
-  `systemTrayDllHooks` (3 modules) + comment. Plus: no_destroy fix; test at
-  varied DPI. Optional: retry-thread race, IsWindow revalidation, dup
-  LoadColorSetting, slotWidth<16 clamp, unused params/includes.
+- OmniButton Customizer v1.0 — PR #4855: OPEN. All three required items are
+  DONE in the local v2.0 candidate and verified 2026-07-25: (1) the BLOCKING
+  DPI bug — `AvailableOmniRows` now converts px→DIP via `GetDpiForWindow` +
+  `ngl::PixelsToDip` and reserves `2 × padY` before `ngl::RowsInHeight`;
+  (2) hook array renamed `systemTrayModuleHooks` with all three modules named
+  in the comment above it; (3) no_destroy across the XAML globals with the
+  UI-thread `reset()` in `Wh_ModUninit`. Still owed before any PR update: the
+  live test, fresh screenshots, preflight. Optional review items not taken:
+  retry-thread race, IsWindow revalidation, dup LoadColorSetting,
+  unused params/includes.
+  (Root README said "PR #3859" — that PR is CLOSED, the old
+  `sb4ssman-vertical-omnibutton` branch. Corrected 2026-07-25.)
 
 ### Cross-cutting themes from the 2026-07-23 review wave
 - **`[[clang::no_destroy]]`** — requested on all four open mods; merge-gate on

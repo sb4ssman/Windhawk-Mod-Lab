@@ -10,10 +10,16 @@ comment, and adapt only through the documented settings or callback contract.
 | Template | Use it for |
 |---|---|
 | `settings-profiles.md` | **THE SETTINGS CONTRACT.** Component library of nested settings groups — fixed keys, labels, defaults — plus the fixed assembly order every mod follows. Assemble from it; never invent, rename, or reorder a key |
-| `nested-group-layout.h` | **THE element-placement primitive.** One expression (`\|` horizontal, `,` vertical, parens nest), inline offsets on items and groups (`1[+2,-1]`, `(1, 2)[3,0]`), located parse errors, axis-relative sizing (`AlongAxis`) for items that must match their neighbours, `MissingTokens`/`AppendMissing` so a newly created item is never silently unreachable, symmetric padding, the deterministic `auto` shape, DPI-correct `AvailableRows`, and `ResolveArrangement` behind the single `Layout.Arrangement` setting |
+| `nested-group-layout.h` | **THE element-placement primitive.** One expression (`\|` horizontal, `,` vertical, parens nest), inline offsets on items and groups (`1[+2,-1]`, `(1, 2)[3,0]`), located parse errors, axis-relative sizing (`AlongAxis`) for items that must match their neighbours, content sizing (`ContentAlong`) for items that are text rather than glyphs, `MissingTokens`/`AppendMissing` so a newly created item is never silently unreachable, symmetric padding, the deterministic `auto` shape, DPI-correct `AvailableRows`, and `ResolveArrangement` behind the single `Layout.Arrangement` setting |
 | `smart-grid-layout.h` | **SUPERSEDED** by the above. Kept only while OmniButton, Privacy Anchor, and Folder Menus still embed it; do not copy into anything new |
+| `property-lease.h` | **THE most safety-critical component.** Snapshot the exact prior LOCAL value of every dependency property the mod mutates, and put it back — first-write-wins, restored in reverse. This is what makes disabling a mod give the taskbar back. Never guess a native default |
+| `taskbar-host.h` | The price of admission: `Shell_TrayWnd` discovery, UI-thread marshalling, the `CTaskBand` → `XamlRoot` walk with its runtime-disassembled offset, the `taskbar.dll` symbol hooks, and the bounded stoppable `RetryLoop` |
+| `settings-io.h` | Settings-block readers: RAII string holder, clamped ints, and table-driven `$options` matching (a `_wcsicmp` chain fails silently after any option rename). Encodes the three Windhawk API gotchas |
+| `color-tokens.h` | **THE** color token parser — hex, `accent*` shades, `transparent`, and empty-means-native — in one place, with `Parse` (Color) and `ParseBrush` (Brush) shapes |
 | `visual-tree-walk.h` | Descendant walk/find/collect helpers plus the OmniButton inner-StackPanel walk |
-| `button-surface.h` | Hex/accent colors, native-default clearing, hover/pressed resources, border, opacity, and shine |
+| `button-surface.h` | Surfaces **the mod owns**: hex/accent colors, native-default clearing, hover/pressed resources, border, opacity, and shine |
+| `native-glyph-surface.h` | Native items **the mod borrows**. Probes what an item is actually made of — text glyph, shapes, or neither — and reports `Supports()` so a mod offers only the settings that can apply. Shapes outrank an unnamed `TextBlock`, which is what stopped the OmniButton's shape-drawn battery from binding to a mystery text element. Also `MeasureNatural`, for content-sized items |
+| `os-setting-bridge.h` | A mod setting that drives a **Windows** setting. Snapshot / write-all-aliases / restore-exactly (deleting a value the mod invented). Carries the VERIFIED registry names — the taskbar battery percentage is `IsBatteryPercentageEnabled`, **not** the same-key `TaskbarBatteryPercent` the OmniButton wrote for months while its log reported success |
 | `injected-grid-column.h` | Reversible `SystemTrayFrameGrid` column insertion with marker-based cleanup |
 | `start-placement.h` | Experimental owned-group placement immediately left or right of Start with reversible task-item reservation |
 | `taskbar-xaml-lifecycle.template.cpp` | Taskbar-thread dispatch, guarded XAML-root access, explicit no-destroy ownership, and race-safe `TrayUI::StartTaskbar` retry lifecycle |
@@ -24,6 +30,7 @@ comment, and adapt only through the documented settings or callback contract.
 | `exit-time-destructor-audit.ps1` | Clang gate for unsafe namespace-scope destructors in injected mods |
 | `verify-readme-sync.ps1` | Normalized folder README versus embedded Windhawk README parity check |
 | `verify-settings-order.ps1` | Machine-checks a mod's settings block against `settings-profiles.md`: the eight groups, their order, canonical key names and order, mod-specific keys only after canonical ones, and retired keys staying dead |
+| `verify-template-parity.ps1` | Mods are single-file, so every shared template is embedded as a verbatim copy — and copies drift. Compares each embedded namespace body against its source and fails on any difference. A template a mod does not use is skipped, so only real drift fails |
 
 `verify-settings-order.ps1` is deliberately **not** in `submission-preflight.ps1`
 yet — only VD Switcher has migrated, so wiring it in would block review fixes on

@@ -100,6 +100,26 @@ inline Size AlongAxis(double thickness, double cross = 0.0) {
     return size;
 }
 
+// CONTENT-SIZED ITEMS. A settings-driven item size describes a GLYPH: a box of
+// a chosen width that a character is centered in. It does not describe TEXT.
+// "9%", "80%", and "100%" are three different widths, a font or locale change
+// moves them again, and a battery percentage grows while you watch it. Handing
+// such an item the same fixed width as its neighbours reserves too little
+// space, and the overflow is discovered at paint time — as a clipped edge.
+//
+// The SizeResolver is a callback precisely so a mod can answer with something
+// it measured. Measure the live element (native_glyph_surface::MeasureNatural)
+// and pass the result through here: the arrangement then RESERVES the real
+// width, the group's total grows to match, and nothing clips.
+//
+// `minimum` keeps a short value from collapsing below the item size the user
+// chose, so "9%" still lines up with the glyphs above it. Round `measured` up
+// and add a pixel or two of slack, or the item will re-measure every time its
+// text ticks over.
+inline Size ContentAlong(double measured, double minimum, double cross) {
+    return {std::max(measured, minimum), cross};
+}
+
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
 struct Offset {
     double x = 0.0;

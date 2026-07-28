@@ -15,8 +15,14 @@ Each component pairs 1:1 with the code template that consumes it:
 |---|---|
 | Placement | `injected-grid-column.h`, `start-placement.h` |
 | Layout | `nested-group-layout.h` |
-| Surface / State | `button-surface.h` |
+| Surface / State | `button-surface.h` (surfaces the mod owns) |
+| Surface | `native-glyph-surface.h` (native items the mod borrows) |
 | (all) | `taskbar-xaml-lifecycle.template.cpp` |
+
+`button-surface.h` and `native-glyph-surface.h` are not interchangeable. The
+first styles a XAML `Button` the mod created and fully controls. The second
+styles something Windows drew, which the mod must probe before it can style —
+see "Offer only the controls the item can honor" under Surface.
 
 ## Two platform facts this design is built on
 
@@ -263,6 +269,52 @@ usually the point of it.
 
 Icon-only mods use `ItemSize` in place of width/height when the item is square.
 
+**These settings describe a GLYPH, not TEXT.** `ItemWidth` is the box a
+character is centered in. It cannot also describe a string: "9%", "80%", and
+"100%" are three different widths, a font or locale change moves them again,
+and a battery percentage grows while the user watches it. Give a text item the
+same fixed width as its neighbours and you reserve too little space — the
+overflow then surfaces at paint time, as a clipped edge.
+
+Measure it instead. `SizeResolver` is a callback precisely so a mod can answer
+with something it measured: `native_glyph_surface::MeasureNatural` on the live
+element, fed through `ngl::ContentAlong(measured, minimum, cross)`, so the
+arrangement RESERVES the real width and the group's total grows to match. Keep
+`ItemWidth` as the minimum so a short value still lines up with the glyphs
+above it, round the measurement up, and add a pixel or two of slack or the item
+re-measures every time its text ticks over. Re-check cheaply (`ActualWidth` is
+a free property read) and re-apply if the value later outgrows its cell.
+
+This was the OmniButton's clipped battery percentage, found 2026-07-25.
+
+**`ItemWidth: 0` means "fit each item to its own content", and it is usually
+the right default.** A fixed item width is a BOX, and the difference between
+the box and the glyph inside it is dead space the arrangement itself
+contributes. A native tray glyph is about 16px wide; at `ItemWidth: 32` that is
+16px of nothing per item. Stacked two-by-two it reads as generous spacing and
+nobody notices. Strung out in a single row it is half the control, and the user
+correctly reports that the button is enormous around its own icons.
+
+There is no padding setting that can fix it, and users will reach for one —
+outer padding is outside the group by definition and can never change the gap
+between two items. Offer the fit instead, and say so in the `$description` of
+all three settings so the wrong knob names the right one.
+
+Mechanically it is the same content-sizing path as the text case above, minus
+the slack: a glyph does not grow, so padding the measurement only puts the dead
+space back. Measure sticky-widest-seen — the first measure can land before the
+item's XAML template has expanded and honestly report 0 — fall back to a
+constant so a group is never arranged at zero width, and ask for ONE bounded
+re-arrange when a fallback was used. Measure *after* applying the mod's own
+glyph-size and font settings, or the cells are reserved for the native size and
+then painted at a different one.
+
+**`ItemSpacing` should go negative.** It is the only setting that can pull items
+closer than touching, and the arranger handles a negative gap natively. Clamping
+it at 0 leaves a user who wants a denser cluster with nothing to turn.
+
+Both found in the OmniButton, 2026-07-26, from the same report.
+
 ## 5. Adjust
 
 The one adjustment component. Two concepts, two axes, four numbers — nothing
@@ -287,6 +339,23 @@ buy back an effect the automatic centering doesn't give you.
 Padding participates in layout; offset is a visual translation. Never use one
 as an alias for the other. The same X/Y idea applies to a single item through
 the `name[dx,dy]` suffix in `Layout.Arrangement`.
+
+**A mod that ZEROES its host's native padding MUST supply its own.** The
+canonical default above is 0, and that is right for a group the mod created in
+space it owns. It is WRONG for a mod that has taken over a native control's
+content area: hosts like the OmniButton have ROUNDED CORNERS, and an item
+arranged flush against that edge has its last pixels shaved by the curve.
+Nothing overflows — the arithmetic is exact and every overflow check correctly
+stays quiet — the content simply has nowhere to breathe.
+
+OmniButton is the worked example, measured 2026-07-26: content ended at 66.6
+in a button 67.0 wide, and the "%" of the battery percentage was clipped by
+0.4px of margin. Its `PadX` therefore defaults to 4, and the setting
+description says why. **Do not "correct" such a default back to 0 on the
+grounds that the contract says 0** — that is precisely the mistake that
+reintroduced this bug. If a mod deviates from a canonical default, the reason
+belongs in the setting's own `$description`, where the next reader will find it
+before changing it.
 
 ## 6. Surface
 
@@ -344,6 +413,26 @@ opacity, shine.
 
 Defaults must be a generic token or empty — never a hardcoded hex color.
 
+**Offer only the controls the item can honor.** A mod styling a NATIVE element
+does not get to assume what it is. A Windows 11 tray icon is usually a font
+glyph in a `TextBlock` named `InnerTextBlock`, where color, size, and font
+family all apply — but the OmniButton's battery is drawn from *shapes*, which
+is how it shows a fill level and a charging bolt at all. There is no font there
+to size or replace.
+
+A blind "first `TextBlock` anywhere below" search still finds *a* `TextBlock`
+under a drawn icon and binds to it, so the settings look wired up and silently
+do nothing. Probe with `native_glyph_surface::Probe`, read
+`Surface::Supports()`, and omit the settings that come back false — the mod's
+settings block should not advertise a font-family box for something with no
+font. Log the probe result so a build that changes the tree is visible in the
+log rather than as a setting that quietly stopped working.
+
+Precedence is: the host itself is a `TextBlock` → a descendant named
+`InnerTextBlock` → any `Shape` descendants → any `TextBlock` at all, flagged as
+a guess. Shapes must outrank an unnamed `TextBlock`; the reverse order is the
+bug this replaces.
+
 **Icon surface variant.** For glyph groups such as Privacy Anchor. Same slot,
 no button chrome:
 
@@ -383,6 +472,61 @@ order. Interaction states (hover, pressed) and border never split.
 When a mod has a State group, `Surface.TextColor` and
 `Surface.BackgroundColor` are omitted — State replaces them rather than
 competing with them.
+
+## Taskbar position, and living with the rest of the ecosystem
+
+Windows 11 only puts the taskbar at the bottom. Two mods by m417z move it, and
+both are part of the ecosystem these mods must coexist with. Every mod in this
+family checks `taskbar_host::LayoutModelApplies` BEFORE touching anything.
+
+- **[taskbar-on-top](https://windhawk.net/mods/taskbar-on-top) — supported.**
+  Nothing here positions against screen coordinates; everything is relative to
+  the taskbar's own XAML tree, so a top taskbar is the same tree at a different
+  y. Test it, don't special-case it.
+- **[taskbar-vertical](https://windhawk.net/mods/taskbar-vertical) — NOT
+  compatible, by construction.** It walks the identical
+  `ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel`
+  path and owns `RenderTransform` on those children to rotate them. This
+  family's positioning writes `RenderTransform` on the same elements. One
+  dependency property, two owners, last writer wins — cooperation cannot fix
+  it. m417z documents the same class of conflict for `taskbar-multirow`.
+
+**The rule: detect the condition, stand down completely, and say so in the
+log.** Detect via the taskbar's own rect aspect (`taskbar_host::GetMetrics`),
+never by sniffing for a specific mod — the aspect is the thing that actually
+matters and stays true however the taskbar got that way. Standing down means
+leaving the taskbar EXACTLY as found, not a half-applied layout. Report it in
+both READMEs the way m417z does: name the mod, say why, say what happens.
+
+A mod that arranges into a coordinate space someone else is rotating produces
+garbage the user cannot diagnose, and it will be reported as *our* bug.
+
+## Settings that drive a WINDOWS setting
+
+A setting that reaches out and changes shared machine state — a registry value
+Settings, Explorer, and other apps also read — is a different animal from one
+that changes something the mod owns, and it goes through
+`os-setting-bridge.h`. Three rules, and breaking any of them yields a toggle
+that looks connected and is not:
+
+- **Write the value Windows actually reads.** These names are a graveyard of
+  near-misses. The taskbar battery percentage is `IsBatteryPercentageEnabled`;
+  `TaskbarBatteryPercent` sits in the same key, reads exactly as plausible, and
+  Windows 11's Settings app ignores it. OmniButton wrote the wrong one for
+  months while its own log reported success on every write. **Verify against
+  the live registry with the OS UI open** — toggle it there and watch which
+  value moves. Never infer a registry name, and never trust a log line that
+  only proves you wrote something somewhere.
+- **Write every confirmed alias, restore every one.** Builds disagree about
+  which is authoritative and a mod cannot cheaply detect the build's opinion.
+- **Restore exactly.** A value the mod created where none existed is DELETED on
+  unload, not set to zero. Leaving a zero behind is a mod permanently editing
+  the user's machine.
+
+Do not re-assert the value on a timer. If the user changes it in Settings, they
+win; re-assert only when the mod's own settings change. Say plainly in both
+READMEs that the toggle drives the Windows setting, and name the Settings page
+it corresponds to.
 
 ## 8. Behavior
 

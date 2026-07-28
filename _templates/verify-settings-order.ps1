@@ -164,6 +164,29 @@ foreach ($group in $groups) {
     }
 }
 
+# Windhawk's installed settings schema requires every $options list to contain
+# at least two entries. A one-choice informational dropdown is invalid and the
+# UI rejects the complete settings block before the mod can load.
+for ($i = 0; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -notmatch '^(?<indent>\s*)\$options(?::[a-z]{2}(?:-[A-Z]{2})?)?:\s*$') {
+        continue
+    }
+
+    $indent = $Matches['indent']
+    $optionCount = 0
+    for ($j = $i + 1; $j -lt $lines.Count; $j++) {
+        if ($lines[$j] -match ('^' + [regex]::Escape($indent) + '-\s+')) {
+            $optionCount++
+            continue
+        }
+        if ($lines[$j].Trim() -eq '') { continue }
+        break
+    }
+    if ($optionCount -lt 2) {
+        $problems.Add("OPTIONS_COUNT: an `$options list must contain at least two entries (found $optionCount)")
+    }
+}
+
 if ($problems.Count -gt 0) {
     foreach ($problem in $problems) { Write-Output "$modName $problem" }
     Write-Error "$modName SETTINGS_ORDER_FAILED"
