@@ -414,19 +414,33 @@ opacity, shine.
 Defaults must be a generic token or empty — never a hardcoded hex color.
 
 **Offer only the controls the item can honor.** A mod styling a NATIVE element
-does not get to assume what it is. A Windows 11 tray icon is usually a font
-glyph in a `TextBlock` named `InnerTextBlock`, where color, size, and font
-family all apply — but the OmniButton's battery is drawn from *shapes*, which
-is how it shows a fill level and a charging bolt at all. There is no font there
-to size or replace.
-
-A blind "first `TextBlock` anywhere below" search still finds *a* `TextBlock`
-under a drawn icon and binds to it, so the settings look wired up and silently
-do nothing. Probe with `native_glyph_surface::Probe`, read
-`Surface::Supports()`, and omit the settings that come back false — the mod's
+does not get to assume what it is. Probe with `native_glyph_surface::Probe`,
+read `Surface::Supports()`, and omit every setting that comes back false — the
 settings block should not advertise a font-family box for something with no
-font. Log the probe result so a build that changes the tree is visible in the
-log rather than as a setting that quietly stopped working.
+font. Log the probe result so a Windows build that changes the tree shows up in
+the log rather than as a setting that quietly stopped working.
+
+**A NATIVE ICON IS OFTEN A STACK, NOT A GLYPH — and this is the one that keeps
+biting.** Windows 11's tray items are routinely drawn by several `TextBlock`s
+layered exactly on top of one another. Wifi and volume are three deep
+(`AdaptiveTextBlock`s named Underlay, Base, AccentOverlay); the battery is two,
+an outline and a fill. The stacking IS the feature — it is how a single icon
+shows signal strength, a mute slash, or a charge level.
+
+Colour is safe on a stack if it is written where all the layers inherit it.
+**Size and font are not.** Resize one layer and it stops coinciding with the
+others: the user sees a larger glyph ghosting over the original, not a bigger
+icon. Verified twice in one week, on the battery and then on wifi.
+
+The trap is that a "find the first `TextBlock`" search SUCCEEDS on a stack. It
+returns Underlay's and the Surface then reports `fontSize` and `fontFamily` as
+available — a capability nobody checked. **Count the siblings before you
+advertise a control**: `Surface::glyphLayers` exists for exactly this, and
+`Supports()` gates size and family on `glyphLayers <= 1`.
+
+Generalise the rule beyond glyphs: *before a probe advertises a capability, it
+must check the thing that would make that capability wrong.* "I found one" is
+not "there is only one".
 
 Precedence is: the host itself is a `TextBlock` → a descendant named
 `InnerTextBlock` → any `Shape` descendants → any `TextBlock` at all, flagged as

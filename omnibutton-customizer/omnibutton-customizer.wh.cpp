@@ -1,13 +1,13 @@
 // ==WindhawkMod==
 // @id              omnibutton-customizer
 // @name            OmniButton Customizer
-// @description     Arrange and style each Windows 11 OmniButton item independently with custom grids, visibility, colors, fonts, opacity, and offsets
+// @description     Arrange the Windows 11 OmniButton's wifi, volume, battery and percentage into any layout you write, hide any of them, and recolor them independently
 // @version         2.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -ladvapi32
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
@@ -39,10 +39,10 @@ want, and restyle each one independently.
 - Arrange wifi, volume, battery, and the battery percentage into any grid —
   automatically fitted to your taskbar height, or written out by hand
 - Turn any of the four items off individually
-- The battery percentage toggle drives Windows' own setting, so it works
-  whether or not you arrange anything
-- Independent color and opacity per item, plus glyph size and font family
-  wherever the item is actually text
+- Writes no Windows settings and no registry values — it arranges the taskbar
+  and nothing else
+- Independent color and opacity per item, plus size and font family on the
+  battery percentage, the one item that is really a single piece of text
 - Per-item and per-group pixel nudges inside the arrangement expression
 - Group padding and offset for positioning the cluster inside the button
 - Keeps the native button in its native tray position, so other mods' "before
@@ -122,12 +122,20 @@ includes every enabled item.
 
 ## The battery percentage
 
-`Content` → `Battery percentage` is not just a mod-side toggle: it drives the
-same Windows setting as **Settings → System → Power & battery → Battery
-percentage**. Turning the mod off restores whatever was there before the mod
-first touched it, and a value the mod had to create is removed rather than left
-behind as a zero. Windows sometimes only materializes the change on the next
-Explorer start.
+**Whether the percentage exists is Windows' decision, not this mod's.** Turn it
+on or off in **Settings → System → Power & battery → Battery percentage**. This
+mod does not write that setting, or any other Windows setting.
+
+`Content` → `Battery percentage` hides the percentage from the arrangement,
+exactly like the three toggles above it hide their own items. All four mean the
+same thing, and none of them reaches outside the taskbar. If Windows isn't
+showing the percentage, there is nothing here to arrange or hide and the toggle
+does nothing.
+
+*An earlier version did drive the Windows setting. It was removed: even with
+the correct registry value and a change broadcast, Explorer only sometimes
+re-read it and the Settings page never refreshed, so the control worked once
+and then appeared dead. A switch that behaves that way is worse than no switch.*
 
 Because the percentage genuinely appears and disappears in the native tree,
 the mod watches for it and re-applies the arrangement when it shows up or goes
@@ -156,7 +164,7 @@ use `Item width`.
 | Wifi | On | |
 | Volume | On | |
 | Battery | On | Absent on machines without a battery |
-| Battery percentage | On | Also drives Windows' own battery-percentage setting |
+| Battery percentage | On | Hides it from the arrangement. Windows decides whether it exists — Settings → System → Power & battery |
 
 ### Layout
 
@@ -216,19 +224,27 @@ that.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Wifi / Volume / Battery / Battery percentage color | *(native)* | Empty preserves the native color |
-| Wifi / Volume / Battery percentage glyph size | 0 pt | 0 is the native size; clamped to 0–64 |
-| Wifi / Volume / Battery percentage font family | *(native)* | Empty preserves the native font |
 | Wifi / Volume / Battery / Battery percentage opacity | -1 | -1 is the native opacity; otherwise 0–100% |
+| Battery percentage size | 0 pt | 0 is the native size; clamped to 0–64 |
+| Battery percentage font family | *(native)* | Empty preserves the native font |
 
-**Why the battery has fewer controls.** Wifi, volume, and the percentage each
-draw from a *single* glyph, so color, size, and font family all mean something.
-The battery does not: it is two glyphs layered on top of each other — an
-outline and a fill — which is how it can show a charge level and a charging
-bolt at all. Resizing or re-fonting one of a stacked pair pulls the two apart,
-so neither setting is offered. Its color is attempted anyway, on a best-effort
-basis, and the mod logs what it found — depending on your Windows build it may
-recolor only one of the two layers. Opacity works on all four, because it
-applies to the item rather than to the glyph inside it.
+**Why only the percentage has a size and a font.** Because only the percentage
+is a single piece of text. Each of the other three is a **stack of glyphs
+layered exactly on top of one another** — wifi and volume are three deep
+(Windows calls them Underlay, Base, and AccentOverlay), the battery is two, an
+outline and a fill. That stacking is how one icon shows signal strength, a mute
+slash, or a charge level.
+
+Resize or re-font one layer of a stack and it stops coinciding with the others:
+you get a larger glyph ghosting over the original rather than a bigger icon. So
+those two controls are not offered for items that are stacked, and the mod
+works out which is which by counting the glyphs rather than assuming.
+
+Color and opacity work on all four. Color is applied where every layer inherits
+it, so a stack recolors as one — except the battery, whose layers have no
+shared parent to write to; there the outline recolors reliably and the fill only
+on some Windows builds. The log says what it found. Opacity applies to the whole
+item rather than to any glyph inside it, so it is always safe.
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
 honored), the generics `accent`, `accentLight`, and `accentDark` for the
@@ -276,8 +292,9 @@ each one's exact prior local value when it unloads.
   normally happens within a few layout passes; if an item's template never
   produces a text glyph, the log says so and the item keeps its native
   appearance
-- The battery percentage may need the next Explorer start before Windows shows
-  or hides it
+- Turning the battery percentage on or off in Windows Settings sometimes needs
+  the next Explorer start before the taskbar reflects it. That is Windows, not
+  this mod — the arrangement follows whatever ends up on screen
 */
 // ==/WindhawkModReadme==
 
@@ -304,9 +321,13 @@ each one's exact prior local value when it unloads.
   - Percent: true
     $name: Battery percentage
     $description: >-
-      Controls the Windows battery-percentage setting and includes the native
-      percentage as an independent arrangement item. Windows may require the
-      next Explorer start to apply a change.
+      Hides the percentage from the arrangement, exactly like the three
+      toggles above hide their items. It does NOT change any Windows setting.
+      Whether the percentage exists at all is decided in Settings > System >
+      Power & battery > Battery percentage - if Windows is not showing it,
+      there is nothing here to arrange or hide, and this toggle does nothing.
+      The two switches are independent: turn it on in Windows, then use this
+      one to decide whether the arrangement includes it.
   $name: Content
 
 - Layout:
@@ -403,23 +424,20 @@ each one's exact prior local value when it unloads.
       Hex, accent / accentLight / accentDark, or transparent. Empty preserves
       the native color. The battery is two glyphs layered on top of each other,
       an outline and a fill, so it has no size or font-family setting -
-      resizing one of the pair would pull them apart - and depending on your
-      Windows build, recoloring may reach only one of the two layers.
+      resizing one of the pair would pull them apart. Recoloring reaches the
+      outline reliably and the fill only on some Windows builds; the log says
+      what it found.
   - PercentColor: ""
     $name: Battery percentage color
     $description: Hex, accent / accentLight / accentDark, or transparent. Empty preserves the native color.
-  - WifiSize: 0
-    $name: Wifi glyph size (pt, 0 = native)
-  - VolumeSize: 0
-    $name: Volume glyph size (pt, 0 = native)
   - PercentSize: 0
     $name: Battery percentage size (pt, 0 = native)
-  - WifiFontFamily: ""
-    $name: Wifi font family
-    $description: Empty preserves the native font.
-  - VolumeFontFamily: ""
-    $name: Volume font family
-    $description: Empty preserves the native font.
+    $description: >-
+      Only the percentage has a size and a font, because only the percentage
+      is a single piece of text. Wifi, volume and the battery are each drawn
+      by a STACK of glyphs layered exactly on top of one another - that is how
+      they show signal strength, a mute slash or a charge level - and resizing
+      one layer of a stack pulls it away from the others.
   - PercentFontFamily: ""
     $name: Battery percentage font family
     $description: Empty preserves the native font.
@@ -1197,7 +1215,7 @@ namespace ngl = windhawk_mod_templates::nested_group_layout;
 
 // ============================================================
 // Native glyph surface
-// Template block: _templates/native-glyph-surface.h v1.0 (verbatim copy —
+// Template block: _templates/native-glyph-surface.h v1.1 (verbatim copy —
 // keep in sync with the template; Windhawk mods are single-file).
 // ============================================================
 namespace windhawk_mod_templates::native_glyph_surface {
@@ -1206,6 +1224,7 @@ using winrt::Windows::UI::Xaml::DependencyObject;
 using winrt::Windows::UI::Xaml::DependencyProperty;
 using winrt::Windows::UI::Xaml::FrameworkElement;
 using winrt::Windows::UI::Xaml::UIElement;
+using winrt::Windows::UI::Xaml::Controls::Control;
 using winrt::Windows::UI::Xaml::Controls::TextBlock;
 using winrt::Windows::UI::Xaml::Media::Brush;
 using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
@@ -1214,7 +1233,8 @@ using winrt::Windows::UI::Xaml::Shapes::Shape;
 // How the native item draws itself, and therefore what can be changed.
 enum class Kind {
     None,       // nothing stylable was found under the host
-    TextGlyph,  // a TextBlock: color, font size, and font family all apply
+    TextGlyph,  // one or more TextBlocks. Color always applies; size and font
+                // only when there is a SINGLE glyph — see Capabilities
     Shapes,     // Path/Rectangle/Ellipse drawing: only color applies, via
                 // Fill and Stroke — there is no font to size or replace
     Opaque,     // something we can position and fade, but not recolor
@@ -1242,7 +1262,9 @@ struct Surface {
     Kind kind = Kind::None;
     FrameworkElement host{nullptr};  // owns layout, position, and opacity
     TextBlock text{nullptr};         // set iff kind == TextGlyph
+    Control anchor{nullptr};         // templated parent that owns text props
     std::vector<Shape> shapes;       // set iff kind == Shapes
+    int glyphLayers = 0;             // stacked TextBlocks drawing ONE icon
     bool textWasUnnamed = false;     // matched by fallback, not by identity
     std::wstring detail;             // one line, for the mod's log
 
@@ -1253,9 +1275,30 @@ struct Surface {
         capabilities.opacity = host != nullptr;
         switch (kind) {
             case Kind::TextGlyph:
+                // Colour is safe on a stack: it goes to the ANCHOR, which
+                // every layer inherits from, so they all move together.
                 capabilities.color = true;
-                capabilities.fontSize = true;
-                capabilities.fontFamily = true;
+                // SIZE AND FONT ARE NOT.
+                //
+                // A native tray icon is frequently drawn by SEVERAL TextBlocks
+                // stacked on top of each other, each holding one glyph of a
+                // composite. Windows 11's wifi and volume are three deep —
+                // AdaptiveTextBlocks named Underlay, Base and AccentOverlay —
+                // and the battery is two, an outline and a fill. That is how
+                // an icon shows signal strength, a mute slash, or a charge
+                // level at all.
+                //
+                // Resizing or re-fonting such a stack pulls the layers apart:
+                // they are only one icon because they are exactly registered
+                // on top of each other. Verified 2026-07-26 — setting a glyph
+                // size on wifi produced a visible GHOST, a large glyph over
+                // the original, because the layers stopped coinciding.
+                //
+                // Probe() finds the FIRST matching TextBlock, so without this
+                // count a three-layer icon reports itself as a single glyph
+                // and the mod offers two controls that can only damage it.
+                capabilities.fontSize = glyphLayers <= 1;
+                capabilities.fontFamily = glyphLayers <= 1;
                 break;
             case Kind::Shapes:
                 capabilities.color = true;
@@ -1270,6 +1313,40 @@ struct Surface {
 // The standard Windows 11 tray glyph element. Named, so this is an identity
 // match rather than a guess.
 inline constexpr wchar_t const* kInnerTextBlock = L"InnerTextBlock";
+
+// The element that OWNS a glyph's text properties, when that is not the glyph.
+//
+// SystemTray.IconView's `InnerTextBlock` is TEMPLATE-BOUND: its Foreground and
+// FontSize come from its templated parent, not from itself. Writing a local
+// value onto the TextBlock is one level too deep — the template re-asserts the
+// binding and the write disappears, silently and permanently. The designed way
+// to restyle such a glyph is to set the property on the templated parent and
+// let it flow down.
+//
+// VERIFIED 2026-07-26 on the Windows 11 tray: with identical code, the battery
+// and its percentage accepted colour and font size while wifi and volume
+// accepted neither. Opacity worked on all four, because opacity is applied to
+// the outer host, which no template owns. The dividing line was exactly
+// "inside a SystemTray.IconView or not".
+//
+// Found by walking UP from the leaf: the parent chain is unambiguous, whereas
+// a downward search would have to guess which of several Controls is the
+// templated parent. Returns the OUTERMOST Control strictly between leaf and
+// host, which is the IconView rather than some inner presenter.
+inline Control FindStyleAnchor(FrameworkElement const& host,
+                               DependencyObject const& leaf) {
+    if (!host || !leaf) return nullptr;
+    Control anchor = nullptr;
+    DependencyObject node = leaf;
+    for (int depth = 0; depth < 32; ++depth) {
+        auto parent = VisualTreeHelper::GetParent(node);
+        if (!parent) break;
+        if (parent.try_as<FrameworkElement>() == host) break;
+        if (auto control = parent.try_as<Control>()) anchor = control;
+        node = parent;
+    }
+    return anchor;
+}
 
 inline TextBlock FindNamedTextBlock(DependencyObject const& root,
                                     wchar_t const* name, int maxDepth,
@@ -1301,6 +1378,22 @@ inline TextBlock FindAnyTextBlock(DependencyObject const& root, int maxDepth,
             return found;
     }
     return nullptr;
+}
+
+// How many TextBlocks draw this item. One is a plain glyph; more than one is a
+// STACK that must be resized together or not at all — see Capabilities.
+inline int CountTextBlocks(DependencyObject const& root, int maxDepth,
+                           int depth = 0) {
+    if (!root || depth > maxDepth) return 0;
+    if (root.try_as<TextBlock>()) return 1;  // leaves; no TextBlock nests one
+    int total = 0;
+    int count = VisualTreeHelper::GetChildrenCount(root);
+    for (int i = 0; i < count; ++i) {
+        auto child = VisualTreeHelper::GetChild(root, i);
+        if (!child) continue;
+        total += CountTextBlocks(child, maxDepth, depth + 1);
+    }
+    return total;
 }
 
 inline void CollectShapes(DependencyObject const& root, int maxDepth,
@@ -1343,6 +1436,7 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
     if (auto text = host.try_as<TextBlock>()) {
         surface.kind = Kind::TextGlyph;
         surface.text = text;
+        surface.glyphLayers = 1;
         surface.detail = L"host is itself a TextBlock";
         return surface;
     }
@@ -1350,7 +1444,15 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
     if (auto text = FindNamedTextBlock(host, kInnerTextBlock, maxDepth)) {
         surface.kind = Kind::TextGlyph;
         surface.text = text;
-        surface.detail = L"TextBlock named InnerTextBlock";
+        surface.anchor = FindStyleAnchor(host, text);
+        surface.glyphLayers = CountTextBlocks(host, maxDepth);
+        surface.detail =
+            surface.glyphLayers > 1
+                ? L"a STACK of " + std::to_wstring(surface.glyphLayers) +
+                      L" layered glyphs - colour only, no size or font"
+                : (surface.anchor ? L"TextBlock named InnerTextBlock, styled "
+                                    L"through its templated parent"
+                                  : L"TextBlock named InnerTextBlock");
         return surface;
     }
 
@@ -1366,9 +1468,15 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
     if (auto text = FindAnyTextBlock(host, maxDepth)) {
         surface.kind = Kind::TextGlyph;
         surface.text = text;
+        surface.anchor = FindStyleAnchor(host, text);
+        surface.glyphLayers = CountTextBlocks(host, maxDepth);
         surface.textWasUnnamed = true;
-        surface.detail = L"unnamed TextBlock (fallback - verify it is really "
-                         L"what draws this item)";
+        surface.detail =
+            surface.glyphLayers > 1
+                ? L"a STACK of " + std::to_wstring(surface.glyphLayers) +
+                      L" unnamed TextBlocks - colour only, no size or font"
+                : L"unnamed TextBlock (fallback - verify it is really what "
+                  L"draws this item)";
         return surface;
     }
 
@@ -1382,11 +1490,24 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
 using TrackFn =
     std::function<void(DependencyObject const&, DependencyProperty const&)>;
 
+// WRITE THE ANCHOR FIRST, THEN THE LEAF. When the glyph is template-bound the
+// anchor is the only write that survives; when it is not, the leaf's local
+// value wins and the anchor's is harmlessly inherited past. Both are leased,
+// so the restore is unaffected either way, and one code path covers both
+// shapes of tray item instead of a per-item special case.
+//
 // A null brush means "leave the native color alone" — never a fallback color.
 inline bool ApplyColor(Surface const& surface, Brush const& brush,
                        TrackFn const& track) {
     if (!brush || !surface.Supports().color) return false;
     if (surface.kind == Kind::TextGlyph) {
+        if (surface.anchor) {
+            if (track) track(surface.anchor, Control::ForegroundProperty());
+            try {
+                surface.anchor.Foreground(brush);
+            } catch (...) {
+            }
+        }
         if (track) track(surface.text, TextBlock::ForegroundProperty());
         try {
             surface.text.Foreground(brush);
@@ -1425,6 +1546,13 @@ inline bool ApplyColor(Surface const& surface, Brush const& brush,
 inline bool ApplyFontSize(Surface const& surface, double points,
                           TrackFn const& track) {
     if (points <= 0.0 || !surface.Supports().fontSize) return false;
+    if (surface.anchor) {
+        if (track) track(surface.anchor, Control::FontSizeProperty());
+        try {
+            surface.anchor.FontSize(points);
+        } catch (...) {
+        }
+    }
     if (track) track(surface.text, TextBlock::FontSizeProperty());
     try {
         surface.text.FontSize(points);
@@ -1438,6 +1566,14 @@ inline bool ApplyFontSize(Surface const& surface, double points,
 inline bool ApplyFontFamily(Surface const& surface, std::wstring const& family,
                             TrackFn const& track) {
     if (family.empty() || !surface.Supports().fontFamily) return false;
+    if (surface.anchor) {
+        if (track) track(surface.anchor, Control::FontFamilyProperty());
+        try {
+            surface.anchor.FontFamily(
+                winrt::Windows::UI::Xaml::Media::FontFamily(family));
+        } catch (...) {
+        }
+    }
     if (track) track(surface.text, TextBlock::FontFamilyProperty());
     try {
         surface.text.FontFamily(
@@ -1490,136 +1626,6 @@ inline winrt::Windows::Foundation::Size MeasureNatural(
 }  // namespace windhawk_mod_templates::native_glyph_surface
 
 namespace ngs = windhawk_mod_templates::native_glyph_surface;
-
-// ============================================================
-// OS setting bridge
-// Template block: _templates/os-setting-bridge.h v1.0 (verbatim copy —
-// keep in sync with the template; Windhawk mods are single-file).
-// ============================================================
-namespace windhawk_mod_templates::os_setting_bridge {
-
-// One registry value the OS reads for a given feature.
-struct ValueName {
-    wchar_t const* name;
-    bool existed = false;   // filled in by Capture
-    DWORD original = 0;     // filled in by Capture
-};
-
-// A DWORD-valued feature under one key, possibly spelled several ways.
-struct DwordSetting {
-    HKEY root = HKEY_CURRENT_USER;
-    wchar_t const* subKey = nullptr;
-    std::vector<ValueName> values;
-    bool captured = false;
-
-    // Broadcast target. Explorer-owned settings want the key path as lParam of
-    // WM_SETTINGCHANGE; leave null to skip the broadcast.
-    wchar_t const* broadcast = nullptr;
-};
-
-inline bool ReadDword(HKEY key, wchar_t const* name, DWORD& out) {
-    DWORD value = 0;
-    DWORD size = sizeof(value);
-    DWORD type = 0;
-    if (RegQueryValueExW(key, name, nullptr, &type,
-                         reinterpret_cast<BYTE*>(&value), &size) !=
-        ERROR_SUCCESS)
-        return false;
-    if (type != REG_DWORD) return false;
-    out = value;
-    return true;
-}
-
-// Snapshot the prior state once, before anything is written. Safe to call
-// repeatedly; only the first call records.
-inline bool Capture(DwordSetting& setting) {
-    if (setting.captured) return true;
-    HKEY key = nullptr;
-    if (RegOpenKeyExW(setting.root, setting.subKey, 0, KEY_READ, &key) !=
-        ERROR_SUCCESS)
-        return false;
-    for (auto& value : setting.values) {
-        DWORD original = 0;
-        value.existed = ReadDword(key, value.name, original);
-        value.original = value.existed ? original : 0;
-    }
-    RegCloseKey(key);
-    setting.captured = true;
-    return true;
-}
-
-inline void Notify(DwordSetting const& setting) {
-    if (!setting.broadcast) return;
-    SendNotifyMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-                       reinterpret_cast<LPARAM>(setting.broadcast));
-}
-
-// Write the same value to every known alias. Captures first if it has not.
-inline bool Write(DwordSetting& setting, DWORD value) {
-    Capture(setting);
-    HKEY key = nullptr;
-    if (RegOpenKeyExW(setting.root, setting.subKey, 0, KEY_SET_VALUE, &key) !=
-        ERROR_SUCCESS)
-        return false;
-    bool wrote = false;
-    for (auto const& name : setting.values) {
-        if (RegSetValueExW(key, name.name, 0, REG_DWORD,
-                           reinterpret_cast<BYTE const*>(&value),
-                           sizeof(value)) == ERROR_SUCCESS)
-            wrote = true;
-    }
-    RegCloseKey(key);
-    if (wrote) Notify(setting);
-    return wrote;
-}
-
-// Put back exactly what was there. A value the mod invented is deleted rather
-// than zeroed, so the machine ends up as it started.
-inline void Restore(DwordSetting& setting) {
-    if (!setting.captured) return;
-    HKEY key = nullptr;
-    if (RegOpenKeyExW(setting.root, setting.subKey, 0, KEY_SET_VALUE, &key) ==
-        ERROR_SUCCESS) {
-        for (auto const& value : setting.values) {
-            if (value.existed) {
-                RegSetValueExW(key, value.name, 0, REG_DWORD,
-                               reinterpret_cast<BYTE const*>(&value.original),
-                               sizeof(value.original));
-            } else {
-                RegDeleteValueW(key, value.name);
-            }
-        }
-        RegCloseKey(key);
-        Notify(setting);
-    }
-    setting.captured = false;
-}
-
-// ---- Known-good definitions -------------------------------------------------
-//
-// Add to this list only after confirming the value against the live registry
-// with the OS UI open. An unverified name here is worse than no entry.
-
-inline constexpr wchar_t const* kExplorerAdvanced =
-    L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";
-
-// Settings > System > Power & battery > Battery percentage.
-// VERIFIED 2026-07-26: the Settings app reflects `IsBatteryPercentageEnabled`.
-// `TaskbarBatteryPercent` lives in the same key and is NOT what Settings reads;
-// it is written too, because some builds are reported to consult it.
-inline DwordSetting BatteryPercentage() {
-    DwordSetting setting;
-    setting.root = HKEY_CURRENT_USER;
-    setting.subKey = kExplorerAdvanced;
-    setting.values = {{L"IsBatteryPercentageEnabled"},
-                      {L"TaskbarBatteryPercent"}};
-    setting.broadcast = kExplorerAdvanced;
-    return setting;
-}
-
-}  // namespace windhawk_mod_templates::os_setting_bridge
-
-namespace osb = windhawk_mod_templates::os_setting_bridge;
 
 // ============================================================
 // Property lease
@@ -2383,11 +2389,10 @@ struct ModSettings {
     wchar_t volumeColor[32];
     wchar_t batteryColor[32];
     wchar_t percentColor[32];
-    int wifiSize;
-    int volumeSize;
+    // Only the percentage has these. Wifi, volume and the battery are each
+    // drawn by a STACK of layered glyphs, which cannot be resized or
+    // re-fonted without pulling the layers apart — see the Surface group.
     int percentSize;
-    wchar_t wifiFontFamily[64];
-    wchar_t volumeFontFamily[64];
     wchar_t percentFontFamily[64];
     int wifiOpacity;
     int volumeOpacity;
@@ -2452,12 +2457,7 @@ static void LoadSettings() {
     sio::LoadString(L"Surface.BatteryColor", g_settings.batteryColor);
     sio::LoadString(L"Surface.PercentColor", g_settings.percentColor);
 
-    g_settings.wifiSize = sio::LoadInt(L"Surface.WifiSize", 0, 64);
-    g_settings.volumeSize = sio::LoadInt(L"Surface.VolumeSize", 0, 64);
     g_settings.percentSize = sio::LoadInt(L"Surface.PercentSize", 0, 64);
-
-    sio::LoadString(L"Surface.WifiFontFamily", g_settings.wifiFontFamily);
-    sio::LoadString(L"Surface.VolumeFontFamily", g_settings.volumeFontFamily);
     sio::LoadString(L"Surface.PercentFontFamily", g_settings.percentFontFamily);
 
     g_settings.wifiOpacity = sio::LoadInt(L"Surface.WifiOpacity", -1, 100);
@@ -2468,32 +2468,24 @@ static void LoadSettings() {
         sio::LoadInt(L"Surface.PercentOpacity", -1, 100);
 }
 
-// The Content.Percent toggle drives Windows' own battery-percentage setting
-// through the OS-setting bridge. Until 2026-07-26 this wrote only
-// `TaskbarBatteryPercent`, which Windows 11's Settings app does not read — the
-// toggle reported success in the log and changed nothing. The bridge writes
-// the verified `IsBatteryPercentageEnabled` as well, and restores both to
-// exactly what was there (deleting whichever the mod invented).
-[[clang::no_destroy]] static osb::DwordSetting g_batteryPercentSetting =
-    osb::BatteryPercentage();
-
-static void ApplyBatteryPercent(bool show) {
-    if (!osb::Write(g_batteryPercentSetting, show ? 1 : 0)) {
-        Wh_Log(L"[Battery] Failed to write the battery-percentage setting");
-        return;
-    }
-    for (auto const& value : g_batteryPercentSetting.values) {
-        Wh_Log(L"[Battery] %s = %d (was %s%lu)", value.name, show ? 1 : 0,
-               value.existed ? L"" : L"absent, ", value.original);
-    }
-    Wh_Log(L"[Battery] Windows may need the next Explorer start to apply it");
-}
-
-static void RestoreBatteryPercent() {
-    if (!g_batteryPercentSetting.captured) return;
-    osb::Restore(g_batteryPercentSetting);
-    Wh_Log(L"[Battery] Restored the battery-percentage setting");
-}
+// THIS MOD DOES NOT WRITE ANY WINDOWS SETTING.
+//
+// `Content.Percent` used to drive the OS battery-percentage setting through
+// os-setting-bridge.h. That is gone, and the whole embedded bridge with it.
+//
+// The feature was correct on paper and unreliable in practice. Even with the
+// right registry value and a WM_SETTINGCHANGE broadcast, Explorer only
+// sometimes re-read it, the Settings page never live-refreshed, and the result
+// was a toggle that appeared to do nothing most of the time. A control that
+// works once and then does not is worse than no control.
+//
+// So Content.Percent now means exactly what Content.Wifi, Content.Volume and
+// Content.Battery mean: "include this native item in the arrangement". All
+// four are uniform, none of them reaches outside the taskbar, and there is
+// nothing to restore on unload because nothing was ever changed.
+//
+// Whether the percentage EXISTS at all is Windows' business, decided in
+// Settings > System > Power & battery. The mod arranges what Windows shows.
 
 // ── Cached element references ─────────────────────────────────────────────
 
@@ -2962,6 +2954,10 @@ static void ResolveSurface(PCWSTR item, int index,
                surface.detail.c_str(), (int)capabilities.color,
                (int)capabilities.fontSize, (int)capabilities.fontFamily,
                (int)capabilities.opacity);
+        if (surface.anchor)
+            Wh_Log(L"[Style] %s style anchor = %s (colour and size are set "
+                   L"here as well as on the glyph)", item,
+                   winrt::get_class_name(surface.anchor).c_str());
         if (surface.textWasUnnamed)
             Wh_Log(L"[Style] %s matched an UNNAMED TextBlock; if styling it "
                    L"has no visible effect, this item is drawn some other way",
@@ -2989,9 +2985,11 @@ static bool AllGlyphsResolved() {
     return true;
 }
 
-// Font size and family are asked for only where they mean something. The
-// battery is drawn from shapes, so it has no font to size or replace and its
-// Surface reports fontSize/fontFamily false — the template drops those calls.
+// Size and family are asked for only where they mean something, and the
+// TEMPLATE is what decides: a Surface whose icon is a stack of layered glyphs
+// reports fontSize/fontFamily false, and these calls become no-ops. Three of
+// the four items are such a stack, which is why only the percentage has those
+// two settings at all.
 static void ApplyItemStyle(ngs::Surface const& surface, const wchar_t* color,
                            int size, const wchar_t* fontFamily, int opacity) {
     auto track = GlyphTrack();
@@ -3008,12 +3006,10 @@ static void ApplyAllItemStyles() {
     ResolveSurface(L"Battery percentage", 3, g_batteryPercentFE,
                    g_percentSurface);
 
-    ApplyItemStyle(g_wifiSurface, g_settings.wifiColor, g_settings.wifiSize,
-                   g_settings.wifiFontFamily, g_settings.wifiOpacity);
-    ApplyItemStyle(g_volumeSurface, g_settings.volumeColor,
-                   g_settings.volumeSize, g_settings.volumeFontFamily,
+    ApplyItemStyle(g_wifiSurface, g_settings.wifiColor, 0, nullptr,
+                   g_settings.wifiOpacity);
+    ApplyItemStyle(g_volumeSurface, g_settings.volumeColor, 0, nullptr,
                    g_settings.volumeOpacity);
-    // Battery: no glyph size or font family — see the Surface group.
     ApplyItemStyle(g_batterySurface, g_settings.batteryColor, 0, nullptr,
                    g_settings.batteryOpacity);
     ApplyItemStyle(g_percentSurface, g_settings.percentColor,
@@ -3186,9 +3182,14 @@ static CellContentMetrics PrepareIndependentItem(
 // One-shot structure dump of an item's subtree. The battery "glyph" is a Grid,
 // not a font glyph, so what is actually stylable under it has to be observed
 // rather than assumed. Logged once per apply.
+// maxDepth is a PARAMETER because the trees differ wildly. The battery's
+// glyphs sit one level down; a SystemTray.IconView nests
+// IconView > ContainerGrid > ContentGrid > TextIconContent > ContainerGrid >
+// ... before reaching its InnerTextBlock. A limit tuned for the shallow case
+// silently truncates the deep one and the dump answers nothing.
 static void LogItemSubtree(PCWSTR label, DependencyObject const& root,
-                           int depth = 0) {
-    if (depth > 4) return;
+                           int maxDepth = 4, int depth = 0) {
+    if (depth > maxDepth) return;
     int n = VisualTreeHelper::GetChildrenCount(root);
     for (int i = 0; i < n; i++) {
         auto child = VisualTreeHelper::GetChild(root, i);
@@ -3198,7 +3199,7 @@ static void LogItemSubtree(PCWSTR label, DependencyObject const& root,
                depth, i, winrt::get_class_name(child).c_str(),
                fe ? fe.Name().c_str() : L"", fe ? fe.ActualWidth() : 0.0,
                fe ? fe.ActualHeight() : 0.0);
-        LogItemSubtree(label, child, depth + 1);
+        LogItemSubtree(label, child, maxDepth, depth + 1);
     }
 }
 
@@ -3344,6 +3345,13 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
 
     if (g_batteryGlyphFE)
         LogItemSubtree(L"battery", g_batteryGlyphFE);
+    // Wifi and volume are NOT dumped. They were, at depth 12, to find out why
+    // a glyph size produced a ghost — the answer was three stacked
+    // AdaptiveTextBlocks (Underlay / Base / AccentOverlay), and the Surface
+    // now reports that itself as "a STACK of N layered glyphs". Twenty lines
+    // per apply to re-establish a settled fact is noise that buries the lines
+    // that still matter. Raise the depth here again if a Windows build ever
+    // makes the [Style] line look wrong.
 
     bool hasWifi = n >= 1;
     bool hasVolume = n >= 2;
@@ -4024,7 +4032,6 @@ BOOL Wh_ModInit() {
     // voice rather than vanishing.
     tbh::SetExceptionLogger(LogCurrentUiException);
     LoadSettings();
-    ApplyBatteryPercent(g_settings.percent);
     if (!HookTaskbarDllSymbols()) {
         Wh_Log(L"[Init] taskbar.dll symbol hooks failed");
         return FALSE;
@@ -4064,7 +4071,6 @@ void Wh_ModAfterInit() {
 void Wh_ModUninit() {
     g_unloading = true;
     StopRetryThread();
-    RestoreBatteryPercent();
     Wh_Log(L"[Uninit]");
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (hWnd) {
@@ -4093,7 +4099,6 @@ void Wh_ModSettingsChanged() {
     SetPercentMeasuredText(nullptr);
     for (double& width : g_itemContentWidth) width = 0.0;
     g_remeasures = 0;
-    ApplyBatteryPercent(g_settings.percent);
     g_reapplyPending = true;
     g_applied = false;
     Wh_Log(L"[Settings] Updated");

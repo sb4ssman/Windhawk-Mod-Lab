@@ -1,6 +1,6 @@
 #pragma once
 
-// Copy-source template v1.0: styling a NATIVE taskbar item the mod does not
+// Copy-source template v1.2: styling a NATIVE taskbar item the mod does not
 // own. Use this for system-tray glyphs, the OmniButton's wifi/volume/battery
 // items, privacy indicators — anything Windows drew that the mod is borrowing.
 // For XAML Buttons the mod itself created, use button-surface.h instead.
@@ -41,6 +41,7 @@ using winrt::Windows::UI::Xaml::DependencyObject;
 using winrt::Windows::UI::Xaml::DependencyProperty;
 using winrt::Windows::UI::Xaml::FrameworkElement;
 using winrt::Windows::UI::Xaml::UIElement;
+using winrt::Windows::UI::Xaml::Controls::Control;
 using winrt::Windows::UI::Xaml::Controls::TextBlock;
 using winrt::Windows::UI::Xaml::Media::Brush;
 using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
@@ -49,7 +50,8 @@ using winrt::Windows::UI::Xaml::Shapes::Shape;
 // How the native item draws itself, and therefore what can be changed.
 enum class Kind {
     None,       // nothing stylable was found under the host
-    TextGlyph,  // a TextBlock: color, font size, and font family all apply
+    TextGlyph,  // one or more TextBlocks. Color always applies; size and font
+                // only when there is a SINGLE glyph — see Capabilities
     Shapes,     // Path/Rectangle/Ellipse drawing: only color applies, via
                 // Fill and Stroke — there is no font to size or replace
     Opaque,     // something we can position and fade, but not recolor
@@ -77,7 +79,9 @@ struct Surface {
     Kind kind = Kind::None;
     FrameworkElement host{nullptr};  // owns layout, position, and opacity
     TextBlock text{nullptr};         // set iff kind == TextGlyph
+    Control anchor{nullptr};         // templated parent that owns text props
     std::vector<Shape> shapes;       // set iff kind == Shapes
+    int glyphLayers = 0;             // stacked TextBlocks drawing ONE icon
     bool textWasUnnamed = false;     // matched by fallback, not by identity
     std::wstring detail;             // one line, for the mod's log
 
@@ -88,9 +92,30 @@ struct Surface {
         capabilities.opacity = host != nullptr;
         switch (kind) {
             case Kind::TextGlyph:
+                // Colour is safe on a stack: it goes to the ANCHOR, which
+                // every layer inherits from, so they all move together.
                 capabilities.color = true;
-                capabilities.fontSize = true;
-                capabilities.fontFamily = true;
+                // SIZE AND FONT ARE NOT.
+                //
+                // A native tray icon is frequently drawn by SEVERAL TextBlocks
+                // stacked on top of each other, each holding one glyph of a
+                // composite. Windows 11's wifi and volume are three deep —
+                // AdaptiveTextBlocks named Underlay, Base and AccentOverlay —
+                // and the battery is two, an outline and a fill. That is how
+                // an icon shows signal strength, a mute slash, or a charge
+                // level at all.
+                //
+                // Resizing or re-fonting such a stack pulls the layers apart:
+                // they are only one icon because they are exactly registered
+                // on top of each other. Verified 2026-07-26 — setting a glyph
+                // size on wifi produced a visible GHOST, a large glyph over
+                // the original, because the layers stopped coinciding.
+                //
+                // Probe() finds the FIRST matching TextBlock, so without this
+                // count a three-layer icon reports itself as a single glyph
+                // and the mod offers two controls that can only damage it.
+                capabilities.fontSize = glyphLayers <= 1;
+                capabilities.fontFamily = glyphLayers <= 1;
                 break;
             case Kind::Shapes:
                 capabilities.color = true;
@@ -105,6 +130,40 @@ struct Surface {
 // The standard Windows 11 tray glyph element. Named, so this is an identity
 // match rather than a guess.
 inline constexpr wchar_t const* kInnerTextBlock = L"InnerTextBlock";
+
+// The element that OWNS a glyph's text properties, when that is not the glyph.
+//
+// SystemTray.IconView's `InnerTextBlock` is TEMPLATE-BOUND: its Foreground and
+// FontSize come from its templated parent, not from itself. Writing a local
+// value onto the TextBlock is one level too deep — the template re-asserts the
+// binding and the write disappears, silently and permanently. The designed way
+// to restyle such a glyph is to set the property on the templated parent and
+// let it flow down.
+//
+// VERIFIED 2026-07-26 on the Windows 11 tray: with identical code, the battery
+// and its percentage accepted colour and font size while wifi and volume
+// accepted neither. Opacity worked on all four, because opacity is applied to
+// the outer host, which no template owns. The dividing line was exactly
+// "inside a SystemTray.IconView or not".
+//
+// Found by walking UP from the leaf: the parent chain is unambiguous, whereas
+// a downward search would have to guess which of several Controls is the
+// templated parent. Returns the OUTERMOST Control strictly between leaf and
+// host, which is the IconView rather than some inner presenter.
+inline Control FindStyleAnchor(FrameworkElement const& host,
+                               DependencyObject const& leaf) {
+    if (!host || !leaf) return nullptr;
+    Control anchor = nullptr;
+    DependencyObject node = leaf;
+    for (int depth = 0; depth < 32; ++depth) {
+        auto parent = VisualTreeHelper::GetParent(node);
+        if (!parent) break;
+        if (parent.try_as<FrameworkElement>() == host) break;
+        if (auto control = parent.try_as<Control>()) anchor = control;
+        node = parent;
+    }
+    return anchor;
+}
 
 inline TextBlock FindNamedTextBlock(DependencyObject const& root,
                                     wchar_t const* name, int maxDepth,
@@ -136,6 +195,22 @@ inline TextBlock FindAnyTextBlock(DependencyObject const& root, int maxDepth,
             return found;
     }
     return nullptr;
+}
+
+// How many TextBlocks draw this item. One is a plain glyph; more than one is a
+// STACK that must be resized together or not at all — see Capabilities.
+inline int CountTextBlocks(DependencyObject const& root, int maxDepth,
+                           int depth = 0) {
+    if (!root || depth > maxDepth) return 0;
+    if (root.try_as<TextBlock>()) return 1;  // leaves; no TextBlock nests one
+    int total = 0;
+    int count = VisualTreeHelper::GetChildrenCount(root);
+    for (int i = 0; i < count; ++i) {
+        auto child = VisualTreeHelper::GetChild(root, i);
+        if (!child) continue;
+        total += CountTextBlocks(child, maxDepth, depth + 1);
+    }
+    return total;
 }
 
 inline void CollectShapes(DependencyObject const& root, int maxDepth,
@@ -178,6 +253,7 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
     if (auto text = host.try_as<TextBlock>()) {
         surface.kind = Kind::TextGlyph;
         surface.text = text;
+        surface.glyphLayers = 1;
         surface.detail = L"host is itself a TextBlock";
         return surface;
     }
@@ -185,7 +261,15 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
     if (auto text = FindNamedTextBlock(host, kInnerTextBlock, maxDepth)) {
         surface.kind = Kind::TextGlyph;
         surface.text = text;
-        surface.detail = L"TextBlock named InnerTextBlock";
+        surface.anchor = FindStyleAnchor(host, text);
+        surface.glyphLayers = CountTextBlocks(host, maxDepth);
+        surface.detail =
+            surface.glyphLayers > 1
+                ? L"a STACK of " + std::to_wstring(surface.glyphLayers) +
+                      L" layered glyphs - colour only, no size or font"
+                : (surface.anchor ? L"TextBlock named InnerTextBlock, styled "
+                                    L"through its templated parent"
+                                  : L"TextBlock named InnerTextBlock");
         return surface;
     }
 
@@ -201,9 +285,15 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
     if (auto text = FindAnyTextBlock(host, maxDepth)) {
         surface.kind = Kind::TextGlyph;
         surface.text = text;
+        surface.anchor = FindStyleAnchor(host, text);
+        surface.glyphLayers = CountTextBlocks(host, maxDepth);
         surface.textWasUnnamed = true;
-        surface.detail = L"unnamed TextBlock (fallback - verify it is really "
-                         L"what draws this item)";
+        surface.detail =
+            surface.glyphLayers > 1
+                ? L"a STACK of " + std::to_wstring(surface.glyphLayers) +
+                      L" unnamed TextBlocks - colour only, no size or font"
+                : L"unnamed TextBlock (fallback - verify it is really what "
+                  L"draws this item)";
         return surface;
     }
 
@@ -217,11 +307,24 @@ inline Surface Probe(FrameworkElement const& host, int maxDepth = 12) {
 using TrackFn =
     std::function<void(DependencyObject const&, DependencyProperty const&)>;
 
+// WRITE THE ANCHOR FIRST, THEN THE LEAF. When the glyph is template-bound the
+// anchor is the only write that survives; when it is not, the leaf's local
+// value wins and the anchor's is harmlessly inherited past. Both are leased,
+// so the restore is unaffected either way, and one code path covers both
+// shapes of tray item instead of a per-item special case.
+//
 // A null brush means "leave the native color alone" — never a fallback color.
 inline bool ApplyColor(Surface const& surface, Brush const& brush,
                        TrackFn const& track) {
     if (!brush || !surface.Supports().color) return false;
     if (surface.kind == Kind::TextGlyph) {
+        if (surface.anchor) {
+            if (track) track(surface.anchor, Control::ForegroundProperty());
+            try {
+                surface.anchor.Foreground(brush);
+            } catch (...) {
+            }
+        }
         if (track) track(surface.text, TextBlock::ForegroundProperty());
         try {
             surface.text.Foreground(brush);
@@ -260,6 +363,13 @@ inline bool ApplyColor(Surface const& surface, Brush const& brush,
 inline bool ApplyFontSize(Surface const& surface, double points,
                           TrackFn const& track) {
     if (points <= 0.0 || !surface.Supports().fontSize) return false;
+    if (surface.anchor) {
+        if (track) track(surface.anchor, Control::FontSizeProperty());
+        try {
+            surface.anchor.FontSize(points);
+        } catch (...) {
+        }
+    }
     if (track) track(surface.text, TextBlock::FontSizeProperty());
     try {
         surface.text.FontSize(points);
@@ -273,6 +383,14 @@ inline bool ApplyFontSize(Surface const& surface, double points,
 inline bool ApplyFontFamily(Surface const& surface, std::wstring const& family,
                             TrackFn const& track) {
     if (family.empty() || !surface.Supports().fontFamily) return false;
+    if (surface.anchor) {
+        if (track) track(surface.anchor, Control::FontFamilyProperty());
+        try {
+            surface.anchor.FontFamily(
+                winrt::Windows::UI::Xaml::Media::FontFamily(family));
+        } catch (...) {
+        }
+    }
     if (track) track(surface.text, TextBlock::FontFamilyProperty());
     try {
         surface.text.FontFamily(

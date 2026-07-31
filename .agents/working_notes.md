@@ -314,6 +314,210 @@ Doctrine written into `_templates/settings-profiles.md` §4 Size.
 
 STATUS: compiled, all five gates green, **not yet live-tested.**
 
+### 2026-07-26 — WHY WIFI AND VOLUME WOULD NOT RECOLOUR (live matrix)
+
+Live test result, the cleanest data this mod has produced:
+
+| item | colour | font size | opacity |
+|---|---|---|---|
+| battery | YES | n/a | YES |
+| percent | YES | YES | YES |
+| wifi | **no** | **no** | YES |
+| volume | **no** (even `transparent`) | **no** | YES |
+
+Opacity working on all four PROVES the mod reaches wifi and volume — opacity
+is set on the outer ContentPresenter host. So it was never a wrong-element or
+a timing problem. The dividing line is exactly:
+
+- battery / percent — plain XAML children of the battery StackPanel, no owner
+- wifi / volume — `InnerTextBlock` **inside a `SystemTray.IconView`**
+
+Cause: `InnerTextBlock` is TEMPLATE-BOUND. Its Foreground/FontSize come from
+the templated parent. **The mod was styling one level too deep**; a local write
+onto a template-bound child is re-asserted by the template and vanishes.
+
+Fix, in `native-glyph-surface.h` v1.1: `Surface` gains `anchor`, the OUTERMOST
+`Control` strictly between leaf and host, found by walking UP (the parent chain
+is unambiguous; a downward search would have to guess which Control is the
+templated parent). `ApplyColor`/`ApplyFontSize`/`ApplyFontFamily` write the
+anchor first, then the leaf — when template-bound the anchor is the only write
+that survives, when not the leaf's local value wins and the anchor's is
+inherited past. Both leased, so restore is unaffected either way. One code
+path, no per-item special case.
+
+Also confirmed working this run: fixed `ItemWidth`, and `ItemSpacing` negative.
+
+STATUS: compiled, gates green, **not live-tested.** If wifi/volume still
+refuse after this, the remaining candidate is VisualState animation precedence
+and the honest answer becomes Placement + opacity only, with recolouring
+delegated to Taskbar Styler (which rewrites the Style and therefore wins).
+
+### 2026-07-26 — OS-SETTING BRIDGE REMOVED FROM OMNIBUTTON (user's call, right call)
+
+The battery-percentage write is gone, and so is the embedded
+`os-setting-bridge.h` block. Parity now reads 7 embedded / 4 not used.
+
+Why, in the user's words: "the mod drove the windows setting exactly once,
+then i couldnt recreate it." Everything about the write was verified correct by
+then — right value name, written only on a real change, broadcast sent. The
+failure was downstream: Explorer only sometimes re-reads it and the Settings
+page never live-refreshes, so the control worked once and then looked dead.
+
+**A control that works once and then does not is worse than no control.** That
+is now the doctrine, and it outranks "the code is correct".
+
+`Content.Percent` now means exactly what `Content.Wifi/Volume/Battery` mean:
+include this native item in the arrangement. Four toggles, one meaning, none of
+them reaching outside the taskbar. `-ladvapi32` dropped from @compilerOptions
+since no registry call remains. Nothing to restore on unload because nothing is
+ever written.
+
+KEEP `_templates/os-setting-bridge.h`. It is correct, its two verified findings
+(the real value name; "do not re-assert at load") are worth having, and a
+future mod may need it. It is simply not used here. What the template now also
+needs, and does not yet say: **verify the OS ACTS on the write, not just that
+the write lands.** A correct registry value the OS ignores is a dead feature.
+
+### 2026-07-26 — SOLVED: the ghost is LAYERED GLYPHS, three of them
+
+The deep dump ended it:
+
+    wifi d5[0] SystemTray.AdaptiveTextBlock name=Underlay        16x16
+      d6[0]      TextBlock name=InnerTextBlock                   16x16
+    wifi d5[1] SystemTray.AdaptiveTextBlock name=Base            16x16
+      d6[0]      TextBlock name=InnerTextBlock                   16x16
+    wifi d5[2] SystemTray.AdaptiveTextBlock name=AccentOverlay    0x16
+      d6[0]      TextBlock name=InnerTextBlock                    0x16
+
+Volume is identical. **Wifi and volume are each THREE stacked glyphs**, which
+is how one icon shows signal strength or a mute slash. The battery is the same
+shape with two. `FindNamedTextBlock` returns the FIRST match (Underlay's) and
+the Surface then claimed `fontSize=1 fontFamily=1` — a false capability the
+template had been reporting for every layered item.
+
+Resize one layer of a stack and it stops coinciding with the others. That is
+the ghost, exactly: a larger glyph over the original, not a bigger icon.
+
+Fix in `native-glyph-surface.h` v1.2: `Surface::glyphLayers`, counted by
+`CountTextBlocks`, and `Supports()` gates fontSize/fontFamily on
+`glyphLayers <= 1`. Colour stays available for a stack because it is written to
+the ANCHOR, which every layer inherits from, so they move together.
+
+Consequences in the mod:
+- `Surface.WifiSize`, `VolumeSize`, `WifiFontFamily`, `VolumeFontFamily` are
+  GONE. Only the percentage keeps size and family — it is the only item that
+  is genuinely one piece of text.
+- The mod's hard-coded `ApplyItemStyle(g_batterySurface, ..., 0, nullptr, ...)`
+  special case is gone too. The template decides now, generically, by counting.
+
+THE LESSON, and it is the same one three times over now: **the probe reported a
+capability it had not verified.** "Found a TextBlock" was treated as "this item
+is one TextBlock". Before a Surface advertises a control, it has to check the
+thing that would make that control wrong — siblings, in this case.
+
+STATUS: compiled, all five gates green, **not live-tested.**
+
+### 2026-07-26 — my diagnostic was truncated; font size DOES work
+
+`LogItemSubtree` had a hardcoded `depth > 4`, tuned for the battery's shallow
+tree. A SystemTray.IconView nests far deeper:
+
+    IconView > ContainerGrid > ContentGrid > TextIconContent > ContainerGrid > ...
+
+so the dump stopped before reaching any TextBlock and answered nothing about
+the ghost. maxDepth is now a parameter; wifi/volume are dumped at 12.
+
+The same log DID settle one thing, by controlled comparison in a single run:
+
+    [Layout] fit to content: wifi=36 volume=24 battery=20
+
+wifi was 28 before `WifiSize` was set, volume was left unset and did not move.
+**The style anchor drives FontSize correctly and the arrangement reserves the
+larger cell.** The ghost is a rendering artifact downstream of a write that
+demonstrably worked — not a failed write. Also confirmed: anchor is
+`SystemTray.IconView` for both.
+
+STATUS: the deeper dump is unread. Do not theorise about the ghost until it is.
+
+### 2026-07-26 — SOLVED: battery percentage vs Windows Settings
+
+Four live registry reads settled it completely:
+
+| step | IsBatteryPercentageEnabled | TaskbarBatteryPercent |
+|---|---|---|
+| mod loaded, Percent:1 | 1 | 1 |
+| mod disabled | 1 | 1 |
+| **toggle turned OFF in Settings** | **0** | 1 (untouched) |
+| **mod re-enabled** | **1** (stomped) | 1 |
+
+Two independent conclusions, both now acted on:
+
+1. **`IsBatteryPercentageEnabled` is the right value, and it is the ONLY one.**
+   Settings changed exactly that and never touched `TaskbarBatteryPercent`.
+   That second name has been REMOVED from the bridge. It was there on the
+   strength of "some builds are reported to consult it" — hearsay, which the
+   bridge's own rule forbids. Writing a registry value nobody can demonstrate a
+   use for modifies a user's machine for no reason.
+
+2. **The mod was overriding the user's OS choice at every load.** Step 4 is the
+   proof: the mod's own toggle never moved, and re-enabling it put the setting
+   straight back. `Wh_ModInit` called `ApplyBatteryPercent` unconditionally.
+
+Fix: **nothing is written at load.** `Wh_ModSettingsChanged` captures
+`g_settings.percent` BEFORE `LoadSettings()` and writes only when that toggle
+actually moved. Restore falls out for free — `captured` only goes true once
+something was written, so a session that never wrote has nothing to put back.
+
+Why this is coherent rather than a compromise: whether the percentage is
+arranged already keys off `hasPercent` — whether the native element EXISTS —
+not off the mod's toggle. So the mod arranges what Windows *shows*, and the two
+can never contradict each other on screen regardless of what the toggle says.
+
+Also learned: **the Settings page does not live-refresh.** It showed OFF while
+the registry read 1. That is Windows, not us; now documented in both READMEs.
+
+Doctrine written into `os-setting-bridge.h` v1.1 as "DO NOT RE-ASSERT AT LOAD",
+with the four-read evidence inline. Only OmniButton embeds this template, so
+there is nothing else in the family to sync.
+
+STATUS: compiled, all five gates green, **not live-tested.**
+
+### 2026-07-26 — style anchor CONFIRMED for colour; font size GHOSTS
+
+Live result after `native-glyph-surface.h` v1.1:
+
+- **Colour now works on all four items.** The template-bound-parent theory was
+  correct, and styling `InnerTextBlock` directly really was one level too deep.
+- **Font size on wifi/volume produces a GHOST**: a larger glyph drawn over the
+  original, both visible at once.
+
+The ghost means the IconView draws MORE than the single `InnerTextBlock` the
+probe binds to, and the anchor's `FontSize` is reaching the other thing too —
+or the enlarged glyph escapes the fixed-size slot without the original being
+replaced. Either way the mod is now scaling something it did not identify.
+
+Note the asymmetry this exposes: `Foreground` on the anchor is exactly what the
+glyph is template-bound to, so it lands on precisely one thing. `FontSize` on a
+`Control` propagates to EVERY text descendant, which is a wider blast radius
+than intended. Colour and size are not equally safe to set on an anchor, and
+the template currently treats them as if they were.
+
+NEXT: diagnostic only, no theory. Added `LogItemSubtree` dumps for wifi and
+volume (battery already had one) and a log line naming the anchor's class. One
+reload tells us how many TextBlocks live under an IconView and what the anchor
+actually is.
+
+Likely outcomes, in order of my confidence:
+1. Two glyph layers per IconView (main + badge/overlay) -> same shape as the
+   battery's layered pair, and glyph size should be DROPPED for wifi/volume
+   exactly as it was for the battery, for the same documented reason.
+2. Anchor is too high up the chain and should be the nearest Control, not the
+   outermost.
+3. The slot's fixed Width/Height stops the layout growing, so the bigger glyph
+   overflows rather than replacing.
+
+Do not "fix" this before the dump says which.
+
 ### 2026-07-26 — battery composition text corrected
 
 The settings block and both READMEs said the battery "is drawn from *shapes*".

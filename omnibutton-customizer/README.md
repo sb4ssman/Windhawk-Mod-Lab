@@ -25,10 +25,10 @@ want, and restyle each one independently.
 - Arrange wifi, volume, battery, and the battery percentage into any grid —
   automatically fitted to your taskbar height, or written out by hand
 - Turn any of the four items off individually
-- The battery percentage toggle drives Windows' own setting, so it works
-  whether or not you arrange anything
-- Independent color and opacity per item, plus glyph size and font family
-  wherever the item is actually text
+- Writes no Windows settings and no registry values — it arranges the taskbar
+  and nothing else
+- Independent color and opacity per item, plus size and font family on the
+  battery percentage, the one item that is really a single piece of text
 - Per-item and per-group pixel nudges inside the arrangement expression
 - Group padding and offset for positioning the cluster inside the button
 - Keeps the native button in its native tray position, so other mods' "before
@@ -108,12 +108,20 @@ includes every enabled item.
 
 ## The battery percentage
 
-`Content` → `Battery percentage` is not just a mod-side toggle: it drives the
-same Windows setting as **Settings → System → Power & battery → Battery
-percentage**. Turning the mod off restores whatever was there before the mod
-first touched it, and a value the mod had to create is removed rather than left
-behind as a zero. Windows sometimes only materializes the change on the next
-Explorer start.
+**Whether the percentage exists is Windows' decision, not this mod's.** Turn it
+on or off in **Settings → System → Power & battery → Battery percentage**. This
+mod does not write that setting, or any other Windows setting.
+
+`Content` → `Battery percentage` hides the percentage from the arrangement,
+exactly like the three toggles above it hide their own items. All four mean the
+same thing, and none of them reaches outside the taskbar. If Windows isn't
+showing the percentage, there is nothing here to arrange or hide and the toggle
+does nothing.
+
+*An earlier version did drive the Windows setting. It was removed: even with
+the correct registry value and a change broadcast, Explorer only sometimes
+re-read it and the Settings page never refreshed, so the control worked once
+and then appeared dead. A switch that behaves that way is worse than no switch.*
 
 Because the percentage genuinely appears and disappears in the native tree,
 the mod watches for it and re-applies the arrangement when it shows up or goes
@@ -142,7 +150,7 @@ use `Item width`.
 | Wifi | On | |
 | Volume | On | |
 | Battery | On | Absent on machines without a battery |
-| Battery percentage | On | Also drives Windows' own battery-percentage setting |
+| Battery percentage | On | Hides it from the arrangement. Windows decides whether it exists — Settings → System → Power & battery |
 
 ### Layout
 
@@ -202,19 +210,27 @@ that.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Wifi / Volume / Battery / Battery percentage color | *(native)* | Empty preserves the native color |
-| Wifi / Volume / Battery percentage glyph size | 0 pt | 0 is the native size; clamped to 0–64 |
-| Wifi / Volume / Battery percentage font family | *(native)* | Empty preserves the native font |
 | Wifi / Volume / Battery / Battery percentage opacity | -1 | -1 is the native opacity; otherwise 0–100% |
+| Battery percentage size | 0 pt | 0 is the native size; clamped to 0–64 |
+| Battery percentage font family | *(native)* | Empty preserves the native font |
 
-**Why the battery has fewer controls.** Wifi, volume, and the percentage each
-draw from a *single* glyph, so color, size, and font family all mean something.
-The battery does not: it is two glyphs layered on top of each other — an
-outline and a fill — which is how it can show a charge level and a charging
-bolt at all. Resizing or re-fonting one of a stacked pair pulls the two apart,
-so neither setting is offered. Its color is attempted anyway, on a best-effort
-basis, and the mod logs what it found — depending on your Windows build it may
-recolor only one of the two layers. Opacity works on all four, because it
-applies to the item rather than to the glyph inside it.
+**Why only the percentage has a size and a font.** Because only the percentage
+is a single piece of text. Each of the other three is a **stack of glyphs
+layered exactly on top of one another** — wifi and volume are three deep
+(Windows calls them Underlay, Base, and AccentOverlay), the battery is two, an
+outline and a fill. That stacking is how one icon shows signal strength, a mute
+slash, or a charge level.
+
+Resize or re-font one layer of a stack and it stops coinciding with the others:
+you get a larger glyph ghosting over the original rather than a bigger icon. So
+those two controls are not offered for items that are stacked, and the mod
+works out which is which by counting the glyphs rather than assuming.
+
+Color and opacity work on all four. Color is applied where every layer inherits
+it, so a stack recolors as one — except the battery, whose layers have no
+shared parent to write to; there the outline recolors reliably and the fill only
+on some Windows builds. The log says what it found. Opacity applies to the whole
+item rather than to any glyph inside it, so it is always safe.
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
 honored), the generics `accent`, `accentLight`, and `accentDark` for the
@@ -262,5 +278,6 @@ each one's exact prior local value when it unloads.
   normally happens within a few layout passes; if an item's template never
   produces a text glyph, the log says so and the item keeps its native
   appearance
-- The battery percentage may need the next Explorer start before Windows shows
-  or hides it
+- Turning the battery percentage on or off in Windows Settings sometimes needs
+  the next Explorer start before the taskbar reflects it. That is Windows, not
+  this mod — the arrangement follows whatever ends up on screen
