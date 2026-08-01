@@ -1400,3 +1400,84 @@ VD Switcher v2.0 ends the session green on all five gates and DELIBERATELY
 UNSHIPPED: the user reversed their own "ship it" so the rest of the family can
 be migrated first, in case a later mod forces another template change. See
 memory `feedback_template_rollout_before_ship`.
+
+## 2026-07-26 — OmniButton v2.0: three defects, one shared root
+
+The rollout build was live-tested repeatedly, and every defect found came back
+to the same mistake in different clothing: **a probe advertised a capability it
+had never verified.**
+
+- **The percentage clip.** Three distinct causes, only the third present in
+  every run: a glyph-sized cell reserved for text, a cell measured before the
+  element was in its final parent, and — the one that actually mattered — the
+  natural origin measured against the battery's inner panel while the cell
+  positions were in the items host's coordinates, silently adding that panel's
+  4px inset to every item. Fixed by measuring in the same space the arrangement
+  uses. Verified exactly: battery right edge intended 28, rendered 28.0;
+  percent intended 62.6, rendered 62.6.
+- **"Why is the OmniButton's area so enormous?"** Not padding, as reported —
+  `Size.ItemWidth` defaulted to a 32px box around a ~16px glyph, 16px of dead
+  space per item, and `ItemSpacing` was clamped at 0 so it could not be pulled
+  back. Fixed with fit-to-content sizing (`ItemWidth: 0`, now the default) and
+  negative spacing. `Adjust.PadX` is outer padding and never could have helped;
+  both READMEs now say so outright.
+- **Wifi and volume refused colour.** `InnerTextBlock` inside a
+  `SystemTray.IconView` is TEMPLATE-BOUND — a local write is re-asserted away.
+  Fixed with `FindStyleAnchor`, which walks UP to the outermost Control between
+  leaf and host and writes there first. Battery and percentage had always
+  worked because they are not inside an IconView; that asymmetry was the tell.
+- **The ghost.** With colour working, a glyph size produced a large glyph
+  hovering over the original. Wifi and volume are each drawn by THREE stacked
+  `AdaptiveTextBlock`s (Underlay / Base / AccentOverlay) and the battery by two;
+  resizing one layer pulls it off the others. `native-glyph-surface.h` v1.2 now
+  COUNTS the glyphs and gates `fontSize`/`fontFamily` on `glyphLayers <= 1`, so
+  only the percentage — genuinely one piece of text — offers them.
+
+My own diagnostic bug cost a round: `LogItemSubtree` truncated at depth 4, a
+limit tuned for the battery's shallow tree, so the IconView dump ended before
+reaching anything useful and answered nothing. maxDepth is now a parameter.
+
+**The OS-setting bridge was removed at the user's direction, and it was the
+right call.** `Content.Percent` had driven the Windows battery-percentage
+setting. Four registry reads proved the mod overrode the user's own choice at
+load; write-on-change fixed that, but Explorer still only sometimes re-read the
+value and the Settings page never live-refreshed. A control that works once and
+then appears dead is worse than none. The template survives as v1.1 with the
+evidence and a "DO NOT RE-ASSERT AT LOAD" doctrine block; no mod embeds it.
+
+Doctrine written into `settings-profiles.md`: **before a probe advertises a
+capability, it must check the thing that would make that capability wrong.
+"I found one" is not "there is only one."**
+
+## 2026-07-31 — OmniButton live-tested and prepped for PR #4855
+
+The user live-tested v2.0 at 100%, 125% and 150% display scaling and confirmed
+it — the first mod in the family to clear the standing no-push-without-a-live-
+test rule, and the scaling coverage m417z asked for on the blocking DPI item.
+
+Submission prep found the shape of the job was not what it looked like:
+**#4855 is already OPEN**, titled "Add OmniButton Customizer v1.0", branch
+`add-omnibutton-customizer`, still carrying `@version 1.0`. So this is an
+update to a live PR with review history, not a fresh submission. (Upstream is
+`ramensoftware/windhawk-mods`; `m417z/windhawk-mods` does not resolve, which
+cost a wrong turn.)
+
+Re-reading the review against the current code rather than trusting the notes
+found one item that had survived every previous pass: **the unused `slotW`
+parameter m417z explicitly named.** Removed. Both blocking items and five of
+the optional ones are confirmed fixed; four optional items are deliberately
+declined, stated plainly in the drafted PR body rather than left silent.
+
+The preflight's unreferenced-asset gate earned its keep, catching four 1.x-era
+screenshots. One was kept and referenced (`percent-emphasized` — the only shot
+of the mod's single remaining font control); three were deleted as advertising
+removed features or duplicating the 2×2 hero. `in-a-diamond.png` went into both
+READMEs and into the Arrangement examples as
+`wifi | (volume, battery) | percent`, the best demonstration of the nesting
+grammar the mod has.
+
+Version stays at 2.0 by the user's call, with the READMEs rewritten to explain
+it: v1.0 never shipped, so the number marks the settings contract and the
+arrangement component, not a release history.
+
+Ends green on all six gates, fully prepped, NOTHING PUSHED.

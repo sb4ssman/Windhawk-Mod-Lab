@@ -4,13 +4,27 @@ Living todo list — current state only, pruned every session. Completed work
 (past tense) goes in [work_log.md](work_log.md). Durable rules live in
 [README.md](README.md); reference material in [knowledge/](knowledge/).
 
-## Current focus — START HERE (handoff, 2026-07-24)
+## Current focus — START HERE (handoff, 2026-07-31)
 
 **Roll the settings contract + layout template through the remaining mods.**
 VD Switcher is finished and green but deliberately NOT shipped: the user wants
 the other mods migrated first, because a snag in one of them may feed back into
 the template, and it is cheaper to change the template once than to ship VD
 Switcher twice.
+
+**OmniButton has now cleared that bar** — live-tested at three display scalings
+and ready to push to PR #4855 (see its section below). It is the first mod
+allowed to ship, and it is the proof the template survived a real adopter.
+Nothing is pushed yet; the three-step sequence is in its section.
+
+Still to migrate, one live-tested build at a time — the parity gate reports the
+drift: Privacy Anchor (`nested-group-layout.h` **and `start-placement.h`**, the
+latter still uninvestigated), VD Switcher and Tray Utility
+(`nested-group-layout.h`), Clock Spacer (embeds none).
+
+After the open-PR rollout, **Taskbar Folder Menus and Tray Utility Customizer
+are both queued for full 2.0 family-contract upgrades**. Their merged v0.7 and
+v1.1 versions are the published baselines, not the end of their family rollout.
 
 ### Privacy Anchor — live-confirmed local candidate
 
@@ -37,49 +51,50 @@ remain "Not requested." The full rework is commit `92e767e`; that nine-line
 location reconnection remains uncommitted. Nothing is pushed. READMEs,
 screenshots, preflight, and PR update remain intentionally deferred.
 
-### OmniButton — local candidate awaiting live test
+### OmniButton — LIVE-TESTED AND READY TO SUBMIT (2026-07-31)
 
-The next rollout build is in the working tree, uncommitted and unpushed. It
-replaces `itemOrder` plus the smart/fixed-grid settings with the grouped
-Placement/Content/Layout/Size/Adjust/Surface contract and the exact
-nested-group layout v2.4 body. Its vocabulary is `wifi`, `volume`, `battery`,
-`percent`; expression offsets replace all eight keyed per-item nudge settings.
-The first live test proved that percentage availability makes the native item
-set dynamic, correcting the earlier fixed-set assumption: all four items now
-have Content switches and `Layout.NewItems` handles an enabled percentage that
-appears after a written arrangement was saved. Placement truthfully exposes
-only the native fixed position while the OmniButton remains an anchor.
+**The user live-tested v2.0 at 100%, 125% AND 150% display scaling and
+confirmed it.** All six gates green. This is the first mod in the family to
+clear the standing "no push without a live test" rule.
 
-The original native `ControlCenterButton` discovery, presenters, per-item
-styling, property restoration, hooks, retry path, and lifecycle remain the
-implementation guts. Battery and percentage are now always independent
-arrangement items; the coupled/independent selector and coupled layout branch
-were removed because the arranger can express the useful pairings directly.
-`Content.Percent` remains the fourth plain boolean icon toggle. It reconnects
-the archived working battery-percentage component: the toggle updates Windows'
-existing `HKCU\...\Explorer\Advanced\TaskbarBatteryPercent` setting and
-broadcasts `WM_SETTINGCHANGE`, while unload restores the value that existed
-before the mod touched it. Windows may require the next Explorer start to
-materialize the change.
+**It is an UPDATE to open PR #4855, not a new submission.** The PR is titled
+"Add OmniButton Customizer v1.0" on branch `add-omnibutton-customizer` in the
+`sb4ssman/windhawk-mods` fork (upstream is `ramensoftware/windhawk-mods`, NOT
+m417z/windhawk-mods — that name does not resolve). The branch still carries
+`@version 1.0`. A full replacement PR body is drafted; regenerate it if the
+scratchpad is gone, because the live body advertises removed v1.0 features and
+embeds `in-a-grid.png`, which this session deleted.
 
-The availability monitor remains attached and reapplies only when Windows adds
-or removes the percentage child, preventing the transient uncontrolled
-percentage seen in live-test screenshot 2. Placement uses each battery child's
-measured native origin instead of assuming that the percentage begins exactly
-after the glyph. The `ControlCenterButton` content-alignment lease is restored
-for the double-height vertical-centering report, and its native padding is now
-leased and zeroed: `Adjust.PadX` is the sole padding owner, so native padding
-cannot shrink the exact arranged footprint and clip the percentage at its edge.
+Remaining steps, in this order — the sequence matters because the PR body's
+images are `raw.githubusercontent` URLs into the Mod Lab repo:
 
-The taskbar-height probe converts physical pixels to DIPs before
-`RowsInHeight`, and the three possible system-tray modules are named above a
-neutral hook array as required by PR #4855.
+1. Commit + push Mod Lab (root + mod READMEs, mod source, three asset deletions)
+2. Copy the mod into the fork's `add-omnibutton-customizer` branch, push
+3. Update PR #4855's title to v2.0 and replace the body
 
-The second live-test attempt did not reach the mod: Windhawk rejected the
-single-choice informational Placement dropdown because its installed schema
-requires `$options` to have at least two entries. The exact schema rule was
-added to `verify-settings-order.ps1`. The subsequent live test exposed the
-percentage/padding behavior above.
+**Version 2.0 is deliberate and the READMEs now explain it.** v1.0 never
+shipped — it only ever existed as a PR — so the number marks the settings
+contract and the arrangement component, not a release history. The migration
+warning is narrowed to people who installed 1.x by hand from the PR.
+
+**PR #4855's review, verified line by line against the current code:** both
+blocking items are fixed (DPI via `taskbar_host::GetMetrics`; hook array
+renamed with the three-module comment). Optional items fixed: no-destroy on
+`g_settings`, the optional+reset form, the `LoadColorSetting` duplicate, the
+`slotWidth` 1–15 surprise, and the unused `slotW` parameter — that last one had
+survived every previous pass and was caught only by re-reading the review.
+Four optional items are deliberately declined and the draft body says so:
+retry start/stop mutex, `IsWindow()` revalidation, structural wifi/volume
+detection, and `WM_DPICHANGED` recompute.
+
+**Assets:** `in-a-diamond.png` and `icons-stacked-tight-percent-emphasized.png`
+are now referenced in both READMEs. `batt-percent-coupled.png`,
+`compact-nudged.png` and `in-a-grid.png` were deleted — they advertised the
+coupled mode and per-item nudges that 2.0 removed, or duplicated the 2×2 hero.
+Recoverable from git history if wanted.
+
+The root catalog row now records the completed live test and accurately limits
+size/font controls to the battery percentage.
 
 **Audit 2026-07-25 — the real cause of "wifi and volume coloring does nothing".**
 Not a Codex regression; the same defect is in the committed v1.0. Glyph
@@ -232,7 +247,7 @@ in `_templates/README.md`.
 
 | Mod | nested-group-layout | native-glyph-surface | os-setting-bridge |
 |---|---|---|---|
-| OmniButton | v2.5, verified | adopted | adopted |
+| OmniButton | v2.5, verified | v1.2, verified | REMOVED — see 2026-07-26 |
 | Privacy Anchor | STALE (pre-v2.5) | hand-rolled walk — candidate | — |
 | VD Switcher | STALE (pre-v2.5) | n/a, owns its buttons | — |
 | Tray Utility | STALE (pre-v2.5) | n/a so far | candidate (the "always show these icons" idea is exactly this) |
@@ -898,7 +913,8 @@ the in-grid Task View placement at several desktop counts, and the auto layout
 at 125%/150% scaling now that the reservation changed the shapes it picks.
 
 **MERGED 2026-07-23:** Taskbar Folder Menus (PR #4485) and Tray Utility
-Customizer (PR #4841) are now in the official catalog. No further action.
+Customizer (PR #4841) are now in the official catalog. Both remain queued for
+their full 2.0 settings/template upgrade after the current open-PR rollout.
 
 **Active work: cross-cutting `[[clang::no_destroy]]` resolution.** The
 2026-07-23 review wave requests the same no_destroy fix on every remaining open

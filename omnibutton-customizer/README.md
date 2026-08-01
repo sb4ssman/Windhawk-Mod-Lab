@@ -20,6 +20,16 @@ want, and restyle each one independently.
 ![A compact OmniButton in a busy multi-row tray](assets/in-a-busy-tray.png)
 *Working alongside several other tray and taskbar mods in a dense two-row tray.*
 
+![A tight cluster with an enlarged battery percentage](assets/icons-stacked-tight-percent-emphasized.png)
+*The percentage enlarged with `Surface` → `Battery percentage size`, the one
+font control the mod offers — because the percentage is the one item that is
+really a single piece of text.*
+
+![The four items arranged as a diamond](assets/in-a-diamond.png)
+*A diamond — `wifi | (volume, battery) | percent`. Volume on top, battery
+below, wifi and the percentage on the sides. Nesting one stacked pair between
+two single items is all it takes.*
+
 ## Features
 
 - Arrange wifi, volume, battery, and the battery percentage into any grid —
@@ -35,12 +45,18 @@ want, and restyle each one independently.
   OmniButton" anchors still mean what they always did
 - No XAML Diagnostics, so it coexists with Windows 11 Taskbar Styler
 
-## Upgrading from 1.x
+## Why this starts at 2.0
 
-Version 2.0 reorganizes every setting into groups — Placement, Content, Layout,
-Size, Adjust, Surface — so this mod matches the rest of the family. Windhawk
-cannot carry values across renamed keys, so **your previous customizations are
-not migrated; re-apply them once after updating.**
+Version 1.0 was never published — it existed only as a pull request. The 2.0 in
+the version field marks the settings contract, not a history of releases: every
+mod in this family moved to the same grouped layout — Placement, Content,
+Layout, Size, Adjust, Surface — and to the shared **Arrangement** expression
+that replaced each mod's homegrown grid settings. This mod arrived at that
+contract second, so its first published version is the one that has it.
+
+**If you installed 1.x by hand from the pull request**, Windhawk cannot carry
+values across renamed keys, so your previous customizations are not migrated —
+re-apply them once.
 
 `itemOrder` and the whole grid-mode family are gone, replaced by a single
 **Arrangement** field. Grid mode, smart layout, fixed rows and columns, slot
@@ -70,6 +86,7 @@ field that does. Its default value is the word `auto`:
   wifi | volume | battery | percent   a single row
   wifi, volume, battery, percent      a single column
   wifi | volume | (battery, percent)  battery stacked over its percentage
+  wifi | (volume, battery) | percent  a diamond
   ```
 
   The tokens are `wifi`, `volume`, `battery`, and `percent`, and they are

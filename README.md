@@ -9,14 +9,14 @@ double-height taskbars with room for two-row tray controls.
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [omnibutton-customizer/](omnibutton-customizer/) | v1.0 in PR #4855; v2.0 local candidate awaiting live test | Arrange the Windows 11 OmniButton's wifi, volume, battery, and percentage into any grid, with independent color, size, font, and opacity per item |
+| [omnibutton-customizer/](omnibutton-customizer/) | v1.0 in PR #4855; v2.0 live-tested and ready to update the PR | Arrange the Windows 11 OmniButton's wifi, volume, battery, and percentage with one nestable layout expression, per-item color and opacity, and percentage size/font controls |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v1.0, submitted (PR open) | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
 | [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, submitted (PR #4443) | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
-| [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7, submitted in PR #4485 | Compact taskbar buttons that open configured Shell targets as popup menus with classic Shell context menus and subfolder navigation |
+| [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7 published; queued for the family 2.0 upgrade | Compact taskbar buttons that open configured Shell targets as popup menus with classic Shell context menus and subfolder navigation |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
 | [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.8 submitted (PR #4844), CI green | Clickable virtual desktop buttons with customizable indicators, native checked states, grid layouts, Task View button, and tray/Start placement |
-| [tray-utility-customizer/](tray-utility-customizer/) | v1.1, submitted in PR #4841 | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one nestable layout expression |
+| [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; queued for the family 2.0 upgrade | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one nestable layout expression |
 
 ## Repository Layout
 
