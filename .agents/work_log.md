@@ -1481,3 +1481,24 @@ it: v1.0 never shipped, so the number marks the settings contract and the
 arrangement component, not a release history.
 
 Ends green on all six gates, fully prepped, NOTHING PUSHED.
+
+## 2026-07-31 — OmniButton lab prep pushed; Network identity correction opened
+
+- Committed the reviewed OmniButton v2.0 preparation, README/gallery cleanup,
+  roadmap notes, and obsolete screenshot deletions as lab commit `ef32687` and
+  pushed it normally to Mod Lab `main`. No force push was used. The fork's
+  `add-omnibutton-customizer` branch and upstream PR #4855 were not changed.
+- A submission-stop question exposed a naming error before the PR update:
+  Windows' first ControlCenterButton item is one Network slot whose glyph
+  represents Wi-Fi or Ethernet and also carries disconnected, airplane-mode,
+  and VPN states. The implementation handled those glyph changes because it
+  operates on the native presenter, but the public `Wifi` setting and `wifi`
+  arrangement token were misleading.
+- Started a local follow-up that changes the public identity to
+  `Network`/`network` and adds the user's new
+  `compact-no-percent-stack-nudged.png` gallery image. This settings-contract
+  change was subsequently live-confirmed on 2026-08-01 with a written
+  four-item arrangement and per-item offsets. The corrected
+  `compact-with-nudges.png` example was added to the gallery as well. Both
+  README layers and the root catalog were updated; the follow-up remains
+  uncommitted at this point.

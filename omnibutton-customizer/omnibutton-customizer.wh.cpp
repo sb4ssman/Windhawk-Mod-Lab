@@ -1,7 +1,7 @@
 // ==WindhawkMod==
 // @id              omnibutton-customizer
 // @name            OmniButton Customizer
-// @description     Arrange the Windows 11 OmniButton's wifi, volume, battery and percentage into any layout you write, hide any of them, and recolor them independently
+// @description     Arrange the Windows 11 OmniButton's network, volume, battery and percentage into any layout you write, hide any of them, and recolor them independently
 // @version         2.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
@@ -15,20 +15,28 @@
 # OmniButton Customizer
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that takes the native
-OmniButton — the wifi / volume / battery cluster that opens Quick Settings —
+OmniButton — the network / volume / battery cluster that opens Quick Settings —
 and lets you arrange its items into any shape you like, hide the ones you don't
 want, and restyle each one independently.
 
-![Wifi and volume above battery and percentage](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/compact-no-nudges.png)
+![Network and volume above battery and percentage](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/compact-no-nudges.png)
 *The four native items as a compact 2×2 block on a single-height taskbar.*
 
-![Battery percentage, battery, volume, and wifi in one row](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/re-odered-icons.png)
-*The same items in a single row, reversed: percentage, battery, volume, wifi.*
+![Network, volume, and battery in a compact stack](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/compact-no-percent-stack-nudged.png)
+*A tight three-item stack with the percentage hidden and small per-item offsets
+applied.*
+
+![All four items in a compact nudged grid](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/compact-with-nudges.png)
+*Network and volume above battery and percentage, with small per-item offsets
+applied inside the arrangement expression.*
+
+![Battery percentage, battery, volume, and network in one row](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/re-odered-icons.png)
+*The same items in a single row, reversed: percentage, battery, volume, network.*
 
 ![All four items on a double-height taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/wifi-volume-batt-percent-vertical.png)
 *A 2×2 block on a double-height taskbar, beside a wrapped clock.*
 
-![Wifi, volume, and battery with the percentage off](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/wifi-vol-batt-vertical.png)
+![Network, volume, and battery with the percentage off](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/wifi-vol-batt-vertical.png)
 *Three items with the battery percentage turned off.*
 
 ![A compact OmniButton in a busy multi-row tray](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/in-a-busy-tray.png)
@@ -40,13 +48,13 @@ font control the mod offers — because the percentage is the one item that is
 really a single piece of text.*
 
 ![The four items arranged as a diamond](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/in-a-diamond.png)
-*A diamond — `wifi | (volume, battery) | percent`. Volume on top, battery
-below, wifi and the percentage on the sides. Nesting one stacked pair between
+*A diamond — `network | (volume, battery) | percent`. Volume on top, battery
+below, network and the percentage on the sides. Nesting one stacked pair between
 two single items is all it takes.*
 
 ## Features
 
-- Arrange wifi, volume, battery, and the battery percentage into any grid —
+- Arrange network, volume, battery, and the battery percentage into any grid —
   automatically fitted to your taskbar height, or written out by hand
 - Turn any of the four items off individually
 - Writes no Windows settings and no registry values — it arranges the taskbar
@@ -96,16 +104,18 @@ field that does. Its default value is the word `auto`:
   `|` and stack with `,`, and parentheses group them:
 
   ```text
-  wifi, battery | volume, percent     a 2x2 block
-  wifi | volume | battery | percent   a single row
-  wifi, volume, battery, percent      a single column
-  wifi | volume | (battery, percent)  battery stacked over its percentage
-  wifi | (volume, battery) | percent  a diamond
+  network, battery | volume, percent     a 2x2 block
+  network | volume | battery | percent   a single row
+  network, volume, battery, percent      a single column
+  network | volume | (battery, percent)  battery stacked over its percentage
+  network | (volume, battery) | percent  a diamond
   ```
 
-  The tokens are `wifi`, `volume`, `battery`, and `percent`, and they are
-  case-insensitive. A separator is always required — `wifi (volume | battery)`
-  is an error, not a shorthand for `wifi | (volume | battery)`.
+  The tokens are `network`, `volume`, `battery`, and `percent`, and they are
+  case-insensitive. `network` is the one native slot whose glyph changes
+  between Wi-Fi, Ethernet, disconnected, airplane-mode, and VPN states. A
+  separator is always required — `network (volume | battery)` is an error,
+  not a shorthand for `network | (volume | battery)`.
 
 **Omitting a token hides that item**, exactly like turning it off in `Content`.
 Items Windows isn't showing at all — the battery on a desktop PC, for one — are
@@ -121,8 +131,8 @@ until you fix it.
 **Nudging.** Append a pixel offset to any name to move just that item:
 
 ```text
-wifi[+2,-1] | volume | battery      wifi moves 2px right and 1px up
-(battery, percent)[3,0] | wifi      the stacked pair moves 3px right
+network[+2,-1] | volume | battery   network moves 2px right and 1px up
+(battery, percent)[3,0] | network   the stacked pair moves 3px right
 ```
 
 Offsets are cosmetic. Nothing else shifts, and the group's overall size does
@@ -178,7 +188,7 @@ use `Item width`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Wifi | On | |
+| Network | On | Wi-Fi, Ethernet, disconnected, airplane-mode, and VPN states share this one native slot |
 | Volume | On | |
 | Battery | On | Absent on machines without a battery |
 | Battery percentage | On | Hides it from the arrangement. Windows decides whether it exists — Settings → System → Power & battery |
@@ -240,14 +250,14 @@ that.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Wifi / Volume / Battery / Battery percentage color | *(native)* | Empty preserves the native color |
-| Wifi / Volume / Battery / Battery percentage opacity | -1 | -1 is the native opacity; otherwise 0–100% |
+| Network / Volume / Battery / Battery percentage color | *(native)* | Empty preserves the native color |
+| Network / Volume / Battery / Battery percentage opacity | -1 | -1 is the native opacity; otherwise 0–100% |
 | Battery percentage size | 0 pt | 0 is the native size; clamped to 0–64 |
 | Battery percentage font family | *(native)* | Empty preserves the native font |
 
 **Why only the percentage has a size and a font.** Because only the percentage
 is a single piece of text. Each of the other three is a **stack of glyphs
-layered exactly on top of one another** — wifi and volume are three deep
+layered exactly on top of one another** — network and volume are three deep
 (Windows calls them Underlay, Base, and AccentOverlay), the battery is two, an
 outline and a fill. That stacking is how one icon shows signal strength, a mute
 slash, or a charge level.
@@ -329,8 +339,12 @@ each one's exact prior local value when it unloads.
   $name: Placement
 
 - Content:
-  - Wifi: true
-    $name: Wifi
+  - Network: true
+    $name: Network
+    $description: >-
+      The one native network slot. Windows changes its glyph between Wi-Fi,
+      Ethernet, disconnected, airplane-mode and VPN states; those are states
+      of this item, not separate arrangement items.
   - Volume: true
     $name: Volume
   - Battery: true
@@ -353,10 +367,10 @@ each one's exact prior local value when it unloads.
     $description: >-
       "auto" fits the available native items to the taskbar height. Anything
       else is an explicit layout: names side by side with "|", stacked with
-      ",", and grouped with parentheses - "wifi, battery | volume, percent"
-      is a 2x2 block. Tokens are wifi, volume, battery, and percent. Omit a
+      ",", and grouped with parentheses - "network, battery | volume, percent"
+      is a 2x2 block. Tokens are network, volume, battery, and percent. Omit a
       token to hide that item. Append a pixel offset to nudge one item,
-      "wifi[+2,-1]", or a whole group, "(wifi, volume)[3,0]". Every time
+      "network[+2,-1]", or a whole group, "(network, volume)[3,0]". Every time
       "auto" is applied, its generated arrangement is written to the Windhawk
       log so you can paste it here and edit it. A parse error is logged and
       falls back to automatic.
@@ -427,8 +441,8 @@ each one's exact prior local value when it unloads.
   $name: Adjust
 
 - Surface:
-  - WifiColor: ""
-    $name: Wifi icon color
+  - NetworkColor: ""
+    $name: Network icon color
     $description: >-
       Hex (#RRGGBB or #AARRGGBB), accent / accentLight / accentDark, or
       transparent. Empty preserves the native color.
@@ -451,15 +465,15 @@ each one's exact prior local value when it unloads.
     $name: Battery percentage size (pt, 0 = native)
     $description: >-
       Only the percentage has a size and a font, because only the percentage
-      is a single piece of text. Wifi, volume and the battery are each drawn
+      is a single piece of text. Network, volume and the battery are each drawn
       by a STACK of glyphs layered exactly on top of one another - that is how
       they show signal strength, a mute slash or a charge level - and resizing
       one layer of a stack pulls it away from the others.
   - PercentFontFamily: ""
     $name: Battery percentage font family
     $description: Empty preserves the native font.
-  - WifiOpacity: -1
-    $name: Wifi opacity (-1 = native, 0-100%)
+  - NetworkOpacity: -1
+    $name: Network opacity (-1 = native, 0-100%)
   - VolumeOpacity: -1
     $name: Volume opacity (-1 = native, 0-100%)
   - BatteryOpacity: -1
@@ -2383,7 +2397,7 @@ namespace vtw = windhawk_mod_templates::visual_tree_walk;
 
 struct ModSettings {
     // Content
-    bool wifi;
+    bool network;
     bool volume;
     bool battery;
     bool percent;
@@ -2402,16 +2416,16 @@ struct ModSettings {
     int offsetX;
     int offsetY;
     // Surface
-    wchar_t wifiColor[32];
+    wchar_t networkColor[32];
     wchar_t volumeColor[32];
     wchar_t batteryColor[32];
     wchar_t percentColor[32];
-    // Only the percentage has these. Wifi, volume and the battery are each
+    // Only the percentage has these. Network, volume and the battery are each
     // drawn by a STACK of layered glyphs, which cannot be resized or
     // re-fonted without pulling the layers apart — see the Surface group.
     int percentSize;
     wchar_t percentFontFamily[64];
-    int wifiOpacity;
+    int networkOpacity;
     int volumeOpacity;
     int batteryOpacity;
     int percentOpacity;
@@ -2423,7 +2437,7 @@ std::atomic<bool> g_unloading = false;
 
 static void LoadSettings() {
     // Content
-    g_settings.wifi = sio::LoadBool(L"Content.Wifi");
+    g_settings.network = sio::LoadBool(L"Content.Network");
     g_settings.volume = sio::LoadBool(L"Content.Volume");
     g_settings.battery = sio::LoadBool(L"Content.Battery");
     g_settings.percent = sio::LoadBool(L"Content.Percent");
@@ -2469,7 +2483,7 @@ static void LoadSettings() {
     g_settings.offsetY = sio::LoadInt(L"Adjust.OffsetY", -40, 40);
 
     // Surface
-    sio::LoadString(L"Surface.WifiColor", g_settings.wifiColor);
+    sio::LoadString(L"Surface.NetworkColor", g_settings.networkColor);
     sio::LoadString(L"Surface.VolumeColor", g_settings.volumeColor);
     sio::LoadString(L"Surface.BatteryColor", g_settings.batteryColor);
     sio::LoadString(L"Surface.PercentColor", g_settings.percentColor);
@@ -2477,7 +2491,8 @@ static void LoadSettings() {
     g_settings.percentSize = sio::LoadInt(L"Surface.PercentSize", 0, 64);
     sio::LoadString(L"Surface.PercentFontFamily", g_settings.percentFontFamily);
 
-    g_settings.wifiOpacity = sio::LoadInt(L"Surface.WifiOpacity", -1, 100);
+    g_settings.networkOpacity =
+        sio::LoadInt(L"Surface.NetworkOpacity", -1, 100);
     g_settings.volumeOpacity = sio::LoadInt(L"Surface.VolumeOpacity", -1, 100);
     g_settings.batteryOpacity =
         sio::LoadInt(L"Surface.BatteryOpacity", -1, 100);
@@ -2496,7 +2511,7 @@ static void LoadSettings() {
 // was a toggle that appeared to do nothing most of the time. A control that
 // works once and then does not is worse than no control.
 //
-// So Content.Percent now means exactly what Content.Wifi, Content.Volume and
+// So Content.Percent now means exactly what Content.Network, Content.Volume and
 // Content.Battery mean: "include this native item in the arrangement". All
 // four are uniform, none of them reaches outside the taskbar, and there is
 // nothing to restore on unload because nothing was ever changed.
@@ -2508,7 +2523,7 @@ static void LoadSettings() {
 
 [[clang::no_destroy]] static StackPanel       g_omniStackPanel{ nullptr };
 [[clang::no_destroy]] static FrameworkElement g_omniButton{ nullptr };
-[[clang::no_destroy]] static FrameworkElement g_wifiPresenter{ nullptr };
+[[clang::no_destroy]] static FrameworkElement g_networkPresenter{ nullptr };
 [[clang::no_destroy]] static FrameworkElement g_volumePresenter{ nullptr };
 [[clang::no_destroy]] static FrameworkElement g_batteryPresenter{ nullptr };
 [[clang::no_destroy]] static StackPanel       g_batteryInnerPanel{ nullptr };
@@ -2518,7 +2533,7 @@ static void LoadSettings() {
 // Probed once each, then reused. A Surface knows not just WHERE the stylable
 // leaf is but WHAT it is, so a setting that cannot apply to a given item is
 // dropped rather than silently written to the wrong element.
-[[clang::no_destroy]] static ngs::Surface g_wifiSurface{};
+[[clang::no_destroy]] static ngs::Surface g_networkSurface{};
 [[clang::no_destroy]] static ngs::Surface g_volumeSurface{};
 [[clang::no_destroy]] static ngs::Surface g_batterySurface{};
 [[clang::no_destroy]] static ngs::Surface g_percentSurface{};
@@ -2569,7 +2584,7 @@ struct OmniLayout {
 };
 
 static int OmniItemIndex(std::wstring const& token) {
-    if (ngl::TokenIs(token, L"wifi")) return 0;
+    if (ngl::TokenIs(token, L"network")) return 0;
     if (ngl::TokenIs(token, L"volume")) return 1;
     if (ngl::TokenIs(token, L"battery")) return 2;
     if (ngl::TokenIs(token, L"percent")) return 3;
@@ -2742,11 +2757,11 @@ static bool ComputeOmniNode(ngl::Node const& root,
     return true;
 }
 
-static OmniLayout ResolveOmniLayout(HWND hTaskbarWnd, bool hasWifi,
+static OmniLayout ResolveOmniLayout(HWND hTaskbarWnd, bool hasNetwork,
                                     bool hasVolume, bool hasBattery,
                                     bool hasPercent) {
     bool const present[4] = {
-        hasWifi && g_settings.wifi,
+        hasNetwork && g_settings.network,
         hasVolume && g_settings.volume,
         hasBattery && g_settings.battery,
         hasPercent && g_settings.percent,
@@ -2755,8 +2770,8 @@ static OmniLayout ResolveOmniLayout(HWND hTaskbarWnd, bool hasWifi,
     std::vector<std::wstring> autoTokens;
     std::vector<std::wstring> expectedTokens;
     if (present[0]) {
-        autoTokens.push_back(L"wifi");
-        expectedTokens.push_back(L"wifi");
+        autoTokens.push_back(L"network");
+        expectedTokens.push_back(L"network");
     }
     if (present[1]) {
         autoTokens.push_back(L"volume");
@@ -2835,7 +2850,7 @@ static OmniLayout ResolveOmniLayout(HWND hTaskbarWnd, bool hasWifi,
         result.hasPlacement[item] = true;
     }
 
-    Wh_Log(L"[Layout] tokens: wifi=Wifi  volume=Volume  battery=Battery  "
+    Wh_Log(L"[Layout] tokens: network=Network  volume=Volume  battery=Battery  "
            L"percent=Battery percentage");
     Wh_Log(L"[Layout] arrangement = \"%ls\"%ls, items=%d, size %.0fx%.0f, "
            L"visible=[%d,%d,%d,%d]",
@@ -2990,12 +3005,12 @@ static void ResolveSurface(PCWSTR item, int index,
 }
 
 // True once every native item we actually found has been probed. Treating
-// "items host discovered" as success is what left wifi and volume permanently
+// "items host discovered" as success is what left network and volume permanently
 // unstyled: g_applied went true on the first pass, and the retry thread, the
 // IconView Loaded handler, and LayoutUpdated all stand down on g_applied, so
 // nothing ever looked again.
 static bool AllGlyphsResolved() {
-    if (g_wifiPresenter && !g_wifiSurface) return false;
+    if (g_networkPresenter && !g_networkSurface) return false;
     if (g_volumePresenter && !g_volumeSurface) return false;
     if (g_batteryGlyphFE && !g_batterySurface) return false;
     if (g_batteryPercentFE && !g_percentSurface) return false;
@@ -3017,14 +3032,14 @@ static void ApplyItemStyle(ngs::Surface const& surface, const wchar_t* color,
 }
 
 static void ApplyAllItemStyles() {
-    ResolveSurface(L"Wifi", 0, g_wifiPresenter, g_wifiSurface);
+    ResolveSurface(L"Network", 0, g_networkPresenter, g_networkSurface);
     ResolveSurface(L"Volume", 1, g_volumePresenter, g_volumeSurface);
     ResolveSurface(L"Battery", 2, g_batteryGlyphFE, g_batterySurface);
     ResolveSurface(L"Battery percentage", 3, g_batteryPercentFE,
                    g_percentSurface);
 
-    ApplyItemStyle(g_wifiSurface, g_settings.wifiColor, 0, nullptr,
-                   g_settings.wifiOpacity);
+    ApplyItemStyle(g_networkSurface, g_settings.networkColor, 0, nullptr,
+                   g_settings.networkOpacity);
     ApplyItemStyle(g_volumeSurface, g_settings.volumeColor, 0, nullptr,
                    g_settings.volumeOpacity);
     ApplyItemStyle(g_batterySurface, g_settings.batteryColor, 0, nullptr,
@@ -3087,10 +3102,10 @@ static void ApplyItemsHostFootprint(StackPanel const& sp,
 
 static void ResetElementRefs() {
     g_omniStackPanel = nullptr; g_omniButton = nullptr;
-    g_wifiPresenter = nullptr;  g_volumePresenter = nullptr;
+    g_networkPresenter = nullptr;  g_volumePresenter = nullptr;
     g_batteryPresenter = nullptr; g_batteryInnerPanel = nullptr;
     g_batteryGlyphFE = nullptr; g_batteryPercentFE = nullptr;
-    g_wifiSurface = {};    g_volumeSurface = {};
+    g_networkSurface = {}; g_volumeSurface = {};
     g_batterySurface = {}; g_percentSurface = {};
     for (bool& logged : g_glyphMissLogged) logged = false;
     g_glyphTopUps = 0;
@@ -3311,7 +3326,7 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     // chose changes an item's natural width, so measuring first would reserve
     // cells for the native size and then paint a different size into them.
     if (n >= 1)
-        g_wifiPresenter =
+        g_networkPresenter =
             VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
     if (n >= 2)
         g_volumePresenter =
@@ -3324,14 +3339,14 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     g_cellsNeedRemeasure = false;
     if (g_settings.itemWidth <= 0) {
         bool settled = true;
-        settled &= MeasureItemContentWidth(0, g_wifiPresenter);
+        settled &= MeasureItemContentWidth(0, g_networkPresenter);
         settled &= MeasureItemContentWidth(1, g_volumePresenter);
         settled &= MeasureItemContentWidth(2, g_batteryGlyphFE);
         if (!settled && g_remeasures < kMaxRemeasures) {
             g_remeasures++;
             g_cellsNeedRemeasure = true;
         }
-        Wh_Log(L"[Layout] fit to content: wifi=%.0f volume=%.0f battery=%.0f "
+        Wh_Log(L"[Layout] fit to content: network=%.0f volume=%.0f battery=%.0f "
                L"(0 = not measured yet, falling back to %.0f)%s",
                g_itemContentWidth[0], g_itemContentWidth[1],
                g_itemContentWidth[2], kUnmeasuredCellWidth,
@@ -3361,7 +3376,7 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
 
     if (g_batteryGlyphFE)
         LogItemSubtree(L"battery", g_batteryGlyphFE);
-    // Wifi and volume are NOT dumped. They were, at depth 12, to find out why
+    // Network and volume are NOT dumped. They were, at depth 12, to find out why
     // a glyph size produced a ghost — the answer was three stacked
     // AdaptiveTextBlocks (Underlay / Base / AccentOverlay), and the Surface
     // now reports that itself as "a STACK of N layered glyphs". Twenty lines
@@ -3369,25 +3384,26 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     // that still matter. Raise the depth here again if a Windows build ever
     // makes the [Style] line look wrong.
 
-    bool hasWifi = n >= 1;
+    bool hasNetwork = n >= 1;
     bool hasVolume = n >= 2;
     OmniLayout layout = ResolveOmniLayout(
-        hTaskbarWnd, hasWifi, hasVolume,
+        hTaskbarWnd, hasNetwork, hasVolume,
         hasBattPres && g_batteryGlyphFE, hasPercent);
 
     ApplyItemsHostFootprint(sp, layout);
 
-    // Wifi (native slot 0).
+    // Network (native slot 0). Windows changes this one presenter's glyph
+    // between Wi-Fi, Ethernet, disconnected, airplane-mode and VPN states.
     if (n >= 1) {
-        auto wifi =
+        auto network =
             VisualTreeHelper::GetChild(sp, 0).try_as<FrameworkElement>();
-        if (wifi) {
-            g_wifiPresenter = wifi;
-            SetItemVisibility(wifi, layout.visible[0]);
+        if (network) {
+            g_networkPresenter = network;
+            SetItemVisibility(network, layout.visible[0]);
             if (layout.visible[0] && layout.hasPlacement[0]) {
                 auto const& p = layout.placement[0];
-                PrepareSlot(wifi, p.size.width, p.size.height);
-                PositionSlot(wifi, 0, p.x, p.y);
+                PrepareSlot(network, p.size.width, p.size.height);
+                PositionSlot(network, 0, p.x, p.y);
             }
         }
     }
@@ -3457,7 +3473,7 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
             }
 
             // Move the presenter to the arrangement origin, accounting for
-            // collapsed wifi/volume siblings that no longer contribute
+            // collapsed network/volume siblings that no longer contribute
             // natural height.
             double batteryNaturalY =
                 (layout.visible[0] ? g_settings.itemHeight : 0) +
@@ -3669,7 +3685,7 @@ static void OnLayoutUpdatedImpl() {
 
     bool changed = false;
     int childCount = VisualTreeHelper::GetChildrenCount(sp);
-    if (!g_wifiPresenter && childCount >= 1)
+    if (!g_networkPresenter && childCount >= 1)
         changed = true;
     if (!g_volumePresenter && childCount >= 2)
         changed = true;

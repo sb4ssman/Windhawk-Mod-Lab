@@ -12,10 +12,11 @@ the other mods migrated first, because a snag in one of them may feed back into
 the template, and it is cheaper to change the template once than to ship VD
 Switcher twice.
 
-**OmniButton has now cleared that bar** — live-tested at three display scalings
-and ready to push to PR #4855 (see its section below). It is the first mod
-allowed to ship, and it is the proof the template survived a real adopter.
-Nothing is pushed yet; the three-step sequence is in its section.
+**OmniButton v2.0 has cleared that bar**, including the final Network-token
+follow-up. The earlier build was live-tested at three display scalings, and the
+user then confirmed the current `Network`/`network` candidate after exercising
+a written four-item arrangement with offsets. It is ready to resume the PR
+#4855 update sequence; see its section below.
 
 Still to migrate, one live-tested build at a time — the parity gate reports the
 drift: Privacy Anchor (`nested-group-layout.h` **and `start-placement.h`**, the
@@ -51,11 +52,16 @@ remain "Not requested." The full rework is commit `92e767e`; that nine-line
 location reconnection remains uncommitted. Nothing is pushed. READMEs,
 screenshots, preflight, and PR update remain intentionally deferred.
 
-### OmniButton — LIVE-TESTED AND READY TO SUBMIT (2026-07-31)
+### OmniButton — LIVE-TESTED AND READY TO SUBMIT (2026-08-01)
 
 **The user live-tested v2.0 at 100%, 125% AND 150% display scaling and
-confirmed it.** All six gates green. This is the first mod in the family to
-clear the standing "no push without a live test" rule.
+confirmed it.** All six gates were green. After that test, the public
+`Wifi`/`wifi` identity was found to be too narrow: Windows uses one Network
+slot whose glyph changes between Wi-Fi, Ethernet, disconnected, airplane-mode
+and VPN states. The current uncommitted follow-up renames the settings keys and
+arrangement token to `Network`/`network`; because the settings contract changed,
+the user live-confirmed that current build with a written four-item arrangement
+and per-item offsets on 2026-08-01.
 
 **It is an UPDATE to open PR #4855, not a new submission.** The PR is titled
 "Add OmniButton Customizer v1.0" on branch `add-omnibutton-customizer` in the
@@ -65,10 +71,15 @@ m417z/windhawk-mods — that name does not resolve). The branch still carries
 scratchpad is gone, because the live body advertises removed v1.0 features and
 embeds `in-a-grid.png`, which this session deleted.
 
+The Mod Lab preparation commit `ef32687` is already on `origin/main`. The
+interrupted push approval completed before the stop was observed. The fork PR
+branch and PR metadata are still untouched; no force push occurred.
+
 Remaining steps, in this order — the sequence matters because the PR body's
 images are `raw.githubusercontent` URLs into the Mod Lab repo:
 
-1. Commit + push Mod Lab (root + mod READMEs, mod source, three asset deletions)
+1. Commit + normally push the live-confirmed follow-up (root + mod READMEs,
+   mod source, new screenshots, notes)
 2. Copy the mod into the fork's `add-omnibutton-customizer` branch, push
 3. Update PR #4855's title to v2.0 and replace the body
 
@@ -93,8 +104,12 @@ are now referenced in both READMEs. `batt-percent-coupled.png`,
 coupled mode and per-item nudges that 2.0 removed, or duplicated the 2×2 hero.
 Recoverable from git history if wanted.
 
-The root catalog row now records the completed live test and accurately limits
-size/font controls to the battery percentage.
+`compact-no-percent-stack-nudged.png` is the new compact three-item example;
+`compact-with-nudges.png` is the live-confirmed corrected four-item example.
+The current follow-up references both in both README layers.
+
+The root catalog row accurately limits size/font controls to the battery
+percentage and records the current candidate as live-tested and PR-ready.
 
 **Audit 2026-07-25 — the real cause of "wifi and volume coloring does nothing".**
 Not a Codex regression; the same defect is in the committed v1.0. Glyph

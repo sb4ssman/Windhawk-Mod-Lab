@@ -1,20 +1,28 @@
 # OmniButton Customizer
 
 A [Windhawk](https://windhawk.net) mod for Windows 11 that takes the native
-OmniButton — the wifi / volume / battery cluster that opens Quick Settings —
+OmniButton — the network / volume / battery cluster that opens Quick Settings —
 and lets you arrange its items into any shape you like, hide the ones you don't
 want, and restyle each one independently.
 
-![Wifi and volume above battery and percentage](assets/compact-no-nudges.png)
+![Network and volume above battery and percentage](assets/compact-no-nudges.png)
 *The four native items as a compact 2×2 block on a single-height taskbar.*
 
-![Battery percentage, battery, volume, and wifi in one row](assets/re-odered-icons.png)
-*The same items in a single row, reversed: percentage, battery, volume, wifi.*
+![Network, volume, and battery in a compact stack](assets/compact-no-percent-stack-nudged.png)
+*A tight three-item stack with the percentage hidden and small per-item offsets
+applied.*
+
+![All four items in a compact nudged grid](assets/compact-with-nudges.png)
+*Network and volume above battery and percentage, with small per-item offsets
+applied inside the arrangement expression.*
+
+![Battery percentage, battery, volume, and network in one row](assets/re-odered-icons.png)
+*The same items in a single row, reversed: percentage, battery, volume, network.*
 
 ![All four items on a double-height taskbar](assets/wifi-volume-batt-percent-vertical.png)
 *A 2×2 block on a double-height taskbar, beside a wrapped clock.*
 
-![Wifi, volume, and battery with the percentage off](assets/wifi-vol-batt-vertical.png)
+![Network, volume, and battery with the percentage off](assets/wifi-vol-batt-vertical.png)
 *Three items with the battery percentage turned off.*
 
 ![A compact OmniButton in a busy multi-row tray](assets/in-a-busy-tray.png)
@@ -26,13 +34,13 @@ font control the mod offers — because the percentage is the one item that is
 really a single piece of text.*
 
 ![The four items arranged as a diamond](assets/in-a-diamond.png)
-*A diamond — `wifi | (volume, battery) | percent`. Volume on top, battery
-below, wifi and the percentage on the sides. Nesting one stacked pair between
+*A diamond — `network | (volume, battery) | percent`. Volume on top, battery
+below, network and the percentage on the sides. Nesting one stacked pair between
 two single items is all it takes.*
 
 ## Features
 
-- Arrange wifi, volume, battery, and the battery percentage into any grid —
+- Arrange network, volume, battery, and the battery percentage into any grid —
   automatically fitted to your taskbar height, or written out by hand
 - Turn any of the four items off individually
 - Writes no Windows settings and no registry values — it arranges the taskbar
@@ -82,16 +90,18 @@ field that does. Its default value is the word `auto`:
   `|` and stack with `,`, and parentheses group them:
 
   ```text
-  wifi, battery | volume, percent     a 2x2 block
-  wifi | volume | battery | percent   a single row
-  wifi, volume, battery, percent      a single column
-  wifi | volume | (battery, percent)  battery stacked over its percentage
-  wifi | (volume, battery) | percent  a diamond
+  network, battery | volume, percent     a 2x2 block
+  network | volume | battery | percent   a single row
+  network, volume, battery, percent      a single column
+  network | volume | (battery, percent)  battery stacked over its percentage
+  network | (volume, battery) | percent  a diamond
   ```
 
-  The tokens are `wifi`, `volume`, `battery`, and `percent`, and they are
-  case-insensitive. A separator is always required — `wifi (volume | battery)`
-  is an error, not a shorthand for `wifi | (volume | battery)`.
+  The tokens are `network`, `volume`, `battery`, and `percent`, and they are
+  case-insensitive. `network` is the one native slot whose glyph changes
+  between Wi-Fi, Ethernet, disconnected, airplane-mode, and VPN states. A
+  separator is always required — `network (volume | battery)` is an error,
+  not a shorthand for `network | (volume | battery)`.
 
 **Omitting a token hides that item**, exactly like turning it off in `Content`.
 Items Windows isn't showing at all — the battery on a desktop PC, for one — are
@@ -107,8 +117,8 @@ until you fix it.
 **Nudging.** Append a pixel offset to any name to move just that item:
 
 ```text
-wifi[+2,-1] | volume | battery      wifi moves 2px right and 1px up
-(battery, percent)[3,0] | wifi      the stacked pair moves 3px right
+network[+2,-1] | volume | battery   network moves 2px right and 1px up
+(battery, percent)[3,0] | network   the stacked pair moves 3px right
 ```
 
 Offsets are cosmetic. Nothing else shifts, and the group's overall size does
@@ -164,7 +174,7 @@ use `Item width`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Wifi | On | |
+| Network | On | Wi-Fi, Ethernet, disconnected, airplane-mode, and VPN states share this one native slot |
 | Volume | On | |
 | Battery | On | Absent on machines without a battery |
 | Battery percentage | On | Hides it from the arrangement. Windows decides whether it exists — Settings → System → Power & battery |
@@ -226,14 +236,14 @@ that.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Wifi / Volume / Battery / Battery percentage color | *(native)* | Empty preserves the native color |
-| Wifi / Volume / Battery / Battery percentage opacity | -1 | -1 is the native opacity; otherwise 0–100% |
+| Network / Volume / Battery / Battery percentage color | *(native)* | Empty preserves the native color |
+| Network / Volume / Battery / Battery percentage opacity | -1 | -1 is the native opacity; otherwise 0–100% |
 | Battery percentage size | 0 pt | 0 is the native size; clamped to 0–64 |
 | Battery percentage font family | *(native)* | Empty preserves the native font |
 
 **Why only the percentage has a size and a font.** Because only the percentage
 is a single piece of text. Each of the other three is a **stack of glyphs
-layered exactly on top of one another** — wifi and volume are three deep
+layered exactly on top of one another** — network and volume are three deep
 (Windows calls them Underlay, Base, and AccentOverlay), the battery is two, an
 outline and a fill. That stacking is how one icon shows signal strength, a mute
 slash, or a charge level.
