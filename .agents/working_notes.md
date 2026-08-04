@@ -51,9 +51,19 @@ when an opt-in setting gates an entire capability rather than tuning one,
 **say so at runtime**: the init log now names which switch is off and what is
 lost, and the camera's idle tooltip names the setting on the taskbar itself.
 
-Next for this mod: PR #4843 is OPEN and all four of its review items are
-verified fixed in the source. It is in the same shape OmniButton was in before
-#4855 shipped — READMEs, version bump, and the PR update remain.
+**SUBMITTED 2026-08-03.** PR #4843 is now "Add Tray Privacy Indicator Anchor
+v2.0", head `6f71b39f`, all five CI jobs green. Diff vs `upstream/main` is one
+ADDED file, `mods/tray-privacy-indicator-anchor.wh.cpp` (named for its `@id`,
+not the lab folder), byte-identical to the lab copy.
+
+**Both READMEs were rewritten first, and they needed it.** They were still
+v1.0-era: an entire "Icon order and grid layout" section documenting
+`itemOrder`, `gridMode`, `smartLayout`, `gridRows`/`gridColumns` and
+`shortGroupPosition`/`shortGroupAlign`, none of which exist in the mod.
+`README_MATCH` passed the whole time because it compares the two copies to each
+other and two identically stale copies agree — the exact trap the notes had
+already recorded after OmniButton. **Check the READMEs against the settings
+BLOCK, never against each other, before any submission.**
 
 | Template | What changed |
 |---|---|

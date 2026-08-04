@@ -1579,3 +1579,28 @@ revert a user's choice and leave no trace. And **when an opt-in setting gates a
 whole capability rather than tuning one, say so at runtime** — the init log now
 names which switch is off and what is lost, and the camera's idle tooltip names
 the setting on the taskbar itself rather than only in a log nobody has open.
+
+## 2026-08-03 — Privacy Anchor v2.0 submitted (PR #4843)
+
+The second mod in the family to reach a maintainer on the 2.0 contract, three
+hours after the first.
+
+- PR retitled "Add Tray Privacy Indicator Anchor v2.0", head `6f71b39f`, all
+  five CI jobs green. One ADDED file, byte-identical to the lab copy. The fork
+  filename follows the `@id` (`tray-privacy-indicator-anchor`), not the lab
+  folder name (`privacy-indicator-anchor`).
+- All five review items from the 2026-07-23 wave are fixed and stated
+  explicitly in the PR body: the `wstring_view` use-after-free, the camera
+  default, `no_destroy`, hook-array naming, and the px/DIP row heuristic.
+- **The READMEs were the real work.** Both copies were still v1.0-era, with a
+  whole section documenting `itemOrder`, `gridMode`, `smartLayout`,
+  `gridRows`/`gridColumns` and `shortGroupPosition`/`shortGroupAlign` — none of
+  which exist in the mod any more. `README_MATCH` passed throughout because it
+  compares the two copies to each other, and two identically stale copies
+  agree. This is the second time that gate has been satisfied by matching
+  fiction (OmniButton was the first).
+
+DOCTRINE: **audit a README against the settings BLOCK, never against the other
+README copy.** `verify-readme-sync.ps1` proves the two layers agree; it cannot
+prove either is true. Worth folding a README-vs-settings-block check into
+`submission-preflight.ps1` — it would have caught this twice now.
