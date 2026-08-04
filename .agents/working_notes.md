@@ -26,11 +26,34 @@ After the open-PR rollout, **Taskbar Folder Menus and Tray Utility Customizer
 are both queued for full 2.0 family-contract upgrades**. Their merged v0.7 and
 v1.1 versions are the published baselines, not the end of their family rollout.
 
-### Privacy Anchor — TEMPLATE ROLLOUT DONE 2026-08-03, AWAITING LIVE TEST
+### Privacy Anchor — TEMPLATE ROLLOUT DONE AND LIVE-CONFIRMED 2026-08-03
 
 Went from **3 embedded templates to 8** (`TEMPLATE_PARITY_OK (8 embedded,
-3 not used)`), the most templated mod in the family. All six gates green,
-committed locally, **nothing pushed**.
+3 not used)`), the most templated mod in the family. All six gates green.
+**The user live-tested it and confirmed everything, including camera
+detection.** Commits `3000286` + `9372ca0`, both on `origin/main`.
+
+**The live test surfaced one thing worth recording as doctrine.** The user
+reported camera detection "stopped working" and believed the rollout had
+removed it. It had not — `CameraPrivacyMonitor` was fully intact and the
+commit touched exactly two camera lines, both `Bool(...)` -> `sio::LoadBool(...)`
+with identical semantics. The real cause was older: commit `92e767e` (the 2.0
+rework) **renamed `cameraHardwareDetection` to
+`Behavior.CameraHardwareDetection` AND flipped its default from true to false**
+in the same change. Windhawk cannot carry a value across a renamed key, so the
+user's "on" was dropped and the new key read as off. A whole capability went
+dark with no symptom.
+
+DOCTRINE, now applied here and worth applying family-wide: **never rename a
+settings key and change its default in the same change** — either alone is
+recoverable, together they silently revert a user's choice with no trace. And
+when an opt-in setting gates an entire capability rather than tuning one,
+**say so at runtime**: the init log now names which switch is off and what is
+lost, and the camera's idle tooltip names the setting on the taskbar itself.
+
+Next for this mod: PR #4843 is OPEN and all four of its review items are
+verified fixed in the source. It is in the same shape OmniButton was in before
+#4855 shipped — READMEs, version bump, and the PR update remain.
 
 | Template | What changed |
 |---|---|

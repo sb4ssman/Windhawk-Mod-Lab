@@ -1538,3 +1538,44 @@ The first mod in the family to reach a maintainer on the 2.0 settings contract.
   removed v1.0 features and embedded deleted screenshots.
 - All five CI jobs pass: changed-file validation plus Windhawk 1.6.1, 1.7.3,
   and 2.0.0-alpha.2 compilation.
+
+## 2026-08-03 — Privacy Anchor template rollout, live-confirmed
+
+Took the mod from 3 embedded templates to 8 — the most templated in the
+family — and the user live-tested and confirmed it, camera detection included.
+
+- **Adopted:** `color-tokens.h` (retires the third copy of the token parser),
+  `visual-tree-walk.h`, `settings-io.h`, `taskbar-host.h`, `property-lease.h`.
+  **Re-embedded:** `nested-group-layout.h` v2.5 and `start-placement.h` v1.2.
+- **The start-placement drift the notes had recorded as "previously UNKNOWN"
+  is identified and fixed.** v1.2 centers the group against the taskbar root's
+  height because Start's own box is not a reliable vertical reference; the mod
+  still had v1.1's math. Affects `leftOfStart` / `rightOfStart` only.
+- **The native-indicator restore no longer guesses.** It used to re-derive what
+  an icon's visibility "should" be from whether its glyph had text — a good
+  guess, but one that cannot express "there was no local value here", which is
+  the normal case for a template-bound tray icon where the right restore is
+  `ClearValue`. Every suppression write is now leased and restored exactly.
+- Gained the vertical-taskbar stand-down (previously OmniButton-only), moved
+  row capacity onto `tbh::GetMetrics`, and made `g_settings` heap-free.
+- **Not adopted, deliberately:** `tbh::RetryLoop`, because this mod's retry
+  thread is fused with the privacy state worker and shares its stop event; and
+  `native-glyph-surface.h`, because the mod draws its own icons and has no
+  template-bound native leaf to style.
+
+**A false alarm that produced real doctrine.** The user reported that camera
+hardware detection had stopped working and that the rollout had removed it. It
+had not: `CameraPrivacyMonitor` was intact and the rollout touched two camera
+lines, both semantically identical settings reads. The actual cause was commit
+`92e767e` from the earlier 2.0 rework, which renamed
+`cameraHardwareDetection` to `Behavior.CameraHardwareDetection` **and** flipped
+its default from true to false in the same change. Windhawk cannot carry a
+value across a renamed key, so the user's "on" was dropped and the new key read
+as off — an entire capability went dark with no symptom.
+
+Two rules came out of it. **Never rename a settings key and change its default
+in the same change**; either alone is recoverable, together they silently
+revert a user's choice and leave no trace. And **when an opt-in setting gates a
+whole capability rather than tuning one, say so at runtime** — the init log now
+names which switch is off and what is lost, and the camera's idle tooltip names
+the setting on the taskbar itself rather than only in a log nobody has open.
