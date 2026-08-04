@@ -79,9 +79,21 @@ Remaining steps, in this order — the sequence matters because the PR body's
 images are `raw.githubusercontent` URLs into the Mod Lab repo:
 
 1. Commit + normally push the live-confirmed follow-up (root + mod READMEs,
-   mod source, new screenshots, notes)
+   mod source, new screenshots, notes) — AWAITING USER GO-AHEAD
 2. Copy the mod into the fork's `add-omnibutton-customizer` branch, push
 3. Update PR #4855's title to v2.0 and replace the body
+
+Gate status 2026-08-03, re-run after the gallery rewire: `COMPILE_OK`,
+`EXIT_TIME_DESTRUCTOR_AUDIT_OK`, `README_MATCH`, `SETTINGS_ORDER_OK`,
+`TEMPLATE_PARITY_OK` (7 embedded, 4 not used), `SUBMISSION_PREFLIGHT_OK`,
+`git diff --check` clean. Nothing has changed in the mod since the user's
+2026-08-01 live test except the readme comment block, so the live-test gate
+still holds.
+
+PR #4855 verified live 2026-08-03: OPEN, one m417z comment dated 2026-07-23,
+nothing new upstream since. The full PR body must be regenerated — the live
+one advertises removed v1.0 features and embeds screenshots that no longer
+exist.
 
 **Version 2.0 is deliberate and the READMEs now explain it.** v1.0 never
 shipped — it only ever existed as a PR — so the number marks the settings
@@ -98,15 +110,35 @@ Four optional items are deliberately declined and the draft body says so:
 retry start/stop mutex, `IsWindow()` revalidation, structural wifi/volume
 detection, and `WM_DPICHANGED` recompute.
 
-**Assets:** `in-a-diamond.png` and `icons-stacked-tight-percent-emphasized.png`
-are now referenced in both READMEs. `batt-percent-coupled.png`,
-`compact-nudged.png` and `in-a-grid.png` were deleted — they advertised the
-coupled mode and per-item nudges that 2.0 removed, or duplicated the 2×2 hero.
-Recoverable from git history if wanted.
+**Assets — GALLERY FULLY REPLACED 2026-08-03.** Every 1.x/early-2.0 screenshot
+was deleted and nine fresh ones shot. Both README layers and the root catalog
+are rewired onto them; all nine are referenced and exist, so the preflight's
+broken/unreferenced asset gate passes.
 
-`compact-no-percent-stack-nudged.png` is the new compact three-item example;
-`compact-with-nudges.png` is the live-confirmed corrected four-item example.
-The current follow-up references both in both README layers.
+| File | Shows |
+|---|---|
+| `single-height-auto.png` | lead image — `auto` picking a 2×2 |
+| `single-height-arranged-2x2.png` | the same 2×2 written by hand |
+| `single-height-arranged-2-over-1.png` | ragged group, percentage omitted |
+| `single-height-arranged-reverse.png` | single row, non-native order |
+| `single-height-compact-stack.png` | negative `Size.ItemSpacing` |
+| `single-height-diamond-adjusted-with-hover.png` | nesting grammar + native tooltip intact |
+| `single-height-stacked-with-percent-emphasis.png` | `Surface.PercentSize` |
+| `with-colors.png` | per-item color (green percentage) |
+| `double-height-arranged-vertical.png` | double-height taskbar + coexistence |
+
+The capability audit that drove this: color was the one headline claim in the
+`@description` with NO screenshot at all, and the old README opened with a
+before/after nudge pair whose two files had both been deleted. Color is now
+covered by `with-colors.png`. Deliberately NOT shot, per the gallery policy in
+README.md ("main purpose and a few meaningful configurations, not every
+setting"): opacity, `PercentFontFamily`, fixed `ItemWidth`, `Adjust` padding
+and offsets, and a replacement nudge before/after pair.
+
+Two captions are inferred from the images rather than from a recorded setting
+and should be confirmed with the user if they are ever rewritten: the 2×2 shot
+is captioned with the string `network, battery | volume, percent`, and the
+compact-stack shot is described as two-high.
 
 The root catalog row accurately limits size/font controls to the battery
 percentage and records the current candidate as live-tested and PR-ready.

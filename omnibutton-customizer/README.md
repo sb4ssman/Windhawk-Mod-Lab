@@ -5,38 +5,50 @@ OmniButton — the network / volume / battery cluster that opens Quick Settings 
 and lets you arrange its items into any shape you like, hide the ones you don't
 want, and restyle each one independently.
 
-![Network and volume above battery and percentage](assets/compact-no-nudges.png)
-*The four native items as a compact 2×2 block on a single-height taskbar.*
+![All four items as a 2×2 block on a single-height taskbar](assets/single-height-auto.png)
+*Straight out of the box: `Arrangement` left at `auto`, which fits the four
+native items to the taskbar height and settles on a 2×2 block.*
 
-![Network, volume, and battery in a compact stack](assets/compact-no-percent-stack-nudged.png)
-*A tight three-item stack with the percentage hidden and small per-item offsets
-applied.*
+## Showcase
 
-![All four items in a compact nudged grid](assets/compact-with-nudges.png)
-*Network and volume above battery and percentage, with small per-item offsets
-applied inside the arrangement expression.*
+![The same 2×2 block, written by hand](assets/single-height-arranged-2x2.png)
+*The same shape written out — `network, battery | volume, percent`. Every time
+`auto` runs it logs the arrangement it generated, so you can paste that line
+into the field and edit from there; the automatic and hand-written paths are
+the same field and the same syntax.*
 
-![Battery percentage, battery, volume, and network in one row](assets/re-odered-icons.png)
-*The same items in a single row, reversed: percentage, battery, volume, network.*
+![Network and volume above a centered battery](assets/single-height-arranged-2-over-1.png)
+*Three items with the percentage left out: two across the top, the battery
+centered below. `Short row or column` decides how a ragged last group lines up.*
 
-![All four items on a double-height taskbar](assets/wifi-volume-batt-percent-vertical.png)
-*A 2×2 block on a double-height taskbar, beside a wrapped clock.*
+![The items in a single row](assets/single-height-arranged-reverse.png)
+*A single row, in an order you choose rather than the native one.*
 
-![Network, volume, and battery with the percentage off](assets/wifi-vol-batt-vertical.png)
-*Three items with the battery percentage turned off.*
+![A tight two-high stack](assets/single-height-compact-stack.png)
+*Pulled in close with a negative `Size` → `Item spacing`. That is the setting
+that tightens a cluster — horizontal padding only reserves space at the two
+outside edges and can never change the distance between items.*
 
-![A compact OmniButton in a busy multi-row tray](assets/in-a-busy-tray.png)
-*Working alongside several other tray and taskbar mods in a dense two-row tray.*
-
-![A tight cluster with an enlarged battery percentage](assets/icons-stacked-tight-percent-emphasized.png)
-*The percentage enlarged with `Surface` → `Battery percentage size`, the one
-font control the mod offers — because the percentage is the one item that is
-really a single piece of text.*
-
-![The four items arranged as a diamond](assets/in-a-diamond.png)
+![The four items arranged as a diamond, with the native tooltip showing](assets/single-height-diamond-adjusted-with-hover.png)
 *A diamond — `network | (volume, battery) | percent`. Volume on top, battery
 below, network and the percentage on the sides. Nesting one stacked pair between
-two single items is all it takes.*
+two single items is all it takes. It is still the native button, so the hover
+tooltip and the click through to Quick Settings behave exactly as they always
+did.*
+
+![A tight cluster with an enlarged battery percentage](assets/single-height-stacked-with-percent-emphasis.png)
+*The percentage enlarged with `Surface` → `Battery percentage size`, the one
+size control the mod offers — because the percentage is the one item that is
+really a single piece of text.*
+
+![A recolored battery percentage in a busy tray](assets/with-colors.png)
+*Per-item color — the battery percentage recolored here. Network, volume,
+battery, and the percentage each have their own color and opacity setting, and
+an empty color leaves that item exactly as Windows drew it.*
+
+![All four items arranged vertically on a double-height taskbar](assets/double-height-arranged-vertical.png)
+*A vertical arrangement on a double-height taskbar, working alongside several
+other tray and taskbar mods in a dense two-row tray.*
 
 ## Features
 
