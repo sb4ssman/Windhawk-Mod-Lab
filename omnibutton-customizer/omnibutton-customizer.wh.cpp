@@ -19,6 +19,12 @@ OmniButton — the network / volume / battery cluster that opens Quick Settings 
 and lets you arrange its items into any shape you like, hide the ones you don't
 want, and restyle each one independently.
 
+These native icons are compound and a little weird — each is several glyphs
+layered on top of one another, each with its own built-in visual origin — so a
+mathematically correct grid does not necessarily look like one. `auto` gets the
+shape right, but it does not make pleasing arrangements; expect to adjust.
+Every example below is a real arrangement string, nudges and all.
+
 ![All four items as a 2×2 block on a single-height taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/single-height-auto.png)
 *Straight out of the box: `Arrangement` left at `auto`, which fits the four
 native items to the taskbar height and settles on a 2×2 block.*
@@ -26,10 +32,16 @@ native items to the taskbar height and settles on a 2×2 block.*
 ## Showcase
 
 ![The same 2×2 block, written by hand](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/single-height-arranged-2x2.png)
-*The same shape written out — `network, battery | volume, percent`. Every time
-`auto` runs it logs the arrangement it generated, so you can paste that line
-into the field and edit from there; the automatic and hand-written paths are
-the same field and the same syntax.*
+*The same shape written out and optically corrected:*
+
+```text
+(network[-6,2] | volume[-2,4]), (battery[1,0] | percent[4,-2])
+```
+
+*Two rows joined into a column — the parentheses matter, because `,` binds
+tighter than `|`. Every time `auto` runs it logs the arrangement it generated,
+so you can paste that line into the field and start nudging from there; the
+automatic and hand-written paths are the same field and the same syntax.*
 
 ![Network and volume above a centered battery](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/single-height-arranged-2-over-1.png)
 *Three items with the percentage left out: two across the top, the battery
@@ -44,11 +56,17 @@ that tightens a cluster — horizontal padding only reserves space at the two
 outside edges and can never change the distance between items.*
 
 ![The four items arranged as a diamond, with the native tooltip showing](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/single-height-diamond-adjusted-with-hover.png)
-*A diamond — `network | (volume, battery) | percent`. Volume on top, battery
-below, network and the percentage on the sides. Nesting one stacked pair between
-two single items is all it takes. It is still the native button, so the hover
-tooltip and the click through to Quick Settings behave exactly as they always
-did.*
+*A diamond — volume on top, battery below, network and the percentage on the
+sides:*
+
+```text
+network[4,-2] | volume[2,-4], battery[0,4] | percent[0,-2]
+```
+
+*Nesting one stacked pair between two single items is all it takes; no
+parentheses are needed here because `,` already binds tighter than `|`. It is
+still the native button, so the hover tooltip and the click through to Quick
+Settings behave exactly as they always did.*
 
 ![A tight cluster with an enlarged battery percentage](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/single-height-stacked-with-percent-emphasis.png)
 *The percentage enlarged with `Surface` → `Battery percentage size`, the one
@@ -61,8 +79,12 @@ battery, and the percentage each have their own color and opacity setting, and
 an empty color leaves that item exactly as Windows drew it.*
 
 ![All four items arranged vertically on a double-height taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/double-height-arranged-vertical.png)
-*A vertical arrangement on a double-height taskbar, working alongside several
-other tray and taskbar mods in a dense two-row tray.*
+*All four in a single column on a double-height taskbar, working alongside
+several other tray and taskbar mods in a dense two-row tray:*
+
+```text
+network[-2,6], volume[0,2], battery[0,0], percent[2,-6]
+```
 
 ## Features
 
