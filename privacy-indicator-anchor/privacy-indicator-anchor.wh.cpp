@@ -3141,9 +3141,17 @@ static void UpdateSyntheticTooltips() {
     SetIconTooltip(g_micSlot ? g_micSlot : g_micIcon,
         L"Microphone", g_micActive.load() || g_micUsage.load(),
         g_micBlockReason.load(), PrivacyItemKind::Microphone);
+    // The camera's idle label names the one capability that is switched off,
+    // because a shutter or kill switch simply will not register without it and
+    // there is otherwise nothing on screen that says so.
     SetIconTooltip(g_camSlot ? g_camSlot : g_camIcon,
         L"Camera", g_camActive.load() || g_camUsage.load(),
-        g_camBlockReason.load(), PrivacyItemKind::Camera);
+        g_camBlockReason.load(), PrivacyItemKind::Camera,
+        g_cameraHardwareDetectionEnabled.load()
+            ? L"Not requested"
+            : L"Not requested\n"
+              L"Hardware shutter/kill-switch detection is off - turn on "
+              L"Behavior > \"Monitor camera hardware privacy control\"");
     SetIconTooltip(g_copilotSlot ? g_copilotSlot : g_copilotIcon,
         L"Copilot", g_copilotActive.load(), g_copilotBlockReason.load(),
         PrivacyItemKind::Copilot, L"Installed (not running)");
@@ -3457,7 +3465,24 @@ class CameraPrivacyMonitor {
 public:
     HRESULT Init() {
         if (!IsRequested()) {
-            Wh_Log(L"[CamMon] Hardware detection not requested");
+            // Say WHICH switch is off and what it costs. This monitor is the
+            // only thing that detects a physical camera shutter or kill
+            // switch, and it is opt-in, so "off" is a silent loss of a whole
+            // capability rather than a smaller version of the feature. The
+            // 2.0 settings rework both renamed this key (Windhawk cannot
+            // carry a value across a rename, so an existing "on" was dropped)
+            // and flipped its default to off, which is exactly how someone
+            // ends up here without having chosen it.
+            if (!g_cameraItemEnabled.load()) {
+                Wh_Log(L"[CamMon] Camera icon is off (Content > Camera), so "
+                       L"hardware-switch detection is not running");
+            } else {
+                Wh_Log(L"[CamMon] HARDWARE SWITCH DETECTION IS OFF. The "
+                       L"camera icon cannot report a physical shutter or kill "
+                       L"switch until Behavior > \"Monitor camera hardware "
+                       L"privacy control\" is turned on. Software access, "
+                       L"device availability and in-use detection still work.");
+            }
             return S_FALSE;
         }
         m_wasRequested = true;
@@ -5348,7 +5373,7 @@ static void HandleLoadedModuleIfSystemTray(HMODULE module,
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Privacy Anchor v1.0");
+    Wh_Log(L"[Init] Privacy Anchor v2.0");
     // Failures inside a template-marshalled UI callback report in this mod's
     // voice rather than vanishing.
     tbh::SetExceptionLogger(LogCurrentUiException);
