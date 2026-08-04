@@ -26,7 +26,63 @@ After the open-PR rollout, **Taskbar Folder Menus and Tray Utility Customizer
 are both queued for full 2.0 family-contract upgrades**. Their merged v0.7 and
 v1.1 versions are the published baselines, not the end of their family rollout.
 
-### Privacy Anchor — live-confirmed local candidate
+### Privacy Anchor — TEMPLATE ROLLOUT DONE 2026-08-03, AWAITING LIVE TEST
+
+Went from **3 embedded templates to 8** (`TEMPLATE_PARITY_OK (8 embedded,
+3 not used)`), the most templated mod in the family. All six gates green,
+committed locally, **nothing pushed**.
+
+| Template | What changed |
+|---|---|
+| `nested-group-layout.h` | re-embedded v2.5 — adds `ContentAlong` (additive only) |
+| `start-placement.h` | re-embedded v1.2 — **real fix**: centers against the taskbar ROOT height, not Start's own box |
+| `color-tokens.h` | NEW — retires the third copy of the token parser |
+| `visual-tree-walk.h` | NEW — `FindChildRecursive` is now a thin wrapper over `vtw::FindDescendant` |
+| `settings-io.h` | NEW — every `$options` value parses to an enum AT LOAD |
+| `taskbar-host.h` | NEW — discovery, dispatch, XamlRoot, symbol hooks, metrics |
+| `property-lease.h` | NEW — **exact** restore replaces an inferred one |
+| `injected-grid-column.h` | already matched |
+
+**The start-placement drift the notes called "previously UNKNOWN" is
+identified and fixed.** v1.2 centers the group on `lease.rootGrid.ActualHeight()`
+because Start's own box is not a reliable vertical reference; the mod still had
+the v1.1 math. Affects `leftOfStart` / `rightOfStart` ONLY.
+
+**Two changes carry real behavioral risk — test these specifically:**
+
+1. **Native-indicator restore.** `ClearPrivacyStates` used to re-derive what
+   the native icon's visibility "should" be from whether its TextBlock had
+   text. That is a guess, and it cannot express "there was no local value"
+   — the common case for a template-bound tray icon, where the correct
+   restore is `ClearValue` so the native binding resumes. Now leased:
+   snapshot before first write, restore the exact prior value.
+   **Test: disable the mod and confirm the native privacy icons come back
+   correctly, both while idle and while the mic/camera is live.**
+2. **`leftOfStart` / `rightOfStart` vertical position** moved (see above).
+
+**Deliberately NOT adopted, and why:**
+
+- **`tbh::RetryLoop`** — the mod's retry thread is fused with the privacy
+  state worker; `g_stateRefreshEvent` shares its lifecycle in
+  `StopRetryThread`. Swapping in the template's bounded apply-retry would
+  mean restructuring the whole monitoring architecture. Genuine nuance.
+- **`native-glyph-surface.h`** — the mod DRAWS its own icons, so it owns them
+  outright; there is no template-bound native leaf to style. It reads native
+  glyph text for detection, which is not styling. Same category as VD
+  Switcher owning its buttons.
+- `button-surface.h`, `os-setting-bridge.h` — not applicable.
+
+**Also gained:** vertical-taskbar stand-down (was OmniButton-only), and
+`AvailablePrivacyRows` now takes its DIP height from `tbh::GetMetrics`.
+`g_settings` is now heap-free (fixed buffers + enums replaced every
+`std::wstring` field).
+
+**Corrections to these notes, verified in source:** the mod does NOT still
+embed `smart-grid-layout.h` — zero matches, it already migrated. And all four
+#4843 review items are fixed (no dangling `wstring_view`,
+`CameraHardwareDetection: false`, 22 `no_destroy` sites, hook arrays named).
+
+### Privacy Anchor — earlier live-confirmed local candidate
 
 The first rollout build is now in the working tree, uncommitted and unpushed.
 It adopts the grouped settings contract and the exact nested-group layout v2.4
