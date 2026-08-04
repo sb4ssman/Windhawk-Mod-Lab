@@ -1502,3 +1502,39 @@ Ends green on all six gates, fully prepped, NOTHING PUSHED.
   `compact-with-nudges.png` example was added to the gallery as well. Both
   README layers and the root catalog were updated; the follow-up remains
   uncommitted at this point.
+
+## 2026-08-03 — OmniButton Customizer v2.0 SUBMITTED (PR #4855)
+
+The first mod in the family to reach a maintainer on the 2.0 settings contract.
+
+- **The blocker was never the code.** The mod had been live-tested at 100/125/150%
+  scaling on 2026-08-01 and every gate was green; what stopped it was that the
+  gallery had been replaced without being rewired. Nine screenshots were
+  referenced and all nine had been deleted; nine new ones sat on disk with none
+  referenced. Both README layers and the `.wh.cpp` readme block were repointed.
+- **Capability audit against the `@description`, not the settings block.** Five
+  of the eight new shots covered arrangement variations while *color* — the
+  headline claim in the one-line description that shows on the catalog page —
+  had no screenshot at all. The user shot `with-colors.png` to close it.
+  Opacity, `PercentFontFamily`, fixed `ItemWidth`, and the `Adjust` offsets were
+  deliberately left unphotographed per the gallery policy in `.agents/README.md`.
+- **Real arrangement strings replaced inferred ones.** Captions written from
+  reading the pictures were plausible and wrong in form — a column-formed `2x2`
+  where the user had actually used a row-formed one with nudges. The three
+  gallery examples now carry the user's verbatim working strings. Precedence
+  (`,` binds tighter than `|`) was verified against the parser in
+  `nested-group-layout.h` before being asserted twice in user-facing docs.
+- **Submission verified against upstream rather than the notes**, after the user
+  challenged the procedure: `pr_validation.py:1164` requires
+  `(added, modified, all)` in `[(1,0,1),(0,1,1)]`, and line 1172 requires the
+  literal `## Mod authorship` heading for an added-file PR, read AT PUSH TIME.
+  Because `omnibutton-customizer` is not in `upstream/main`, this is the
+  one-ADDED-file case.
+- Fork branch amended to one clean commit `a6bde2de` and force-pushed with
+  lease (local and origin were verified identical first, so the earlier
+  `reset --hard` in the plan was dropped as needlessly destructive). Diff vs
+  `upstream/main` is exactly one added file, byte-identical to the lab copy.
+  PR retitled to v2.0 and the body replaced wholesale — the old one advertised
+  removed v1.0 features and embedded deleted screenshots.
+- All five CI jobs pass: changed-file validation plus Windhawk 1.6.1, 1.7.3,
+  and 2.0.0-alpha.2 compilation.
