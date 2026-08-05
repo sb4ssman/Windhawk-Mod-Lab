@@ -1171,6 +1171,99 @@ Follow-ups:
       for the selected utilities (touch keyboard TipbandDesiredVisibility,
       pen ShowPenWorkspaceButton, touchpad) instead of an in-mod enable
       toggle. Deferred; needs its own investigation.
+### VERTICAL TASKBAR — SUPPORT IT, do not just stand down (user, 2026-08-04)
+
+Every mod that has been through the 2.0 rollout now DETECTS a vertical taskbar
+and stands down (`tbh::LayoutModelApplies`). That was the right first move —
+it stops the family painting garbage — but standing down is not the goal. **The
+goal is for the family to work on a vertical taskbar.**
+
+What already exists to build on:
+
+- `tbh::GetMetrics` already reports `orientation`, `constrainedDip` (the
+  taskbar's thickness whichever way it runs) and `alongDip` (the extent it can
+  run along). The vocabulary is deliberately axis-neutral already — nothing
+  says "height".
+- `ngl::RowsInHeight` is likewise named for the horizontal case but computes
+  "how many items fit across the constrained axis", which is the same question
+  on a vertical bar.
+- `ngl::AlongAxis` already exists for items that must size themselves against
+  whichever way their group runs.
+
+What actually blocks it, and it is ONE thing:
+`taskbar-vertical.wh.cpp` (m417z, funded by AuthLite) writes a
+`RotateTransform` to `RenderTransform` on the very same tray children this
+family writes a `TranslateTransform` to. One dependency property, two owners,
+last writer wins. Verified by reading its source at ~line 2169, not assumed.
+
+So supporting a vertical taskbar is NOT a layout-math problem — the arranger is
+already axis-neutral enough. It is an OWNERSHIP problem, and there are only
+three honest ways out:
+
+1. **Compose instead of compete.** Stop writing `RenderTransform` directly and
+   write a `TransformGroup`, or place with `Margin` rather than a transform,
+   so the rotation and the translation can coexist. Margin-based placement is
+   already what `start-placement.h` and the tray-utility host steering use, so
+   part of the family is halfway there. This is the most promising route and
+   should be investigated FIRST.
+2. **Detect the rotation and arrange in rotated space** — read the ancestor's
+   RotateTransform, swap the axes in the arrangement, and let the rotation
+   carry the group. Cheaper than it sounds because the arranger takes pixel
+   sizes and returns pixel placements; only the resolver and the final apply
+   need to know.
+3. **Coordinate with m417z.** Discussion #4542 already has his blessing for a
+   coordination convention (see below). A shared "who owns RenderTransform on
+   this element" answer would settle it for every mod, not just ours.
+
+Do NOT start by writing rotation math. Start by finding out whether
+`RenderTransform` can be shared at all — that single answer picks the route.
+
+### DISCUSSION #4542 — read in full 2026-08-04, and there IS an unacted offer
+
+https://github.com/ramensoftware/windhawk-mods/discussions/4542 — "Guidance
+requested: interoperable placement for taskbar mods", opened by the user
+2026-06-24. Five top-level comments; all read.
+
+**m417z answered the governance question on day one** (2026-06-24): *"What's
+the downside of such coordination? If it's just between your mods, I see no
+problem with it."* So a placement-coordination convention across this family is
+MAINTAINER-APPROVED and has been for six weeks. `_templates/placement-contract.md`
+is not blocked on permission; it is only blocked on us.
+
+**UNACTED: diegoalejo15 offered working code for Taskbar Folder Menus**
+(2026-07-27), attached as a full `.wh.cpp`:
+https://github.com/user-attachments/files/30435360/taskbar-folder-menus.wh.cpp
+
+Three features in it, none of which Folder Menus has:
+
+| Feature | Note |
+|---|---|
+| Position: **after taskbar icons** | Answers their earlier request to escape the systray and sit among the taskbar items |
+| Switch to use the **folder's own default icon** instead of label text/emoji | DylanCole954 tried it and called this the standout |
+| **Per-folder position** — each folder can sit somewhere different | Currently all folders share one position |
+
+The user replied on 2026-07-24 "the next version already has more placement
+options, just stay tuned" — that promise is outstanding, and Folder Menus has
+had no work since it merged at v0.7.
+
+**OPEN BUG REPORT against that build, unresolved between the two of them**
+(DylanCole954, 2026-07-28/29): when the taskbar fills up, the folder buttons
+run into the system-tray area and get hidden behind a painted tray.
+Reproduced on a SINGLE-row taskbar too, so it is not multirow-specific.
+diegoalejo15 could not reproduce it. Screenshots are in the thread. This is
+worth understanding before adopting the "after taskbar icons" position, since
+that position is where the overflow happens.
+
+Also outstanding from that thread: DylanCole954 asked for a folder button that
+runs an executable, and for placement BEFORE the taskbar buttons rather than
+after.
+
+NEXT STEP: review the attached file properly against the current Folder Menus
+source, decide which of the three features to take, credit diegoalejo15 in the
+changelog, and reproduce the overflow bug before shipping the position that
+triggers it. Folder Menus is already queued for its 2.0 rework, so this folds
+into that rather than being a separate pass.
+
 ## Lab-level todos
 - [x] FORK `main` RESET — DONE 2026-07-23. `sb4ssman/windhawk-mods` `main` was
       reset onto `upstream/main` and force-pushed; `origin/main` is now
