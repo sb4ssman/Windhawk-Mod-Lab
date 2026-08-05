@@ -1025,7 +1025,51 @@ Windhawk's own `WINVER/_WIN32_WINNT/NTDDI_VERSION` defines. Without them
 `GetDpiForWindow` fails locally while building fine in Windhawk — if a lab
 script disagrees with Windhawk, suspect the script's flags first.
 
-### VD Switcher v2.0 — done, held
+### VD Switcher — TEMPLATE ROLLOUT DONE 2026-08-04, AWAITING LIVE TEST
+
+Went from **1 embedded template to 6** (`TEMPLATE_PARITY_OK (6 embedded,
+5 not used)`). All six gates green, committed locally as `655ead2`,
+**nothing pushed**.
+
+Adopted `color-tokens`, `visual-tree-walk`, `settings-io`, `taskbar-host` and
+`property-lease`; re-embedded `nested-group-layout` at v2.5.
+
+**Three changes carry real behavioral risk — test these specifically:**
+
+1. **Every `$options` value now parses to an enum AT LOAD.** This is the mod
+   the settings-io template was written for: after an option value was renamed,
+   `labelFormat == L"dot"` kept compiling, silently stopped matching, and the
+   Indicator symbols reverted to numbers. Position, label format, Task View
+   placement, fill order, justify and the new-items policy are all enums now.
+   **Exercise each of those settings once**, especially label format
+   (number/roman/symbol/custom) and Task View placement.
+2. **A new Explorer-rebuild trigger.** taskbar.dll symbols now come from the
+   template, which also hooks `TrayUI::StartTaskbar`. This mod previously
+   relied on the IconView hook plus the bounded retry alone, so a rebuild that
+   did not construct a fresh IconView could leave the grid missing until the
+   retry expired. **Restart Explorer and confirm the grid returns promptly.**
+3. **Vertical-taskbar stand-down**, new here as elsewhere.
+
+Row capacity now takes its DIP height from `tbh::GetMetrics`.
+
+**Still hand-rolled, and worth a second pass AFTER this build is confirmed:**
+`injected-grid-column.h` and `button-surface.h` are both genuinely adoptable —
+they were left alone only because they touch the column-injection and Start
+counter-shift code that took several live-test rounds to settle, and bundling
+that risk into a build that already changes three behaviors is how a live test
+stops telling you which change broke what.
+
+**`start-placement.h` was EXTENDED rather than declined.** It was Left/Right
+only, which is why this mod could not adopt it — VD Switcher also has
+`overStart`. v1.3 adds `Side::Over`: reserves no space (no repeater push, no
+Start counter-shift), sits at Start's own X, and centers against START rather
+than the RootGrid so the adopter's vertical offset nudges it above or below
+Start. That is what makes it useful on a double-height taskbar — the group
+takes one band, Start keeps the other. Compiles standalone with all three
+Sides exercised. **VD Switcher has not adopted it yet**; that swap replaces
+the most delicate code in the mod and wants its own build.
+
+### VD Switcher v2.0 — the earlier held state
 
 All five gates green: COMPILE_OK, EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH,
 SETTINGS_ORDER_OK, SUBMISSION_PREFLIGHT_OK. Live-tested through four rounds;
