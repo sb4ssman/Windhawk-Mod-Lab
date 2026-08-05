@@ -17,6 +17,11 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 ![Taller taskbar with right-side grid and lower master button](assets/gridonrightwlowermaster.png)
 *Taller taskbar: a dense grid with the Task View button as a lower sliver.*
 
+![Eleven desktops in a grid on a busy double-height taskbar](assets/busy-many-desktops-modified-taskview.png)
+*Eleven desktops on a double-height taskbar, with a restyled Task View button
+and several other taskbar mods alongside. `auto` fits the grid to the height it
+is given rather than to a desktop count.*
+
 ![Left of Start button](assets/left-of-start.png)
 *Start placement: switcher reserved to the left of Start.*
 

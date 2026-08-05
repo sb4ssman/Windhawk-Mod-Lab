@@ -1,6 +1,6 @@
 // ==WindhawkMod==
-// @id              taskbar-vd-switcher
-// @name            Taskbar Virtual Desktop Switcher
+// @id              taskbar-vd-switcher2
+// @name            Taskbar Virtual Desktop Switcher2
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
 // @version         2.0
 // @author          sb4ssman
@@ -30,11 +30,6 @@ A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable but
 
 ![Taller taskbar with right-side grid and lower master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/gridonrightwlowermaster.png)
 *Taller taskbar: a dense grid with the Task View button as a lower sliver.*
-
-![Eleven desktops in a grid on a busy double-height taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/busy-many-desktops-modified-taskview.png)
-*Eleven desktops on a double-height taskbar, with a restyled Task View button
-and several other taskbar mods alongside. `auto` fits the grid to the height it
-is given rather than to a desktop count.*
 
 ![Left of Start button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/left-of-start.png)
 *Start placement: switcher reserved to the left of Start.*
@@ -555,9 +550,798 @@ using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::UI::Xaml::Automation;
 using namespace winrt::Windows::UI::Xaml::Controls;
 using namespace winrt::Windows::UI::Xaml::Media;
+using winrt::Windows::UI::Xaml::Controls::Primitives::ButtonBase;
+using winrt::Windows::UI::Xaml::Controls::Primitives::ToggleButton;
 
 // ============================================================
-// Unified element placement -- nested-group-layout template v2.5
+// Settings
+// ============================================================
+
+// Field names mirror the settings contract in _templates/settings-profiles.md:
+// one nested group per concern, canonical keys in canonical order.
+struct ModSettings {
+    // Placement
+    std::wstring position          = L"afterClock";
+    bool         allTaskbars       = false;
+    // Content
+    std::wstring labelFormat       = L"number";
+    std::wstring customLabels      = L"";
+    std::wstring activeSymbol      = L"●";
+    std::wstring inactiveSymbol    = L"○";
+    bool         taskViewButton    = false;
+    std::wstring taskViewLabel     = L"⊞";
+    std::wstring taskViewPlacement = L"after";
+    // Layout
+    std::wstring arrangement       = L"auto";
+    std::wstring fillOrder         = L"rows";
+    std::wstring justify           = L"center";
+    std::wstring newItems          = L"append";
+    // Size
+    int          itemWidth         = 20;
+    int          itemHeight        = 22;
+    int          itemSpacing       = 2;
+    int          taskViewSize      = 14;
+    int          taskViewSpan      = 0;
+    int          taskViewGap       = 0;
+    // Adjust
+    int          padX              = 0;
+    int          padY              = 0;
+    int          offsetX           = 0;
+    int          offsetY           = 0;
+    // Surface
+    int          fontSize          = 10;
+    std::wstring fontFamily        = L"";
+    std::wstring hoverBackgroundColor;
+    std::wstring pressedBackgroundColor;
+    std::wstring borderColor       = L"";
+    int          borderThickness   = 0;
+    int          cornerRadius      = 4;
+    int          opacity           = 100;
+    bool         shineEffect       = false;
+    std::wstring taskViewFontFamily = L"";
+    // State
+    std::wstring activeTextColor   = L"";
+    std::wstring inactiveTextColor = L"";
+    std::wstring activeBackgroundColor   = L"accent";
+    std::wstring inactiveBackgroundColor = L"";
+    bool         activeBold        = false;
+    // Behavior
+    bool         hideWhenSingle    = false;
+};
+// ModSettings holds only std::wstring/int/bool, so its destructor is safe to
+// run at process shutdown; no [[clang::no_destroy]] needed, and adding it would
+// leak the string buffers on every normal unload.
+ModSettings g_settings;  // exit-time-safe: heap-only
+
+static void LoadSettings() {
+    auto Str = [](const wchar_t* k) {
+        PCWSTR p = Wh_GetStringSetting(k);
+        std::wstring r = p;
+        Wh_FreeStringSetting(p);
+        return r;
+    };
+    auto Int = [](const wchar_t* k) { return Wh_GetIntSetting(k); };
+    auto Bool = [](const wchar_t* k) { return Wh_GetIntSetting(k) != 0; };
+
+    g_settings.position          = Str(L"Placement.Position");
+    g_settings.allTaskbars       = Bool(L"Placement.AllTaskbars");
+
+    g_settings.labelFormat       = Str(L"Content.LabelFormat");
+    g_settings.customLabels      = Str(L"Content.CustomLabels");
+    g_settings.activeSymbol      = Str(L"Content.ActiveSymbol");
+    g_settings.inactiveSymbol    = Str(L"Content.InactiveSymbol");
+    g_settings.taskViewButton    = Bool(L"Content.TaskViewButton");
+    g_settings.taskViewLabel     = Str(L"Content.TaskViewLabel");
+    g_settings.taskViewPlacement = Str(L"Content.TaskViewPlacement");
+
+    g_settings.arrangement       = Str(L"Layout.Arrangement");
+    g_settings.fillOrder         = Str(L"Layout.FillOrder");
+    g_settings.justify           = Str(L"Layout.Justify");
+    g_settings.newItems          = Str(L"Layout.NewItems");
+
+    g_settings.itemWidth         = std::max(1, Int(L"Size.ItemWidth"));
+    g_settings.itemHeight        = std::max(1, Int(L"Size.ItemHeight"));
+    g_settings.itemSpacing       = std::max(0, Int(L"Size.ItemSpacing"));
+    g_settings.taskViewSize      = std::max(1, Int(L"Size.TaskViewSize"));
+    g_settings.taskViewSpan      = std::max(0, Int(L"Size.TaskViewSpan"));
+    g_settings.taskViewGap       = Int(L"Size.TaskViewGap");
+
+    g_settings.padX              = std::max(0, Int(L"Adjust.PadX"));
+    g_settings.padY              = std::max(0, Int(L"Adjust.PadY"));
+    g_settings.offsetX           = Int(L"Adjust.OffsetX");
+    g_settings.offsetY           = Int(L"Adjust.OffsetY");
+
+    g_settings.fontSize          = Int(L"Surface.FontSize");
+    g_settings.fontFamily        = Str(L"Surface.FontFamily");
+    g_settings.hoverBackgroundColor   = Str(L"Surface.HoverBackgroundColor");
+    g_settings.pressedBackgroundColor = Str(L"Surface.PressedBackgroundColor");
+    g_settings.borderColor       = Str(L"Surface.BorderColor");
+    g_settings.borderThickness   = Int(L"Surface.BorderThickness");
+    g_settings.cornerRadius      = Int(L"Surface.CornerRadius");
+    g_settings.opacity           = Int(L"Surface.Opacity");
+    g_settings.shineEffect       = Bool(L"Surface.ShineEffect");
+    g_settings.taskViewFontFamily = Str(L"Surface.TaskViewFontFamily");
+
+    g_settings.activeTextColor   = Str(L"State.ActiveTextColor");
+    g_settings.inactiveTextColor = Str(L"State.InactiveTextColor");
+    g_settings.activeBackgroundColor   = Str(L"State.ActiveBackgroundColor");
+    g_settings.inactiveBackgroundColor = Str(L"State.InactiveBackgroundColor");
+    g_settings.activeBold        = Bool(L"State.ActiveBold");
+
+    g_settings.hideWhenSingle    = Bool(L"Behavior.HideWhenSingle");
+
+    auto shownColor = [](std::wstring const& value) {
+        return value.empty() ? L"<empty/automatic>" : value.c_str();
+    };
+    Wh_Log(L"[Settings] colors active=%ls inactive=%ls hover=%ls pressed=%ls border=%ls",
+           shownColor(g_settings.activeBackgroundColor),
+           shownColor(g_settings.inactiveBackgroundColor),
+           shownColor(g_settings.hoverBackgroundColor),
+           shownColor(g_settings.pressedBackgroundColor),
+           shownColor(g_settings.borderColor));
+}
+// ============================================================
+// Globals
+// ============================================================
+
+static std::atomic<bool> g_unloading{false};
+static HWND              g_taskbarWnd      = nullptr;
+[[clang::no_destroy]] static Grid g_buttonGrid = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_injectionParent = nullptr;
+static int               g_injectedColumn  = -1;
+static bool              g_startOverlayMode = false;
+[[clang::no_destroy]] static FrameworkElement g_startOverlayRoot = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_startOverlayStart = nullptr;
+static winrt::event_token g_startOverlayLayoutToken{};
+[[clang::no_destroy]] static FrameworkElement g_taskItemsPanel = nullptr;
+static Thickness         g_taskItemsPanelOriginalMargin{};
+static double            g_startButtonOriginalX = -1.0;
+static std::atomic<int>  g_currentDesktop{0};
+static std::atomic<int>  g_desktopCount{1};
+
+static HANDLE g_notificationThread    = nullptr;
+static HANDLE g_notificationStopEvent = nullptr;
+static DWORD  g_notificationCookie    = 0;
+
+static HANDLE g_retryThread    = nullptr;
+static HANDLE g_retryStopEvent = nullptr;
+
+static std::atomic<bool> g_systemTrayModuleHooked{false};
+static std::atomic<int>  g_activeSwitchThreads{0};
+[[clang::no_destroy]] static std::optional<std::list<FrameworkElement::Loaded_revoker>>
+    g_autoRevokerList{std::in_place};
+
+struct ButtonEventState {
+    Grid owner{nullptr};
+    ButtonBase button{nullptr};
+    winrt::event_token clickToken{};
+};
+[[clang::no_destroy]] static std::optional<std::vector<ButtonEventState>>
+    g_buttonEventStates{std::in_place};
+
+// Forward declarations
+static void ApplyAllSettings();
+static void ApplyAllSettingsOnWindowThread();
+static void RebuildButtonGrid();
+static void RemoveButtonGrid();
+static void StopNotificationThread();
+static void StopRetryThread();
+static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName);
+
+// ============================================================
+// Explorer / twinui build detection
+// ============================================================
+
+static WORD g_explorerBuild    = 0;
+static WORD g_explorerRevision = 0;
+static WORD g_twinuiBuild      = 0;
+
+static void DetectExplorerBuild() {
+    wchar_t path[MAX_PATH];
+    GetModuleFileNameW(nullptr, path, MAX_PATH);
+    DWORD dummy;
+    DWORD sz = GetFileVersionInfoSizeW(path, &dummy);
+    if (!sz) return;
+    std::vector<BYTE> buf(sz);
+    if (!GetFileVersionInfoW(path, 0, sz, buf.data())) return;
+    VS_FIXEDFILEINFO* fi = nullptr; UINT fs = 0;
+    if (!VerQueryValueW(buf.data(), L"\\", (void**)&fi, &fs)) return;
+    g_explorerBuild    = HIWORD(fi->dwFileVersionLS);
+    g_explorerRevision = LOWORD(fi->dwFileVersionLS);
+    Wh_Log(L"[Init] Explorer build %u rev %u", g_explorerBuild, g_explorerRevision);
+}
+
+static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE hModule, UINT* puPtrLen) {
+    void* pFixedFileInfo = nullptr;
+    UINT uPtrLen = 0;
+    HRSRC hResource = FindResource(hModule, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
+    if (hResource) {
+        HGLOBAL hGlobal = LoadResource(hModule, hResource);
+        if (hGlobal) {
+            void* pData = LockResource(hGlobal);
+            if (pData) {
+                if (!VerQueryValue(pData, L"\\", &pFixedFileInfo, &uPtrLen) || uPtrLen == 0) {
+                    pFixedFileInfo = nullptr;
+                    uPtrLen = 0;
+                }
+            }
+        }
+    }
+    if (puPtrLen) *puPtrLen = uPtrLen;
+    return (VS_FIXEDFILEINFO*)pFixedFileInfo;
+}
+
+static bool LoadTwinuiBuild() {
+    if (g_twinuiBuild) return true;
+    HMODULE h = GetModuleHandleW(L"twinui.pcshell.dll");
+    if (!h) return false;
+    VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(h, nullptr);
+    if (!fi) return false;
+    g_twinuiBuild = HIWORD(fi->dwFileVersionLS);
+    Wh_Log(L"[VD] twinui.pcshell.dll build %u", g_twinuiBuild);
+    return true;
+}
+
+// Order matters: SystemTray.dll is the new home (Win11 Insider 26200+);
+// older builds have the symbols in Taskbar.View.dll.
+static HMODULE GetSystemTrayModuleHandle() {
+    HMODULE module = GetModuleHandleW(L"SystemTray.dll");
+    if (!module) {
+        module = GetModuleHandleW(L"Taskbar.View.dll");
+        if (module) {
+            // Starting with Taskbar.View.dll 2604.x, the SystemTray types moved
+            // out into SystemTray.dll — don't hook this version.
+            VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(module, nullptr);
+            WORD moduleMajor = fi ? HIWORD(fi->dwFileVersionMS) : 0;
+            if (!moduleMajor || moduleMajor >= 2604) {
+                Wh_Log(L"[Hooks] Skipping Taskbar.View.dll version %d", moduleMajor);
+                module = nullptr;
+            }
+        }
+    }
+    if (!module)
+        module = GetModuleHandleW(L"ExplorerExtensions.dll");
+    return module;
+}
+
+// ============================================================
+// GetTaskbarXamlRoot boilerplate (from vertical-omnibutton)
+// ============================================================
+
+using RunFromWindowThreadProc_t = void (*)(void*);
+
+static void LogCurrentUiException(PCWSTR context) noexcept {
+    try {
+        throw;
+    } catch (winrt::hresult_error const& error) {
+        Wh_Log(L"[Lifecycle] %s failed hr=0x%08X: %s", context,
+               static_cast<unsigned>(error.code().value),
+               error.message().c_str());
+    } catch (std::exception const&) {
+        Wh_Log(L"[Lifecycle] %s failed with a C++ exception", context);
+    } catch (...) {
+        Wh_Log(L"[Lifecycle] %s failed with an unknown exception", context);
+    }
+}
+
+static bool InvokeWindowThreadProc(RunFromWindowThreadProc_t proc,
+                                   void* procParam) {
+    try {
+        proc(procParam);
+        return true;
+    } catch (...) {
+        LogCurrentUiException(L"UI callback");
+        return false;
+    }
+}
+
+static bool RunFromWindowThread(HWND hWnd, RunFromWindowThreadProc_t proc, void* procParam) {
+    static const UINT kMsg = RegisterWindowMessage(L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
+    struct Param {
+        RunFromWindowThreadProc_t proc;
+        void* procParam;
+        bool succeeded = false;
+    };
+    DWORD dwThreadId = GetWindowThreadProcessId(hWnd, nullptr);
+    if (!dwThreadId) return false;
+    if (dwThreadId == GetCurrentThreadId())
+        return InvokeWindowThreadProc(proc, procParam);
+    HHOOK hook = SetWindowsHookEx(WH_CALLWNDPROC, [](int nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
+        if (nCode == HC_ACTION) {
+            const CWPSTRUCT* cwp = (const CWPSTRUCT*)lParam;
+            if (cwp->message == RegisterWindowMessageW(L"Windhawk_RunFromWindowThread_" WH_MOD_ID)) {
+                auto* p = (Param*)cwp->lParam;
+                p->succeeded = InvokeWindowThreadProc(p->proc, p->procParam);
+            }
+        }
+        return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    }, nullptr, dwThreadId);
+    if (!hook) return false;
+    Param param{ proc, procParam };
+    SendMessage(hWnd, kMsg, 0, (LPARAM)&param);
+    UnhookWindowsHookEx(hook);
+    return param.succeeded;
+}
+
+static HWND FindCurrentProcessTaskbarWnd() {
+    HWND result = nullptr;
+    EnumWindows([](HWND hWnd, LPARAM lParam) -> BOOL {
+        DWORD pid; WCHAR cls[32];
+        if (GetWindowThreadProcessId(hWnd, &pid) && pid == GetCurrentProcessId() &&
+            GetClassName(hWnd, cls, ARRAYSIZE(cls)) && _wcsicmp(cls, L"Shell_TrayWnd") == 0) {
+            *reinterpret_cast<HWND*>(lParam) = hWnd; return FALSE;
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&result));
+    return result;
+}
+
+using CTaskBand_GetTaskbarHost_t = void* (WINAPI*)(void* pThis, void* taskbarHostSharedPtr);
+CTaskBand_GetTaskbarHost_t CTaskBand_GetTaskbarHost_Original;
+
+using TaskbarHost_FrameHeight_t = int (WINAPI*)(void* pThis);
+TaskbarHost_FrameHeight_t TaskbarHost_FrameHeight_Original;
+
+using std__Ref_count_base__Decref_t = void (WINAPI*)(void* pThis);
+std__Ref_count_base__Decref_t std__Ref_count_base__Decref_Original;
+
+static void* CTaskBand_ITaskListWndSite_vftable = nullptr;
+
+static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
+    // Guard: symbols must be resolved before any dereference.
+    if (!CTaskBand_GetTaskbarHost_Original || !TaskbarHost_FrameHeight_Original ||
+        !std__Ref_count_base__Decref_Original ||
+        !CTaskBand_ITaskListWndSite_vftable)
+        return nullptr;
+
+    HWND hTaskSwWnd = (HWND)GetProp(hTaskbarWnd, L"TaskbandHWND");
+    if (!hTaskSwWnd) return nullptr;
+    void* taskBand = (void*)GetWindowLongPtr(hTaskSwWnd, 0);
+    // Guard: taskBand is null during early startup before the taskband stores its this-pointer.
+    if (!taskBand) return nullptr;
+    void* taskBandForSite = taskBand;
+    for (int i = 0; *(void**)taskBandForSite != CTaskBand_ITaskListWndSite_vftable; i++) {
+        if (i == 20) return nullptr;
+        taskBandForSite = (void**)taskBandForSite + 1;
+    }
+    void* taskbarHostSharedPtr[2]{};
+    CTaskBand_GetTaskbarHost_Original(taskBandForSite, taskbarHostSharedPtr);
+    if (!taskbarHostSharedPtr[0] || !taskbarHostSharedPtr[1]) {
+        if (taskbarHostSharedPtr[1])
+            std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
+        return nullptr;
+    }
+    size_t offset = 0x10;
+#if defined(_M_X64)
+    {
+        // 48:83EC 28 | sub rsp,28
+        // 48:83C1 48 | add rcx,48
+        const BYTE* b = (const BYTE*)TaskbarHost_FrameHeight_Original;
+        if (b[0]==0x48 && b[1]==0x83 && b[2]==0xEC && b[4]==0x48 &&
+            b[5]==0x83 && b[6]==0xC1 && b[7]<=0x7F)
+            offset = b[7];
+        else
+            Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
+    }
+#elif defined(_M_ARM64)
+    {
+        // 7f2303d5 pacibsp
+        // fd7bbfa9 stp     fp, lr, [sp, #-0x10]!
+        // fd030091 mov     fp, sp
+        // 080c41f8 ldr     x8, [x0, #0x10]!
+        const DWORD* p = (const DWORD*)TaskbarHost_FrameHeight_Original;
+        if (p[0] == 0xD503237F && (p[1] & 0xFFC07FFF) == 0xA9807BFD &&
+            p[2] == 0x910003FD && (p[3] & 0xFFF00FE0) == 0xF8400C00)
+            offset = (p[3] >> 12) & 0xFF;
+        else
+            Wh_Log(L"Unsupported TaskbarHost::FrameHeight");
+    }
+#else
+#error "Unsupported architecture"
+#endif
+    auto* iunk = *(IUnknown**)((BYTE*)taskbarHostSharedPtr[0] + offset);
+    // Guard: iunk is null during early startup before the TaskbarElement is set at offset.
+    if (!iunk) {
+        std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
+        return nullptr;
+    }
+    FrameworkElement taskbarElem = nullptr;
+    iunk->QueryInterface(winrt::guid_of<FrameworkElement>(), winrt::put_abi(taskbarElem));
+    auto result = taskbarElem ? taskbarElem.XamlRoot() : nullptr;
+    std__Ref_count_base__Decref_Original(taskbarHostSharedPtr[1]);
+    return result;
+}
+
+// ============================================================
+// XAML helpers
+// ============================================================
+
+static FrameworkElement FindChildRecursive(FrameworkElement const& element,
+    std::function<bool(FrameworkElement)> const& cb, int maxDepth = 20)
+{
+    int n = VisualTreeHelper::GetChildrenCount(element);
+    for (int i = 0; i < n && maxDepth > 0; i++) {
+        auto child = VisualTreeHelper::GetChild(element, i).try_as<FrameworkElement>();
+        if (!child) continue;
+        if (cb(child)) return child;
+        auto found = FindChildRecursive(child, cb, maxDepth - 1);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+// ============================================================
+// VD COM notification infrastructure
+// ============================================================
+
+const CLSID CLSID_ImmersiveShell = {
+    0xc2f03a33,0x21f5,0x47fa,{0xb4,0xbb,0x15,0x63,0x62,0xa2,0xf2,0x39}
+};
+const GUID SID_VirtualDesktopNotificationService = {
+    0xa501fdec,0x4a09,0x464c,{0xae,0x4e,0x1b,0x9c,0x21,0xb8,0x49,0x18}
+};
+const GUID IID_IVirtualDesktopNotificationService_G = {
+    0x0cd45e71,0xd927,0x4f15,{0x8b,0x0a,0x8f,0xef,0x52,0x53,0x37,0xbf}
+};
+
+MIDL_INTERFACE("0CD45E71-D927-4F15-8B0A-8FEF525337BF")
+IVirtualDesktopNotificationService_I : public IUnknown {
+    virtual HRESULT STDMETHODCALLTYPE Register(IUnknown*, DWORD*) = 0;
+    virtual HRESULT STDMETHODCALLTYPE Unregister(DWORD) = 0;
+};
+
+struct NotifConfig {
+    int64_t iidPart1 = 0, iidPart2 = 0;
+    int methodCount = 0, createdIdx = -1, destroyedIdx = -1, currentChangedIdx = -1;
+    bool hasMonitors = false;
+};
+
+struct NotifObject {
+    void** vtable  = nullptr;
+    LONG refCount  = 1;
+};
+
+static NotifConfig GetNotifConfig() {
+    if (g_explorerBuild < 22000) return {};
+    if (g_explorerBuild < 22483 || (g_explorerBuild == 22621 && g_explorerRevision < 2215))
+        return { 5481970284372180562ll, -1679294552252794956ll, 13, 7, 9, 11, true };
+    if (g_explorerBuild < 22631 || (g_explorerBuild == 22631 && g_explorerRevision < 3085))
+        return { 5123538856297626140ll,  8491238173783613346ll, 14, 6, 8, 10, false };
+    return     { 5308375338100058445ll, -2401892766147978065ll, 14, 6, 8, 10, false };
+}
+
+static bool IsOurNotifIface(REFIID riid) {
+    auto cfg = GetNotifConfig();
+    if (!cfg.methodCount) return false;
+    auto p = reinterpret_cast<const int64_t*>(&riid);
+    return p[0] == cfg.iidPart1 && p[1] == cfg.iidPart2;
+}
+
+static HRESULT STDMETHODCALLTYPE Notif_QI(NotifObject* p, REFIID riid, void** ppv) {
+    if (!ppv) return E_POINTER; *ppv = nullptr;
+    static const GUID IID_IUnknown_ = {0,0,0,{0xc0,0,0,0,0,0,0,0x46}};
+    if (InlineIsEqualGUID(riid, IID_IUnknown_) || IsOurNotifIface(riid)) {
+        *ppv = p; InterlockedIncrement(&p->refCount); return S_OK;
+    }
+    return E_NOINTERFACE;
+}
+static ULONG STDMETHODCALLTYPE Notif_AddRef(NotifObject* p) {
+    return (ULONG)InterlockedIncrement(&p->refCount);
+}
+static ULONG STDMETHODCALLTYPE Notif_Release(NotifObject* p) {
+    LONG r = InterlockedDecrement(&p->refCount);
+    if (r == 0) { delete[] p->vtable; delete p; }
+    return (ULONG)std::max(r, 0L);
+}
+static HRESULT STDMETHODCALLTYPE Notif_HandleUpdate() {
+    if (g_unloading || !g_taskbarWnd) return S_OK;
+    RunFromWindowThread(g_taskbarWnd, [](void*) {
+        if (!g_unloading) RebuildButtonGrid();
+    }, nullptr);
+    return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE Notif_NoOp() { return S_OK; }
+static HRESULT STDMETHODCALLTYPE Notif_CountChanged(NotifObject*) { return Notif_HandleUpdate(); }
+static HRESULT STDMETHODCALLTYPE Notif_CurrentChanged(NotifObject*) { return Notif_HandleUpdate(); }
+static HRESULT STDMETHODCALLTYPE Notif_CurrentChangedWithMonitors(NotifObject*, void*, void*, void*) {
+    return Notif_HandleUpdate();
+}
+
+static NotifObject* CreateNotifObject() {
+    auto cfg = GetNotifConfig();
+    if (cfg.methodCount == 0 || cfg.currentChangedIdx < 0) return nullptr;
+    auto* obj = new (std::nothrow) NotifObject();
+    if (!obj) return nullptr;
+    obj->vtable = new (std::nothrow) void*[cfg.methodCount];
+    if (!obj->vtable) { delete obj; return nullptr; }
+    for (int i = 0; i < cfg.methodCount; i++) obj->vtable[i] = (void*)&Notif_NoOp;
+    obj->vtable[0] = (void*)&Notif_QI;
+    obj->vtable[1] = (void*)&Notif_AddRef;
+    obj->vtable[2] = (void*)&Notif_Release;
+    if (cfg.createdIdx >= 0)   obj->vtable[cfg.createdIdx]   = (void*)&Notif_CountChanged;
+    if (cfg.destroyedIdx >= 0) obj->vtable[cfg.destroyedIdx] = (void*)&Notif_CountChanged;
+    obj->vtable[cfg.currentChangedIdx] = cfg.hasMonitors
+        ? (void*)&Notif_CurrentChangedWithMonitors
+        : (void*)&Notif_CurrentChanged;
+    return obj;
+}
+
+static NotifObject* g_notifObject = nullptr;
+
+static DWORD WINAPI NotificationThreadProc(void*) {
+    auto cfg = GetNotifConfig();
+    if (cfg.methodCount == 0) {
+        Wh_Log(L"[Notif] Unsupported build (explorer %u)", g_explorerBuild);
+        return 0;
+    }
+    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) return 0;
+
+    IServiceProvider* svc = nullptr;
+    if (FAILED(CoCreateInstance(CLSID_ImmersiveShell, nullptr, CLSCTX_LOCAL_SERVER,
+                                IID_IServiceProvider, (void**)&svc)) || !svc) {
+        CoUninitialize(); return 0;
+    }
+    IVirtualDesktopNotificationService_I* notifSvc = nullptr;
+    svc->QueryService(SID_VirtualDesktopNotificationService,
+                      IID_IVirtualDesktopNotificationService_G, (void**)&notifSvc);
+    svc->Release();
+    if (!notifSvc) { CoUninitialize(); return 0; }
+
+    g_notifObject = CreateNotifObject();
+    if (!g_notifObject) { notifSvc->Release(); CoUninitialize(); return 0; }
+
+    HRESULT hr = notifSvc->Register(reinterpret_cast<IUnknown*>(g_notifObject), &g_notificationCookie);
+    if (FAILED(hr)) {
+        Wh_Log(L"[Notif] Register failed: 0x%08X", hr);
+        Notif_Release(g_notifObject); g_notifObject = nullptr;
+        notifSvc->Release(); CoUninitialize(); return 0;
+    }
+    Wh_Log(L"[Notif] Registered, cookie=%lu", g_notificationCookie);
+
+    MSG msg;
+    while (!g_unloading) {
+        DWORD w = MsgWaitForMultipleObjects(1, &g_notificationStopEvent, FALSE, INFINITE, QS_ALLINPUT);
+        if (w == WAIT_OBJECT_0) break;
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageW(&msg); }
+    }
+
+    if (g_notificationCookie) { notifSvc->Unregister(g_notificationCookie); g_notificationCookie = 0; }
+    if (g_notifObject)        { Notif_Release(g_notifObject); g_notifObject = nullptr; }
+    notifSvc->Release();
+    CoUninitialize();
+    return 0;
+}
+
+static void StartNotificationThread() {
+    if (g_notificationThread) return;
+    g_notificationStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    g_notificationThread    = CreateThread(nullptr, 0, NotificationThreadProc, nullptr, 0, nullptr);
+    if (!g_notificationThread) {
+        CloseHandle(g_notificationStopEvent); g_notificationStopEvent = nullptr;
+    }
+}
+
+static void StopNotificationThread() {
+    if (g_notificationStopEvent) SetEvent(g_notificationStopEvent);
+    if (g_notificationThread) {
+        // Pump sent messages while waiting so that if Wh_ModUninit is called from
+        // the UI thread and the notification thread is mid-SendMessage, the sent
+        // message can be delivered and the notification thread can then exit.
+        // PeekMessage(PM_NOREMOVE) processes incoming sent messages without
+        // consuming posted messages from the queue.
+        DWORD result;
+        do {
+            result = MsgWaitForMultipleObjects(1, &g_notificationThread, FALSE, INFINITE, QS_SENDMESSAGE);
+            if (result == WAIT_OBJECT_0 + 1) {
+                MSG msg;
+                PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE);
+            }
+        } while (result == WAIT_OBJECT_0 + 1);
+        CloseHandle(g_notificationThread); g_notificationThread = nullptr;
+    }
+    if (g_notificationStopEvent) {
+        CloseHandle(g_notificationStopEvent); g_notificationStopEvent = nullptr;
+    }
+}
+
+static void StopRetryThread() {
+    if (g_retryStopEvent) SetEvent(g_retryStopEvent);
+    if (g_retryThread) {
+        DWORD result;
+        do {
+            result = MsgWaitForMultipleObjects(
+                1, &g_retryThread, FALSE, INFINITE, QS_SENDMESSAGE);
+            if (result == WAIT_OBJECT_0 + 1) {
+                MSG message;
+                PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
+            }
+        } while (result == WAIT_OBJECT_0 + 1);
+        CloseHandle(g_retryThread); g_retryThread = nullptr;
+    }
+    if (g_retryStopEvent) {
+        CloseHandle(g_retryStopEvent); g_retryStopEvent = nullptr;
+    }
+}
+
+// ============================================================
+// Desktop state — registry
+// ============================================================
+
+static std::vector<BYTE> ReadRegBinary(const wchar_t* path, const wchar_t* name) {
+    DWORD type = 0, size = 0;
+    if (RegGetValueW(HKEY_CURRENT_USER, path, name, RRF_RT_REG_BINARY, &type, nullptr, &size) != ERROR_SUCCESS || !size)
+        return {};
+    std::vector<BYTE> buf(size);
+    if (RegGetValueW(HKEY_CURRENT_USER, path, name, RRF_RT_REG_BINARY, &type, buf.data(), &size) != ERROR_SUCCESS)
+        return {};
+    buf.resize(size);
+    return buf;
+}
+
+static int ReadDesktopCount() {
+    DWORD sessionId = 0;
+    ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
+    wchar_t sessionPath[256];
+    swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+        auto buf = ReadRegBinary(path, L"VirtualDesktopIDs");
+        if (buf.size() >= 16) return (int)(buf.size() / 16);
+    }
+    return 1;
+}
+
+static int ReadCurrentDesktop() {
+    DWORD sessionId = 0;
+    ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
+    wchar_t sessionPath[256];
+    swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
+
+    std::vector<BYTE> ids;
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+        ids = ReadRegBinary(path, L"VirtualDesktopIDs");
+        if (ids.size() >= 16) break;
+    }
+    if (ids.empty()) return 0;
+
+    GUID currentGuid{};
+    bool gotCurrent = false;
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+        auto buf = ReadRegBinary(path, L"CurrentVirtualDesktop");
+        if (buf.size() >= 16) { memcpy(&currentGuid, buf.data(), 16); gotCurrent = true; break; }
+        // Try REG_SZ form
+        wchar_t strBuf[64]; DWORD sz = sizeof(strBuf), type;
+        if (RegGetValueW(HKEY_CURRENT_USER, path, L"CurrentVirtualDesktop",
+                         RRF_RT_REG_SZ, &type, strBuf, &sz) == ERROR_SUCCESS &&
+            SUCCEEDED(CLSIDFromString(strBuf, &currentGuid))) { gotCurrent = true; break; }
+    }
+    if (!gotCurrent) return 0;
+
+    int count = (int)(ids.size() / 16);
+    for (int i = 0; i < count; i++) {
+        GUID g; memcpy(&g, ids.data() + i * 16, 16);
+        if (memcmp(&g, &currentGuid, 16) == 0) return i;
+    }
+    return 0;
+}
+
+// Read Windows display names for all desktops (registry Desktops\{GUID}\Name).
+// Falls back to "Desktop N" when a desktop has no custom name.
+static std::vector<std::wstring> ReadDesktopNames(int count) {
+    DWORD sessionId = 0;
+    ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
+    wchar_t sessionPath[256];
+    swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
+
+    std::vector<BYTE> ids;
+    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
+        ids = ReadRegBinary(path, L"VirtualDesktopIDs");
+        if (ids.size() >= 16) break;
+    }
+
+    std::vector<std::wstring> names(count);
+    for (int i = 0; i < count; i++) {
+        names[i] = L"Desktop " + std::to_wstring(i + 1);
+        if ((int)ids.size() >= (i + 1) * 16) {
+            GUID g; memcpy(&g, ids.data() + i * 16, 16);
+            wchar_t guidStr[64];
+            StringFromGUID2(g, guidStr, ARRAYSIZE(guidStr));
+            wchar_t regPath[300];
+            swprintf_s(regPath, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops\\Desktops\\%ls", guidStr);
+            wchar_t name[256]; DWORD sz = sizeof(name);
+            if (RegGetValueW(HKEY_CURRENT_USER, regPath, L"Name", RRF_RT_REG_SZ, nullptr, name, &sz) == ERROR_SUCCESS && name[0])
+                names[i] = name;
+        }
+    }
+    return names;
+}
+
+// ============================================================
+// Virtual desktop switching
+// ============================================================
+
+struct IVirtualDesktopManagerInternal_S : IUnknown {};
+struct IVirtualDesktop_S : IUnknown {};
+
+MIDL_INTERFACE("92CA9DCD-5622-4bba-A805-5E9F541BD8C9")
+IObjectArray_Local : public IUnknown {
+    virtual HRESULT STDMETHODCALLTYPE GetCount(UINT* pcObjects) = 0;
+    virtual HRESULT STDMETHODCALLTYPE GetAt(UINT i, REFIID riid, void** ppv) = 0;
+};
+
+const CLSID CLSID_VirtualDesktopManagerInternal = {
+    0xC5E0CDCA,0x7B6E,0x41B2,{0x9F,0xC4,0xD9,0x39,0x75,0xCC,0x46,0x7B}
+};
+
+void SwitchToDesktop(int targetIndex) {
+    if (!LoadTwinuiBuild()) { Wh_Log(L"[VD] twinui.pcshell.dll not loaded"); return; }
+
+    IID IID_VDMI, IID_VD;
+    bool usesHMonitor;
+    if      (g_twinuiBuild >= 26100) {
+        IID_VDMI = {0x53F5CA0B,0x158F,0x4124,{0x90,0x0C,0x05,0x71,0x58,0x06,0x0B,0x27}};
+        IID_VD   = {0x3F07F4BE,0xB107,0x441A,{0xAF,0x0F,0x39,0xD8,0x25,0x29,0x07,0x2C}};
+        usesHMonitor = false;
+    } else if (g_twinuiBuild >= 22621) {
+        IID_VDMI = {0xA3175F2D,0x239C,0x4BD2,{0x8A,0xA0,0xEE,0xBA,0x8B,0x0B,0x13,0x8E}};
+        IID_VD   = {0x3F07F4BE,0xB107,0x441A,{0xAF,0x0F,0x39,0xD8,0x25,0x29,0x07,0x2C}};
+        usesHMonitor = false;
+    } else if (g_twinuiBuild >= 22000) {
+        IID_VDMI = {0xB2F925B9,0x5A0F,0x4D2E,{0x9F,0x4D,0x2B,0x15,0x07,0x59,0x3C,0x10}};
+        IID_VD   = {0x536D3495,0xB208,0x4CC9,{0xAE,0x26,0xDE,0x81,0x11,0x27,0x5B,0xF8}};
+        usesHMonitor = true;
+    } else if (g_twinuiBuild >= 20348) {
+        IID_VDMI = {0x094AFE11,0x44F2,0x4BA0,{0x97,0x6F,0x29,0xA9,0x7E,0x26,0x3E,0xE0}};
+        IID_VD   = {0x62FDF88B,0x11CA,0x4AFB,{0x8B,0xD8,0x22,0x96,0xDF,0xAE,0x49,0xE2}};
+        usesHMonitor = true;
+    } else {
+        IID_VDMI = {0xF31574D6,0xB682,0x4CDC,{0xBD,0x56,0x18,0x27,0x86,0x0A,0xBE,0xC6}};
+        IID_VD   = {0xFF72FFDD,0xBE7E,0x43FC,{0x9C,0x03,0xAD,0x81,0x68,0x1E,0x88,0xE4}};
+        usesHMonitor = false;
+    }
+
+    IServiceProvider* svc = nullptr;
+    if (FAILED(CoCreateInstance(CLSID_ImmersiveShell, nullptr, CLSCTX_LOCAL_SERVER,
+                                IID_IServiceProvider, (void**)&svc)) || !svc)
+        { Wh_Log(L"[VD] CoCreateInstance failed"); return; }
+
+    IVirtualDesktopManagerInternal_S* mgr = nullptr;
+    svc->QueryService(CLSID_VirtualDesktopManagerInternal, IID_VDMI, (void**)&mgr);
+    svc->Release();
+    if (!mgr) { Wh_Log(L"[VD] QueryService VDMI failed"); return; }
+
+    IObjectArray_Local* arr = nullptr;
+    if (usesHMonitor) {
+        typedef HRESULT(STDMETHODCALLTYPE* FnM)(IVirtualDesktopManagerInternal_S*, HMONITOR, IObjectArray_Local**);
+        ((FnM)(*(void***)mgr)[7])(mgr, nullptr, &arr);
+    } else {
+        typedef HRESULT(STDMETHODCALLTYPE* Fn)(IVirtualDesktopManagerInternal_S*, IObjectArray_Local**);
+        ((Fn)(*(void***)mgr)[7])(mgr, &arr);
+    }
+    if (!arr) { mgr->Release(); Wh_Log(L"[VD] GetDesktops failed"); return; }
+
+    UINT count = 0;
+    arr->GetCount(&count);
+    if (targetIndex < 0 || (UINT)targetIndex >= count) { arr->Release(); mgr->Release(); return; }
+
+    IVirtualDesktop_S* target = nullptr;
+    arr->GetAt((UINT)targetIndex, IID_VD, (void**)&target);
+    arr->Release();
+    if (!target) { mgr->Release(); Wh_Log(L"[VD] GetAt failed"); return; }
+
+    if (usesHMonitor) {
+        typedef HRESULT(STDMETHODCALLTYPE* FnM)(IVirtualDesktopManagerInternal_S*, HMONITOR, IVirtualDesktop_S*);
+        ((FnM)(*(void***)mgr)[9])(mgr, nullptr, target);
+    } else {
+        typedef HRESULT(STDMETHODCALLTYPE* Fn)(IVirtualDesktopManagerInternal_S*, IVirtualDesktop_S*);
+        ((Fn)(*(void***)mgr)[9])(mgr, target);
+    }
+    target->Release();
+    mgr->Release();
+    Wh_Log(L"[VD] Switched to desktop %d", targetIndex);
+}
+
+// ============================================================
+// Unified element placement -- nested-group-layout template v2.4
 // Copy-source: _templates/nested-group-layout.h. One expression, one
 // setting: Layout.Arrangement is either the word "auto" (this file picks
 // the shape and emits the expression, which the mod logs) or an explicit
@@ -609,26 +1393,6 @@ inline Size AlongAxis(double thickness, double cross = 0.0) {
     size.thickness = thickness;
     size.cross = cross;
     return size;
-}
-
-// CONTENT-SIZED ITEMS. A settings-driven item size describes a GLYPH: a box of
-// a chosen width that a character is centered in. It does not describe TEXT.
-// "9%", "80%", and "100%" are three different widths, a font or locale change
-// moves them again, and a battery percentage grows while you watch it. Handing
-// such an item the same fixed width as its neighbours reserves too little
-// space, and the overflow is discovered at paint time — as a clipped edge.
-//
-// The SizeResolver is a callback precisely so a mod can answer with something
-// it measured. Measure the live element (native_glyph_surface::MeasureNatural)
-// and pass the result through here: the arrangement then RESERVES the real
-// width, the group's total grows to match, and nothing clips.
-//
-// `minimum` keeps a short value from collapsing below the item size the user
-// chose, so "9%" still lines up with the glyphs above it. Round `measured` up
-// and add a pixel or two of slack, or the item will re-measure every time its
-// text ticks over.
-inline Size ContentAlong(double measured, double minimum, double cross) {
-    return {std::max(measured, minimum), cross};
 }
 
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
@@ -1234,1496 +1998,6 @@ inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
 namespace ngl = windhawk_mod_templates::nested_group_layout;
 
 // ============================================================
-// Color tokens
-// Template block: _templates/color-tokens.h (verbatim copy —
-// keep in sync with the template; Windhawk mods are single-file).
-// ============================================================
-
-namespace windhawk_mod_templates::color_tokens {
-
-using winrt::Windows::UI::Color;
-using winrt::Windows::UI::Xaml::Media::Brush;
-using winrt::Windows::UI::Xaml::Media::SolidColorBrush;
-
-// Reported when the Windows accent color cannot be read, so the mod can log.
-using AccentErrorFn = void (*)();
-
-// false means "no color here" — an empty setting, an unknown token, or bad
-// hex. Callers must treat all three the same: leave the native value alone.
-inline bool Parse(wchar_t const* value, Color& out,
-                  AccentErrorFn onAccentError = nullptr) {
-    using winrt::Windows::UI::ViewManagement::UIColorType;
-    if (!value || !*value) return false;
-
-    if (_wcsicmp(value, L"transparent") == 0) {
-        out = {0, 0, 0, 0};
-        return true;
-    }
-
-    static const struct {
-        wchar_t const* token;
-        UIColorType type;
-    } kAccentTokens[] = {
-        {L"accent", UIColorType::Accent},
-        {L"accentLight", UIColorType::AccentLight2},
-        {L"accentDark", UIColorType::AccentDark1},
-        {L"accentLight1", UIColorType::AccentLight1},
-        {L"accentLight2", UIColorType::AccentLight2},
-        {L"accentLight3", UIColorType::AccentLight3},
-        {L"accentDark1", UIColorType::AccentDark1},
-        {L"accentDark2", UIColorType::AccentDark2},
-        {L"accentDark3", UIColorType::AccentDark3},
-    };
-    for (auto const& entry : kAccentTokens) {
-        if (_wcsicmp(value, entry.token) != 0) continue;
-        try {
-            winrt::Windows::UI::ViewManagement::UISettings settings;
-            out = settings.GetColorValue(entry.type);
-            return true;
-        } catch (...) {
-            if (onAccentError) onAccentError();
-            return false;
-        }
-    }
-
-    wchar_t const* digits = (*value == L'#') ? value + 1 : value;
-    size_t length = wcslen(digits);
-    if (length != 6 && length != 8) return false;
-    for (size_t i = 0; i < length; ++i) {
-        if (!iswxdigit(digits[i])) return false;
-    }
-    wchar_t buffer[9]{};
-    wcsncpy(buffer, digits, 8);
-    unsigned long packed = wcstoul(buffer, nullptr, 16);
-    if (length == 6) {
-        out = {255, BYTE(packed >> 16), BYTE(packed >> 8), BYTE(packed)};
-    } else {
-        out = {BYTE(packed >> 24), BYTE(packed >> 16), BYTE(packed >> 8),
-               BYTE(packed)};
-    }
-    return true;
-}
-
-// nullptr means "no color here". Never a fallback brush — a caller that wrote
-// a default color on parse failure would make an empty setting paint.
-inline Brush ParseBrush(wchar_t const* value,
-                        AccentErrorFn onAccentError = nullptr) {
-    Color color{};
-    if (!Parse(value, color, onAccentError)) return nullptr;
-    SolidColorBrush brush;
-    brush.Color(color);
-    return brush;
-}
-
-}  // namespace windhawk_mod_templates::color_tokens
-
-namespace clr = windhawk_mod_templates::color_tokens;
-
-// ============================================================
-// Visual tree walk
-// Template block: _templates/visual-tree-walk.h (verbatim copy —
-// keep in sync with the template; Windhawk mods are single-file).
-// ============================================================
-
-namespace windhawk_mod_templates::visual_tree_walk {
-
-using winrt::Windows::UI::Xaml::FrameworkElement;
-using winrt::Windows::UI::Xaml::Controls::StackPanel;
-using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
-
-// Depth-first visit of every FrameworkElement descendant (root excluded).
-// The visitor returns true to stop the walk early.
-inline bool ForEachDescendant(
-    FrameworkElement const& root, int maxDepth,
-    std::function<bool(FrameworkElement const&, int)> const& visit,
-    int depth = 0) {
-    if (!root || depth >= maxDepth)
-        return false;
-    int count = VisualTreeHelper::GetChildrenCount(root);
-    for (int i = 0; i < count; ++i) {
-        auto child =
-            VisualTreeHelper::GetChild(root, i).try_as<FrameworkElement>();
-        if (!child)
-            continue;
-        if (visit(child, depth + 1))
-            return true;
-        if (ForEachDescendant(child, maxDepth, visit, depth + 1))
-            return true;
-    }
-    return false;
-}
-
-// First descendant matching the predicate, depth-first document order.
-inline FrameworkElement FindDescendant(
-    FrameworkElement const& root, int maxDepth,
-    std::function<bool(FrameworkElement const&)> const& predicate) {
-    FrameworkElement found = nullptr;
-    ForEachDescendant(root, maxDepth,
-                      [&](FrameworkElement const& element, int) {
-                          if (predicate(element)) {
-                              found = element;
-                              return true;
-                          }
-                          return false;
-                      });
-    return found;
-}
-
-// Every descendant matching the predicate, in depth-first document order —
-// which is also visual order for the tray's horizontal stacks.
-inline void CollectDescendants(
-    FrameworkElement const& root, int maxDepth,
-    std::function<bool(FrameworkElement const&)> const& predicate,
-    std::vector<FrameworkElement>& out) {
-    ForEachDescendant(root, maxDepth,
-                      [&](FrameworkElement const& element, int) {
-                          if (predicate(element))
-                              out.push_back(element);
-                          return false;
-                      });
-}
-
-// The OmniButton battery walk: the first non-items-host StackPanel
-// descendant — the inner panel whose children are the individually
-// addressable native elements (glyph, percent, per-icon views).
-inline StackPanel FindInnerStackPanel(FrameworkElement const& root,
-                                      int maxDepth) {
-    StackPanel found = nullptr;
-    ForEachDescendant(root, maxDepth,
-                      [&](FrameworkElement const& element, int) {
-                          auto panel = element.try_as<StackPanel>();
-                          if (panel && !panel.IsItemsHost()) {
-                              found = panel;
-                              return true;
-                          }
-                          return false;
-                      });
-    return found;
-}
-
-}  // namespace windhawk_mod_templates::visual_tree_walk
-
-namespace vtw = windhawk_mod_templates::visual_tree_walk;
-
-// ============================================================
-// Settings IO
-// Template block: _templates/settings-io.h (verbatim copy —
-// keep in sync with the template; Windhawk mods are single-file).
-// ============================================================
-
-namespace windhawk_mod_templates::settings_io {
-
-inline int Clamp(int value, int low, int high) {
-    return std::max(low, std::min(high, value));
-}
-
-// Frees on every path, including the ones a hand-written loader forgets.
-class StringSetting {
-public:
-    explicit StringSetting(PCWSTR key) : value_(Wh_GetStringSetting(key)) {}
-    ~StringSetting() {
-        if (value_) Wh_FreeStringSetting(value_);
-    }
-    StringSetting(StringSetting const&) = delete;
-    StringSetting& operator=(StringSetting const&) = delete;
-
-    // Never nullptr in practice, but do not rely on that at the call site.
-    PCWSTR Get() const { return value_ ? value_ : L""; }
-    bool Empty() const { return !value_ || !value_[0]; }
-
-private:
-    PCWSTR value_ = nullptr;
-};
-
-// Copy a string setting into a fixed buffer, always NUL-terminated. Fixed
-// buffers rather than std::wstring because a namespace-scope settings struct
-// must not own heap — see the exit-time destructor audit.
-template <size_t N>
-inline void LoadString(PCWSTR key, wchar_t (&buffer)[N]) {
-    StringSetting setting(key);
-    if (setting.Empty()) {
-        buffer[0] = L'\0';
-        return;
-    }
-    wcsncpy(buffer, setting.Get(), N - 1);
-    buffer[N - 1] = L'\0';
-}
-
-// Same, but substitutes `fallback` when the setting is empty.
-template <size_t N>
-inline void LoadString(PCWSTR key, wchar_t (&buffer)[N], PCWSTR fallback) {
-    LoadString(key, buffer);
-    if (!buffer[0] && fallback) {
-        wcsncpy(buffer, fallback, N - 1);
-        buffer[N - 1] = L'\0';
-    }
-}
-
-inline int LoadInt(PCWSTR key, int low, int high) {
-    return Clamp(Wh_GetIntSetting(key), low, high);
-}
-
-inline bool LoadBool(PCWSTR key) {
-    return Wh_GetIntSetting(key) != 0;
-}
-
-// A $options choice, matched case-insensitively against a table of tokens.
-// Returns the matching entry's value, or `fallback` when nothing matches —
-// which also covers the unset case, since an unset string is empty.
-//
-// Use this rather than a chain of _wcsicmp: after ANY option is renamed, a
-// stale literal in a hand-written chain fails silently and the mod quietly
-// falls back. That cost this lab a release (Indicator symbols reverted to
-// numbers because `labelFormat == L"dot"` was never true again).
-template <typename T>
-struct Choice {
-    wchar_t const* token;
-    T value;
-};
-
-template <typename T, size_t N>
-inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
-    StringSetting setting(key);
-    if (setting.Empty()) return fallback;
-    for (auto const& choice : choices) {
-        if (_wcsicmp(setting.Get(), choice.token) == 0) return choice.value;
-    }
-    return fallback;
-}
-
-}  // namespace windhawk_mod_templates::settings_io
-
-namespace sio = windhawk_mod_templates::settings_io;
-
-// ============================================================
-// Taskbar host
-// Template block: _templates/taskbar-host.h (verbatim copy —
-// keep in sync with the template; Windhawk mods are single-file).
-// ============================================================
-
-namespace windhawk_mod_templates::taskbar_host {
-
-using winrt::Windows::UI::Xaml::FrameworkElement;
-using winrt::Windows::UI::Xaml::XamlRoot;
-
-// ---- Window discovery -------------------------------------------------------
-
-inline HWND FindCurrentProcessTaskbarWnd() {
-    HWND result = nullptr;
-    EnumWindows(
-        [](HWND window, LPARAM parameter) -> BOOL {
-            DWORD processId = 0;
-            WCHAR className[32];
-            if (GetWindowThreadProcessId(window, &processId) &&
-                processId == GetCurrentProcessId() &&
-                GetClassName(window, className, ARRAYSIZE(className)) &&
-                _wcsicmp(className, L"Shell_TrayWnd") == 0) {
-                *reinterpret_cast<HWND*>(parameter) = window;
-                return FALSE;
-            }
-            return TRUE;
-        },
-        reinterpret_cast<LPARAM>(&result));
-    return result;
-}
-
-// ---- UI-thread marshalling --------------------------------------------------
-//
-// XAML may only be touched from the thread that owns it. This posts work onto
-// the taskbar's thread with a CALLWNDPROC hook and a private registered
-// message, and reports whether the callback actually ran — a caller that
-// assumes it did will corrupt its own state when the dispatch failed.
-
-using ThreadProc = void (*)(void*);
-using ExceptionLogFn = void (*)(PCWSTR context);
-
-inline ExceptionLogFn g_logException = nullptr;
-
-// Point this at the mod's logger once in Wh_ModInit so failures inside a UI
-// callback are reported in the mod's own voice.
-inline void SetExceptionLogger(ExceptionLogFn logger) {
-    g_logException = logger;
-}
-
-inline bool Invoke(ThreadProc proc, void* parameter) {
-    try {
-        proc(parameter);
-        return true;
-    } catch (...) {
-        if (g_logException) g_logException(L"UI callback");
-    }
-    return false;
-}
-
-struct Dispatch {
-    ThreadProc proc;
-    void* parameter;
-    bool succeeded = false;
-};
-
-// The private message this mod dispatches on. Set before the hook is
-// installed, and read by the hook proc to recognise its own message.
-//
-// A CALLWNDPROC HOOK SEES EVERY MESSAGE SENT TO EVERY WINDOW ON THE TASKBAR'S
-// UI THREAD. `lParam` for all of those is arbitrary — an integer, a flag, a
-// pointer to something else entirely. So the message MUST be checked first,
-// against a value that does not come from lParam, and only then may lParam be
-// treated as a Dispatch*. Reading anything out of lParam before that check
-// dereferences whatever happened to be in the message and takes Explorer down
-// with it — which is exactly what an earlier revision of this template did.
-// Atomic because the caller may be the retry thread while the hook proc runs
-// on the taskbar's UI thread. RegisterWindowMessageW returns the same value
-// for the same string for the lifetime of the session, so this settles on one
-// value immediately and never changes again — the pre-template code got the
-// same property from a function-local `static UINT` magic static, which a
-// parameterised template cannot use.
-inline std::atomic<UINT> g_dispatchMessage{0};
-
-// messageName must embed WH_MOD_ID, so two mods cannot collide on the message.
-inline bool RunFromWindowThread(HWND window, ThreadProc proc, void* parameter,
-                                PCWSTR messageName) {
-    UINT message = RegisterWindowMessageW(messageName);
-    if (!message) return false;
-
-    DWORD threadId = GetWindowThreadProcessId(window, nullptr);
-    if (!threadId) return false;
-    if (threadId == GetCurrentThreadId()) return Invoke(proc, parameter);
-
-    g_dispatchMessage.store(message, std::memory_order_release);
-
-    HHOOK hook = SetWindowsHookExW(
-        WH_CALLWNDPROC,
-        [](int code, WPARAM wParam, LPARAM lParam) -> LRESULT {
-            if (code == HC_ACTION) {
-                auto const* call = reinterpret_cast<CWPSTRUCT const*>(lParam);
-                // Message first. Only our own private message carries a
-                // Dispatch* in lParam; everything else carries something we
-                // must not touch.
-                UINT expected =
-                    g_dispatchMessage.load(std::memory_order_acquire);
-                if (expected && call->message == expected) {
-                    if (auto* dispatch =
-                            reinterpret_cast<Dispatch*>(call->lParam)) {
-                        dispatch->succeeded =
-                            Invoke(dispatch->proc, dispatch->parameter);
-                    }
-                }
-            }
-            return CallNextHookEx(nullptr, code, wParam, lParam);
-        },
-        nullptr, threadId);
-    if (!hook) return false;
-
-    Dispatch dispatch{proc, parameter};
-    SendMessageW(window, message, 0, reinterpret_cast<LPARAM>(&dispatch));
-    UnhookWindowsHookEx(hook);
-    return dispatch.succeeded;
-}
-
-// ---- XamlRoot ---------------------------------------------------------------
-
-using CTaskBand_GetTaskbarHost_t = void*(WINAPI*)(void*, void*);
-using TaskbarHost_FrameHeight_t = int(WINAPI*)(void*);
-using Ref_count_base_Decref_t = void(WINAPI*)(void*);
-using TrayUI_StartTaskbar_t = void(WINAPI*)(void*);
-
-inline CTaskBand_GetTaskbarHost_t CTaskBand_GetTaskbarHost_Original = nullptr;
-inline TaskbarHost_FrameHeight_t TaskbarHost_FrameHeight_Original = nullptr;
-inline Ref_count_base_Decref_t Ref_count_base_Decref_Original = nullptr;
-inline TrayUI_StartTaskbar_t TrayUI_StartTaskbar_Original = nullptr;
-inline void* CTaskBand_ITaskListWndSite_vftable = nullptr;
-
-// The mod's rebuild callback, invoked after Explorer rebuilds the taskbar.
-inline void (*g_onTaskbarRebuilt)() = nullptr;
-
-inline void WINAPI TrayUI_StartTaskbar_Hook(void* self) {
-    TrayUI_StartTaskbar_Original(self);
-    try {
-        if (g_onTaskbarRebuilt) g_onTaskbarRebuilt();
-    } catch (...) {
-        if (g_logException) g_logException(L"TrayUI::StartTaskbar hook");
-    }
-}
-
-inline bool HookTaskbarSymbols(void (*onTaskbarRebuilt)()) {
-    g_onTaskbarRebuilt = onTaskbarRebuilt;
-    HMODULE taskbar = LoadLibraryExW(L"taskbar.dll", nullptr,
-                                     LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if (!taskbar) return false;
-    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
-        {{LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
-         &CTaskBand_ITaskListWndSite_vftable},
-        {{LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
-         &CTaskBand_GetTaskbarHost_Original},
-        {{LR"(public: int __cdecl TaskbarHost::FrameHeight(void)const )"},
-         &TaskbarHost_FrameHeight_Original},
-        {{LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
-         &Ref_count_base_Decref_Original},
-        {{LR"(public: virtual void __cdecl TrayUI::StartTaskbar(void))"},
-         &TrayUI_StartTaskbar_Original, TrayUI_StartTaskbar_Hook},
-    };
-    return WindhawkUtils::HookSymbols(taskbar, taskbarDllHooks,
-                                      ARRAYSIZE(taskbarDllHooks));
-}
-
-// The FrameworkElement lives at an offset inside TaskbarHost that MOVES
-// between Windows builds, so it is read out of TaskbarHost::FrameHeight's
-// prologue at runtime rather than hardcoded.
-inline size_t FrameworkElementOffset() {
-    size_t offset = 0x10;
-#if defined(_M_X64)
-    BYTE const* code =
-        reinterpret_cast<BYTE const*>(TaskbarHost_FrameHeight_Original);
-    if (code[0] == 0x48 && code[1] == 0x83 && code[2] == 0xEC &&
-        code[4] == 0x48 && code[5] == 0x83 && code[6] == 0xC1 &&
-        code[7] <= 0x7F) {
-        offset = code[7];
-    }
-#elif defined(_M_ARM64)
-    DWORD const* code =
-        reinterpret_cast<DWORD const*>(TaskbarHost_FrameHeight_Original);
-    if (code[0] == 0xD503237F && (code[1] & 0xFFC07FFF) == 0xA9807BFD &&
-        code[2] == 0x910003FD && (code[3] & 0xFFF00FE0) == 0xF8400C00) {
-        offset = (code[3] >> 12) & 0xFF;
-    }
-#else
-#error "Unsupported architecture"
-#endif
-    return offset;
-}
-
-inline XamlRoot GetTaskbarXamlRoot(HWND taskbarWnd) {
-    if (!CTaskBand_GetTaskbarHost_Original ||
-        !TaskbarHost_FrameHeight_Original || !Ref_count_base_Decref_Original ||
-        !CTaskBand_ITaskListWndSite_vftable)
-        return nullptr;
-
-    HWND taskSwWnd = (HWND)GetProp(taskbarWnd, L"TaskbandHWND");
-    if (!taskSwWnd) return nullptr;
-    void* taskBand = (void*)GetWindowLongPtr(taskSwWnd, 0);
-    if (!taskBand) return nullptr;
-
-    void* site = taskBand;
-    for (int i = 0; *(void**)site != CTaskBand_ITaskListWndSite_vftable; ++i) {
-        if (i == 20) return nullptr;
-        site = (void**)site + 1;
-    }
-
-    void* host[2]{};
-    CTaskBand_GetTaskbarHost_Original(site, host);
-    if (!host[0] || !host[1]) {
-        if (host[1]) Ref_count_base_Decref_Original(host[1]);
-        return nullptr;
-    }
-
-    auto* unknown =
-        *(IUnknown**)((BYTE*)host[0] + FrameworkElementOffset());
-    if (!unknown) {
-        Ref_count_base_Decref_Original(host[1]);
-        return nullptr;
-    }
-    FrameworkElement element = nullptr;
-    unknown->QueryInterface(winrt::guid_of<FrameworkElement>(),
-                            winrt::put_abi(element));
-    auto result = element ? element.XamlRoot() : nullptr;
-    Ref_count_base_Decref_Original(host[1]);
-    return result;
-}
-
-// ---- Taskbar metrics and orientation ----------------------------------------
-//
-// WHERE THE TASKBAR IS, AND WHETHER THIS FAMILY CAN WORK THERE.
-//
-// Windows 11 itself only puts the taskbar at the bottom. Two mods by m417z
-// move it, and both are first-class parts of the ecosystem these mods have to
-// live in:
-//
-//   taskbar-on-top       — bottom -> top. FINE for this family. Everything
-//                          here is positioned relative to the taskbar's own
-//                          XAML tree, never to screen coordinates, so a top
-//                          taskbar is the same tree at a different y.
-//
-//   taskbar-vertical     — bottom -> left/right. NOT COMPATIBLE, and not for
-//                          a reason cooperation can fix. It walks the very
-//                          same path this family walks
-//                          (ControlCenterButton > Grid > ContentPresenter >
-//                          ItemsPresenter > StackPanel) and applies a
-//                          RotateTransform to `RenderTransform` on those
-//                          children. Positioning here sets a
-//                          TranslateTransform on the SAME property of the SAME
-//                          elements. One dependency property, two owners, last
-//                          writer wins — there is no version of this where
-//                          both mods are correct. m417z documents the same
-//                          class of conflict for taskbar-multirow.
-//
-// So: DETECT AND STAND DOWN, loudly, rather than fight and paint garbage. The
-// detection is the taskbar's own rect aspect, not a check for a specific mod —
-// it is the condition that matters, and it stays true however the taskbar got
-// that way.
-//
-// The rect is in PHYSICAL pixels and every XAML size is a DIP, so the DIP
-// conversion lives here too rather than being re-derived per mod. That is the
-// bug that was blocking on PR #4855 and #4843.
-
-enum class Orientation { Horizontal, Vertical };
-
-struct Metrics {
-    bool valid = false;
-    RECT rect{};
-    UINT dpi = 96;
-    Orientation orientation = Orientation::Horizontal;
-    // The extent this family's grid has to fit INTO: the taskbar's height when
-    // it runs across the screen, its width when it runs down the side.
-    double constrainedDip = 0.0;
-    // The extent it can run ALONG.
-    double alongDip = 0.0;
-};
-
-inline Metrics GetMetrics(HWND taskbarWnd) {
-    Metrics metrics;
-    if (!taskbarWnd || !GetWindowRect(taskbarWnd, &metrics.rect))
-        return metrics;
-
-    metrics.valid = true;
-    metrics.dpi = GetDpiForWindow(taskbarWnd);
-    if (!metrics.dpi) metrics.dpi = 96;
-
-    double width = (double)(metrics.rect.right - metrics.rect.left);
-    double height = (double)(metrics.rect.bottom - metrics.rect.top);
-    double scale = 96.0 / (double)metrics.dpi;
-
-    // Taller than wide means it runs down a side. Nothing else can produce
-    // that shape, so this needs no cooperation from whatever moved it.
-    metrics.orientation =
-        height > width ? Orientation::Vertical : Orientation::Horizontal;
-    if (metrics.orientation == Orientation::Horizontal) {
-        metrics.constrainedDip = height * scale;
-        metrics.alongDip = width * scale;
-    } else {
-        metrics.constrainedDip = width * scale;
-        metrics.alongDip = height * scale;
-    }
-    return metrics;
-}
-
-// Whether this family's layout model applies at all. A mod must check this
-// BEFORE touching anything and stand down cleanly if it is false — leaving the
-// taskbar exactly as it found it — rather than arranging into a coordinate
-// space someone else is rotating.
-inline bool LayoutModelApplies(Metrics const& metrics) {
-    return metrics.valid && metrics.orientation == Orientation::Horizontal;
-}
-
-inline wchar_t const* OrientationName(Orientation orientation) {
-    return orientation == Orientation::Vertical ? L"vertical" : L"horizontal";
-}
-
-// ---- Bounded retry ----------------------------------------------------------
-//
-// Stoppable and WAITED during unload. A detached thread that outlives
-// Wh_ModUninit runs mod code out of an unloaded DLL.
-
-class RetryLoop {
-public:
-    // applied: has the work finished? unloading: stop immediately.
-    using AppliedFn = bool (*)();
-    using AttemptFn = void (*)();
-
-    void Start(AttemptFn attempt, AppliedFn applied,
-               std::atomic<bool> const& unloading, int attempts = 5,
-               DWORD intervalMs = 2000) {
-        Stop();
-        if (unloading) return;
-        attempt_ = attempt;
-        applied_ = applied;
-        unloading_ = &unloading;
-        attempts_ = attempts;
-        intervalMs_ = intervalMs;
-        stopEvent_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        if (!stopEvent_) return;
-        thread_ = CreateThread(
-            nullptr, 0,
-            [](void* parameter) -> DWORD {
-                auto* self = static_cast<RetryLoop*>(parameter);
-                for (int i = 0; i < self->attempts_ && !*self->unloading_;
-                     ++i) {
-                    if (self->applied_ && self->applied_()) break;
-                    if (i && WaitForSingleObject(self->stopEvent_,
-                                                 self->intervalMs_) !=
-                                 WAIT_TIMEOUT)
-                        break;
-                    if (self->attempt_) self->attempt_();
-                }
-                return 0;
-            },
-            this, 0, nullptr);
-        if (!thread_) {
-            CloseHandle(stopEvent_);
-            stopEvent_ = nullptr;
-        }
-    }
-
-    // Pumps sent messages while waiting: the retry thread marshals onto the UI
-    // thread with SendMessage, so a plain wait from that same UI thread would
-    // deadlock against the thread it is waiting for.
-    void Stop() {
-        if (stopEvent_) SetEvent(stopEvent_);
-        if (thread_) {
-            DWORD result;
-            do {
-                result = MsgWaitForMultipleObjects(1, &thread_, FALSE, INFINITE,
-                                                   QS_SENDMESSAGE);
-                if (result == WAIT_OBJECT_0 + 1) {
-                    MSG message;
-                    PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
-                }
-            } while (result == WAIT_OBJECT_0 + 1);
-            CloseHandle(thread_);
-            thread_ = nullptr;
-        }
-        if (stopEvent_) {
-            CloseHandle(stopEvent_);
-            stopEvent_ = nullptr;
-        }
-    }
-
-private:
-    HANDLE thread_ = nullptr;
-    HANDLE stopEvent_ = nullptr;
-    AttemptFn attempt_ = nullptr;
-    AppliedFn applied_ = nullptr;
-    std::atomic<bool> const* unloading_ = nullptr;
-    int attempts_ = 5;
-    DWORD intervalMs_ = 2000;
-};
-
-}  // namespace windhawk_mod_templates::taskbar_host
-
-namespace tbh = windhawk_mod_templates::taskbar_host;
-
-// ============================================================
-// Property lease
-// Template block: _templates/property-lease.h (verbatim copy —
-// keep in sync with the template; Windhawk mods are single-file).
-// ============================================================
-
-namespace windhawk_mod_templates::property_lease {
-
-using winrt::Windows::Foundation::IInspectable;
-using winrt::Windows::UI::Xaml::DependencyObject;
-using winrt::Windows::UI::Xaml::DependencyProperty;
-
-struct Snapshot {
-    DependencyObject object{nullptr};
-    DependencyProperty property{nullptr};
-    IInspectable localValue{nullptr};
-};
-
-// Reported per failed restore so the mod can log in its own voice.
-using RestoreErrorFn = std::function<void()>;
-
-class Lease {
-public:
-    // Announce a mutation BEFORE making it. Safe to call repeatedly; only the
-    // first call for a given (object, property) records anything.
-    void Track(DependencyObject const& object,
-               DependencyProperty const& property) {
-        if (!object || !property) return;
-        for (auto const& snapshot : snapshots_) {
-            if (snapshot.object == object && snapshot.property == property)
-                return;
-        }
-        snapshots_.push_back(
-            {object, property, object.ReadLocalValue(property)});
-    }
-
-    // Put everything back, newest first, and forget it. Call on the UI thread.
-    void RestoreAll(RestoreErrorFn const& onError = {}) {
-        for (auto it = snapshots_.rbegin(); it != snapshots_.rend(); ++it) {
-            try {
-                if (it->localValue == DependencyProperty::UnsetValue())
-                    it->object.ClearValue(it->property);
-                else
-                    it->object.SetValue(it->property, it->localValue);
-            } catch (...) {
-                if (onError) onError();
-            }
-        }
-        snapshots_.clear();
-    }
-
-    // Drop the snapshots WITHOUT restoring. For the case where the elements
-    // are already gone (an Explorer rebuild threw the tree away), so restoring
-    // would only throw. Do not use it to "skip" a restore that could run.
-    void Abandon() { snapshots_.clear(); }
-
-    size_t Count() const { return snapshots_.size(); }
-    bool Empty() const { return snapshots_.empty(); }
-
-private:
-    std::vector<Snapshot> snapshots_;
-};
-
-}  // namespace windhawk_mod_templates::property_lease
-
-namespace ple = windhawk_mod_templates::property_lease;
-using winrt::Windows::UI::Xaml::Controls::Primitives::ButtonBase;
-using winrt::Windows::UI::Xaml::Controls::Primitives::ToggleButton;
-
-// ============================================================
-// Settings
-// ============================================================
-
-// Field names mirror the settings contract in _templates/settings-profiles.md:
-// one nested group per concern, canonical keys in canonical order.
-// $options values are parsed ONCE, at load, into these. Nothing downstream
-// compares a setting against a string literal - that is the failure the
-// settings-io template exists to prevent, and THIS mod is where it bit: after
-// an option value was renamed, `labelFormat == L"dot"` kept compiling, stopped
-// matching, and the Indicator symbols silently reverted to numbers.
-enum class VdPosition {
-    BeforeIcons, BeforeOmni, BeforeClock, AfterClock, AfterShowDesktop,
-    LeftOfStart, OverStart, RightOfStart,
-};
-enum class VdLabelFormat { Number, Roman, Symbol, Custom };
-enum class VdTaskViewPlacement { Before, After, Above, Below, InGrid };
-
-static PCWSTR VdPositionName(VdPosition p) {
-    switch (p) {
-        case VdPosition::BeforeIcons:      return L"beforeIcons";
-        case VdPosition::BeforeClock:      return L"beforeClock";
-        case VdPosition::AfterClock:       return L"afterClock";
-        case VdPosition::AfterShowDesktop: return L"afterShowDesktop";
-        case VdPosition::LeftOfStart:      return L"leftOfStart";
-        case VdPosition::OverStart:        return L"overStart";
-        case VdPosition::RightOfStart:     return L"rightOfStart";
-        default:                           return L"beforeOmni";
-    }
-}
-
-struct ModSettings {
-    // Placement
-    VdPosition   position = VdPosition::BeforeOmni;
-    bool         allTaskbars       = false;
-    // Content
-    VdLabelFormat labelFormat = VdLabelFormat::Number;
-    std::wstring customLabels      = L"";
-    std::wstring activeSymbol      = L"●";
-    std::wstring inactiveSymbol    = L"○";
-    bool         taskViewButton    = false;
-    std::wstring taskViewLabel     = L"⊞";
-    VdTaskViewPlacement taskViewPlacement = VdTaskViewPlacement::Before;
-    // Layout
-    std::wstring arrangement       = L"auto";
-    ngl::FillOrder fillOrder = ngl::FillOrder::Rows;
-    ngl::Justify justify = ngl::Justify::Center;
-    bool         appendNewItems = true;
-    // Size
-    int          itemWidth         = 20;
-    int          itemHeight        = 22;
-    int          itemSpacing       = 2;
-    int          taskViewSize      = 14;
-    int          taskViewSpan      = 0;
-    int          taskViewGap       = 0;
-    // Adjust
-    int          padX              = 0;
-    int          padY              = 0;
-    int          offsetX           = 0;
-    int          offsetY           = 0;
-    // Surface
-    int          fontSize          = 10;
-    std::wstring fontFamily        = L"";
-    std::wstring hoverBackgroundColor;
-    std::wstring pressedBackgroundColor;
-    std::wstring borderColor       = L"";
-    int          borderThickness   = 0;
-    int          cornerRadius      = 4;
-    int          opacity           = 100;
-    bool         shineEffect       = false;
-    std::wstring taskViewFontFamily = L"";
-    // State
-    std::wstring activeTextColor   = L"";
-    std::wstring inactiveTextColor = L"";
-    std::wstring activeBackgroundColor   = L"accent";
-    std::wstring inactiveBackgroundColor = L"";
-    bool         activeBold        = false;
-    // Behavior
-    bool         hideWhenSingle    = false;
-};
-// ModSettings holds only std::wstring/int/bool, so its destructor is safe to
-// run at process shutdown; no [[clang::no_destroy]] needed, and adding it would
-// leak the string buffers on every normal unload.
-ModSettings g_settings;  // exit-time-safe: heap-only
-
-static void LoadSettings() {
-    // Free-form strings only: every $options value is parsed to an enum by
-    // sio::LoadChoice below. StringSetting frees on every path, including the
-    // ones a hand-written loader forgets.
-    auto Str = [](const wchar_t* k) {
-        sio::StringSetting setting(k);
-        return std::wstring(setting.Get());
-    };
-    auto Int = [](const wchar_t* k) { return Wh_GetIntSetting(k); };
-    auto Bool = [](const wchar_t* k) { return sio::LoadBool(k); };
-
-    static constexpr sio::Choice<VdPosition> kPositions[] = {
-        {L"beforeIcons", VdPosition::BeforeIcons},
-        {L"beforeOmni", VdPosition::BeforeOmni},
-        {L"beforeClock", VdPosition::BeforeClock},
-        {L"afterClock", VdPosition::AfterClock},
-        {L"afterShowDesktop", VdPosition::AfterShowDesktop},
-        {L"leftOfStart", VdPosition::LeftOfStart},
-        {L"overStart", VdPosition::OverStart},
-        {L"rightOfStart", VdPosition::RightOfStart},
-    };
-    g_settings.position = sio::LoadChoice(L"Placement.Position", kPositions,
-                                          VdPosition::BeforeOmni);
-    g_settings.allTaskbars       = Bool(L"Placement.AllTaskbars");
-
-    static constexpr sio::Choice<VdLabelFormat> kLabelFormats[] = {
-        {L"number", VdLabelFormat::Number},
-        {L"roman", VdLabelFormat::Roman},
-        {L"symbol", VdLabelFormat::Symbol},
-        {L"custom", VdLabelFormat::Custom},
-    };
-    g_settings.labelFormat = sio::LoadChoice(L"Content.LabelFormat",
-                                             kLabelFormats,
-                                             VdLabelFormat::Number);
-    g_settings.customLabels      = Str(L"Content.CustomLabels");
-    g_settings.activeSymbol      = Str(L"Content.ActiveSymbol");
-    g_settings.inactiveSymbol    = Str(L"Content.InactiveSymbol");
-    g_settings.taskViewButton    = Bool(L"Content.TaskViewButton");
-    g_settings.taskViewLabel     = Str(L"Content.TaskViewLabel");
-    static constexpr sio::Choice<VdTaskViewPlacement> kTaskViewPlacements[] = {
-        {L"before", VdTaskViewPlacement::Before},
-        {L"after", VdTaskViewPlacement::After},
-        {L"above", VdTaskViewPlacement::Above},
-        {L"below", VdTaskViewPlacement::Below},
-        {L"inGrid", VdTaskViewPlacement::InGrid},
-    };
-    g_settings.taskViewPlacement = sio::LoadChoice(
-        L"Content.TaskViewPlacement", kTaskViewPlacements,
-        VdTaskViewPlacement::Before);
-
-    g_settings.arrangement       = Str(L"Layout.Arrangement");
-    static constexpr sio::Choice<ngl::FillOrder> kFillOrders[] = {
-        {L"rows", ngl::FillOrder::Rows},
-        {L"columns", ngl::FillOrder::Columns},
-    };
-    g_settings.fillOrder = sio::LoadChoice(L"Layout.FillOrder", kFillOrders,
-                                           ngl::FillOrder::Rows);
-    static constexpr sio::Choice<ngl::Justify> kJustifications[] = {
-        {L"start", ngl::Justify::Start},
-        {L"center", ngl::Justify::Center},
-        {L"end", ngl::Justify::End},
-    };
-    g_settings.justify = sio::LoadChoice(L"Layout.Justify", kJustifications,
-                                         ngl::Justify::Center);
-    static constexpr sio::Choice<bool> kNewItemPolicies[] = {
-        {L"append", true},
-        {L"ignore", false},
-    };
-    g_settings.appendNewItems = sio::LoadChoice(L"Layout.NewItems",
-                                                kNewItemPolicies, true);
-
-    g_settings.itemWidth         = std::max(1, Int(L"Size.ItemWidth"));
-    g_settings.itemHeight        = std::max(1, Int(L"Size.ItemHeight"));
-    g_settings.itemSpacing       = std::max(0, Int(L"Size.ItemSpacing"));
-    g_settings.taskViewSize      = std::max(1, Int(L"Size.TaskViewSize"));
-    g_settings.taskViewSpan      = std::max(0, Int(L"Size.TaskViewSpan"));
-    g_settings.taskViewGap       = Int(L"Size.TaskViewGap");
-
-    g_settings.padX              = std::max(0, Int(L"Adjust.PadX"));
-    g_settings.padY              = std::max(0, Int(L"Adjust.PadY"));
-    g_settings.offsetX           = Int(L"Adjust.OffsetX");
-    g_settings.offsetY           = Int(L"Adjust.OffsetY");
-
-    g_settings.fontSize          = Int(L"Surface.FontSize");
-    g_settings.fontFamily        = Str(L"Surface.FontFamily");
-    g_settings.hoverBackgroundColor   = Str(L"Surface.HoverBackgroundColor");
-    g_settings.pressedBackgroundColor = Str(L"Surface.PressedBackgroundColor");
-    g_settings.borderColor       = Str(L"Surface.BorderColor");
-    g_settings.borderThickness   = Int(L"Surface.BorderThickness");
-    g_settings.cornerRadius      = Int(L"Surface.CornerRadius");
-    g_settings.opacity           = Int(L"Surface.Opacity");
-    g_settings.shineEffect       = Bool(L"Surface.ShineEffect");
-    g_settings.taskViewFontFamily = Str(L"Surface.TaskViewFontFamily");
-
-    g_settings.activeTextColor   = Str(L"State.ActiveTextColor");
-    g_settings.inactiveTextColor = Str(L"State.InactiveTextColor");
-    g_settings.activeBackgroundColor   = Str(L"State.ActiveBackgroundColor");
-    g_settings.inactiveBackgroundColor = Str(L"State.InactiveBackgroundColor");
-    g_settings.activeBold        = Bool(L"State.ActiveBold");
-
-    g_settings.hideWhenSingle    = Bool(L"Behavior.HideWhenSingle");
-
-    auto shownColor = [](std::wstring const& value) {
-        return value.empty() ? L"<empty/automatic>" : value.c_str();
-    };
-    Wh_Log(L"[Settings] colors active=%ls inactive=%ls hover=%ls pressed=%ls border=%ls",
-           shownColor(g_settings.activeBackgroundColor),
-           shownColor(g_settings.inactiveBackgroundColor),
-           shownColor(g_settings.hoverBackgroundColor),
-           shownColor(g_settings.pressedBackgroundColor),
-           shownColor(g_settings.borderColor));
-}
-// ============================================================
-// Globals
-// ============================================================
-
-static std::atomic<bool> g_unloading{false};
-static HWND              g_taskbarWnd      = nullptr;
-[[clang::no_destroy]] static Grid g_buttonGrid = nullptr;
-[[clang::no_destroy]] static FrameworkElement g_injectionParent = nullptr;
-static int               g_injectedColumn  = -1;
-static bool              g_startOverlayMode = false;
-[[clang::no_destroy]] static FrameworkElement g_startOverlayRoot = nullptr;
-[[clang::no_destroy]] static FrameworkElement g_startOverlayStart = nullptr;
-static winrt::event_token g_startOverlayLayoutToken{};
-[[clang::no_destroy]] static FrameworkElement g_taskItemsPanel = nullptr;
-static Thickness         g_taskItemsPanelOriginalMargin{};
-static double            g_startButtonOriginalX = -1.0;
-static std::atomic<int>  g_currentDesktop{0};
-static std::atomic<int>  g_desktopCount{1};
-
-static HANDLE g_notificationThread    = nullptr;
-static HANDLE g_notificationStopEvent = nullptr;
-static DWORD  g_notificationCookie    = 0;
-
-static HANDLE g_retryThread    = nullptr;
-static HANDLE g_retryStopEvent = nullptr;
-
-static std::atomic<bool> g_systemTrayModuleHooked{false};
-static std::atomic<int>  g_activeSwitchThreads{0};
-[[clang::no_destroy]] static std::optional<std::list<FrameworkElement::Loaded_revoker>>
-    g_autoRevokerList{std::in_place};
-
-struct ButtonEventState {
-    Grid owner{nullptr};
-    ButtonBase button{nullptr};
-    winrt::event_token clickToken{};
-};
-[[clang::no_destroy]] static std::optional<std::vector<ButtonEventState>>
-    g_buttonEventStates{std::in_place};
-
-// Forward declarations
-static void ApplyAllSettings();
-static void ApplyAllSettingsOnWindowThread();
-static void RebuildButtonGrid();
-static void RemoveButtonGrid();
-static void StopNotificationThread();
-static void StopRetryThread();
-static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileName);
-
-// ============================================================
-// Explorer / twinui build detection
-// ============================================================
-
-static WORD g_explorerBuild    = 0;
-static WORD g_explorerRevision = 0;
-static WORD g_twinuiBuild      = 0;
-
-static void DetectExplorerBuild() {
-    wchar_t path[MAX_PATH];
-    GetModuleFileNameW(nullptr, path, MAX_PATH);
-    DWORD dummy;
-    DWORD sz = GetFileVersionInfoSizeW(path, &dummy);
-    if (!sz) return;
-    std::vector<BYTE> buf(sz);
-    if (!GetFileVersionInfoW(path, 0, sz, buf.data())) return;
-    VS_FIXEDFILEINFO* fi = nullptr; UINT fs = 0;
-    if (!VerQueryValueW(buf.data(), L"\\", (void**)&fi, &fs)) return;
-    g_explorerBuild    = HIWORD(fi->dwFileVersionLS);
-    g_explorerRevision = LOWORD(fi->dwFileVersionLS);
-    Wh_Log(L"[Init] Explorer build %u rev %u", g_explorerBuild, g_explorerRevision);
-}
-
-static VS_FIXEDFILEINFO* GetModuleVersionInfo(HMODULE hModule, UINT* puPtrLen) {
-    void* pFixedFileInfo = nullptr;
-    UINT uPtrLen = 0;
-    HRSRC hResource = FindResource(hModule, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
-    if (hResource) {
-        HGLOBAL hGlobal = LoadResource(hModule, hResource);
-        if (hGlobal) {
-            void* pData = LockResource(hGlobal);
-            if (pData) {
-                if (!VerQueryValue(pData, L"\\", &pFixedFileInfo, &uPtrLen) || uPtrLen == 0) {
-                    pFixedFileInfo = nullptr;
-                    uPtrLen = 0;
-                }
-            }
-        }
-    }
-    if (puPtrLen) *puPtrLen = uPtrLen;
-    return (VS_FIXEDFILEINFO*)pFixedFileInfo;
-}
-
-static bool LoadTwinuiBuild() {
-    if (g_twinuiBuild) return true;
-    HMODULE h = GetModuleHandleW(L"twinui.pcshell.dll");
-    if (!h) return false;
-    VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(h, nullptr);
-    if (!fi) return false;
-    g_twinuiBuild = HIWORD(fi->dwFileVersionLS);
-    Wh_Log(L"[VD] twinui.pcshell.dll build %u", g_twinuiBuild);
-    return true;
-}
-
-// Order matters: SystemTray.dll is the new home (Win11 Insider 26200+);
-// older builds have the symbols in Taskbar.View.dll.
-static HMODULE GetSystemTrayModuleHandle() {
-    HMODULE module = GetModuleHandleW(L"SystemTray.dll");
-    if (!module) {
-        module = GetModuleHandleW(L"Taskbar.View.dll");
-        if (module) {
-            // Starting with Taskbar.View.dll 2604.x, the SystemTray types moved
-            // out into SystemTray.dll — don't hook this version.
-            VS_FIXEDFILEINFO* fi = GetModuleVersionInfo(module, nullptr);
-            WORD moduleMajor = fi ? HIWORD(fi->dwFileVersionMS) : 0;
-            if (!moduleMajor || moduleMajor >= 2604) {
-                Wh_Log(L"[Hooks] Skipping Taskbar.View.dll version %d", moduleMajor);
-                module = nullptr;
-            }
-        }
-    }
-    if (!module)
-        module = GetModuleHandleW(L"ExplorerExtensions.dll");
-    return module;
-}
-
-// ============================================================
-// GetTaskbarXamlRoot boilerplate (from vertical-omnibutton)
-// ============================================================
-
-// All of this is now _templates/taskbar-host.h, embedded above. The mod keeps
-// only its own exception logger and its rebuild callback.
-//
-// The CTaskBand walk, the runtime-disassembled FrameworkElement offset, the
-// taskbar.dll symbol hooks and the CALLWNDPROC dispatch all moved out
-// verbatim. The dispatch is the one worth naming: a WH_CALLWNDPROC hook sees
-// every message sent to every window on the taskbar's UI thread, so the
-// message must be compared BEFORE lParam is treated as a Dispatch*. This mod
-// already got that right; the template now states the rule in capitals
-// because reordering it once took Explorer down in OmniButton.
-
-using RunFromWindowThreadProc_t = tbh::ThreadProc;
-
-static void LogCurrentUiException(PCWSTR context) noexcept {
-    try {
-        throw;
-    } catch (winrt::hresult_error const& error) {
-        Wh_Log(L"[Lifecycle] %s failed hr=0x%08X: %s", context,
-               static_cast<unsigned>(error.code().value),
-               error.message().c_str());
-    } catch (std::exception const&) {
-        Wh_Log(L"[Lifecycle] %s failed with a C++ exception", context);
-    } catch (...) {
-        Wh_Log(L"[Lifecycle] %s failed with an unknown exception", context);
-    }
-}
-
-static bool RunFromWindowThread(HWND hWnd, RunFromWindowThreadProc_t proc,
-                                void* procParam) {
-    return tbh::RunFromWindowThread(
-        hWnd, proc, procParam,
-        L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
-}
-
-static HWND FindCurrentProcessTaskbarWnd() {
-    return tbh::FindCurrentProcessTaskbarWnd();
-}
-
-static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
-    return tbh::GetTaskbarXamlRoot(hTaskbarWnd);
-}
-
-// ============================================================
-// XAML helpers
-// ============================================================
-
-// Kept as a thin wrapper rather than replacing every call site: the signature
-// takes its predicate by value and many lambdas here rely on that. The walk
-// itself is now the template's.
-static FrameworkElement FindChildRecursive(FrameworkElement const& element,
-    std::function<bool(FrameworkElement)> const& cb, int maxDepth = 20)
-{
-    return vtw::FindDescendant(
-        element, maxDepth,
-        [&cb](FrameworkElement const& child) { return cb(child); });
-}
-
-// ============================================================
-// VD COM notification infrastructure
-// ============================================================
-
-const CLSID CLSID_ImmersiveShell = {
-    0xc2f03a33,0x21f5,0x47fa,{0xb4,0xbb,0x15,0x63,0x62,0xa2,0xf2,0x39}
-};
-const GUID SID_VirtualDesktopNotificationService = {
-    0xa501fdec,0x4a09,0x464c,{0xae,0x4e,0x1b,0x9c,0x21,0xb8,0x49,0x18}
-};
-const GUID IID_IVirtualDesktopNotificationService_G = {
-    0x0cd45e71,0xd927,0x4f15,{0x8b,0x0a,0x8f,0xef,0x52,0x53,0x37,0xbf}
-};
-
-MIDL_INTERFACE("0CD45E71-D927-4F15-8B0A-8FEF525337BF")
-IVirtualDesktopNotificationService_I : public IUnknown {
-    virtual HRESULT STDMETHODCALLTYPE Register(IUnknown*, DWORD*) = 0;
-    virtual HRESULT STDMETHODCALLTYPE Unregister(DWORD) = 0;
-};
-
-struct NotifConfig {
-    int64_t iidPart1 = 0, iidPart2 = 0;
-    int methodCount = 0, createdIdx = -1, destroyedIdx = -1, currentChangedIdx = -1;
-    bool hasMonitors = false;
-};
-
-struct NotifObject {
-    void** vtable  = nullptr;
-    LONG refCount  = 1;
-};
-
-static NotifConfig GetNotifConfig() {
-    if (g_explorerBuild < 22000) return {};
-    if (g_explorerBuild < 22483 || (g_explorerBuild == 22621 && g_explorerRevision < 2215))
-        return { 5481970284372180562ll, -1679294552252794956ll, 13, 7, 9, 11, true };
-    if (g_explorerBuild < 22631 || (g_explorerBuild == 22631 && g_explorerRevision < 3085))
-        return { 5123538856297626140ll,  8491238173783613346ll, 14, 6, 8, 10, false };
-    return     { 5308375338100058445ll, -2401892766147978065ll, 14, 6, 8, 10, false };
-}
-
-static bool IsOurNotifIface(REFIID riid) {
-    auto cfg = GetNotifConfig();
-    if (!cfg.methodCount) return false;
-    auto p = reinterpret_cast<const int64_t*>(&riid);
-    return p[0] == cfg.iidPart1 && p[1] == cfg.iidPart2;
-}
-
-static HRESULT STDMETHODCALLTYPE Notif_QI(NotifObject* p, REFIID riid, void** ppv) {
-    if (!ppv) return E_POINTER; *ppv = nullptr;
-    static const GUID IID_IUnknown_ = {0,0,0,{0xc0,0,0,0,0,0,0,0x46}};
-    if (InlineIsEqualGUID(riid, IID_IUnknown_) || IsOurNotifIface(riid)) {
-        *ppv = p; InterlockedIncrement(&p->refCount); return S_OK;
-    }
-    return E_NOINTERFACE;
-}
-static ULONG STDMETHODCALLTYPE Notif_AddRef(NotifObject* p) {
-    return (ULONG)InterlockedIncrement(&p->refCount);
-}
-static ULONG STDMETHODCALLTYPE Notif_Release(NotifObject* p) {
-    LONG r = InterlockedDecrement(&p->refCount);
-    if (r == 0) { delete[] p->vtable; delete p; }
-    return (ULONG)std::max(r, 0L);
-}
-static HRESULT STDMETHODCALLTYPE Notif_HandleUpdate() {
-    if (g_unloading || !g_taskbarWnd) return S_OK;
-    RunFromWindowThread(g_taskbarWnd, [](void*) {
-        if (!g_unloading) RebuildButtonGrid();
-    }, nullptr);
-    return S_OK;
-}
-static HRESULT STDMETHODCALLTYPE Notif_NoOp() { return S_OK; }
-static HRESULT STDMETHODCALLTYPE Notif_CountChanged(NotifObject*) { return Notif_HandleUpdate(); }
-static HRESULT STDMETHODCALLTYPE Notif_CurrentChanged(NotifObject*) { return Notif_HandleUpdate(); }
-static HRESULT STDMETHODCALLTYPE Notif_CurrentChangedWithMonitors(NotifObject*, void*, void*, void*) {
-    return Notif_HandleUpdate();
-}
-
-static NotifObject* CreateNotifObject() {
-    auto cfg = GetNotifConfig();
-    if (cfg.methodCount == 0 || cfg.currentChangedIdx < 0) return nullptr;
-    auto* obj = new (std::nothrow) NotifObject();
-    if (!obj) return nullptr;
-    obj->vtable = new (std::nothrow) void*[cfg.methodCount];
-    if (!obj->vtable) { delete obj; return nullptr; }
-    for (int i = 0; i < cfg.methodCount; i++) obj->vtable[i] = (void*)&Notif_NoOp;
-    obj->vtable[0] = (void*)&Notif_QI;
-    obj->vtable[1] = (void*)&Notif_AddRef;
-    obj->vtable[2] = (void*)&Notif_Release;
-    if (cfg.createdIdx >= 0)   obj->vtable[cfg.createdIdx]   = (void*)&Notif_CountChanged;
-    if (cfg.destroyedIdx >= 0) obj->vtable[cfg.destroyedIdx] = (void*)&Notif_CountChanged;
-    obj->vtable[cfg.currentChangedIdx] = cfg.hasMonitors
-        ? (void*)&Notif_CurrentChangedWithMonitors
-        : (void*)&Notif_CurrentChanged;
-    return obj;
-}
-
-static NotifObject* g_notifObject = nullptr;
-
-static DWORD WINAPI NotificationThreadProc(void*) {
-    auto cfg = GetNotifConfig();
-    if (cfg.methodCount == 0) {
-        Wh_Log(L"[Notif] Unsupported build (explorer %u)", g_explorerBuild);
-        return 0;
-    }
-    if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) return 0;
-
-    IServiceProvider* svc = nullptr;
-    if (FAILED(CoCreateInstance(CLSID_ImmersiveShell, nullptr, CLSCTX_LOCAL_SERVER,
-                                IID_IServiceProvider, (void**)&svc)) || !svc) {
-        CoUninitialize(); return 0;
-    }
-    IVirtualDesktopNotificationService_I* notifSvc = nullptr;
-    svc->QueryService(SID_VirtualDesktopNotificationService,
-                      IID_IVirtualDesktopNotificationService_G, (void**)&notifSvc);
-    svc->Release();
-    if (!notifSvc) { CoUninitialize(); return 0; }
-
-    g_notifObject = CreateNotifObject();
-    if (!g_notifObject) { notifSvc->Release(); CoUninitialize(); return 0; }
-
-    HRESULT hr = notifSvc->Register(reinterpret_cast<IUnknown*>(g_notifObject), &g_notificationCookie);
-    if (FAILED(hr)) {
-        Wh_Log(L"[Notif] Register failed: 0x%08X", hr);
-        Notif_Release(g_notifObject); g_notifObject = nullptr;
-        notifSvc->Release(); CoUninitialize(); return 0;
-    }
-    Wh_Log(L"[Notif] Registered, cookie=%lu", g_notificationCookie);
-
-    MSG msg;
-    while (!g_unloading) {
-        DWORD w = MsgWaitForMultipleObjects(1, &g_notificationStopEvent, FALSE, INFINITE, QS_ALLINPUT);
-        if (w == WAIT_OBJECT_0) break;
-        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageW(&msg); }
-    }
-
-    if (g_notificationCookie) { notifSvc->Unregister(g_notificationCookie); g_notificationCookie = 0; }
-    if (g_notifObject)        { Notif_Release(g_notifObject); g_notifObject = nullptr; }
-    notifSvc->Release();
-    CoUninitialize();
-    return 0;
-}
-
-static void StartNotificationThread() {
-    if (g_notificationThread) return;
-    g_notificationStopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    g_notificationThread    = CreateThread(nullptr, 0, NotificationThreadProc, nullptr, 0, nullptr);
-    if (!g_notificationThread) {
-        CloseHandle(g_notificationStopEvent); g_notificationStopEvent = nullptr;
-    }
-}
-
-static void StopNotificationThread() {
-    if (g_notificationStopEvent) SetEvent(g_notificationStopEvent);
-    if (g_notificationThread) {
-        // Pump sent messages while waiting so that if Wh_ModUninit is called from
-        // the UI thread and the notification thread is mid-SendMessage, the sent
-        // message can be delivered and the notification thread can then exit.
-        // PeekMessage(PM_NOREMOVE) processes incoming sent messages without
-        // consuming posted messages from the queue.
-        DWORD result;
-        do {
-            result = MsgWaitForMultipleObjects(1, &g_notificationThread, FALSE, INFINITE, QS_SENDMESSAGE);
-            if (result == WAIT_OBJECT_0 + 1) {
-                MSG msg;
-                PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE);
-            }
-        } while (result == WAIT_OBJECT_0 + 1);
-        CloseHandle(g_notificationThread); g_notificationThread = nullptr;
-    }
-    if (g_notificationStopEvent) {
-        CloseHandle(g_notificationStopEvent); g_notificationStopEvent = nullptr;
-    }
-}
-
-static void StopRetryThread() {
-    if (g_retryStopEvent) SetEvent(g_retryStopEvent);
-    if (g_retryThread) {
-        DWORD result;
-        do {
-            result = MsgWaitForMultipleObjects(
-                1, &g_retryThread, FALSE, INFINITE, QS_SENDMESSAGE);
-            if (result == WAIT_OBJECT_0 + 1) {
-                MSG message;
-                PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
-            }
-        } while (result == WAIT_OBJECT_0 + 1);
-        CloseHandle(g_retryThread); g_retryThread = nullptr;
-    }
-    if (g_retryStopEvent) {
-        CloseHandle(g_retryStopEvent); g_retryStopEvent = nullptr;
-    }
-}
-
-// ============================================================
-// Desktop state — registry
-// ============================================================
-
-static std::vector<BYTE> ReadRegBinary(const wchar_t* path, const wchar_t* name) {
-    DWORD type = 0, size = 0;
-    if (RegGetValueW(HKEY_CURRENT_USER, path, name, RRF_RT_REG_BINARY, &type, nullptr, &size) != ERROR_SUCCESS || !size)
-        return {};
-    std::vector<BYTE> buf(size);
-    if (RegGetValueW(HKEY_CURRENT_USER, path, name, RRF_RT_REG_BINARY, &type, buf.data(), &size) != ERROR_SUCCESS)
-        return {};
-    buf.resize(size);
-    return buf;
-}
-
-static int ReadDesktopCount() {
-    DWORD sessionId = 0;
-    ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
-    wchar_t sessionPath[256];
-    swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
-    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
-        auto buf = ReadRegBinary(path, L"VirtualDesktopIDs");
-        if (buf.size() >= 16) return (int)(buf.size() / 16);
-    }
-    return 1;
-}
-
-static int ReadCurrentDesktop() {
-    DWORD sessionId = 0;
-    ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
-    wchar_t sessionPath[256];
-    swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
-
-    std::vector<BYTE> ids;
-    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
-        ids = ReadRegBinary(path, L"VirtualDesktopIDs");
-        if (ids.size() >= 16) break;
-    }
-    if (ids.empty()) return 0;
-
-    GUID currentGuid{};
-    bool gotCurrent = false;
-    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
-        auto buf = ReadRegBinary(path, L"CurrentVirtualDesktop");
-        if (buf.size() >= 16) { memcpy(&currentGuid, buf.data(), 16); gotCurrent = true; break; }
-        // Try REG_SZ form
-        wchar_t strBuf[64]; DWORD sz = sizeof(strBuf), type;
-        if (RegGetValueW(HKEY_CURRENT_USER, path, L"CurrentVirtualDesktop",
-                         RRF_RT_REG_SZ, &type, strBuf, &sz) == ERROR_SUCCESS &&
-            SUCCEEDED(CLSIDFromString(strBuf, &currentGuid))) { gotCurrent = true; break; }
-    }
-    if (!gotCurrent) return 0;
-
-    int count = (int)(ids.size() / 16);
-    for (int i = 0; i < count; i++) {
-        GUID g; memcpy(&g, ids.data() + i * 16, 16);
-        if (memcmp(&g, &currentGuid, 16) == 0) return i;
-    }
-    return 0;
-}
-
-// Read Windows display names for all desktops (registry Desktops\{GUID}\Name).
-// Falls back to "Desktop N" when a desktop has no custom name.
-static std::vector<std::wstring> ReadDesktopNames(int count) {
-    DWORD sessionId = 0;
-    ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
-    wchar_t sessionPath[256];
-    swprintf_s(sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\SessionInfo\\%lu\\VirtualDesktops", sessionId);
-
-    std::vector<BYTE> ids;
-    for (auto* path : { (const wchar_t*)sessionPath, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops" }) {
-        ids = ReadRegBinary(path, L"VirtualDesktopIDs");
-        if (ids.size() >= 16) break;
-    }
-
-    std::vector<std::wstring> names(count);
-    for (int i = 0; i < count; i++) {
-        names[i] = L"Desktop " + std::to_wstring(i + 1);
-        if ((int)ids.size() >= (i + 1) * 16) {
-            GUID g; memcpy(&g, ids.data() + i * 16, 16);
-            wchar_t guidStr[64];
-            StringFromGUID2(g, guidStr, ARRAYSIZE(guidStr));
-            wchar_t regPath[300];
-            swprintf_s(regPath, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops\\Desktops\\%ls", guidStr);
-            wchar_t name[256]; DWORD sz = sizeof(name);
-            if (RegGetValueW(HKEY_CURRENT_USER, regPath, L"Name", RRF_RT_REG_SZ, nullptr, name, &sz) == ERROR_SUCCESS && name[0])
-                names[i] = name;
-        }
-    }
-    return names;
-}
-
-// ============================================================
-// Virtual desktop switching
-// ============================================================
-
-struct IVirtualDesktopManagerInternal_S : IUnknown {};
-struct IVirtualDesktop_S : IUnknown {};
-
-MIDL_INTERFACE("92CA9DCD-5622-4bba-A805-5E9F541BD8C9")
-IObjectArray_Local : public IUnknown {
-    virtual HRESULT STDMETHODCALLTYPE GetCount(UINT* pcObjects) = 0;
-    virtual HRESULT STDMETHODCALLTYPE GetAt(UINT i, REFIID riid, void** ppv) = 0;
-};
-
-const CLSID CLSID_VirtualDesktopManagerInternal = {
-    0xC5E0CDCA,0x7B6E,0x41B2,{0x9F,0xC4,0xD9,0x39,0x75,0xCC,0x46,0x7B}
-};
-
-void SwitchToDesktop(int targetIndex) {
-    if (!LoadTwinuiBuild()) { Wh_Log(L"[VD] twinui.pcshell.dll not loaded"); return; }
-
-    IID IID_VDMI, IID_VD;
-    bool usesHMonitor;
-    if      (g_twinuiBuild >= 26100) {
-        IID_VDMI = {0x53F5CA0B,0x158F,0x4124,{0x90,0x0C,0x05,0x71,0x58,0x06,0x0B,0x27}};
-        IID_VD   = {0x3F07F4BE,0xB107,0x441A,{0xAF,0x0F,0x39,0xD8,0x25,0x29,0x07,0x2C}};
-        usesHMonitor = false;
-    } else if (g_twinuiBuild >= 22621) {
-        IID_VDMI = {0xA3175F2D,0x239C,0x4BD2,{0x8A,0xA0,0xEE,0xBA,0x8B,0x0B,0x13,0x8E}};
-        IID_VD   = {0x3F07F4BE,0xB107,0x441A,{0xAF,0x0F,0x39,0xD8,0x25,0x29,0x07,0x2C}};
-        usesHMonitor = false;
-    } else if (g_twinuiBuild >= 22000) {
-        IID_VDMI = {0xB2F925B9,0x5A0F,0x4D2E,{0x9F,0x4D,0x2B,0x15,0x07,0x59,0x3C,0x10}};
-        IID_VD   = {0x536D3495,0xB208,0x4CC9,{0xAE,0x26,0xDE,0x81,0x11,0x27,0x5B,0xF8}};
-        usesHMonitor = true;
-    } else if (g_twinuiBuild >= 20348) {
-        IID_VDMI = {0x094AFE11,0x44F2,0x4BA0,{0x97,0x6F,0x29,0xA9,0x7E,0x26,0x3E,0xE0}};
-        IID_VD   = {0x62FDF88B,0x11CA,0x4AFB,{0x8B,0xD8,0x22,0x96,0xDF,0xAE,0x49,0xE2}};
-        usesHMonitor = true;
-    } else {
-        IID_VDMI = {0xF31574D6,0xB682,0x4CDC,{0xBD,0x56,0x18,0x27,0x86,0x0A,0xBE,0xC6}};
-        IID_VD   = {0xFF72FFDD,0xBE7E,0x43FC,{0x9C,0x03,0xAD,0x81,0x68,0x1E,0x88,0xE4}};
-        usesHMonitor = false;
-    }
-
-    IServiceProvider* svc = nullptr;
-    if (FAILED(CoCreateInstance(CLSID_ImmersiveShell, nullptr, CLSCTX_LOCAL_SERVER,
-                                IID_IServiceProvider, (void**)&svc)) || !svc)
-        { Wh_Log(L"[VD] CoCreateInstance failed"); return; }
-
-    IVirtualDesktopManagerInternal_S* mgr = nullptr;
-    svc->QueryService(CLSID_VirtualDesktopManagerInternal, IID_VDMI, (void**)&mgr);
-    svc->Release();
-    if (!mgr) { Wh_Log(L"[VD] QueryService VDMI failed"); return; }
-
-    IObjectArray_Local* arr = nullptr;
-    if (usesHMonitor) {
-        typedef HRESULT(STDMETHODCALLTYPE* FnM)(IVirtualDesktopManagerInternal_S*, HMONITOR, IObjectArray_Local**);
-        ((FnM)(*(void***)mgr)[7])(mgr, nullptr, &arr);
-    } else {
-        typedef HRESULT(STDMETHODCALLTYPE* Fn)(IVirtualDesktopManagerInternal_S*, IObjectArray_Local**);
-        ((Fn)(*(void***)mgr)[7])(mgr, &arr);
-    }
-    if (!arr) { mgr->Release(); Wh_Log(L"[VD] GetDesktops failed"); return; }
-
-    UINT count = 0;
-    arr->GetCount(&count);
-    if (targetIndex < 0 || (UINT)targetIndex >= count) { arr->Release(); mgr->Release(); return; }
-
-    IVirtualDesktop_S* target = nullptr;
-    arr->GetAt((UINT)targetIndex, IID_VD, (void**)&target);
-    arr->Release();
-    if (!target) { mgr->Release(); Wh_Log(L"[VD] GetAt failed"); return; }
-
-    if (usesHMonitor) {
-        typedef HRESULT(STDMETHODCALLTYPE* FnM)(IVirtualDesktopManagerInternal_S*, HMONITOR, IVirtualDesktop_S*);
-        ((FnM)(*(void***)mgr)[9])(mgr, nullptr, target);
-    } else {
-        typedef HRESULT(STDMETHODCALLTYPE* Fn)(IVirtualDesktopManagerInternal_S*, IVirtualDesktop_S*);
-        ((Fn)(*(void***)mgr)[9])(mgr, target);
-    }
-    target->Release();
-    mgr->Release();
-    Wh_Log(L"[VD] Switched to desktop %d", targetIndex);
-}
-
-
-// ============================================================
 // Button grid building
 // ============================================================
 
@@ -2741,17 +2015,50 @@ static Brush GetWindowsAccentBrush(
     }
 }
 
-// The one color-token parser now lives in _templates/color-tokens.h, embedded
-// above. Three independent copies existed across this family and agreed only
-// by luck; this delegation retires another. nullptr still means "no color
-// here" for an empty setting, an unknown token, or bad hex alike — never a
-// fallback brush, which would make an empty setting paint.
-static void LogAccentReadFailure() {
-    Wh_Log(L"[Color] Failed to read the Windows accent color");
-}
-
 static Brush ParseColorBrush(const std::wstring& value) {
-    return clr::ParseBrush(value.c_str(), LogAccentReadFailure);
+    using winrt::Windows::UI::ViewManagement::UIColorType;
+
+    if (value.empty())
+        return nullptr;
+
+    if (_wcsicmp(value.c_str(), L"transparent") == 0) {
+        SolidColorBrush brush;
+        brush.Color(winrt::Windows::UI::Color{0, 0, 0, 0});
+        return brush;
+    }
+
+    // Numbered Windows shades are accepted silently and stay undocumented.
+    static const struct { const wchar_t* token; UIColorType type; } kAccentTokens[] = {
+        {L"accent",       UIColorType::Accent},
+        {L"accentLight",  UIColorType::AccentLight2},
+        {L"accentDark",   UIColorType::AccentDark1},
+        {L"accentLight1", UIColorType::AccentLight1},
+        {L"accentLight2", UIColorType::AccentLight2},
+        {L"accentLight3", UIColorType::AccentLight3},
+        {L"accentDark1",  UIColorType::AccentDark1},
+        {L"accentDark2",  UIColorType::AccentDark2},
+        {L"accentDark3",  UIColorType::AccentDark3},
+    };
+    for (auto const& entry : kAccentTokens)
+        if (_wcsicmp(value.c_str(), entry.token) == 0)
+            return GetWindowsAccentBrush(entry.type);
+
+    if (value[0] != L'#') return nullptr;
+    std::wstring h = value.substr(1);
+    if (h.size() == 6) h = L"FF" + h;
+    if (h.size() != 8) return nullptr;
+    UINT32 val = 0;
+    for (wchar_t c : h) {
+        val <<= 4;
+        if      (c >= L'0' && c <= L'9') val |= (UINT32)(c - L'0');
+        else if (c >= L'A' && c <= L'F') val |= (UINT32)(10 + c - L'A');
+        else if (c >= L'a' && c <= L'f') val |= (UINT32)(10 + c - L'a');
+        else return nullptr;
+    }
+    winrt::Windows::UI::Color color;
+    color.A = (BYTE)(val >> 24); color.R = (BYTE)(val >> 16);
+    color.G = (BYTE)(val >> 8);  color.B = (BYTE)(val);
+    SolidColorBrush brush; brush.Color(color); return brush;
 }
 
 static std::wstring ToRoman(int n) {
@@ -2767,12 +2074,12 @@ static std::wstring ToRoman(int n) {
 }
 
 static std::wstring GetButtonLabel(int idx, int current) {
-    if (g_settings.labelFormat == VdLabelFormat::Symbol)
+    if (g_settings.labelFormat == L"symbol")
         return (idx == current) ? g_settings.activeSymbol
                                 : g_settings.inactiveSymbol;
-    if (g_settings.labelFormat == VdLabelFormat::Roman)
+    if (g_settings.labelFormat == L"roman")
         return ToRoman(idx + 1);
-    if (g_settings.labelFormat == VdLabelFormat::Custom && !g_settings.customLabels.empty()) {
+    if (g_settings.labelFormat == L"custom" && !g_settings.customLabels.empty()) {
         std::wistringstream ss(g_settings.customLabels);
         std::wstring token; int i = 0;
         while (std::getline(ss, token, L',')) { if (i++ == idx) return token; }
@@ -2823,27 +2130,25 @@ static Brush MakeShineBrush(Brush base) {
 // "Last button in the grid": the Task View button is just another cell, sized
 // and shaped like a desktop button, rather than a column or sliver alongside.
 static bool TaskViewInGrid() {
-    return g_settings.taskViewPlacement == VdTaskViewPlacement::InGrid;
+    return g_settings.taskViewPlacement == L"inGrid";
 }
 
 static bool TaskViewIsRow() {
     return g_settings.taskViewButton && !TaskViewInGrid() &&
-           (g_settings.taskViewPlacement == VdTaskViewPlacement::Above ||
-            g_settings.taskViewPlacement == VdTaskViewPlacement::Below);
+           (g_settings.taskViewPlacement == L"above" ||
+            g_settings.taskViewPlacement == L"below");
 }
 
 static int AvailableRows(bool quiet = false) {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
-    auto metrics = tbh::GetMetrics(hWnd);
-    if (!metrics.valid) {
+    RECT rect{};
+    if (!hWnd || !GetWindowRect(hWnd, &rect)) {
         if (!quiet)
             Wh_Log(L"[Layout] No taskbar window - assuming a single row");
         return 1;
     }
-    // constrainedDip is the taskbar's own thickness in DIPs whichever way it
-    // runs, so the physical-px/DIP conversion lives in the template rather
-    // than being re-derived in each mod.
-    double heightDip = metrics.constrainedDip;
+    UINT dpi = GetDpiForWindow(hWnd);
+    double heightDip = ngl::PixelsToDip((double)(rect.bottom - rect.top), dpi);
 
     // Reserve what the desktop grid does NOT get: the outer vertical padding,
     // and a Task View button placed above or below, which is a row of its own.
@@ -2859,10 +2164,9 @@ static int AvailableRows(bool quiet = false) {
                                  (double)g_settings.itemHeight,
                                  (double)g_settings.itemSpacing);
     if (!quiet) {
-        Wh_Log(L"[Layout] %s taskbar, %.0f dip across at %udpi, %.0f reserved "
+        Wh_Log(L"[Layout] taskbar %dpx at %udpi = %.0f dip, %.0f reserved "
                L"-> %d row(s) for the desktop buttons",
-               tbh::OrientationName(metrics.orientation), heightDip,
-               metrics.dpi, reserved, rows);
+               (int)(rect.bottom - rect.top), dpi, heightDip, reserved, rows);
     }
     return rows;
 }
@@ -2870,14 +2174,17 @@ static int AvailableRows(bool quiet = false) {
 static ngl::Config MakeLayoutConfig() {
     ngl::Config config;
     config.spacing = (double)g_settings.itemSpacing;
-    config.justify = g_settings.justify;
+    config.justify = g_settings.justify == L"start" ? ngl::Justify::Start
+                   : g_settings.justify == L"end"   ? ngl::Justify::End
+                                                    : ngl::Justify::Center;
     config.padX = (double)g_settings.padX;
     config.padY = (double)g_settings.padY;
     return config;
 }
 
 static ngl::FillOrder LayoutFillOrder() {
-    return g_settings.fillOrder;
+    return g_settings.fillOrder == L"columns" ? ngl::FillOrder::Columns
+                                              : ngl::FillOrder::Rows;
 }
 
 // This mod's token vocabulary. Desktops are dynamic, so they are numbered;
@@ -2936,11 +2243,11 @@ static std::wstring MasterToken() {
     int gap = g_settings.taskViewGap;
     if (!gap)
         return L"master";
-    auto where = g_settings.taskViewPlacement;
+    std::wstring const& where = g_settings.taskViewPlacement;
     int dx = 0, dy = 0;
-    if (where == VdTaskViewPlacement::Before)     dx = -gap;
-    else if (where == VdTaskViewPlacement::Above) dy = -gap;
-    else if (where == VdTaskViewPlacement::Below) dy = gap;
+    if (where == L"before")     dx = -gap;
+    else if (where == L"above") dy = -gap;
+    else if (where == L"below") dy = gap;
     else                        dx = gap;  // "after"
     return L"master[" + std::to_wstring(dx) + L"," + std::to_wstring(dy) + L"]";
 }
@@ -2948,13 +2255,13 @@ static std::wstring MasterToken() {
 static std::wstring AddTaskViewButton(std::wstring const& grid) {
     if (!g_settings.taskViewButton || TaskViewInGrid())
         return grid;
-    auto where = g_settings.taskViewPlacement;
+    std::wstring const& where = g_settings.taskViewPlacement;
     std::wstring master = MasterToken();
-    if (where == VdTaskViewPlacement::Before)
+    if (where == L"before")
         return master + L" | (" + grid + L")";
-    if (where == VdTaskViewPlacement::Above)
+    if (where == L"above")
         return master + L", (" + grid + L")";
-    if (where == VdTaskViewPlacement::Below)
+    if (where == L"below")
         return L"(" + grid + L"), " + master;
     return L"(" + grid + L") | " + master;  // "after"
 }
@@ -3021,7 +2328,7 @@ static bool ComputeButtonPlacements(int count,
     // Compare by item identity, not by the name typed: "desktop1" and "1" are
     // the same button, and a plain name comparison would append a duplicate of
     // every aliased desktop.
-    if (ok && !isAuto && g_settings.appendNewItems) {
+    if (ok && !isAuto && g_settings.newItems != L"ignore") {
         auto sameItem = [count](std::wstring const& placed,
                                 std::wstring const& wanted) {
             if (IsMasterToken(wanted))
@@ -3411,9 +2718,9 @@ static Grid BuildButtonGrid(int count, int current) {
 // ============================================================
 
 static bool PositionIsStartMode() {
-    auto pos = g_settings.position;
-    return pos == VdPosition::LeftOfStart || pos == VdPosition::OverStart ||
-           pos == VdPosition::RightOfStart;
+    const auto& pos = g_settings.position;
+    return pos == L"leftOfStart" || pos == L"overStart" ||
+           pos == L"rightOfStart";
 }
 
 static FrameworkElement FindStartButton(FrameworkElement root) {
@@ -3499,7 +2806,7 @@ static void PositionButtonGridNearStart() {
     ngl::Size gridSize = EstimateButtonGridSize(count);
     double gridW = gridSize.width;
     double gridH = gridSize.height;
-    auto pos = g_settings.position;
+    const auto& pos = g_settings.position;
 
     bool startHidden = (g_startOverlayStart.Visibility() == Visibility::Collapsed);
     double startW = g_startOverlayStart.ActualWidth();
@@ -3523,14 +2830,14 @@ static void PositionButtonGridNearStart() {
     double left = 0.0;
     double top  = 0.0;
 
-    if (pos == VdPosition::OverStart) {
+    if (pos == L"overStart") {
         // Grid overlays the Start button. Adjust.OffsetY nudges it vertically.
         double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
         left = anchorX;
         top  = y + (startH - gridH) / 2.0;
         if (left < 0.0) left = 0.0;
         SetStartButtonVisualOffset(0.0);
-    } else if (pos == VdPosition::RightOfStart) {
+    } else if (pos == L"rightOfStart") {
         // Grid sits immediately right of the start button and reserves room for
         // itself before taskbar items. TaskbarFrameRepeater.Margin.Left moves
         // Start too, so counter-shift Start visually back to its stable anchor.
@@ -3669,7 +2976,7 @@ static bool InjectButtonGridNearStart(FrameworkElement root) {
 // a new Auto-width column there, shift existing children to make room, and
 // append the grid. Returns the column index the grid was placed in.
 static int InsertGridIntoTrayColumns(Grid const& gridParent, Grid const& grid) {
-    auto pos = g_settings.position;
+    const auto& pos = g_settings.position;
 
     // Find a named direct child of the tray grid.
     auto findNamedDirect = [&](const wchar_t* name) -> FrameworkElement {
@@ -3686,13 +2993,13 @@ static int InsertGridIntoTrayColumns(Grid const& gridParent, Grid const& grid) {
     FrameworkElement refElem = nullptr;
     bool insertAfterRef = false;
 
-    if      (pos == VdPosition::BeforeOmni)
+    if      (pos == L"beforeOmni")
         refElem = findNamedDirect(L"ControlCenterButton");
-    else if (pos == VdPosition::BeforeClock)
+    else if (pos == L"beforeClock")
         refElem = findNamedDirect(L"NotificationCenterButton");
-    else if (pos == VdPosition::AfterClock)
+    else if (pos == L"afterClock")
         refElem = findNamedDirect(L"ShowDesktopStack");
-    else if (pos == VdPosition::AfterShowDesktop) {
+    else if (pos == L"afterShowDesktop") {
         refElem = findNamedDirect(L"ShowDesktopStack");
         insertAfterRef = true;
     }
@@ -4134,34 +3441,7 @@ static void RebuildButtonGrid() {
 // Apply / cleanup
 // ============================================================
 
-// Logged once per orientation change rather than on every retry.
-static bool g_verticalStandDownLogged = false;
-
 static void ApplyAllSettings() {
-    // A vertical taskbar ("Vertical Taskbar for Windows 11") walks the same
-    // tray path this mod walks and owns RenderTransform on those children to
-    // rotate them. This mod positions its button grid by writing that same
-    // property on the same elements, so the two cannot both be right. Stand
-    // down completely and leave the taskbar exactly as found; an Explorer
-    // rebuild re-evaluates if the user turns that mod off.
-    {
-        HWND probe = g_taskbarWnd ? g_taskbarWnd
-                                  : FindCurrentProcessTaskbarWnd();
-        auto metrics = tbh::GetMetrics(probe);
-        if (metrics.valid && !tbh::LayoutModelApplies(metrics)) {
-            if (!g_verticalStandDownLogged) {
-                g_verticalStandDownLogged = true;
-                Wh_Log(L"[Apply] Taskbar is %s - standing down. This mod "
-                       L"places its buttons with RenderTransform, which a "
-                       L"vertical taskbar mod already owns on the same "
-                       L"elements; leaving the native taskbar untouched.",
-                       tbh::OrientationName(metrics.orientation));
-            }
-            return;
-        }
-        g_verticalStandDownLogged = false;
-    }
-
     HWND hWnd = FindCurrentProcessTaskbarWnd();
     if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return; }
     g_taskbarWnd = hWnd;
@@ -4258,19 +3538,20 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
 // Symbol hook setup
 // ============================================================
 
-// Explorer rebuilt the taskbar: everything we were holding is gone. NEW in
-// v2.1 — this mod previously relied on the IconView hook plus the bounded
-// retry alone, so a rebuild that did not construct a fresh IconView could
-// leave the grid missing until the next retry expired. TrayUI::StartTaskbar is
-// the family's standard rebuild signal and the template hooks it for us.
-static void OnTaskbarRebuilt() {
-    if (g_unloading) return;
-    g_taskbarWnd = nullptr;
-    ApplyAllSettingsOnWindowThread();
-}
-
 static bool HookTaskbarDllSymbols() {
-    return tbh::HookTaskbarSymbols(OnTaskbarRebuilt);
+    HMODULE h = LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!h) return false;
+    WindhawkUtils::SYMBOL_HOOK taskbarDllHooks[] = {
+        { {LR"(const CTaskBand::`vftable'{for `ITaskListWndSite'})"},
+          &CTaskBand_ITaskListWndSite_vftable },
+        { {LR"(public: virtual class std::shared_ptr<class TaskbarHost> __cdecl CTaskBand::GetTaskbarHost(void)const )"},
+          &CTaskBand_GetTaskbarHost_Original },
+        { {LR"(public: int __cdecl TaskbarHost::FrameHeight(void)const )"},
+          &TaskbarHost_FrameHeight_Original },
+        { {LR"(public: void __cdecl std::_Ref_count_base::_Decref(void))"},
+          &std__Ref_count_base__Decref_Original },
+    };
+    return WindhawkUtils::HookSymbols(h, taskbarDllHooks, ARRAYSIZE(taskbarDllHooks));
 }
 
 static bool HookSystemTraySymbols(HMODULE hModule) {
@@ -4301,9 +3582,6 @@ static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileNam
 
 BOOL Wh_ModInit() {
     Wh_Log(L"[Init] VD Switcher v2.0");
-    // Failures inside a template-marshalled UI callback report in this mod's
-    // voice rather than vanishing.
-    tbh::SetExceptionLogger(LogCurrentUiException);
     LoadSettings();
     DetectExplorerBuild();
 
