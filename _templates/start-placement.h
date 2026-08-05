@@ -25,6 +25,16 @@
 // Start's box is still the less reliable reference, so Over falls back to root
 // centering when Start reports no usable height.
 //
+// SIDE::OVER IS FOR taskbar-vd-switcher ONLY. It is in the shared template
+// because that is where the geometry belongs, not because it is a general
+// offer. A mod that overlays Start covers it, and that is only defensible for
+// a control the user deliberately put there and can nudge clear on a
+// double-height taskbar; on a single-height taskbar there is nowhere to nudge
+// TO and the group simply sits on top of the Start button. Every other mod in
+// this family uses Left or Right, which reserve their own lane. Do not offer
+// Over in another mod's settings without a specific reason and a live test
+// that shows Start is still usable.
+//
 // v1.2 geometry fix: the group is centered vertically against the taskbar
 // RootGrid, not against Start's reported box — Start's ActualHeight can
 // include asymmetric padding, which visibly mis-centered groups in

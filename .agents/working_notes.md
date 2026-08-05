@@ -4,27 +4,60 @@ Living todo list — current state only, pruned every session. Completed work
 (past tense) goes in [work_log.md](work_log.md). Durable rules live in
 [README.md](README.md); reference material in [knowledge/](knowledge/).
 
-## Current focus — START HERE (handoff, 2026-07-31)
+## Current focus — START HERE (handoff, 2026-08-05)
 
-**Roll the settings contract + layout template through the remaining mods.**
-VD Switcher is finished and green but deliberately NOT shipped: the user wants
-the other mods migrated first, because a snag in one of them may feed back into
-the template, and it is cheaper to change the template once than to ship VD
-Switcher twice.
+**THE GOAL, in the user's words:** every mod in the family updated so they are
+all on the same page and **fully templated to the maximum each one can be**,
+then pushed, tested and submitted. Work in whole builds. **Do not update the
+notes at every step** — do the work, then record it once.
 
-**OmniButton v2.0 SHIPPED 2026-08-03** — PR #4855 updated to v2.0, CI green,
-awaiting maintainer review. It is the first mod in the family to reach a
-maintainer on the 2.0 contract, so its review feedback is the best available
-signal for the mods still queued behind it. See its section below.
+### Template parity, measured 2026-08-05
 
-Still to migrate, one live-tested build at a time — the parity gate reports the
-drift: Privacy Anchor (`nested-group-layout.h` **and `start-placement.h`**, the
-latter still uninvestigated), VD Switcher and Tray Utility
-(`nested-group-layout.h`), Clock Spacer (embeds none).
+| Mod | State |
+|---|---|
+| `omnibutton-customizer` | **OK — 7 embedded.** SUBMITTED, PR #4855, CI green |
+| `privacy-indicator-anchor` | **OK — 8 embedded.** SUBMITTED, PR #4843, CI green |
+| `taskbar-vd-switcher` | **OK — 6 embedded.** Done, **NOT live-tested**, PR #4844 open |
+| `taskbar-clock-spacer` | **OK — 3 embedded.** Done, **NOT live-tested**, PR #4443 open |
+| `tray-utility-customizer` | **DRIFT — needs a full 2.0 rework, not a swap** |
+| `taskbar-folder-menus` | **0 embedded — needs a full 2.0 rework** |
 
-After the open-PR rollout, **Taskbar Folder Menus and Tray Utility Customizer
-are both queued for full 2.0 family-contract upgrades**. Their merged v0.7 and
-v1.1 versions are the published baselines, not the end of their family rollout.
+### The two remaining mods need REWORKS, not template swaps
+
+This was measured, not assumed — a mechanical re-embed was attempted on Tray
+Utility and reverted when it failed to compile.
+
+**`tray-utility-customizer`** carries a ~190-line PRE-v2.0 copy of the layout
+template with a different API: `Config::crossAlign` and a `primaryAxis`
+setting. The v2.0+ grammar has no primary axis — `|` is ALWAYS horizontal and
+`,` ALWAYS vertical — and `crossAlign` became `Justify`. So dropping in v2.5
+breaks every call site, and worse, **any user expression written with
+`primaryAxis: column` means the transpose of what it will mean afterwards.**
+That is a settings break needing its own live test. Its settings
+(`layout`, `primaryAxis`, `crossAlign`, `position`, per-icon offsets) all move
+to the grouped contract at the same time.
+
+**`taskbar-folder-menus`** embeds only `smart_grid`, which is SUPERSEDED. Its
+`gridMode` / `smartLayout` / `gridRows` / `gridColumns` /
+`shortGroupPosition` / `shortGroupAlign` all collapse into one
+`Layout.Arrangement`. It is the largest single gap in the family and also
+where diegoalejo15's contributed features land (see below).
+
+Both are merged/published, so each is a version-bump PR against an existing
+mod, and each is one build: adopt templates + move settings to the contract +
+live test + submit.
+
+### Do these first, they are finished and only need you
+
+1. **Live-test VD Switcher** (`655ead2`). Three behavior changes: every
+   `$options` value is now an enum at load (exercise label format and Task
+   View placement), `TrayUI::StartTaskbar` is a NEW rebuild trigger (restart
+   Explorer), and vertical-taskbar stand-down.
+2. **Live-test Clock Spacer.** It gained `taskbar-host`, so its
+   `TrayUI::StartTaskbar` hook is now the template's and is REQUIRED rather
+   than optional — if taskbar.dll symbols fail it falls back to the
+   LoadLibraryExW watcher as before, but that path is worth one check.
+   Its README_MISMATCH is **pre-existing**, not from this work.
 
 ### Privacy Anchor — TEMPLATE ROLLOUT DONE AND LIVE-CONFIRMED 2026-08-03
 
@@ -1262,51 +1295,43 @@ three honest ways out:
 Do NOT start by writing rotation math. Start by finding out whether
 `RenderTransform` can be shared at all — that single answer picks the route.
 
-### DISCUSSION #4542 — read in full 2026-08-04, and there IS an unacted offer
+### DISCUSSION #4542 — TABLED at the user's direction
 
-https://github.com/ramensoftware/windhawk-mods/discussions/4542 — "Guidance
-requested: interoperable placement for taskbar mods", opened by the user
-2026-06-24. Five top-level comments; all read.
+https://github.com/ramensoftware/windhawk-mods/discussions/4542. The cross-mod
+placement-coordination design is **TABLED**. The user has an open conversation
+with the agent about it and is not satisfied with the current shape. **Do not
+restart that design without being asked.**
 
-**m417z answered the governance question on day one** (2026-06-24): *"What's
-the downside of such coordination? If it's just between your mods, I see no
-problem with it."* So a placement-coordination convention across this family is
-MAINTAINER-APPROVED and has been for six weeks. `_templates/placement-contract.md`
-is not blocked on permission; it is only blocked on us.
+### FOLDER MENUS — diegoalejo15's contributed build, reviewed 2026-08-04
 
-**UNACTED: diegoalejo15 offered working code for Taskbar Folder Menus**
-(2026-07-27), attached as a full `.wh.cpp`:
-https://github.com/user-attachments/files/30435360/taskbar-folder-menus.wh.cpp
+He forked our merged v0.7 and attached a working build (2603 lines vs our
+2414, ~900 changed): https://github.com/user-attachments/files/30435360/taskbar-folder-menus.wh.cpp
+Downloaded and diffed rather than read from the thread. Three features:
 
-Three features in it, none of which Folder Menus has:
-
-| Feature | Note |
+| Feature | Verdict |
 |---|---|
-| Position: **after taskbar icons** | Answers their earlier request to escape the systray and sit among the taskbar items |
-| Switch to use the **folder's own default icon** instead of label text/emoji | DylanCole954 tried it and called this the standout |
-| **Per-folder position** — each folder can sit somewhere different | Currently all folders share one position |
+| `useDefaultIcon` per folder — the folder's own Shell icon as button content | **TAKE IT.** No template covers button CONTENT. Fix two things while taking it: `SHGFI_SMALLICON` pins 16px (soft when scaled — prefer `SHGFI_SYSICONINDEX` + `IImageList` sized from the button and DPI), and there is no cache, so it re-extracts on every rebuild |
+| `afterTaskbarIcons` — a position after the last pinned/running icon | **Take the ANCHOR IDEA, not the code.** It is structurally `start-placement.h`: owned group in RootGrid, margin-positioned, refreshed on LayoutUpdated. Keep his skip-zero-size-children trick, which dodges ItemsRepeater virtualization |
+| Per-folder `position` (+ per-folder `label`) | **Contract question first.** The 2.0 contract has one group-level `Placement.Position` and no per-item override. Both templates cope — `AcquireAt` already takes a marker name, `ngl` is a pure function — so this is a `settings-profiles.md` decision, and Tray Utility will want the same answer |
 
-The user replied on 2026-07-24 "the next version already has more placement
-options, just stay tuned" — that promise is outstanding, and Folder Menus has
-had no work since it merged at v0.7.
+**DylanCole954's bug is diagnosed.** He reported the buttons sliding under the
+system tray when the taskbar fills; diegoalejo15 could not reproduce.
+**His positioning code has no edge clamp anywhere** — verified, every `clamp`
+in his file is grid math. The margin just follows the last icon's right edge.
+That is why reproduction depends on icon count vs taskbar width.
+`start-placement.h` has clamped since v1.1, **but its clamp is not sufficient
+for this anchor**: it clamps to the RootGrid's right edge, and the tray lives
+INSIDE the RootGrid. For `afterTaskbarIcons` the clamp must be against the
+**tray's left edge** (`SystemTrayFrameGrid`). That is the real fix and the
+template extension this needs.
 
-**OPEN BUG REPORT against that build, unresolved between the two of them**
-(DylanCole954, 2026-07-28/29): when the taskbar fills up, the folder buttons
-run into the system-tray area and get hidden behind a painted tray.
-Reproduced on a SINGLE-row taskbar too, so it is not multirow-specific.
-diegoalejo15 could not reproduce it. Screenshots are in the thread. This is
-worth understanding before adopting the "after taskbar icons" position, since
-that position is where the overflow happens.
+Also open in that thread: a folder button that launches an executable, and
+placement BEFORE the taskbar buttons (same anchor work as after).
+**Credit diegoalejo15 in the changelog when this ships.**
 
-Also outstanding from that thread: DylanCole954 asked for a folder button that
-runs an executable, and for placement BEFORE the taskbar buttons rather than
-after.
+Do NOT copy his preference changes: `maxDepth 3` (ours 0), 34x34 buttons
+(ours 24x22), `fontSize 24` (ours 10), `buttonSpacing 0` (ours 4).
 
-NEXT STEP: review the attached file properly against the current Folder Menus
-source, decide which of the three features to take, credit diegoalejo15 in the
-changelog, and reproduce the overflow bug before shipping the position that
-triggers it. Folder Menus is already queued for its 2.0 rework, so this folds
-into that rather than being a separate pass.
 
 ## Lab-level todos
 - [x] FORK `main` RESET — DONE 2026-07-23. `sb4ssman/windhawk-mods` `main` was

@@ -1344,6 +1344,7 @@ using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
 
 enum class Side {
     Left,
+    Over,   // overlays Start; reserves no space, nudged clear by the adopter
     Right,
 };
 
@@ -1440,7 +1441,10 @@ inline bool Position(Lease& lease) noexcept {
         double rawX = point.X - currentShift;
 
         double spacing = std::max(0.0, lease.spacing);
-        double push = groupWidth + spacing;
+        bool overlays = lease.side == Side::Over;
+        // Over reserves nothing, so the repeater keeps its own margin. Writing
+        // the push here would open a lane the group is not going to occupy.
+        double push = overlays ? 0.0 : groupWidth + spacing;
         if (lease.taskItemsPanel) {
             auto margin = lease.taskItemsPanel.Margin();
             double needed =
@@ -1459,7 +1463,9 @@ inline bool Position(Lease& lease) noexcept {
         // roles invert: the pushed items leave the Right gap by themselves,
         // and a Left group needs Start pushed out of the way instead.
         double neededShift;
-        if (lease.side == Side::Left)
+        if (overlays)
+            neededShift = 0.0;  // Start stays exactly where Windows put it
+        else if (lease.side == Side::Left)
             neededShift = lease.startInTaskItemsPanel ? 0.0 : push;
         else
             neededShift = lease.startInTaskItemsPanel ? -push : 0.0;
@@ -1478,7 +1484,8 @@ inline bool Position(Lease& lease) noexcept {
 
         // Place the group relative to where Start actually ends up.
         double startFinalX = rawX + neededShift;
-        double left = lease.side == Side::Left
+        double left = overlays ? startFinalX
+                    : lease.side == Side::Left
                           ? startFinalX - groupWidth - spacing
                           : startFinalX + startWidth + spacing;
         if (left < 0.0)
@@ -1486,10 +1493,21 @@ inline bool Position(Lease& lease) noexcept {
 
         // v1.2: center against the taskbar root; Start's own box is not a
         // reliable vertical reference.
+        // v1.3: except for Over, which is DEFINED relative to Start — the
+        // adopter's vertical offset nudges it above or below Start from there,
+        // and root-centering would make that nudge start from the wrong place.
+        // Start's box is still the weaker reference, so fall back to root when
+        // it reports nothing usable.
         double rootHeight = lease.rootGrid.ActualHeight();
-        double top = rootHeight > 0.0
-                         ? (rootHeight - groupHeight) / 2.0
-                         : point.Y + (startHeight - groupHeight) / 2.0;
+        double startCenteredTop = point.Y + (startHeight - groupHeight) / 2.0;
+        double top;
+        if (overlays)
+            top = startHeight > 0.0 || rootHeight <= 0.0
+                      ? startCenteredTop
+                      : (rootHeight - groupHeight) / 2.0;
+        else
+            top = rootHeight > 0.0 ? (rootHeight - groupHeight) / 2.0
+                                   : startCenteredTop;
         if (top < 0.0)
             top = 0.0;
         double rootWidth = lease.rootGrid.ActualWidth();
