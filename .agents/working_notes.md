@@ -1085,6 +1085,8 @@ Adopted `color-tokens`, `visual-tree-walk`, `settings-io`, `taskbar-host` and
 
 Row capacity now takes its DIP height from `tbh::GetMetrics`.
 
+**WANT:** hover previews of target virtual desktops.
+
 **Still hand-rolled, and worth a second pass AFTER this build is confirmed:**
 `injected-grid-column.h` and `button-surface.h` are both genuinely adoptable —
 they were left alone only because they touch the column-injection and Start
@@ -1383,6 +1385,9 @@ Do NOT copy his preference changes: `maxDepth 3` (ours 0), 34x34 buttons
 
 - Densification layout (see work log 2026-05-08; `_research/densification-analysis.md`)
 - Privacy anchor filler/status mode (mic dB meter, globe affordance)
+- **Privacy Indicator Anchor: add Recall and OneDrive** (user request, 2026-08-16) — surface both
+  alongside the existing `mic` / `camera` / `copilot` semantic tokens. Both observe or move user
+  data without an indicator of their own, which is exactly the gap this mod exists to close.
 - Folder-menus chevron-area sharing experiment
 - Tray Stats Panel mod (free-standing stats panel)
 - OmniButton glyph color animations — archived by user direction, needs a
