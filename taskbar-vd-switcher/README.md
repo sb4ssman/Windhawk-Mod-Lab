@@ -39,7 +39,7 @@ is given rather than to a desktop count.*
 
 ## Features
 
-- Numbered, roman-numeral, indicator-symbol, or custom-label buttons
+- Numbered, roman-numeral, indicator-symbol, first-letter, or custom-label buttons
 - Automatic grid that fits the buttons to the taskbar's height, or an arrangement you write yourself
 - Optional Task View button as a full column, a sliver, or one more button in the grid
 - Highlights the active desktop immediately on switch
@@ -167,7 +167,7 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Label format | Numbers | Numbers · Roman numerals · Indicator symbols · Custom labels |
+| Label format | Numbers | Numbers · Roman numerals · Indicator symbols · First letter of desktop name (unnamed desktops use their number) · Custom labels |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
 | Active indicator symbol | ● | Current desktop's symbol in Indicator symbols mode |
 | Inactive indicator symbol | ○ | Other desktops' symbol; paste 🟢 above and 🔴 here for a stoplight |
