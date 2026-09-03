@@ -53,7 +53,7 @@ is given rather than to a desktop count.*
 
 ## Features
 
-- Numbered, roman-numeral, indicator-symbol, or custom-label buttons
+- Numbered, roman-numeral, indicator-symbol, first-letter, or custom-label buttons
 - Automatic grid that fits the buttons to the taskbar's height, or an arrangement you write yourself
 - Optional Task View button as a full column, a sliver, or one more button in the grid
 - Highlights the active desktop immediately on switch
@@ -181,7 +181,7 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Label format | Numbers | Numbers · Roman numerals · Indicator symbols · Custom labels |
+| Label format | Numbers | Numbers · Roman numerals · Indicator symbols · First letter of desktop name (unnamed desktops use their number) · Custom labels |
 | Custom labels | *(empty)* | Comma-separated, e.g. `H,W,M` |
 | Active indicator symbol | ● | Current desktop's symbol in Indicator symbols mode |
 | Inactive indicator symbol | ○ | Other desktops' symbol; paste 🟢 above and 🔴 here for a stoplight |
@@ -321,10 +321,14 @@ This mod builds directly on patterns established by several community mods:
 - Content:
   - LabelFormat: "number"
     $name: Label format
+    $description: >-
+      First letter uses the name each desktop has in Task View; unnamed
+      desktops use their number.
     $options:
     - "number": "Numbers  1  2  3"
     - "roman": "Roman numerals  I  II  III"
     - "symbol": "Indicator symbols  ●  ○  ○"
+    - "initial": "First letter of desktop name  H  W  M"
     - "custom": "Custom labels"
   - CustomLabels: ""
     $name: Custom labels
@@ -1985,7 +1989,7 @@ enum class VdPosition {
     BeforeIcons, BeforeOmni, BeforeClock, AfterClock, AfterShowDesktop,
     LeftOfStart, OverStart, RightOfStart,
 };
-enum class VdLabelFormat { Number, Roman, Symbol, Custom };
+enum class VdLabelFormat { Number, Roman, Symbol, Initial, Custom };
 enum class VdTaskViewPlacement { Before, After, Above, Below, InGrid };
 
 static PCWSTR VdPositionName(VdPosition p) {
@@ -2084,6 +2088,7 @@ static void LoadSettings() {
         {L"number", VdLabelFormat::Number},
         {L"roman", VdLabelFormat::Roman},
         {L"symbol", VdLabelFormat::Symbol},
+        {L"initial", VdLabelFormat::Initial},
         {L"custom", VdLabelFormat::Custom},
     };
     g_settings.labelFormat = sio::LoadChoice(L"Content.LabelFormat",
@@ -2607,7 +2612,9 @@ static int ReadCurrentDesktop() {
 }
 
 // Read Windows display names for all desktops (registry Desktops\{GUID}\Name).
-// Falls back to "Desktop N" when a desktop has no custom name.
+// A desktop that was never renamed has no Name value and yields an empty
+// string, so callers can tell "no name" apart from a name and pick their own
+// fallback (tooltips say "Desktop N", the First-letter label shows the number).
 static std::vector<std::wstring> ReadDesktopNames(int count) {
     DWORD sessionId = 0;
     ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
@@ -2622,7 +2629,6 @@ static std::vector<std::wstring> ReadDesktopNames(int count) {
 
     std::vector<std::wstring> names(count);
     for (int i = 0; i < count; i++) {
-        names[i] = L"Desktop " + std::to_wstring(i + 1);
         if ((int)ids.size() >= (i + 1) * 16) {
             GUID g; memcpy(&g, ids.data() + i * 16, 16);
             wchar_t guidStr[64];
@@ -2766,12 +2772,30 @@ static std::wstring ToRoman(int n) {
     return r;
 }
 
-static std::wstring GetButtonLabel(int idx, int current) {
+static std::wstring GetButtonLabel(int idx, int current, std::wstring const& name) {
     if (g_settings.labelFormat == VdLabelFormat::Symbol)
         return (idx == current) ? g_settings.activeSymbol
                                 : g_settings.inactiveSymbol;
     if (g_settings.labelFormat == VdLabelFormat::Roman)
         return ToRoman(idx + 1);
+    if (g_settings.labelFormat == VdLabelFormat::Initial) {
+        // First code point of the desktop's name, kept whole: a surrogate pair
+        // for emoji, plus a trailing BMP variation selector or Latin combining
+        // mark so "é" and "❤️" survive. Not full grapheme segmentation: ZWJ
+        // emoji sequences, skin tones and flags are cut after the first code
+        // point. An unnamed desktop (empty name) falls through to the number.
+        size_t pos = name.find_first_not_of(L" \t\u00A0\u3000");
+        if (pos != std::wstring::npos) {
+            size_t end = pos + 1;
+            if (end < name.size() && IS_SURROGATE_PAIR(name[pos], name[end]))
+                end++;
+            while (end < name.size() &&
+                   ((name[end] >= 0x0300 && name[end] <= 0x036F) ||
+                    (name[end] >= 0xFE00 && name[end] <= 0xFE0F)))
+                end++;
+            return name.substr(pos, end - pos);
+        }
+    }
     if (g_settings.labelFormat == VdLabelFormat::Custom && !g_settings.customLabels.empty()) {
         std::wistringstream ss(g_settings.customLabels);
         std::wstring token; int i = 0;
@@ -3309,7 +3333,9 @@ static Grid BuildButtonGrid(int count, int current) {
         for (int i = 0; i < count; i++) {
             if (!map.empty())
                 map += L"  ";
-            map += std::to_wstring(i + 1) + L"=" + desktopNames[i];
+            map += std::to_wstring(i + 1) + L"=" +
+                   (desktopNames[i].empty() ? L"Desktop " + std::to_wstring(i + 1)
+                                            : desktopNames[i]);
         }
         if (g_settings.taskViewButton)
             map += L"  master=Task View";
@@ -3355,7 +3381,7 @@ static Grid BuildButtonGrid(int count, int current) {
         ToggleButton btn;
         btn.Name(L"VdBtn_" + std::to_wstring(idx));
         TextBlock content;
-        content.Text(winrt::hstring(GetButtonLabel(idx, current)));
+        content.Text(winrt::hstring(GetButtonLabel(idx, current, desktopNames[idx])));
         content.HorizontalAlignment(HorizontalAlignment::Center);
         content.VerticalAlignment(VerticalAlignment::Center);
         btn.Content(content);
@@ -3367,7 +3393,9 @@ static Grid BuildButtonGrid(int count, int current) {
         btn.HorizontalAlignment(HorizontalAlignment::Left);
         btn.VerticalAlignment(VerticalAlignment::Top);
         btn.Margin({p.x, p.y, 0.0, 0.0});
-        ToolTipService::SetToolTip(btn, winrt::box_value(winrt::hstring(desktopNames[idx])));
+        ToolTipService::SetToolTip(btn, winrt::box_value(winrt::hstring(
+            desktopNames[idx].empty() ? L"Desktop " + std::to_wstring(idx + 1)
+                                      : desktopNames[idx])));
 
         int capturedIdx = idx;
         auto clickToken = btn.Click([capturedIdx](auto const& sender, auto const&) {
