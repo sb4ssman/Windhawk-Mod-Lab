@@ -1,0 +1,158 @@
+{
+  "Placement.Position": {
+    "Kind": "String",
+    "Value": "afterClock"
+  },
+  "Placement.AllTaskbars": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Content.LabelFormat": {
+    "Kind": "String",
+    "Value": "number"
+  },
+  "Content.CustomLabels": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "Content.ActiveSymbol": {
+    "Kind": "String",
+    "Value": "●"
+  },
+  "Content.InactiveSymbol": {
+    "Kind": "String",
+    "Value": "○"
+  },
+  "Content.TaskViewButton": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Content.TaskViewLabel": {
+    "Kind": "String",
+    "Value": "⊞"
+  },
+  "Content.TaskViewPlacement": {
+    "Kind": "String",
+    "Value": "after"
+  },
+  "Layout.Arrangement": {
+    "Kind": "String",
+    "Value": "auto"
+  },
+  "Layout.FillOrder": {
+    "Kind": "String",
+    "Value": "rows"
+  },
+  "Layout.Justify": {
+    "Kind": "String",
+    "Value": "center"
+  },
+  "Layout.NewItems": {
+    "Kind": "String",
+    "Value": "append"
+  },
+  "Size.ItemWidth": {
+    "Kind": "DWord",
+    "Value": 20
+  },
+  "Size.ItemHeight": {
+    "Kind": "DWord",
+    "Value": 22
+  },
+  "Size.ItemSpacing": {
+    "Kind": "DWord",
+    "Value": 2
+  },
+  "Size.TaskViewSize": {
+    "Kind": "DWord",
+    "Value": 14
+  },
+  "Size.TaskViewSpan": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Size.TaskViewGap": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Adjust.PadX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Adjust.PadY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Adjust.OffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Adjust.OffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Surface.FontSize": {
+    "Kind": "DWord",
+    "Value": 12
+  },
+  "Surface.FontFamily": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "Surface.HoverBackgroundColor": {
+    "Kind": "String",
+    "Value": "accentLight"
+  },
+  "Surface.PressedBackgroundColor": {
+    "Kind": "String",
+    "Value": "acecntDark"
+  },
+  "Surface.BorderColor": {
+    "Kind": "String",
+    "Value": "#888888"
+  },
+  "Surface.BorderThickness": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Surface.CornerRadius": {
+    "Kind": "DWord",
+    "Value": 4
+  },
+  "Surface.Opacity": {
+    "Kind": "DWord",
+    "Value": 75
+  },
+  "Surface.ShineEffect": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Surface.TaskViewFontFamily": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "State.ActiveTextColor": {
+    "Kind": "String",
+    "Value": "#ffffff"
+  },
+  "State.InactiveTextColor": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "State.ActiveBackgroundColor": {
+    "Kind": "String",
+    "Value": "accent"
+  },
+  "State.InactiveBackgroundColor": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "State.ActiveBold": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Behavior.HideWhenSingle": {
+    "Kind": "DWord",
+    "Value": 0
+  }
+}

@@ -1699,7 +1699,7 @@ private:
 } // namespace windhawk_mod_templates::taskbar_host
 
 // ── Injected grid column ───────────────────────────────────────────────────
-// Template block: _templates/injected-grid-column.h v1.3 (verbatim copy —
+// Template block: _templates/injected-grid-column.h v1.2 (verbatim copy —
 // keep in sync with the template; Windhawk mods are single-file).
 
 namespace windhawk_mod_templates::injected_grid_column {
@@ -1708,8 +1708,6 @@ using winrt::Windows::UI::Xaml::FrameworkElement;
 using winrt::Windows::UI::Xaml::GridUnitType;
 using winrt::Windows::UI::Xaml::Controls::ColumnDefinition;
 using winrt::Windows::UI::Xaml::Controls::Grid;
-using winrt::Windows::UI::Xaml::Controls::Panel;
-using winrt::Windows::UI::Xaml::Controls::StackPanel;
 
 enum class Anchor {
     BeforeIcons,
@@ -1719,67 +1717,13 @@ enum class Anchor {
     AfterShowDesktop,
 };
 
-// Which layout contract the live tray panel follows.
-enum class Kind {
-    Unsupported,  // some other Panel: do not guess its layout semantics.
-    Columns,      // Grid. A slot is a column index.
-    Order,        // StackPanel. A slot is a child index.
-};
-
 struct Lease {
     std::wstring markerName;
-    int slot = -1;
-    Kind kind = Kind::Unsupported;
+    int column = -1;
 };
 
-inline Kind Classify(FrameworkElement const& parent) {
-    if (!parent)
-        return Kind::Unsupported;
-    if (parent.try_as<Grid>())
-        return Kind::Columns;
-    if (parent.try_as<StackPanel>())
-        return Kind::Order;
-    return Kind::Unsupported;
-}
-
-// Class name of an unexpected panel, so a mod can log what it actually got
-// instead of reporting a bare "not found" for an element that is right there.
-inline std::wstring ClassName(FrameworkElement const& element) {
-    if (!element)
-        return L"(null)";
-    try {
-        return std::wstring(winrt::get_class_name(element));
-    } catch (...) {
-        return L"(unknown)";
-    }
-}
-
-// Named direct children, for logging when an anchor cannot be resolved. A tray
-// restructure shows up here as missing or renamed names, which is the one thing
-// a user's debug log otherwise cannot tell us.
-inline std::wstring DescribeChildren(Panel const& parent) {
-    if (!parent)
-        return L"(none)";
-    std::wstring names;
-    try {
-        for (auto const& child : parent.Children()) {
-            auto element = child.try_as<FrameworkElement>();
-            if (!element || element.Name().empty())
-                continue;
-            if (!names.empty())
-                names += L", ";
-            names += element.Name();
-        }
-    } catch (...) {
-        return L"(unreadable)";
-    }
-    return names.empty() ? L"(no named children)" : names;
-}
-
-inline FrameworkElement FindDirectChild(Panel const& parent,
+inline FrameworkElement FindDirectChild(Grid const& parent,
                                         wchar_t const* name) {
-    if (!parent || !name)
-        return nullptr;
     for (auto const& child : parent.Children()) {
         auto element = child.try_as<FrameworkElement>();
         if (element && element.Name() == name)
@@ -1788,23 +1732,9 @@ inline FrameworkElement FindDirectChild(Panel const& parent,
     return nullptr;
 }
 
-inline int IndexOfChild(Panel const& parent, FrameworkElement const& child) {
-    if (!parent || !child)
-        return -1;
-    for (uint32_t i = 0; i < parent.Children().Size(); ++i) {
-        if (parent.Children().GetAt(i).try_as<FrameworkElement>() == child)
-            return static_cast<int>(i);
-    }
-    return -1;
-}
-
-inline bool ResolveSlot(Panel const& parent, Anchor anchor, int& slot) {
-    Kind kind = Classify(parent);
-    if (kind == Kind::Unsupported)
-        return false;
-
+inline bool ResolveColumn(Grid const& parent, Anchor anchor, int& column) {
     if (anchor == Anchor::BeforeIcons) {
-        slot = 0;
+        column = 0;
         return true;
     }
 
@@ -1830,147 +1760,80 @@ inline bool ResolveSlot(Panel const& parent, Anchor anchor, int& slot) {
 
     auto reference = FindDirectChild(parent, referenceName);
     if (!reference)
-        return false; // Never silently turn an unavailable anchor into slot 0.
-
-    if (kind == Kind::Columns) {
-        slot = Grid::GetColumn(reference) +
-               (after ? std::max(1, Grid::GetColumnSpan(reference)) : 0);
-        return true;
-    }
-
-    // Order: the reference's own child index is the slot. There is no span to
-    // step over -- a StackPanel child occupies exactly one position.
-    int index = IndexOfChild(parent, reference);
-    if (index < 0)
-        return false;
-    slot = index + (after ? 1 : 0);
+        return false; // Never silently turn an unavailable anchor into column 0.
+    column = Grid::GetColumn(reference) +
+             (after ? std::max(1, Grid::GetColumnSpan(reference)) : 0);
     return true;
 }
 
-inline bool AcquireAt(Panel const& parent, int slot,
+inline bool AcquireAt(Grid const& parent, int column,
                       std::wstring const& markerName, Lease& lease) {
-    Kind kind = Classify(parent);
-    if (kind == Kind::Unsupported || slot < 0 || markerName.empty() ||
+    if (!parent || column < 0 || markerName.empty() ||
         FindDirectChild(parent, markerName.c_str()))
         return false;
+
+    ColumnDefinition definition;
+    definition.Width({1.0, GridUnitType::Auto});
+    if (static_cast<uint32_t>(column) < parent.ColumnDefinitions().Size())
+        parent.ColumnDefinitions().InsertAt(column, definition);
+    else
+        parent.ColumnDefinitions().Append(definition);
+
+    for (auto const& child : parent.Children()) {
+        auto element = child.try_as<FrameworkElement>();
+        if (!element) continue;
+        int start = Grid::GetColumn(element);
+        int span = Grid::GetColumnSpan(element);
+        if (start >= column)
+            Grid::SetColumn(element, start + 1);
+        else if (start + span > column)
+            Grid::SetColumnSpan(element, span + 1);
+    }
 
     Grid marker;
     marker.Name(markerName);
     marker.Width(0.0);
     marker.Height(0.0);
     marker.IsHitTestVisible(false);
+    Grid::SetColumn(marker, column);
+    parent.Children().Append(marker);
 
-    if (kind == Kind::Columns) {
-        auto grid = parent.try_as<Grid>();
-        if (!grid)
-            return false;
-        ColumnDefinition definition;
-        definition.Width({1.0, GridUnitType::Auto});
-        if (static_cast<uint32_t>(slot) < grid.ColumnDefinitions().Size())
-            grid.ColumnDefinitions().InsertAt(slot, definition);
-        else
-            grid.ColumnDefinitions().Append(definition);
-
-        for (auto const& child : grid.Children()) {
-            auto element = child.try_as<FrameworkElement>();
-            if (!element) continue;
-            int start = Grid::GetColumn(element);
-            int span = Grid::GetColumnSpan(element);
-            if (start >= slot)
-                Grid::SetColumn(element, start + 1);
-            else if (start + span > slot)
-                Grid::SetColumnSpan(element, span + 1);
-        }
-
-        Grid::SetColumn(marker, slot);
-        grid.Children().Append(marker);
-    } else {
-        // Order: no column is created or owned. The marker simply holds the
-        // position, and PlaceChild drops the content next to it.
-        uint32_t index = std::min(static_cast<uint32_t>(slot),
-                                  parent.Children().Size());
-        parent.Children().InsertAt(index, marker);
-        slot = static_cast<int>(index);
-    }
-
-    lease = {markerName, slot, kind};
+    lease = {markerName, column};
     return true;
 }
 
-inline bool Acquire(Panel const& parent, Anchor anchor,
+inline bool Acquire(Grid const& parent, Anchor anchor,
                     std::wstring const& markerName, Lease& lease) {
-    int slot = -1;
-    if (!parent || !ResolveSlot(parent, anchor, slot))
+    int column = -1;
+    if (!parent || !ResolveColumn(parent, anchor, column))
         return false;
-    return AcquireAt(parent, slot, markerName, lease);
+    return AcquireAt(parent, column, markerName, lease);
 }
 
-// Live index of the lease marker. Other mods inject and remove siblings around
-// us, so the acquire-time index is a hint, never the truth at removal time.
-inline bool FindMarker(Panel const& parent, Lease const& lease,
-                       uint32_t& index) {
+inline bool Release(Grid const& parent, Lease& lease) {
     if (!parent || lease.markerName.empty())
         return false;
+
+    uint32_t markerIndex = 0;
+    bool found = false;
+    int liveColumn = lease.column;
     for (uint32_t i = 0; i < parent.Children().Size(); ++i) {
         auto element = parent.Children().GetAt(i).try_as<FrameworkElement>();
         if (element && element.Name() == lease.markerName) {
-            index = i;
-            return true;
+            markerIndex = i;
+            liveColumn = Grid::GetColumn(element);
+            found = true;
+            break;
         }
     }
-    return false;
-}
-
-// Put mod content into the leased slot. On a Grid the content joins the leased
-// column; on a StackPanel it is inserted directly after the marker, so the
-// marker's position is the content's position.
-inline bool PlaceChild(Panel const& parent, Lease const& lease,
-                       FrameworkElement const& content) {
-    if (!parent || !content || lease.kind == Kind::Unsupported)
+    if (!found || liveColumn < 0)
         return false;
 
-    uint32_t markerIndex = 0;
-    if (!FindMarker(parent, lease, markerIndex))
-        return false;
+    parent.Children().RemoveAt(markerIndex);
+    if (static_cast<uint32_t>(liveColumn) < parent.ColumnDefinitions().Size())
+        parent.ColumnDefinitions().RemoveAt(liveColumn);
 
-    if (lease.kind == Kind::Columns) {
-        auto marker = parent.Children().GetAt(markerIndex)
-                          .try_as<FrameworkElement>();
-        Grid::SetColumn(content, marker ? Grid::GetColumn(marker) : lease.slot);
-        parent.Children().Append(content);
-        return true;
-    }
-
-    parent.Children().InsertAt(markerIndex + 1, content);
-    return true;
-}
-
-inline bool Release(Panel const& parent, Lease& lease) {
-    if (!parent || lease.markerName.empty())
-        return false;
-
-    uint32_t markerIndex = 0;
-    if (!FindMarker(parent, lease, markerIndex))
-        return false;
-
-    if (lease.kind == Kind::Order) {
-        parent.Children().RemoveAt(markerIndex);
-        lease = {};
-        return true;
-    }
-
-    auto grid = parent.try_as<Grid>();
-    auto marker =
-        parent.Children().GetAt(markerIndex).try_as<FrameworkElement>();
-    int liveColumn = marker ? Grid::GetColumn(marker) : lease.slot;
-    if (!grid || liveColumn < 0)
-        return false;
-
-    grid.Children().RemoveAt(markerIndex);
-    if (static_cast<uint32_t>(liveColumn) < grid.ColumnDefinitions().Size())
-        grid.ColumnDefinitions().RemoveAt(liveColumn);
-
-    for (auto const& child : grid.Children()) {
+    for (auto const& child : parent.Children()) {
         auto element = child.try_as<FrameworkElement>();
         if (!element) continue;
         int start = Grid::GetColumn(element);
@@ -1984,7 +1847,6 @@ inline bool Release(Panel const& parent, Lease& lease) {
     lease = {};
     return true;
 }
-
 } // namespace windhawk_mod_templates::injected_grid_column
 
 // ── Start-adjacent placement ───────────────────────────────────────────────
@@ -2379,8 +2241,6 @@ struct HostRecord {
     int row = 0;
     int rowSpan = 1;
     int visibleIconViews = 0;
-    // True when the tray panel lays out by child order (StackPanel), not columns.
-    bool ordered = false;
 };
 
 // One placeable thing: a native IconView (per-icon control), or a whole
@@ -2407,8 +2267,7 @@ static std::atomic<bool> g_layoutApplied = false;
 // on it, or the stand-down repeats once per attempt. Cleared on every apply
 // and on an Explorer rebuild, so the decision is re-made rather than cached.
 static std::atomic<bool> g_stoodDown = false;
-// Grid on older taskbars, StackPanel since 26200.9457; Panel covers both.
-[[clang::no_destroy]] static Panel g_layoutGrid{nullptr};
+[[clang::no_destroy]] static Grid g_layoutGrid{nullptr};
 [[clang::no_destroy]] static Grid g_group{nullptr};
 static lease_column::Lease g_columnLease;  // exit-time-safe: heap-only
 [[clang::no_destroy]] static start_placement::Lease g_startLease;
@@ -2651,7 +2510,7 @@ static bool TreeContainsStableIdentity(
 }
 
 static FrameworkElement FindDirectTrayHost(
-    Panel const& trayGrid,
+    Grid const& trayGrid,
     FrameworkElement element) {
     DependencyObject current = element;
     while (current) {
@@ -2912,7 +2771,7 @@ static void WarnUnknownTokens(std::wstring const& expression) {
 }
 
 static std::vector<LayoutItem> ResolveLayoutItems(
-    Panel const& trayGrid,
+    Grid const& trayGrid,
     FrameworkElement const& overflowHost,
     FrameworkElement const& mainStack,
     std::vector<std::wstring> const& wantedTokens) {
@@ -3076,13 +2935,12 @@ static void TrackPlacement(FrameworkElement const& element) {
     g_lease->Track(element, UIElement::RenderTransformProperty());
 }
 
-// The host's slot is deliberately NOT leased. A zero-size marker child left
-// where the host was follows the tray's live re-indexing, so the marker's
-// position at restore time is a better answer than the index captured when the
-// layout was applied. On a Grid the marker carries the column; on the 26200.9457
-// StackPanel it carries the child index, which is what order-based layout uses.
+// The host's column is deliberately NOT leased. A zero-size marker child left
+// in the host's original column follows the tray's live re-indexing, so the
+// marker's column at restore time is a better answer than the index captured
+// when the layout was applied.
 static HostRecord CaptureHost(FrameworkElement const& element,
-                              Panel const& trayGrid,
+                              Grid const& trayGrid,
                               int markerIndex) {
     HostRecord record;
     record.element = element;
@@ -3091,8 +2949,6 @@ static HostRecord CaptureHost(FrameworkElement const& element,
     record.row = Grid::GetRow(element);
     record.rowSpan = Grid::GetRowSpan(element);
     record.visibleIconViews = CountVisibleIconViews(element);
-    record.ordered =
-        lease_column::Classify(trayGrid) == lease_column::Kind::Order;
 
     Grid marker;
     marker.Name(
@@ -3105,54 +2961,18 @@ static HostRecord CaptureHost(FrameworkElement const& element,
     marker.MaxWidth(0);
     marker.MaxHeight(0);
     marker.IsHitTestVisible(false);
-    if (record.ordered) {
-        // Insert where the host stands, so the marker holds its place in the
-        // child order. Appending would park it at the tray's far end.
-        int index = lease_column::IndexOfChild(trayGrid, element);
-        trayGrid.Children().InsertAt(
-            index < 0 ? trayGrid.Children().Size()
-                      : static_cast<uint32_t>(index),
-            marker);
-    } else {
-        Grid::SetColumn(marker, record.column);
-        Grid::SetColumnSpan(marker, 1);
-        Grid::SetRow(marker, record.row);
-        Grid::SetRowSpan(marker, record.rowSpan);
-        trayGrid.Children().Append(marker);
-    }
+    Grid::SetColumn(marker, record.column);
+    Grid::SetColumnSpan(marker, 1);
+    Grid::SetRow(marker, record.row);
+    Grid::SetRowSpan(marker, record.rowSpan);
+    trayGrid.Children().Append(marker);
     record.columnMarker = marker;
     return record;
 }
 
-// Put a host back among the tray's children. A Grid child lands anywhere and is
-// positioned by its column afterwards; a StackPanel child has to land at the
-// right index, because there the index IS the position.
-static void ReturnHostToTray(FrameworkElement const& child) {
-    if (!child || !g_layoutGrid) {
-        return;
-    }
-    for (auto const& record : *g_hostRecords) {
-        if (record.element != child || !record.ordered ||
-            !record.columnMarker) {
-            continue;
-        }
-        int index = lease_column::IndexOfChild(g_layoutGrid,
-                                               record.columnMarker);
-        if (index >= 0) {
-            g_layoutGrid.Children().InsertAt(static_cast<uint32_t>(index),
-                                             child);
-            return;
-        }
-        break;
-    }
-    g_layoutGrid.Children().Append(child);
-}
-
 static void RestoreHostPosition(HostRecord& record) {
     try {
-        // On the ordered tray the host was already re-inserted at the marker's
-        // index by ReturnHostToTray; there is no column to write back.
-        if (record.element && !record.ordered) {
+        if (record.element) {
             int restoreColumn = record.column;
             if (record.columnMarker) {
                 restoreColumn = Grid::GetColumn(record.columnMarker);
@@ -3208,7 +3028,9 @@ static void RestoreLayout() {
                 auto child =
                     g_group.Children().GetAt(0).try_as<FrameworkElement>();
                 g_group.Children().RemoveAt(0);
-                ReturnHostToTray(child);
+                if (child && g_layoutGrid) {
+                    g_layoutGrid.Children().Append(child);
+                }
             }
             if (g_startLease.group) {
                 if (!start_placement::Release(g_startLease)) {
@@ -3352,18 +3174,9 @@ static bool ApplyLayout() {
         [](FrameworkElement const& element) {
             return element.Name() == L"SystemTrayFrameGrid";
         });
-    if (!trayGridElement) {
+    auto trayGrid = trayGridElement.try_as<Grid>();
+    if (!trayGrid) {
         Wh_Log(L"[Apply] SystemTrayFrameGrid not found");
-        return false;
-    }
-    // Windows 11 26200.9457 (KB5129195) kept the name SystemTrayFrameGrid but
-    // changed the element from a Grid to a StackPanel. Accept either; refuse to
-    // guess the layout semantics of anything else.
-    auto trayGrid = trayGridElement.try_as<Panel>();
-    lease_column::Kind trayKind = lease_column::Classify(trayGridElement);
-    if (!trayGrid || trayKind == lease_column::Kind::Unsupported) {
-        Wh_Log(L"[Apply] Unsupported SystemTrayFrameGrid type: %s",
-               lease_column::ClassName(trayGridElement).c_str());
         return false;
     }
 
@@ -3685,14 +3498,7 @@ static bool ApplyLayout() {
                     }
                 }
             }
-            column = trayKind == lease_column::Kind::Order
-                         ? lease_column::IndexOfChild(trayGrid, anchorHost)
-                         : Grid::GetColumn(anchorHost);
-            if (column < 0) {
-                Wh_Log(L"[Apply] Anchor host is no longer a tray child");
-                RestoreLayout();
-                return false;
-            }
+            column = Grid::GetColumn(anchorHost);
         } else {
             lease_column::Anchor anchor =
                 lease_column::Anchor::BeforeIcons;
@@ -3717,36 +3523,17 @@ static bool ApplyLayout() {
                                        g_columnLease)) {
                 Wh_Log(
                     L"[Apply] Requested position anchor unavailable; "
-                    L"leaving the native layout unchanged (tray %s holds: %s)",
-                    lease_column::ClassName(trayGridElement).c_str(),
-                    lease_column::DescribeChildren(trayGrid).c_str());
+                    L"leaving the native layout unchanged");
                 RestoreLayout();
                 return false;
             }
-            column = g_columnLease.slot;
+            column = g_columnLease.column;
         }
 
+        Grid::SetColumn(group, column);
         group.HorizontalAlignment(HorizontalAlignment::Center);
         group.VerticalAlignment(VerticalAlignment::Center);
-        if (!g_columnLease.markerName.empty()) {
-            // The lease already holds the slot; drop the group into it.
-            if (!lease_column::PlaceChild(trayGrid, g_columnLease, group)) {
-                Wh_Log(L"[Apply] Could not place the group in the lease");
-                RestoreLayout();
-                return false;
-            }
-        } else if (trayKind == lease_column::Kind::Order) {
-            // Borrowed-anchor path, order-based tray: take the anchor host's
-            // index. Reparenting the managed hosts below removes siblings
-            // around the group, which keeps its place relative to the rest.
-            trayGrid.Children().InsertAt(
-                std::min(static_cast<uint32_t>(column),
-                         trayGrid.Children().Size()),
-                group);
-        } else {
-            Grid::SetColumn(group, column);
-            trayGrid.Children().Append(group);
-        }
+        trayGrid.Children().Append(group);
         sharedColumn = column;
     }
     g_group = group;
@@ -3905,12 +3692,11 @@ static bool ApplyLayout() {
 
     Wh_Log(
         L"[Apply] Layout applied: items=%d targets=%d hosts=%d "
-        L"tray%s=%d dedicated=%d groupSize=%.0fx%.0f trayHeight=%.1f "
+        L"trayColumn=%d dedicated=%d groupSize=%.0fx%.0f trayHeight=%.1f "
         L"leased=%d expr=%s",
         static_cast<int>(items.size()),
         static_cast<int>(targets.size()),
         static_cast<int>(managedHosts.size()),
-        trayKind == lease_column::Kind::Order ? L"Index" : L"Column",
         sharedColumn,
         !g_columnLease.markerName.empty(),
         total.width,

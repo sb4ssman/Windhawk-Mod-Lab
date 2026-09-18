@@ -1,0 +1,134 @@
+{
+  "Placement.Position": {
+    "Kind": "String",
+    "Value": "beforeOmni"
+  },
+  "Content.Location": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Content.Microphone": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Content.Camera": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Content.Copilot": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Layout.Arrangement": {
+    "Kind": "String",
+    "Value": "auto"
+  },
+  "Layout.FillOrder": {
+    "Kind": "String",
+    "Value": "rows"
+  },
+  "Layout.Justify": {
+    "Kind": "String",
+    "Value": "center"
+  },
+  "Layout.NewItems": {
+    "Kind": "String",
+    "Value": "append"
+  },
+  "Size.ItemSize": {
+    "Kind": "DWord",
+    "Value": 16
+  },
+  "Size.ItemSpacing": {
+    "Kind": "DWord",
+    "Value": 4
+  },
+  "Adjust.PadX": {
+    "Kind": "DWord",
+    "Value": 4
+  },
+  "Adjust.PadY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Adjust.OffsetX": {
+    "Kind": "DWord",
+    "Value": 2
+  },
+  "Adjust.OffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Surface.IdleOpacity": {
+    "Kind": "DWord",
+    "Value": 50
+  },
+  "Surface.ActiveOpacity": {
+    "Kind": "DWord",
+    "Value": 100
+  },
+  "Surface.GlowEnabled": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "Surface.GlowOpacity": {
+    "Kind": "DWord",
+    "Value": 40
+  },
+  "Surface.SlashColor": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "Surface.SlashDirection": {
+    "Kind": "String",
+    "Value": "falling"
+  },
+  "Surface.SlashOpacity": {
+    "Kind": "DWord",
+    "Value": 100
+  },
+  "Surface.IdleColor": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "Surface.ActiveColor": {
+    "Kind": "String",
+    "Value": "accentLight"
+  },
+  "Surface.DisabledOpacity": {
+    "Kind": "DWord",
+    "Value": 50
+  },
+  "Surface.DisabledColor": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "Surface.AlertWhenBlockedAndActive": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Surface.GlowStyle": {
+    "Kind": "String",
+    "Value": "radiate"
+  },
+  "Surface.GlowColor": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "Surface.GlowSize": {
+    "Kind": "DWord",
+    "Value": 220
+  },
+  "Surface.GlowSpeed": {
+    "Kind": "DWord",
+    "Value": 1200
+  },
+  "Behavior.CameraHardwareDetection": {
+    "Kind": "DWord",
+    "Value": 1
+  },
+  "Behavior.SuppressNativeIndicators": {
+    "Kind": "DWord",
+    "Value": 1
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "position": {
+    "Kind": "String",
+    "Value": "overflow"
+  },
+  "layout": {
+    "Kind": "String",
+    "Value": "overflow, emoji, touchKeyboard"
+  },
+  "primaryAxis": {
+    "Kind": "String",
+    "Value": "row"
+  },
+  "crossAlign": {
+    "Kind": "String",
+    "Value": "center"
+  },
+  "buttonWidth": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "buttonHeight": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "buttonSpacing": {
+    "Kind": "DWord",
+    "Value": 8
+  },
+  "groupOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "groupOffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "overflowOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "overflowOffsetY": {
+    "Kind": "DWord",
+    "Value": 8
+  },
+  "emojiOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "emojiOffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "touchKeyboardOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "touchKeyboardOffsetY": {
+    "Kind": "DWord",
+    "Value": -8
+  },
+  "penMenuOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "penMenuOffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "virtualTouchpadOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "virtualTouchpadOffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "inputIndicatorOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "inputIndicatorOffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "minimumTrayHeight": {
+    "Kind": "DWord",
+    "Value": 44
+  },
+  "mergeMode": {
+    "Kind": "String",
+    "Value": "auto"
+  },
+  "detailedLogging": {
+    "Kind": "DWord",
+    "Value": 0
+  }
+}

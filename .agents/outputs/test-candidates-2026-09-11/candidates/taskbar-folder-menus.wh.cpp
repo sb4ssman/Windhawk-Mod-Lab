@@ -1352,23 +1352,14 @@ inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
 }  // namespace windhawk_mod_templates::nested_group_layout
 
 // Embedded from _templates/injected-grid-column.h; verify with verify-template-parity.ps1.
-// Copy-source template v1.3: reversible SystemTrayFrameGrid slot lease.
-// v1.1: split AcquireAt(slot) out of Acquire(anchor) so a mod can lease a
-// dedicated slot at an index it resolved itself (e.g. borrowing the
+// Copy-source template v1.2: reversible SystemTrayFrameGrid column lease.
+// v1.1: split AcquireAt(column) out of Acquire(anchor) so a mod can lease a
+// dedicated column at a column index it resolved itself (e.g. borrowing the
 // hidden-icons column position). First adopter: tray-utility-customizer.
 // v1.2: "after" anchors resolve past the reference's full column SPAN.
 // ShowDesktopStack can span multiple columns; +1 landed the lease inside the
 // span, widening it and placing the group under the strip at the screen edge
 // (seen as partially off-screen in tray-utility-customizer live testing).
-// v1.3: Windows 11 26200.9457 (KB5129195) kept the name SystemTrayFrameGrid but
-// changed the element from a Grid to a StackPanel, so every try_as<Grid>() on
-// it returned null and the tray mods silently injected nothing. The lease now
-// operates on the Panel base: a Grid still leases a COLUMN, a StackPanel leases
-// a child INDEX, because there order is layout and there is no column to own.
-// Classify() reports which contract is live; PlaceChild() and Release() keep
-// the fork out of call sites. Classify on every injection, never cache it:
-// StartTaskbar rebuilds the tree, older builds still ship a Grid, and the
-// rollout may be staged.
 
 #include <algorithm>
 #include <string>
@@ -1382,8 +1373,6 @@ using winrt::Windows::UI::Xaml::FrameworkElement;
 using winrt::Windows::UI::Xaml::GridUnitType;
 using winrt::Windows::UI::Xaml::Controls::ColumnDefinition;
 using winrt::Windows::UI::Xaml::Controls::Grid;
-using winrt::Windows::UI::Xaml::Controls::Panel;
-using winrt::Windows::UI::Xaml::Controls::StackPanel;
 
 enum class Anchor {
     BeforeIcons,
@@ -1393,67 +1382,13 @@ enum class Anchor {
     AfterShowDesktop,
 };
 
-// Which layout contract the live tray panel follows.
-enum class Kind {
-    Unsupported,  // some other Panel: do not guess its layout semantics.
-    Columns,      // Grid. A slot is a column index.
-    Order,        // StackPanel. A slot is a child index.
-};
-
 struct Lease {
     std::wstring markerName;
-    int slot = -1;
-    Kind kind = Kind::Unsupported;
+    int column = -1;
 };
 
-inline Kind Classify(FrameworkElement const& parent) {
-    if (!parent)
-        return Kind::Unsupported;
-    if (parent.try_as<Grid>())
-        return Kind::Columns;
-    if (parent.try_as<StackPanel>())
-        return Kind::Order;
-    return Kind::Unsupported;
-}
-
-// Class name of an unexpected panel, so a mod can log what it actually got
-// instead of reporting a bare "not found" for an element that is right there.
-inline std::wstring ClassName(FrameworkElement const& element) {
-    if (!element)
-        return L"(null)";
-    try {
-        return std::wstring(winrt::get_class_name(element));
-    } catch (...) {
-        return L"(unknown)";
-    }
-}
-
-// Named direct children, for logging when an anchor cannot be resolved. A tray
-// restructure shows up here as missing or renamed names, which is the one thing
-// a user's debug log otherwise cannot tell us.
-inline std::wstring DescribeChildren(Panel const& parent) {
-    if (!parent)
-        return L"(none)";
-    std::wstring names;
-    try {
-        for (auto const& child : parent.Children()) {
-            auto element = child.try_as<FrameworkElement>();
-            if (!element || element.Name().empty())
-                continue;
-            if (!names.empty())
-                names += L", ";
-            names += element.Name();
-        }
-    } catch (...) {
-        return L"(unreadable)";
-    }
-    return names.empty() ? L"(no named children)" : names;
-}
-
-inline FrameworkElement FindDirectChild(Panel const& parent,
+inline FrameworkElement FindDirectChild(Grid const& parent,
                                         wchar_t const* name) {
-    if (!parent || !name)
-        return nullptr;
     for (auto const& child : parent.Children()) {
         auto element = child.try_as<FrameworkElement>();
         if (element && element.Name() == name)
@@ -1462,23 +1397,9 @@ inline FrameworkElement FindDirectChild(Panel const& parent,
     return nullptr;
 }
 
-inline int IndexOfChild(Panel const& parent, FrameworkElement const& child) {
-    if (!parent || !child)
-        return -1;
-    for (uint32_t i = 0; i < parent.Children().Size(); ++i) {
-        if (parent.Children().GetAt(i).try_as<FrameworkElement>() == child)
-            return static_cast<int>(i);
-    }
-    return -1;
-}
-
-inline bool ResolveSlot(Panel const& parent, Anchor anchor, int& slot) {
-    Kind kind = Classify(parent);
-    if (kind == Kind::Unsupported)
-        return false;
-
+inline bool ResolveColumn(Grid const& parent, Anchor anchor, int& column) {
     if (anchor == Anchor::BeforeIcons) {
-        slot = 0;
+        column = 0;
         return true;
     }
 
@@ -1504,147 +1425,80 @@ inline bool ResolveSlot(Panel const& parent, Anchor anchor, int& slot) {
 
     auto reference = FindDirectChild(parent, referenceName);
     if (!reference)
-        return false; // Never silently turn an unavailable anchor into slot 0.
-
-    if (kind == Kind::Columns) {
-        slot = Grid::GetColumn(reference) +
-               (after ? std::max(1, Grid::GetColumnSpan(reference)) : 0);
-        return true;
-    }
-
-    // Order: the reference's own child index is the slot. There is no span to
-    // step over -- a StackPanel child occupies exactly one position.
-    int index = IndexOfChild(parent, reference);
-    if (index < 0)
-        return false;
-    slot = index + (after ? 1 : 0);
+        return false; // Never silently turn an unavailable anchor into column 0.
+    column = Grid::GetColumn(reference) +
+             (after ? std::max(1, Grid::GetColumnSpan(reference)) : 0);
     return true;
 }
 
-inline bool AcquireAt(Panel const& parent, int slot,
+inline bool AcquireAt(Grid const& parent, int column,
                       std::wstring const& markerName, Lease& lease) {
-    Kind kind = Classify(parent);
-    if (kind == Kind::Unsupported || slot < 0 || markerName.empty() ||
+    if (!parent || column < 0 || markerName.empty() ||
         FindDirectChild(parent, markerName.c_str()))
         return false;
+
+    ColumnDefinition definition;
+    definition.Width({1.0, GridUnitType::Auto});
+    if (static_cast<uint32_t>(column) < parent.ColumnDefinitions().Size())
+        parent.ColumnDefinitions().InsertAt(column, definition);
+    else
+        parent.ColumnDefinitions().Append(definition);
+
+    for (auto const& child : parent.Children()) {
+        auto element = child.try_as<FrameworkElement>();
+        if (!element) continue;
+        int start = Grid::GetColumn(element);
+        int span = Grid::GetColumnSpan(element);
+        if (start >= column)
+            Grid::SetColumn(element, start + 1);
+        else if (start + span > column)
+            Grid::SetColumnSpan(element, span + 1);
+    }
 
     Grid marker;
     marker.Name(markerName);
     marker.Width(0.0);
     marker.Height(0.0);
     marker.IsHitTestVisible(false);
+    Grid::SetColumn(marker, column);
+    parent.Children().Append(marker);
 
-    if (kind == Kind::Columns) {
-        auto grid = parent.try_as<Grid>();
-        if (!grid)
-            return false;
-        ColumnDefinition definition;
-        definition.Width({1.0, GridUnitType::Auto});
-        if (static_cast<uint32_t>(slot) < grid.ColumnDefinitions().Size())
-            grid.ColumnDefinitions().InsertAt(slot, definition);
-        else
-            grid.ColumnDefinitions().Append(definition);
-
-        for (auto const& child : grid.Children()) {
-            auto element = child.try_as<FrameworkElement>();
-            if (!element) continue;
-            int start = Grid::GetColumn(element);
-            int span = Grid::GetColumnSpan(element);
-            if (start >= slot)
-                Grid::SetColumn(element, start + 1);
-            else if (start + span > slot)
-                Grid::SetColumnSpan(element, span + 1);
-        }
-
-        Grid::SetColumn(marker, slot);
-        grid.Children().Append(marker);
-    } else {
-        // Order: no column is created or owned. The marker simply holds the
-        // position, and PlaceChild drops the content next to it.
-        uint32_t index = std::min(static_cast<uint32_t>(slot),
-                                  parent.Children().Size());
-        parent.Children().InsertAt(index, marker);
-        slot = static_cast<int>(index);
-    }
-
-    lease = {markerName, slot, kind};
+    lease = {markerName, column};
     return true;
 }
 
-inline bool Acquire(Panel const& parent, Anchor anchor,
+inline bool Acquire(Grid const& parent, Anchor anchor,
                     std::wstring const& markerName, Lease& lease) {
-    int slot = -1;
-    if (!parent || !ResolveSlot(parent, anchor, slot))
+    int column = -1;
+    if (!parent || !ResolveColumn(parent, anchor, column))
         return false;
-    return AcquireAt(parent, slot, markerName, lease);
+    return AcquireAt(parent, column, markerName, lease);
 }
 
-// Live index of the lease marker. Other mods inject and remove siblings around
-// us, so the acquire-time index is a hint, never the truth at removal time.
-inline bool FindMarker(Panel const& parent, Lease const& lease,
-                       uint32_t& index) {
+inline bool Release(Grid const& parent, Lease& lease) {
     if (!parent || lease.markerName.empty())
         return false;
+
+    uint32_t markerIndex = 0;
+    bool found = false;
+    int liveColumn = lease.column;
     for (uint32_t i = 0; i < parent.Children().Size(); ++i) {
         auto element = parent.Children().GetAt(i).try_as<FrameworkElement>();
         if (element && element.Name() == lease.markerName) {
-            index = i;
-            return true;
+            markerIndex = i;
+            liveColumn = Grid::GetColumn(element);
+            found = true;
+            break;
         }
     }
-    return false;
-}
-
-// Put mod content into the leased slot. On a Grid the content joins the leased
-// column; on a StackPanel it is inserted directly after the marker, so the
-// marker's position is the content's position.
-inline bool PlaceChild(Panel const& parent, Lease const& lease,
-                       FrameworkElement const& content) {
-    if (!parent || !content || lease.kind == Kind::Unsupported)
+    if (!found || liveColumn < 0)
         return false;
 
-    uint32_t markerIndex = 0;
-    if (!FindMarker(parent, lease, markerIndex))
-        return false;
+    parent.Children().RemoveAt(markerIndex);
+    if (static_cast<uint32_t>(liveColumn) < parent.ColumnDefinitions().Size())
+        parent.ColumnDefinitions().RemoveAt(liveColumn);
 
-    if (lease.kind == Kind::Columns) {
-        auto marker = parent.Children().GetAt(markerIndex)
-                          .try_as<FrameworkElement>();
-        Grid::SetColumn(content, marker ? Grid::GetColumn(marker) : lease.slot);
-        parent.Children().Append(content);
-        return true;
-    }
-
-    parent.Children().InsertAt(markerIndex + 1, content);
-    return true;
-}
-
-inline bool Release(Panel const& parent, Lease& lease) {
-    if (!parent || lease.markerName.empty())
-        return false;
-
-    uint32_t markerIndex = 0;
-    if (!FindMarker(parent, lease, markerIndex))
-        return false;
-
-    if (lease.kind == Kind::Order) {
-        parent.Children().RemoveAt(markerIndex);
-        lease = {};
-        return true;
-    }
-
-    auto grid = parent.try_as<Grid>();
-    auto marker =
-        parent.Children().GetAt(markerIndex).try_as<FrameworkElement>();
-    int liveColumn = marker ? Grid::GetColumn(marker) : lease.slot;
-    if (!grid || liveColumn < 0)
-        return false;
-
-    grid.Children().RemoveAt(markerIndex);
-    if (static_cast<uint32_t>(liveColumn) < grid.ColumnDefinitions().Size())
-        grid.ColumnDefinitions().RemoveAt(liveColumn);
-
-    for (auto const& child : grid.Children()) {
+    for (auto const& child : parent.Children()) {
         auto element = child.try_as<FrameworkElement>();
         if (!element) continue;
         int start = Grid::GetColumn(element);
@@ -2360,8 +2214,7 @@ static std::atomic<bool> g_unloading{false};
 static std::atomic<bool> g_updatingSettings{false};
 static HWND              g_taskbarWnd = nullptr;
 [[clang::no_destroy]] static Grid g_buttonGrid = nullptr;
-// Grid column on older taskbars, child index on the 26200.9457 StackPanel.
-static int               g_injectedSlot = -1;
+static int               g_injectedColumn = -1;
 static igc::Lease g_columnLease; // exit-time-safe: heap-only
 static std::atomic<bool>  g_injectionLive{false};
 
@@ -3511,7 +3364,7 @@ static bool InjectAfterAppIcons(FrameworkElement root, double trayHeight) {
     return true;
 }
 
-static bool RemoveButtonGridFrom(Panel gridParent) {
+static bool RemoveButtonGridFrom(Grid gridParent, int /*col*/) {
     if (!gridParent) return false;
 
     bool removed = false;
@@ -3529,7 +3382,7 @@ static bool RemoveButtonGridFrom(Panel gridParent) {
     return removed;
 }
 
-static Grid FindButtonGridInParent(Panel gridParent) {
+static Grid FindButtonGridInParent(Grid gridParent) {
     if (!gridParent) return nullptr;
     for (auto child : gridParent.Children()) {
         auto fe = child.try_as<FrameworkElement>();
@@ -3539,13 +3392,8 @@ static Grid FindButtonGridInParent(Panel gridParent) {
     return nullptr;
 }
 
-// Column collisions are a Grid-only failure mode: two children assigned the
-// same Grid.Column. A StackPanel has no columns, so there is nothing to collide
-// and nothing to repair -- both checks stand down on the newer tray panel.
-static bool HasButtonGridColumnCollision(Panel gridParent, Grid buttonGrid) {
-    if (!gridParent || !buttonGrid ||
-        igc::Classify(gridParent) != igc::Kind::Columns)
-        return false;
+static bool HasButtonGridColumnCollision(Grid gridParent, Grid buttonGrid) {
+    if (!gridParent || !buttonGrid) return false;
     int buttonCol = Grid::GetColumn(buttonGrid);
     for (auto child : gridParent.Children()) {
         auto fe = child.try_as<FrameworkElement>();
@@ -3556,10 +3404,8 @@ static bool HasButtonGridColumnCollision(Panel gridParent, Grid buttonGrid) {
     return false;
 }
 
-static int RepairButtonGridColumnCollision(Panel gridParent, Grid buttonGrid) {
-    if (!gridParent || !buttonGrid ||
-        igc::Classify(gridParent) != igc::Kind::Columns)
-        return 0;
+static int RepairButtonGridColumnCollision(Grid gridParent, Grid buttonGrid) {
+    if (!gridParent || !buttonGrid) return 0;
     int buttonCol = Grid::GetColumn(buttonGrid);
     int moved = 0;
     for (auto child : gridParent.Children()) {
@@ -3598,12 +3444,12 @@ static void RemoveButtonGrid() {
     g_injectionLive.store(false);
     ClearButtonEventState();
     ReleaseAppIconPlacement();
-    auto gridParent = FindLiveSystemTrayFrameGrid().try_as<Panel>();
-    if (!RemoveButtonGridFrom(gridParent))
+    auto gridParent = FindLiveSystemTrayFrameGrid().try_as<Grid>();
+    if (!RemoveButtonGridFrom(gridParent, g_injectedColumn))
         Wh_Log(L"[Remove] TaskbarFolderMenuBar not found");
 
     g_buttonGrid = nullptr;
-    g_injectedSlot = -1;
+    g_injectedColumn = -1;
 }
 
 static bool InjectButtonGrid(FrameworkElement root) {
@@ -3615,14 +3461,9 @@ static bool InjectButtonGrid(FrameworkElement root) {
         return false;
     }
 
-    // Windows 11 26200.9457 (KB5129195) kept the name SystemTrayFrameGrid but
-    // changed the element from a Grid to a StackPanel. Accept either; refuse to
-    // guess the layout semantics of anything else.
-    auto gridParent = parent.try_as<Panel>();
-    igc::Kind kind = igc::Classify(parent);
-    if (!gridParent || kind == igc::Kind::Unsupported) {
-        Wh_Log(L"[Inject] Unsupported SystemTrayFrameGrid type: %s",
-               igc::ClassName(parent).c_str());
+    auto gridParent = parent.try_as<Grid>();
+    if (!gridParent) {
+        Wh_Log(L"[Inject] SystemTrayFrameGrid is not a Grid");
         return false;
     }
 
@@ -3636,60 +3477,65 @@ static bool InjectButtonGrid(FrameworkElement root) {
         if (auto fe = child.try_as<FrameworkElement>();
             fe && fe.Name() == L"TaskbarFolderMenuBar") {
             g_buttonGrid = fe.try_as<Grid>();
-            g_injectedSlot = kind == igc::Kind::Columns
-                                 ? Grid::GetColumn(fe)
-                                 : igc::IndexOfChild(gridParent, fe);
+            g_injectedColumn = Grid::GetColumn(fe);
             return true;
         }
     }
 
+    auto findNamedDirect = [&](PCWSTR name) -> FrameworkElement {
+        for (auto child : gridParent.Children()) {
+            if (auto fe = child.try_as<FrameworkElement>(); fe && fe.Name() == name)
+                return fe;
+        }
+        return nullptr;
+    };
+
     const auto& pos = g_settings.position;
-    igc::Anchor anchor = igc::Anchor::BeforeIcons;
+    FrameworkElement refElem = nullptr;
+    bool insertAfterRef = false;
+
     if (pos == L"beforeIcons") {
         // No named reference is needed: the notification icon stack starts at
-        // the first native slot.
+        // the first native column.
     } else if (pos == L"beforeOmni")
-        anchor = igc::Anchor::BeforeOmni;
+        refElem = findNamedDirect(L"ControlCenterButton");
     else if (pos == L"beforeClock")
-        anchor = igc::Anchor::BeforeClock;
+        refElem = findNamedDirect(L"NotificationCenterButton");
     else if (pos == L"afterClock")
-        anchor = igc::Anchor::AfterClock;
-    else if (pos == L"afterShowDesktop")
-        anchor = igc::Anchor::AfterShowDesktop;
-    else {
+        refElem = findNamedDirect(L"ShowDesktopStack");
+    else if (pos == L"afterShowDesktop") {
+        refElem = findNamedDirect(L"ShowDesktopStack");
+        insertAfterRef = true;
+    } else {
         Wh_Log(L"[Inject] Unknown position: %s", pos.c_str());
         return false;
     }
 
-    // ResolveSlot yields a column on a Grid and a child index on a StackPanel.
-    int insertSlot = 0;
-    if (!igc::ResolveSlot(gridParent, anchor, insertSlot)) {
-        Wh_Log(L"[Inject] Anchor for position '%s' is not ready; tray %s holds: %s",
-               pos.c_str(), igc::ClassName(parent).c_str(),
-               igc::DescribeChildren(gridParent).c_str());
+    if (pos != L"beforeIcons" && !refElem) {
+        Wh_Log(L"[Inject] Anchor for position '%s' is not ready", pos.c_str());
         return false;
     }
 
-    // Build before reserving the slot, so a content failure cannot leave an
+    int insertCol = 0;
+    if (insertAfterRef)
+        insertCol = Grid::GetColumn(refElem) + std::max(1, Grid::GetColumnSpan(refElem));
+    else if (refElem)
+        insertCol = Grid::GetColumn(refElem);
+
+    // Build before reserving the column, so a content failure cannot leave an
     // empty synthetic column behind.
     auto grid = BuildFolderButtonGrid(trayHeight);
-    if (!igc::AcquireAt(gridParent, insertSlot, L"FolderMenuColumnLease", g_columnLease))
+    if (!igc::AcquireAt(gridParent, insertCol, L"FolderMenuColumnLease", g_columnLease))
         return false;
-    bool placed = false;
-    try { placed = igc::PlaceChild(gridParent, g_columnLease, grid); }
+    Grid::SetColumn(grid, insertCol);
+    try { gridParent.Children().Append(grid); }
     catch (...) { igc::Release(gridParent, g_columnLease); throw; }
-    if (!placed) {
-        igc::Release(gridParent, g_columnLease);
-        Wh_Log(L"[Inject] Could not place TaskbarFolderMenuBar in the lease");
-        return false;
-    }
 
     g_buttonGrid = grid;
-    g_injectedSlot = g_columnLease.slot;
+    g_injectedColumn = insertCol;
 
-    Wh_Log(L"[Inject] TaskbarFolderMenuBar at %s=%d, folders=%d",
-           kind == igc::Kind::Columns ? L"column" : L"index",
-           g_columnLease.slot, (int)g_settings.folders.size());
+    Wh_Log(L"[Inject] TaskbarFolderMenuBar at column=%d, folders=%d",
+           insertCol, (int)g_settings.folders.size());
     return true;
 }
 
@@ -3722,18 +3568,11 @@ static void ApplyAllSettings() {
             return;
         }
 
-        auto trayFrame = FindChildRecursive(root, [](FrameworkElement fe) {
+        auto gridParent = FindChildRecursive(root, [](FrameworkElement fe) {
             return fe.Name() == L"SystemTrayFrameGrid";
-        });
-        if (!trayFrame) {
+        }).try_as<Grid>();
+        if (!gridParent) {
             Wh_Log(L"[Apply] SystemTrayFrameGrid unavailable");
-            return;
-        }
-        // Grid on older builds, StackPanel since 26200.9457 (KB5129195).
-        auto gridParent = trayFrame.try_as<Panel>();
-        if (!gridParent || igc::Classify(trayFrame) == igc::Kind::Unsupported) {
-            Wh_Log(L"[Apply] Unsupported SystemTrayFrameGrid type: %s",
-                   igc::ClassName(trayFrame).c_str());
             return;
         }
 
@@ -3760,14 +3599,15 @@ static void ApplyAllSettings() {
             Wh_Log(L"[Apply] Releasing stale folder grid after tray recreation");
             ClearButtonEventState();
             g_buttonGrid = nullptr;
-            g_injectedSlot = -1;
+            g_injectedColumn = -1;
         }
 
         if (rebuild) {
+            int liveColumn = Grid::GetColumn(liveButtonGrid);
             ClearButtonEventState();
-            RemoveButtonGridFrom(gridParent);
+            RemoveButtonGridFrom(gridParent, liveColumn);
             g_buttonGrid = nullptr;
-            g_injectedSlot = -1;
+            g_injectedColumn = -1;
         }
 
         if (!InjectButtonGrid(root)) {

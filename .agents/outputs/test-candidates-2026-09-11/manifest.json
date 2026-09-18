@@ -1,0 +1,42 @@
+[
+  {
+    "Mod": "taskbar-vd-switcher",
+    "Candidate": "candidates/taskbar-vd-switcher.wh.cpp",
+    "CandidateSHA256": "26BFD1319907EDE280066CD4C6F38A760CCE17E335AC8206C367AD52558B4C6F",
+    "InstalledId": "local@taskbar-vd-switcher2",
+    "InstalledSourceSHA256": "5E8C9F28FBA4698839D462BE9B9E13ECBF7B574362230A1D05D8D9D7D375F93D",
+    "LiveTest": "Pending for this candidate"
+  },
+  {
+    "Mod": "taskbar-folder-menus",
+    "Candidate": "candidates/taskbar-folder-menus.wh.cpp",
+    "CandidateSHA256": "F417A6B1E1D3C64F6BC50EDBC5106C8252DBE102713B4B674A348170C2FFD33A",
+    "InstalledId": "taskbar-folder-menus",
+    "InstalledSourceSHA256": "88FD4B9CC1A73B5EF4058D8F213A439B6731C9A2D36459148D7EE7739E7C37F1",
+    "LiveTest": "Pending for this candidate"
+  },
+  {
+    "Mod": "taskbar-clock-spacer",
+    "Candidate": "candidates/taskbar-clock-spacer.wh.cpp",
+    "CandidateSHA256": "8205A39BF540695070985B43030FDE2F23C5F514AEC95EF9113E67084179DCA0",
+    "InstalledId": "local@taskbar-clock-spacer",
+    "InstalledSourceSHA256": "6A3E6F1A3C3C37F373D179B331482FA814D93025FB3ED6FD9A259EED6C71335A",
+    "LiveTest": "Pending for this candidate"
+  },
+  {
+    "Mod": "tray-utility-customizer",
+    "Candidate": "candidates/tray-utility-customizer.wh.cpp",
+    "CandidateSHA256": "65201BA0F2D992892EE5468472DD71C56E2F14924EF9946651AAAD3C79DD7178",
+    "InstalledId": "local@tray-utility-customizer2",
+    "InstalledSourceSHA256": "C213374DAA05AE548DEFCFD6B0059020568E13AF1B89EEB49477E508A6C796CD",
+    "LiveTest": "Pending for this candidate"
+  },
+  {
+    "Mod": "privacy-indicator-anchor",
+    "Candidate": "candidates/privacy-indicator-anchor.wh.cpp",
+    "CandidateSHA256": "E7B6F5816EF8406D287ED90F33899CC6D2DC73FD554B387AD48A2F93F510CF39",
+    "InstalledId": "local@tray-privacy-indicator-anchor",
+    "InstalledSourceSHA256": "C578790336DD1CD74C43C950683973F5432A95F6988E885333198C2DCFA1B3D6",
+    "LiveTest": "Pending for this candidate"
+  }
+]

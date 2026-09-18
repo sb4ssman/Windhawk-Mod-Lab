@@ -1,0 +1,14 @@
+{
+  "lineWidth": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "maxWidth": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "minSpacerWidth": {
+    "Kind": "DWord",
+    "Value": 0
+  }
+}

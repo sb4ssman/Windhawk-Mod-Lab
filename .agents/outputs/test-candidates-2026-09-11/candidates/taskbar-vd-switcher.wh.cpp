@@ -3983,65 +3983,10 @@ static bool InjectButtonGridNearStart(FrameworkElement root) {
     return true;
 }
 
-// Windows 11 26200.9457 (KB5129195) kept the name SystemTrayFrameGrid but
-// changed the element from a Grid to a StackPanel, where a child's index is its
-// position and there are no columns at all. Both layouts are live in the wild —
-// older builds still ship the Grid — so the kind is classified on every touch
-// and never cached across a tray rebuild.
-enum class TrayKind { Unsupported, Columns, Order };
-
-static TrayKind ClassifyTray(FrameworkElement const& panel) {
-    if (!panel) return TrayKind::Unsupported;
-    if (panel.try_as<Grid>()) return TrayKind::Columns;
-    if (panel.try_as<StackPanel>()) return TrayKind::Order;
-    return TrayKind::Unsupported;  // never guess another panel's semantics
-}
-
-static std::wstring TrayClassName(FrameworkElement const& element) {
-    if (!element) return L"(null)";
-    try {
-        return std::wstring(winrt::get_class_name(element));
-    } catch (...) {
-        return L"(unknown)";
-    }
-}
-
-static int IndexOfTrayChild(Panel const& parent, FrameworkElement const& child) {
-    if (!parent || !child) return -1;
-    uint32_t index = 0;
-    return parent.Children().IndexOf(child, index) ? (int)index : -1;
-}
-
-// Named direct children, for logging when an anchor cannot be resolved. A tray
-// restructure shows up here as missing or renamed names, which is the one thing
-// a user's debug log otherwise cannot tell us.
-static std::wstring DescribeTrayChildren(Panel const& parent) {
-    if (!parent) return L"(none)";
-    std::wstring names;
-    try {
-        for (auto child : parent.Children()) {
-            auto fe = child.try_as<FrameworkElement>();
-            if (!fe || fe.Name().empty()) continue;
-            if (!names.empty()) names += L", ";
-            names += fe.Name();
-        }
-    } catch (...) {
-        return L"(unreadable)";
-    }
-    return names.empty() ? L"(no named children)" : names;
-}
-
-// Map g_settings.position to a target slot in a SystemTrayFrameGrid. On a Grid
-// that means inserting a new Auto-width column and shifting existing children
-// to make room; on a StackPanel it means inserting at a child index. Returns the
-// slot the grid was placed in, or -1 on an unsupported panel.
-static int InsertGridIntoTrayColumns(Panel const& gridParent, Grid const& grid) {
-    TrayKind kind = ClassifyTray(gridParent);
-    if (kind == TrayKind::Unsupported) {
-        Wh_Log(L"[Inject] Unsupported SystemTrayFrameGrid type: %s",
-               TrayClassName(gridParent).c_str());
-        return -1;
-    }
+// Map g_settings.position to a target column in a SystemTrayFrameGrid, insert
+// a new Auto-width column there, shift existing children to make room, and
+// append the grid. Returns the column index the grid was placed in.
+static int InsertGridIntoTrayColumns(Grid const& gridParent, Grid const& grid) {
     auto pos = g_settings.position;
 
     // Find a named direct child of the tray grid.
@@ -4069,34 +4014,7 @@ static int InsertGridIntoTrayColumns(Panel const& gridParent, Grid const& grid) 
         refElem = findNamedDirect(L"ShowDesktopStack");
         insertAfterRef = true;
     }
-    // beforeIcons → slot 0 (refElem stays nullptr)
-
-    // A requested anchor that isn't there means the tray was restructured, and
-    // the bar silently lands at the far left instead. Say so, with the names
-    // actually present, so the fallback is never mistaken for the setting.
-    if (pos != VdPosition::BeforeIcons && !refElem) {
-        Wh_Log(L"[Inject] Anchor for the requested position is missing; "
-               L"falling back to slot 0. Tray %s holds: %s",
-               TrayClassName(gridParent).c_str(),
-               DescribeTrayChildren(gridParent).c_str());
-    }
-
-    if (kind == TrayKind::Order) {
-        // Order is layout: the slot is a child index, and inserting there needs
-        // no column bookkeeping at all.
-        int insertIdx = 0;
-        if (refElem) {
-            insertIdx = IndexOfTrayChild(gridParent, refElem);
-            if (insertIdx < 0) insertIdx = 0;
-            if (insertAfterRef) insertIdx++;
-        }
-        Canvas::SetZIndex(grid, 10000);
-        gridParent.Children().InsertAt(
-            std::min((uint32_t)insertIdx, gridParent.Children().Size()), grid);
-        return insertIdx;
-    }
-
-    auto trayGrid = gridParent.as<Grid>();
+    // beforeIcons → column 0 (refElem stays nullptr)
 
     int insertCol;
     if (insertAfterRef && refElem)
@@ -4109,15 +4027,15 @@ static int InsertGridIntoTrayColumns(Panel const& gridParent, Grid const& grid) 
     // Insert a new Auto-width column at insertCol.
     ColumnDefinition cd;
     cd.Width({ 1.0, GridUnitType::Auto });
-    if ((uint32_t)insertCol < trayGrid.ColumnDefinitions().Size())
-        trayGrid.ColumnDefinitions().InsertAt((uint32_t)insertCol, cd);
+    if ((uint32_t)insertCol < gridParent.ColumnDefinitions().Size())
+        gridParent.ColumnDefinitions().InsertAt((uint32_t)insertCol, cd);
     else
-        trayGrid.ColumnDefinitions().Append(cd);
+        gridParent.ColumnDefinitions().Append(cd);
 
     // Shift every existing child whose column is >= insertCol to make room.
     // Elements that start before insertCol but span through it get their span
     // widened so they continue to cover the same original columns (plus the new one).
-    for (auto child : trayGrid.Children()) {
+    for (auto child : gridParent.Children()) {
         auto fe = child.try_as<FrameworkElement>();
         if (!fe) continue;
         int col  = Grid::GetColumn(fe);
@@ -4130,7 +4048,7 @@ static int InsertGridIntoTrayColumns(Panel const& gridParent, Grid const& grid) 
 
     Grid::SetColumn(grid, insertCol);
     Canvas::SetZIndex(grid, 10000);
-    trayGrid.Children().Append(grid);
+    gridParent.Children().Append(grid);
     return insertCol;
 }
 
@@ -4146,15 +4064,10 @@ static bool InjectButtonGrid(FrameworkElement root) {
         return false;
     }
 
-    // A Grid on older taskbars, a StackPanel since 26200.9457. InsertGridInto-
-    // TrayColumns handles the difference; here we only need a Panel to walk.
-    auto gridParent = parent.try_as<Panel>();
-    TrayKind kind = ClassifyTray(parent);
-    if (!gridParent || kind == TrayKind::Unsupported) {
-        Wh_Log(L"[Inject] Unsupported SystemTrayFrameGrid type: %s",
-               TrayClassName(parent).c_str());
-        return false;
-    }
+    // SystemTrayFrameGrid is a Grid with column-based layout. We must insert a new
+    // ColumnDefinition and shift existing elements rather than relying on Children order.
+    auto gridParent = parent.try_as<Grid>();
+    if (!gridParent) { Wh_Log(L"[Inject] Parent is not a Grid"); return false; }
 
     // Already injected?
     for (auto child : gridParent.Children()) {
@@ -4164,12 +4077,8 @@ static bool InjectButtonGrid(FrameworkElement root) {
             if (!g_buttonGrid) {
                 g_buttonGrid = fe.try_as<Grid>();
                 g_injectionParent = parent;
-                g_injectedColumn = kind == TrayKind::Columns
-                                       ? Grid::GetColumn(fe)
-                                       : IndexOfTrayChild(gridParent, fe);
-                Wh_Log(L"[Inject] Re-acquired existing VdSwitcherBar at %s=%d",
-                       kind == TrayKind::Columns ? L"col" : L"index",
-                       g_injectedColumn);
+                g_injectedColumn = Grid::GetColumn(fe);
+                Wh_Log(L"[Inject] Re-acquired existing VdSwitcherBar at col=%d", g_injectedColumn);
             }
             return true;
         }
@@ -4187,18 +4096,16 @@ static bool InjectButtonGrid(FrameworkElement root) {
 
     auto grid = BuildButtonGrid(count, current);
     int insertCol = InsertGridIntoTrayColumns(gridParent, grid);
-    if (insertCol < 0) return false;
     g_buttonGrid      = grid;
     g_injectionParent = parent;
     g_injectedColumn  = insertCol;
 
-    Wh_Log(L"[Inject] VdSwitcherBar at %s=%d in %ls (%d desktops, current=%d)",
-           kind == TrayKind::Columns ? L"column" : L"index",
+    Wh_Log(L"[Inject] VdSwitcherBar at column=%d in %ls (%d desktops, current=%d)",
            insertCol, parent.Name().c_str(), count, current);
     return true;
 }
 
-static Panel FindLiveSystemTrayFrameGrid() {
+static Grid FindLiveSystemTrayFrameGrid() {
     HWND hWnd = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
     if (!hWnd) return nullptr;
 
@@ -4210,8 +4117,7 @@ static Panel FindLiveSystemTrayFrameGrid() {
     auto parent = FindChildRecursive(root, [](FrameworkElement fe) {
         return fe.Name() == L"SystemTrayFrameGrid";
     });
-    // Grid on older taskbars, StackPanel since 26200.9457; Panel covers both.
-    return parent ? parent.try_as<Panel>() : nullptr;
+    return parent ? parent.try_as<Grid>() : nullptr;
 }
 
 // XAML can defer teardown of a removed subtree until after the mod DLL unloads.
@@ -4250,7 +4156,7 @@ static void ClearAllButtonEventState() {
     }
 }
 
-static bool RemoveButtonGridFrom(Panel gridParent, int col) {
+static bool RemoveButtonGridFrom(Grid gridParent, int col) {
     if (!gridParent) return false;
 
     uint32_t removeIdx = (uint32_t)-1;
@@ -4269,14 +4175,11 @@ static bool RemoveButtonGridFrom(Panel gridParent, int col) {
     ClearButtonEventState(ownedGrid);
     gridParent.Children().RemoveAt(removeIdx);
 
-    // A StackPanel tray owns no column to give back; removing the child is
-    // the whole teardown there.
-    auto trayGrid = gridParent.try_as<Grid>();
-    if (trayGrid && liveCol >= 0) {
+    if (liveCol >= 0) {
         uint32_t colU = (uint32_t)liveCol;
-        if (colU < trayGrid.ColumnDefinitions().Size())
-            trayGrid.ColumnDefinitions().RemoveAt(colU);
-        for (auto child : trayGrid.Children()) {
+        if (colU < gridParent.ColumnDefinitions().Size())
+            gridParent.ColumnDefinitions().RemoveAt(colU);
+        for (auto child : gridParent.Children()) {
             auto fe = child.try_as<FrameworkElement>();
             if (!fe) continue;
             int c    = Grid::GetColumn(fe);
@@ -4354,13 +4257,13 @@ static void RemoveButtonGrid() {
 // it can reinject without waiting for new icons. All access is UI-thread only.
 
 struct SecondaryBar {
-    Panel trayGrid{nullptr};   // SystemTrayFrameGrid of a secondary taskbar
+    Grid trayGrid{nullptr};    // SystemTrayFrameGrid of a secondary taskbar
     Grid buttonGrid{nullptr};  // injected VdSwitcherBar, null when not injected
 };
 [[clang::no_destroy]] static std::optional<std::vector<SecondaryBar>>
     g_secondaryBars{std::in_place};
 
-static bool IsTrayGridAlive(Panel const& trayGrid) {
+static bool IsTrayGridAlive(Grid const& trayGrid) {
     try {
         return trayGrid && trayGrid.XamlRoot() != nullptr;
     } catch (...) {
@@ -4440,11 +4343,10 @@ static void RegisterSecondaryTrayFromElement(FrameworkElement const& element) {
         }
     }
 
-    auto trayElement = FindChildRecursive(root, [](FrameworkElement fe) {
+    auto trayGrid = FindChildRecursive(root, [](FrameworkElement fe) {
         return fe.Name() == L"SystemTrayFrameGrid";
-    });
-    auto trayGrid = trayElement.try_as<Panel>();
-    if (!trayGrid || ClassifyTray(trayElement) == TrayKind::Unsupported) return;
+    }).try_as<Grid>();
+    if (!trayGrid) return;
 
     for (auto& bar : *g_secondaryBars)
         if (bar.trayGrid == trayGrid) return;  // already known
@@ -4494,11 +4396,11 @@ static void RebuildButtonGrid() {
     }
 
     if (!g_buttonGrid) { ApplyAllSettings(); return; }
-    Panel gridParent{nullptr};
+    Grid gridParent{nullptr};
     uint32_t idx;
     if (g_startOverlayMode) {
         if (!g_injectionParent) { ApplyAllSettings(); return; }
-        gridParent = g_injectionParent.try_as<Panel>();
+        gridParent = g_injectionParent.try_as<Grid>();
         if (!gridParent || !gridParent.Children().IndexOf(g_buttonGrid, idx)) {
             ClearButtonEventState(g_buttonGrid);
             g_buttonGrid = nullptr;
@@ -4530,29 +4432,16 @@ static void RebuildButtonGrid() {
     }
     // Capture the live column BEFORE removing the old grid, so even if
     // g_injectedColumn is stale (columns were renumbered by Windows), we
-    // reinsert at the correct position. On an order-based tray the child index
-    // is the position, and removing then re-inserting at idx already preserves
-    // it -- there is no column to carry over.
-    bool ordered = !g_startOverlayMode &&
-                   ClassifyTray(gridParent) == TrayKind::Order;
-    int liveColumn =
-        (g_startOverlayMode || ordered) ? 0 : Grid::GetColumn(g_buttonGrid);
+    // reinsert at the correct position.
+    int liveColumn = g_startOverlayMode ? 0 : Grid::GetColumn(g_buttonGrid);
     ClearButtonEventState(g_buttonGrid);
     gridParent.Children().RemoveAt(idx);
     g_buttonGrid = BuildButtonGrid(count, current);
     if (g_startOverlayMode) {
-        auto overlayGrid = gridParent.try_as<Grid>();
         Grid::SetColumn(g_buttonGrid, 0);
-        Grid::SetColumnSpan(
-            g_buttonGrid,
-            overlayGrid
-                ? std::max(1, (int)overlayGrid.ColumnDefinitions().Size())
-                : 1);
+        Grid::SetColumnSpan(g_buttonGrid, std::max(1, (int)gridParent.ColumnDefinitions().Size()));
         Canvas::SetZIndex(g_buttonGrid, 1000);
         g_buttonGrid.IsHitTestVisible(true);
-    } else if (ordered) {
-        g_injectedColumn = (int)idx;
-        Canvas::SetZIndex(g_buttonGrid, 10000);
     } else if (liveColumn >= 0) {
         Grid::SetColumn(g_buttonGrid, liveColumn);
         g_injectedColumn = liveColumn;

@@ -3,6 +3,10 @@
 Adds a `%s%` elastic spacer token to the Windows 11 taskbar clock, so clock items
 can be pushed apart to fill a fixed width instead of bunching together.
 
+![Clock Spacer distributing a custom clock across multiple rows](assets/clock-spacer-working.png)
+*User-confirmed working configuration, September 9, 2026, with system stats,
+time, date, and weather arranged across a fixed-width clock.*
+
 ## Two requirements — please read before installing
 
 **1. This mod does nothing on its own.** It is a companion for
@@ -106,16 +110,6 @@ each line becomes a Grid whose text segments sit in `Auto` columns separated by
 `Star` columns, and the star columns absorb the leftover width. When only the
 text changes — which happens every second — the existing segments are rewritten
 in place rather than rebuilt, so the visual tree stays stable.
-
-## Files
-
-- [taskbar-clock-spacer.wh.cpp](taskbar-clock-spacer.wh.cpp) — Windhawk mod source
-
-## Status
-
-Version `1.1`. Static checks pass; awaiting a live test pass and fresh
-screenshots before updating
-PR [#4443](https://github.com/ramensoftware/windhawk-mods/pull/4443).
 
 ## Relationship to Taskbar Clock Customization
 

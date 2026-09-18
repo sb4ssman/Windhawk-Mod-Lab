@@ -1604,3 +1604,115 @@ DOCTRINE: **audit a README against the settings BLOCK, never against the other
 README copy.** `verify-readme-sync.ps1` proves the two layers agree; it cannot
 prove either is true. Worth folding a README-vs-settings-block check into
 `submission-preflight.ps1` — it would have caught this twice now.
+
+## 2026-09-09 — Lab reconciliation and OmniButton investigation
+
+- Verified git, live GitHub PR/catalog state, installed sources/settings and
+  Windhawk process status. Four catalog mods and four open PRs confirmed.
+- Corrected stale Tray Utility status: d600242 completed its 2.0 rework Aug 5;
+  latest live test unconfirmed. Preserved old working notes in knowledge and
+  replaced them with the current queue; updated root catalog.
+- OmniButton source/settings intact, but enabled mod reports Unloaded in
+  current Explorer. Windows 25H2 build 26200.9278; newer symbol caches exist.
+  Asked user for a fresh reload log. Evidence recorded in
+  _research/omnibutton-2026-09-regression.md. No code fix claimed or made.
+  No installed settings/process changes or pushes.
+
+## 2026-09-09 — OmniButton recovery trace and logging-selector investigation
+
+- User reports recovery after detailed logging selection and another reload.
+  Parsed supplied trace: successful cached hooks, native discovery, 41x96 DIP
+  vertical arrangement, and percentage-change re-layout. Live status now Loaded.
+- Read Windhawk engine v1.7.3 and installed UI source map. Logging alone does
+  not force reload; normal and detailed logging both bypass symbol-error
+  throttling. Engine batches config changes for 200 ms and may retain failed
+  load entries. Timing/retained state remain hypotheses; original failed loads
+  are absent from the capture. Requested controlled ordinary-logging reload.
+- Updated research and catalog; no mod code change or push.
+
+## 2026-09-09 — Release confirmations, screenshot and scope decisions
+
+- User confirmed OmniButton normal-logging reload succeeds; parked transient
+  failure without claiming a cause.
+- User confirmed Clock Spacer, VD Switcher, Tray Utility and Folder Menus work.
+  Accepted existing VD screenshots; hover previews remain requested.
+- Copied the supplied Clock Spacer screenshot unchanged from Pictures/Screenshots
+  (Screenshot 2026-09-09 075106.png); visually matched it and verified SHA256.
+  Added it to folder and embedded READMEs.
+- Documented Folder Menus' single grouped-toolbar scope in both READMEs;
+  independent per-folder taskbar placement rejected. No external reply sent.
+- Task Manager Tail confirmed working on Windows 10/11 and explicitly closed
+  to further work. Preserved installed-vs-lab distinction for other candidates.
+
+## 2026-09-11 — Feature candidates prepared for live testing
+
+- VD Switcher: implemented delayed per-desktop DWM hover previews, monitor-aware
+  popup geometry, no-activation display, empty/minimized status, hover settings,
+  and explicit timer/thumbnail/event cleanup. No live success claimed yet.
+- Folder Menus: grouped settings and nested arrangement expressions; cached
+  Shell icons sized for the primary display; one toolbar after rendered app
+  icons with reserved space and a tray-edge limit. Insufficient room hides the
+  toolbar. Retained native Shell menu behavior and defaults, rejected per-folder
+  positions, and credited diegoalejo15's feature ideas.
+- Folder adopted settings-io, button-surface, nested-group-layout,
+  injected-grid-column, taskbar-host and visual-tree-walk templates verbatim.
+  Preserved its synchronized bounded retry worker. Added accessible labels for
+  icon buttons, guarded settings reload dispatch and vertical-taskbar stand-down.
+- Clock Spacer: synchronized both READMEs including supplied screenshot and
+  fixed hook-array module annotation for upstream review.
+- VD, Clock, Tray Utility, OmniButton and Privacy Anchor passed source preflight.
+  Folder compiled/linked and passed lifetime, template, settings and README
+  checks; upstream validator's sole warning was its already-published 0.7 header.
+  Versioning policy reserves the 2.0 bump for the PR commit after live testing.
+  Clock is intentionally exempt from the grid/button settings contract.
+- Existing nested-layout behavioral tests passed with static linkage. Initial
+  dynamic test executable lacked runtime DLLs; no assertion failure occurred.
+- Added short, reviewable template embedding/README sync helpers and recorded
+  one-time Folder migrations. Large command rejection was resolved by the user's
+  renewed direction to use reasonable edits; no permission blocker remains.
+- Prepared a focused test guide with the user's six current folder entries and
+  appearance mapping, exact candidate hashes, and installed-source/settings
+  backups. No installs, process changes, commits, pushes or PR edits performed.
+
+## 2026-09-18 — SystemTrayFrameGrid became a StackPanel; four mods repaired
+
+- Diagnosed issue #5530 from the reporter's detailed debug log. The log dies on
+  one line, `[2202:ApplyAllSettings]` in published 0.7, which is exactly the
+  `.try_as<Grid>()` null check: settings read, symbols resolved, hook applied,
+  XamlRoot reached. KB5129195 / 26200.9457 kept the name SystemTrayFrameGrid but
+  changed the element from a Grid to a StackPanel, so the cast returns null and
+  the mod silently injects nothing.
+- Corroborated independently: issue #5526 (Taskbar Styler) was fixed with the
+  selector `StackPanel#SystemTrayFrameGrid, Grid#SystemTrayFrameGrid`, and
+  taskbar-ai-quota v1.6.5 (PR #5510, merged Sept 17) carries the same finding in
+  code. Same-build cluster: #5528, #5559, #5533, #5538.
+- injected-grid-column.h to v1.3: the lease now operates on the Panel base. A
+  Grid leases a column, a StackPanel leases a child index. Classify() reports
+  which and refuses any other panel by class name; ResolveColumn became
+  ResolveSlot; PlaceChild/Release fork internally; DescribeChildren() lists the
+  tray's named children for failure logs. Kind is classified on every injection,
+  never cached across a StartTaskbar rebuild.
+- Folder Menus, Privacy Anchor and Tray Utility carry the refreshed template
+  verbatim; tray variables widened to Panel. Folder Menus dropped its duplicated
+  anchor mapping for ResolveSlot, and its column collision detect/repair stands
+  down on an ordered panel.
+- Tray Utility needed more than a cast: its host markers recorded a column to
+  restore, meaningless on an ordered panel. HostRecord now tracks `ordered`,
+  CaptureHost inserts the marker at the host's index, and the new
+  ReturnHostToTray re-inserts each host at its marker's live index. Without it,
+  restore-on-disable would have dumped every tray icon at the far end.
+- VD Switcher does not embed the template and got the same fork inline
+  (ClassifyTray, IndexOfTrayChild, DescribeTrayChildren), covering its
+  secondary-taskbar and rebuild paths and the Start-overlay branch.
+- Added _templates/reembed-template.py: embed-marked-templates.py expands a
+  placeholder only once, so template changes never reached existing adopters.
+- All four: COMPILE_OK (compile and link), TEMPLATE_PARITY_OK,
+  EXIT_TIME_DESTRUCTOR_AUDIT_OK, upstream validator clean except Folder Menus'
+  expected reused-0.7 warning. NOT LIVE-TESTED. No @version bumps, no pushes to
+  the fork, no PR edits, no reply posted to issue #5530.
+- Unverified and deliberately instrumented rather than assumed: whether
+  MainStack, NotifyIconStack, ControlCenterButton, NotificationCenterButton and
+  ShowDesktopStack are still direct children of the renamed panel. Anchor
+  failures now log the panel class and its actual named children.
+- Recorded a new mod idea from the user: Positive Confirmation Indicator, an
+  inverted Privacy Anchor reporting that something wanted is healthy. Idea only.

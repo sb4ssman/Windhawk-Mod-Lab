@@ -1,0 +1,166 @@
+{
+  "position": {
+    "Kind": "String",
+    "Value": "beforeIcons"
+  },
+  "folders[0].label": {
+    "Kind": "String",
+    "Value": "🖥"
+  },
+  "folders[0].target": {
+    "Kind": "String",
+    "Value": "shell:Desktop"
+  },
+  "folders[1].label": {
+    "Kind": "String",
+    "Value": "⚙"
+  },
+  "folders[1].target": {
+    "Kind": "String",
+    "Value": "shell:ControlPanelFolder"
+  },
+  "gridMode": {
+    "Kind": "String",
+    "Value": "autoSmart"
+  },
+  "smartLayout": {
+    "Kind": "String",
+    "Value": "balanced"
+  },
+  "gridColumns": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "gridRows": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "fillOrder": {
+    "Kind": "String",
+    "Value": "rowFirst"
+  },
+  "shortGroupPosition": {
+    "Kind": "String",
+    "Value": "last"
+  },
+  "shortGroupAlign": {
+    "Kind": "String",
+    "Value": "start"
+  },
+  "buttonWidth": {
+    "Kind": "DWord",
+    "Value": 24
+  },
+  "buttonHeight": {
+    "Kind": "DWord",
+    "Value": 22
+  },
+  "buttonSpacing": {
+    "Kind": "DWord",
+    "Value": 4
+  },
+  "buttonText": {
+    "Kind": "String",
+    "Value": "📁"
+  },
+  "fontSize": {
+    "Kind": "DWord",
+    "Value": 12
+  },
+  "textColor": {
+    "Kind": "String",
+    "Value": ""
+  },
+  "backgroundColor": {
+    "Kind": "String",
+    "Value": "transparent"
+  },
+  "hoverBackgroundColor": {
+    "Kind": "String",
+    "Value": "accent"
+  },
+  "pressedBackgroundColor": {
+    "Kind": "String",
+    "Value": "accentLight"
+  },
+  "borderColor": {
+    "Kind": "String",
+    "Value": "transparent"
+  },
+  "borderThickness": {
+    "Kind": "DWord",
+    "Value": -1
+  },
+  "cornerRadius": {
+    "Kind": "DWord",
+    "Value": -1
+  },
+  "opacity": {
+    "Kind": "DWord",
+    "Value": 100
+  },
+  "shineEffect": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "groupPaddingLeft": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "groupPaddingRight": {
+    "Kind": "DWord",
+    "Value": 2
+  },
+  "groupOffsetX": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "groupOffsetY": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "maxMenuItems": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "maxDepth": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "showHidden": {
+    "Kind": "DWord",
+    "Value": 0
+  },
+  "folders[2].label": {
+    "Kind": "String",
+    "Value": "GH"
+  },
+  "folders[2].target": {
+    "Kind": "String",
+    "Value": "T:\\github\\"
+  },
+  "folders[3].label": {
+    "Kind": "String",
+    "Value": "📁"
+  },
+  "folders[3].target": {
+    "Kind": "String",
+    "Value": "T:\\storage"
+  },
+  "folders[4].label": {
+    "Kind": "String",
+    "Value": "C:\\"
+  },
+  "folders[4].target": {
+    "Kind": "String",
+    "Value": "C:\\"
+  },
+  "folders[5].label": {
+    "Kind": "String",
+    "Value": "T:\\"
+  },
+  "folders[5].target": {
+    "Kind": "String",
+    "Value": "T:\\"
+  }
+}

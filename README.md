@@ -9,13 +9,13 @@ double-height taskbars with room for two-row tray controls.
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [omnibutton-customizer/](omnibutton-customizer/) | v2.0, submitted (PR #4855) | Arrange the Windows 11 OmniButton's network, volume, battery, and percentage with one nestable layout expression, per-item color and opacity, and percentage size/font controls |
+| [omnibutton-customizer/](omnibutton-customizer/) | v2.0, PR #4855 open; recovered, investigation parked by user | Arrange the Windows 11 OmniButton's network, volume, battery, and percentage with one nestable layout expression, per-item color and opacity, and percentage size/font controls |
 | [privacy-indicator-anchor/](privacy-indicator-anchor/) | v2.0, submitted (PR #4843) | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start, arranged with one nestable layout expression |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
-| [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, submitted (PR #4443) | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
-| [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7 published; queued for the family 2.0 upgrade | Compact taskbar buttons that open configured Shell targets as popup menus with classic Shell context menus and subfolder navigation |
+| [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, PR #4443 open; newer template rollout awaits live test | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
+| [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7 published; 2.0 feature candidate ready for live test (version bump reserved for PR) | Grouped Shell-menu buttons with native icons, nested layouts and placement after app icons or in the tray |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.8 submitted (PR #4844), CI green | Clickable virtual desktop buttons with customizable indicators, native checked states, grid layouts, Task View button, and tray/Start placement |
+| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; v1.8 PR #4844 open; lab v2.0 hover-preview candidate ready for live test | Clickable desktop buttons with hover previews, customizable indicators, nested layouts, Task View button and tray/Start placement |
 | [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; v2.0 candidate on the shared contract, awaiting live test | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
 
 ## Repository Layout

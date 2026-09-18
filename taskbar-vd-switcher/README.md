@@ -122,6 +122,25 @@ says when that happened, so you can fold it in when you next edit. Set
 `Layout` → `Newly created desktops` to *Leave them out* if you would rather
 your arrangement be the whole truth. `auto` always includes every desktop.
 
+## Desktop hover previews
+
+Hover a desktop button for 400 ms to see an overview of that desktop's open
+windows. The preview keeps their relative positions across your monitors and
+shows the desktop name. It does not switch desktops or take keyboard focus;
+click the desktop button to switch as usual. Moving away or clicking closes it.
+
+Previews are enabled by default. In **Behavior**, turn **Desktop hover previews**
+off to return to desktop-name tooltips, adjust **Preview delay** (100–2000 ms),
+or set **Preview width** (200–800 px, scaled for the monitor).
+
+The overview uses Windows' window thumbnails on a neutral background; it is
+not a screenshot of the wallpaper or Task View. Minimized windows are counted
+rather than shown. Windows may provide a blank or last-rendered image for
+protected, suspended, or inactive-desktop applications. An empty desktop is
+labelled explicitly. Window membership and positions are refreshed on each
+hover; the thumbnails themselves are maintained by Windows while visible.
+Windows pinned across desktops may only appear on their assigned desktop.
+
 ## The Task View button
 
 `Content` → `Task View button placement` decides where it goes: a column
@@ -233,6 +252,9 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| Desktop hover previews | On | Overview of the hovered desktop without switching |
+| Preview delay | 400 ms | Clamped to 100–2000 ms |
+| Preview width | 360 px | Clamped to 200–800 px; monitor-scaled |
 | Hide when only one desktop | Off | |
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
