@@ -147,8 +147,9 @@ Previews are enabled by default. In **Behavior**, turn **Desktop hover previews*
 off to return to desktop-name tooltips, adjust **Preview delay** (100–2000 ms),
 or set **Preview width** (200–800 px, scaled for the monitor).
 
-The overview uses Windows' window thumbnails on a neutral background; it is
-not a screenshot of the wallpaper or Task View. Minimized windows are counted
+The overview uses Windows' window thumbnails on a neutral background that
+follows your Windows light/dark theme, with rounded corners to match the
+shell; it is not a screenshot of the wallpaper or Task View. Minimized windows are counted
 rather than shown. Windows may provide a blank or last-rendered image for
 protected, suspended, or inactive-desktop applications. An empty desktop is
 labelled explicitly. Window membership and positions are refreshed on each
@@ -268,7 +269,7 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 |---------|---------|-------------|
 | Desktop hover previews | On | Overview of the hovered desktop without switching |
 | Preview delay | 400 ms | Clamped to 100–2000 ms |
-| Preview width | 360 px | Clamped to 200–800 px; monitor-scaled |
+| Preview width | 320 px | Clamped to 200–800 px; monitor-scaled |
 | Hide when only one desktop | Off | |
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
@@ -539,7 +540,7 @@ This mod builds directly on patterns established by several community mods:
   - PreviewDelay: 400
     $name: Preview delay (ms)
     $description: How long to hover before showing the overview. Clamped to 100-2000 ms.
-  - PreviewWidth: 360
+  - PreviewWidth: 320
     $name: Preview width (px)
     $description: Width of the overview, scaled for your monitor. Clamped to 200-800.
   - HideWhenSingle: false
@@ -2083,7 +2084,7 @@ struct ModSettings {
     bool         hideWhenSingle    = false;
     bool         hoverPreview = true;
     int          previewDelay = 400;
-    int          previewWidth = 360;
+    int          previewWidth = 320;
 };
 // ModSettings holds only std::wstring/int/bool, so its destructor is safe to
 // run at process shutdown; no [[clang::no_destroy]] needed, and adding it would
@@ -2687,6 +2688,79 @@ static std::vector<std::wstring> ReadDesktopNames(int count) {
 
 namespace desktop_preview {
 constexpr PCWSTR kClass = L"WindhawkDesktopPreview_" WH_MOD_ID;
+
+// The overview used to paint itself in COLOR_INFOBK / COLOR_INFOTEXT — the
+// classic tooltip palette, which renders as pale yellow and looks nothing like
+// the Windows 11 shell the preview floats over. The system colors are legacy
+// Win32 and do NOT follow the light/dark setting, so the only way to match the
+// OS is to read the theme and derive the palette from it.
+struct Palette {
+    COLORREF chrome, chromeText, canvas, thumb, thumbFrame, thumbText, border;
+};
+
+// The taskbar follows SystemUsesLightTheme, and this popup belongs to the
+// taskbar, so that is the key to honor. AppsUseLightTheme is the documented
+// fallback; a missing value means light, per the registry's own default.
+static bool SystemUsesLightTheme() {
+    static constexpr PCWSTR kPath =
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+    for (PCWSTR name : {L"SystemUsesLightTheme", L"AppsUseLightTheme"}) {
+        DWORD value = 0, size = sizeof(value);
+        if (RegGetValueW(HKEY_CURRENT_USER, kPath, name, RRF_RT_REG_DWORD,
+                         nullptr, &value, &size) == ERROR_SUCCESS)
+            return value != 0;
+    }
+    return true;
+}
+
+static Palette CurrentPalette() {
+    if (SystemUsesLightTheme())
+        return {RGB(0xF3, 0xF3, 0xF3), RGB(0x1A, 0x1A, 0x1A),
+                RGB(0xE4, 0xE4, 0xE4), RGB(0xFF, 0xFF, 0xFF),
+                RGB(0xC2, 0xC2, 0xC2), RGB(0x1A, 0x1A, 0x1A),
+                RGB(0xD0, 0xD0, 0xD0)};
+    return {RGB(0x20, 0x20, 0x20), RGB(0xF0, 0xF0, 0xF0),
+            RGB(0x2B, 0x2B, 0x2B), RGB(0x38, 0x38, 0x38),
+            RGB(0x4D, 0x4D, 0x4D), RGB(0xE6, 0xE6, 0xE6),
+            RGB(0x3D, 0x3D, 0x3D)};
+}
+
+// FillRect/FrameRect want a brush, and the palette is resolved per paint.
+struct ScopedBrush {
+    HBRUSH handle;
+    explicit ScopedBrush(COLORREF color) : handle(CreateSolidBrush(color)) {}
+    ~ScopedBrush() { if (handle) DeleteObject(handle); }
+    ScopedBrush(ScopedBrush const&) = delete;
+    ScopedBrush& operator=(ScopedBrush const&) = delete;
+    operator HBRUSH() const { return handle; }
+};
+
+// Present in the Windows 11 SDK, but the bundled headers may predate them.
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#endif
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR 34
+#endif
+
+// Rounded corners and a themed border, so the popup reads as a shell flyout
+// rather than a bare Win32 rectangle. Every call is best-effort: an older
+// build simply rejects the attribute and the popup stays square.
+static void ApplyWindowTheme(HWND window, Palette const& palette) {
+    if (!window) return;
+    BOOL dark = !SystemUsesLightTheme();
+    DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark,
+                          sizeof(dark));
+    DWORD corner = 2;  // DWMWCP_ROUND
+    DwmSetWindowAttribute(window, DWMWA_WINDOW_CORNER_PREFERENCE, &corner,
+                          sizeof(corner));
+    COLORREF border = palette.border;
+    DwmSetWindowAttribute(window, DWMWA_BORDER_COLOR, &border, sizeof(border));
+}
+
 struct Window {
     HWND source{};
     RECT screen{}, destination{};
@@ -2843,26 +2917,29 @@ static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wp, LPARAM 
         HDC dc = BeginPaint(window, &paint);
         RECT client{};
         GetClientRect(window, &client);
-        FillRect(dc, &client, GetSysColorBrush(COLOR_INFOBK));
-        SetTextColor(dc, GetSysColor(COLOR_INFOTEXT));
+        Palette palette = CurrentPalette();
+        ScopedBrush chrome(palette.chrome), canvasBrush(palette.canvas),
+            thumb(palette.thumb), thumbFrame(palette.thumbFrame);
+        FillRect(dc, &client, chrome);
+        SetTextColor(dc, palette.chromeText);
         SetBkMode(dc, TRANSPARENT);
         auto oldFont = SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
         RECT title{state.inset, 0, state.width - state.inset, state.heading};
         DrawTextW(dc, state.title, -1, &title, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
         RECT canvas{state.inset, state.heading, state.width - state.inset, state.height - state.heading};
-        FillRect(dc, &canvas, GetSysColorBrush(COLOR_APPWORKSPACE));
+        FillRect(dc, &canvas, canvasBrush);
         int saved = SaveDC(dc);
         IntersectClipRect(dc, canvas.left, canvas.top, canvas.right, canvas.bottom);
         for (int i = state.count - 1; i >= 0; --i) {
             auto& item = state.windows[i];
-            FillRect(dc, &item.destination, GetSysColorBrush(COLOR_WINDOW));
-            FrameRect(dc, &item.destination, GetSysColorBrush(COLOR_WINDOWFRAME));
-            SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
+            FillRect(dc, &item.destination, thumb);
+            FrameRect(dc, &item.destination, thumbFrame);
+            SetTextColor(dc, palette.thumbText);
             RECT label = item.destination;
             DrawTextW(dc, item.title, -1, &label, DT_SINGLELINE | DT_TOP | DT_END_ELLIPSIS | DT_NOPREFIX);
         }
         RestoreDC(dc, saved);
-        SetTextColor(dc, GetSysColor(COLOR_INFOTEXT));
+        SetTextColor(dc, palette.chromeText);
         RECT footer{state.inset, state.height - state.heading, state.width - state.inset, state.height};
         wchar_t text[128]{};
         if (!state.enumerated) wcscpy_s(text, L"Desktop preview unavailable");
@@ -2931,6 +3008,9 @@ static void Schedule(FrameworkElement const& button, int desktopIndex, int width
             kClass, L"Desktop preview", WS_POPUP, 0, 0, state.width, state.height,
             taskbar, nullptr, state.module, nullptr);
     }
+    // Re-applied per hover, not once at creation: the user can switch the
+    // Windows theme while Explorer keeps running, and the popup outlives that.
+    ApplyWindowTheme(state.popup, CurrentPalette());
     if (state.popup) SetTimer(state.popup, 1, std::max(1, delay), nullptr);
 }
 

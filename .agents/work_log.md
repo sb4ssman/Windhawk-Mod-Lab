@@ -1716,3 +1716,53 @@ prove either is true. Worth folding a README-vs-settings-block check into
   failures now log the panel class and its actual named children.
 - Recorded a new mod idea from the user: Positive Confirmation Indicator, an
   inverted Privacy Anchor reporting that something wanted is healthy. Idea only.
+
+## 2026-09-18 (later) — StackPanel fix live-confirmed; VD preview chrome themed
+
+- User live-tested all four repaired mods on 26200.9457. Folder Menus, Privacy
+  Anchor, VD Switcher and Tray Utility all inject correctly. The Panel-lease fix
+  in injected-grid-column.h v1.3 is confirmed on the build that broke them.
+- The anchor-failure diagnostics added for the unknown never fired, which
+  answers the open question: MainStack, NotifyIconStack, ControlCenterButton,
+  NotificationCenterButton and ShowDesktopStack remain direct children of the
+  renamed panel. Only the panel's type changed, not the tray's shape.
+- Folder Menus settings did not carry from the installed build, as the
+  documented "Upgrading from 0.7" break in both READMEs says they would not.
+- VD Switcher hover previews worked but looked wrong. The popup painted with
+  COLOR_INFOBK / COLOR_INFOTEXT — the legacy tooltip palette, pale yellow, and
+  fixed: the Win32 system colors do not follow the Windows light/dark setting.
+  Replaced with a palette read from Themes\Personalize\SystemUsesLightTheme
+  (the taskbar's own key; AppsUseLightTheme fallback; light when absent),
+  resolved per paint and re-applied per hover so a mid-session theme switch is
+  honored. Added DWM rounded corners, immersive dark mode and a themed border,
+  all best-effort so an older build just stays square.
+- Default Behavior.PreviewWidth 360 -> 320 by user direction, synchronized
+  across the source header table, the settings block and both READMEs.
+- VD Switcher COMPILE_OK (compile and link). NOT live-tested. No @version
+  bumps, no commits, nothing pushed, no reply posted to issue #5530.
+
+## 2026-09-18 (final) — whole family live-tested on 26200.9457; release prep
+
+- User live-tested all six on the current build and confirmed each: OmniButton,
+  Clock Spacer, VD Switcher (including the newly themed hover preview), Folder
+  Menus (bumped and re-checked), plus the earlier Privacy Anchor and Tray
+  Utility confirmations. The family is clear on 26200.9457.
+- Verified OmniButton and Clock Spacer were never exposed to the KB5129195
+  break: neither references SystemTrayFrameGrid at all. OmniButton hooks
+  ControlCenterButton, Clock Spacer the clock. They were correctly excluded
+  from the repair batch.
+- Folder Menus bumped 0.7 -> 2.0 in the source header and the init log line.
+  The "Upgrading from 0.7" section deliberately keeps 0.7 — that names the
+  published version a user is coming from, not the mod's own version. The bump
+  also clears the upstream validator's reused-version warning, so the whole
+  family now passes preflight without exceptions.
+- Root README status column updated for all six, replacing the stale
+  "awaiting/ready for live test" wording with the live-tested build.
+- Gate results, all six: COMPILE_OK (compile and link),
+  EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH, SUBMISSION_PREFLIGHT_OK.
+- Verified against live GitHub rather than notes: PRs #4855, #4844, #4843 and
+  #4443 are open with green checks; every lab source differs substantially
+  from its PR branch (2,720 to 8,392 changed lines), so all six carry real
+  updates. Fork main is 240 commits behind upstream/main.
+- Nothing pushed, no PR edits, no reply posted to issue #5530. The batch push
+  awaits the user's explicit go-ahead.

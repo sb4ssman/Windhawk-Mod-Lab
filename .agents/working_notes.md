@@ -5,30 +5,28 @@ Windhawk process status. Historical details and all deferred work remain in
 [the previous handoff](knowledge/lab-handoff-before-2026-09-09.md); its status
 claims are historical and often superseded. Durable rules: [README](README.md).
 
-## BLOCKER — SystemTrayFrameGrid is a StackPanel on 26200.9457
+## RESOLVED — SystemTrayFrameGrid StackPanel break, live-confirmed Sept 18
 
-KB5129195 changed the tray panel's type while keeping its name. Every
-`.try_as<Grid>()` on `SystemTrayFrameGrid` now returns null, so Folder Menus,
-Privacy Anchor, VD Switcher and Tray Utility all silently inject nothing.
-Diagnosis, evidence and fix shape:
+KB5129195 changed the tray panel's type while keeping its name, so every
+`.try_as<Grid>()` returned null and four mods silently injected nothing.
+Diagnosis and fix shape:
 [_research/systemtrayframegrid-stackpanel-2026-09.md](../_research/systemtrayframegrid-stackpanel-2026-09.md).
-Reported upstream as issue #5530; user has replied that a fix is in progress.
+Reported upstream as issue #5530.
 
-This lands ahead of the test batch: the Sept 9 confirmations were made on
-26200.9278, before this update. Re-validate on the current build.
+`injected-grid-column.h` v1.3 leases a slot on the `Panel` base — a column on a
+Grid, a child index on a StackPanel — and all four mods classify the tray on
+every injection. Template embedded in Folder Menus, Privacy Anchor and Tray
+Utility; VD Switcher carries the same fork inline.
 
-**Fix written Sept 18, NOT live-tested.** `injected-grid-column.h` v1.3 leases a
-slot on the `Panel` base — a column on a Grid, a child index on a StackPanel —
-and all four mods classify the tray on every injection. Refreshed template
-embedded in Folder Menus, Privacy Anchor and Tray Utility (parity verified); VD
-Switcher carries the same fork inline. All four COMPILE_OK and pass preflight
-(Folder Menus' only warning is the reserved 0.7 version bump). No @version
-bumps, no commits, nothing pushed, no reply posted to issue #5530.
+**User live-tested all four on 26200.9457 (Sept 18) and all four work.** Folder
+Menus, Privacy Anchor, VD Switcher and Tray Utility all inject correctly. The
+anchor-failure diagnostics never fired, so MainStack / NotifyIconStack /
+ControlCenterButton / NotificationCenterButton / ShowDesktopStack are still
+direct children of the renamed panel. Folder Menus' settings did not carry over,
+which is the documented 0.7 break, not a defect.
 
-Next: user live-tests all four on 26200.9457. The new logs print the tray
-panel's class and its named children when an anchor fails, which settles the
-open question of whether MainStack / NotifyIconStack / ControlCenterButton /
-NotificationCenterButton / ShowDesktopStack are still direct children there.
+Still pending: no @version bumps, no commits, nothing pushed, no reply posted to
+issue #5530. Replying there would help other affected mod authors.
 
 ## Priority: polish and publish the mod family
 
@@ -58,7 +56,7 @@ unproven. Do not request the same test again or speculate a code fix.
 |---|---|---|---|
 | OmniButton | 2.0; installed source identical; recovered after reload | PR #4855 open, a6bde2de, five green checks | Recovered; parked by user |
 | Privacy Anchor | 2.0 live-confirmed; lab additionally embeds start-placement v1.3 | PR #4843 open, 6f71b39f, v2.0 | Await review |
-| VD Switcher | Lab 2.0 plus new DWM hover previews; installed is earlier | Catalog 1.7; PR #4844 still 1.8 | Live-test packaged candidate |
+| VD Switcher | Lab 2.0 plus DWM hover previews; tray injection confirmed Sept 18 | Catalog 1.7; PR #4844 still 1.8 | Re-test themed preview chrome |
 | Clock Spacer | 1.1; newer rollout, docs/screenshot and hook comment reconciled | PR #4443 open, 85a971d5 | Live-test packaged candidate |
 | Tray Utility | Lab 2.0 rework d600242; installed local 1.1 | Catalog 1.1; #4841 merged | Live-test 2.0 |
 | Folder Menus | New grouped-settings/native-icon/after-app candidate; header retained 0.7 | Catalog 0.7; #4485 merged | Live-test candidate; PR commit will bump to 2.0 |
@@ -70,6 +68,46 @@ Old notes wrongly said Tray Utility still needed the rework: git shows it
 complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
+
+## Active — all six live-tested, batch push pending user go-ahead
+
+User live-tested the whole family on 26200.9457 (Sept 18): Folder Menus,
+Privacy Anchor, VD Switcher, Tray Utility, then OmniButton, Clock Spacer and
+the themed VD preview. All confirmed good.
+
+Local state: Folder Menus bumped 0.7 -> 2.0 (source header and init log; the
+"Upgrading from 0.7" section correctly still names the published version).
+Root README status lines updated from "awaiting live test" to live-tested.
+All six COMPILE_OK, EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH and
+SUBMISSION_PREFLIGHT_OK — Folder Menus' reused-version warning cleared with
+the bump.
+
+Not done, awaiting explicit go-ahead: nothing pushed, no PR edits, no reply to
+issue #5530. Fork main is 240 behind upstream/main and must be re-pointed
+before update branches are cut for the two merged mods.
+
+Push plan per mod:
+- Privacy Anchor #4843, OmniButton #4855, Clock Spacer #4443 — unmerged add
+  PRs; push the branch to update the PR in place, no version bump needed.
+- VD Switcher #4844 — open update PR at 1.8, lab is 2.0; push updates it.
+- Tray Utility (#4841 merged at 1.1) and Folder Menus (#4485 merged at 0.7) —
+  both need update branches cut fresh FROM upstream/main, one file each.
+
+## Active — VD Switcher hover preview chrome
+
+User's Sept 18 verdict: previews work, but the chrome was ugly. It painted with
+`COLOR_INFOBK` / `COLOR_INFOTEXT`, the legacy tooltip palette, which renders
+pale yellow and does not follow the light/dark setting at all — the Win32 system
+colors never did.
+
+Done Sept 18, NOT yet live-tested: the preview derives its palette from
+`Themes\Personalize\SystemUsesLightTheme` (taskbar key, `AppsUseLightTheme`
+fallback, light when absent) and re-reads it per hover so a theme switch during
+an Explorer session is picked up. Added DWM rounded corners, immersive dark
+mode and a themed border. Default `Behavior.PreviewWidth` 360 -> 320 per user,
+synchronized across source header, settings block and both READMEs. COMPILE_OK.
+
+Next: user re-tests preview appearance in both light and dark themes.
 
 ## Queue after OmniButton
 

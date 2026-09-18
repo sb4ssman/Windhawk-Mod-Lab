@@ -2,7 +2,7 @@
 // @id              taskbar-folder-menus
 // @name            Taskbar Folder Menus
 // @description     Adds compact Windows 11 taskbar buttons that open configured Shell targets as popup menus, similar to classic taskbar toolbars.
-// @version         0.7
+// @version         2.0
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -3879,7 +3879,7 @@ static void StartRetryThread() {
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Taskbar Folder Menus v0.7");
+    Wh_Log(L"[Init] Taskbar Folder Menus v2.0");
     LoadSettings();
     PrepareFolderIcons();
 

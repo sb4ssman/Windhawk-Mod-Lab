@@ -133,8 +133,9 @@ Previews are enabled by default. In **Behavior**, turn **Desktop hover previews*
 off to return to desktop-name tooltips, adjust **Preview delay** (100–2000 ms),
 or set **Preview width** (200–800 px, scaled for the monitor).
 
-The overview uses Windows' window thumbnails on a neutral background; it is
-not a screenshot of the wallpaper or Task View. Minimized windows are counted
+The overview uses Windows' window thumbnails on a neutral background that
+follows your Windows light/dark theme, with rounded corners to match the
+shell; it is not a screenshot of the wallpaper or Task View. Minimized windows are counted
 rather than shown. Windows may provide a blank or last-rendered image for
 protected, suspended, or inactive-desktop applications. An empty desktop is
 labelled explicitly. Window membership and positions are refreshed on each
@@ -254,7 +255,7 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 |---------|---------|-------------|
 | Desktop hover previews | On | Overview of the hovered desktop without switching |
 | Preview delay | 400 ms | Clamped to 100–2000 ms |
-| Preview width | 360 px | Clamped to 200–800 px; monitor-scaled |
+| Preview width | 320 px | Clamped to 200–800 px; monitor-scaled |
 | Hide when only one desktop | Off | |
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
