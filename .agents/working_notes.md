@@ -69,7 +69,46 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## Active — all six live-tested, batch push pending user go-ahead
+## PUBLISHED — all six PRs live and green, Sept 18
+
+Fork main re-pointed to upstream/main (was 240 behind) and pushed. Every PR
+diff verified as exactly one file against upstream/main before pushing.
+
+| PR | Mod | Ver | State |
+|---|---|---|---|
+| #4443 | Clock Spacer | 1.1 | pushed eba63e7a, 5/5 green |
+| #4843 | Privacy Anchor | 2.0 | pushed 6e44777d, 5/5 green |
+| #4844 | VD Switcher | 2.0 | pushed 9681854d, title updated 1.8 -> 2.0, 5/5 green |
+| #4855 | OmniButton | 2.0 | ALREADY CURRENT — not touched, 5/5 green |
+| #5568 | Folder Menus | 2.0 | NEW update PR, fixes #5530, 5/5 green |
+| #5569 | Tray Utility | 2.0 | NEW update PR, 5/5 green |
+
+OmniButton needed no push: its branch was already byte-identical to the lab.
+An earlier "8,392 changed lines" reading was CRLF noise from a raw byte diff —
+always normalize line endings before quoting a diff size for these files.
+
+Awaiting maintainer review. Nothing else to push.
+
+## Open issues on the user's mods (verified against GitHub Sept 18)
+
+- **#5530** Folder Menus / KB5129195 — OPEN, `mod-bug`. EvEric99 reported with
+  a debug log; Vc-86 and Jax765 confirmed. User replied "I'm working on it."
+  **The fix is now in PR #5568.** No reply posted yet — user parked this
+  deliberately; return to it.
+- **#4830** VD Switcher custom indicator (Deen-0x) — **all three asks shipped
+  in 2.0**: custom Active/Inactive symbols, fonts for labels and Task View,
+  and native Checked/CheckedPointerOver/CheckedPressed states for Styler.
+  Closeable once #4844 merges.
+- **#4831** VD Switcher multi-monitor (Deen-0x) — only PARTIALLY addressed.
+  `Placement.AllTaskbars` exists, but Start positions remain primary-only,
+  which is exactly their complaint. Do not imply it is fixed.
+- **#5049 / #5050** — same StackPanel root cause on 26H2 build 26300,
+  reported 2026-08-08, attributed to "the movable taskbar work". Confirms the
+  StackPanel is the forward shape, not a revertible regression.
+- **#2063** insecure LoadLibrary — none of the user's mods are listed; they
+  use `LOAD_LIBRARY_SEARCH_SYSTEM32`. No action.
+
+## Superseded — all six live-tested, batch push (done)
 
 User live-tested the whole family on 26200.9457 (Sept 18): Folder Menus,
 Privacy Anchor, VD Switcher, Tray Utility, then OmniButton, Clock Spacer and

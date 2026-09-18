@@ -1766,3 +1766,30 @@ prove either is true. Worth folding a README-vs-settings-block check into
   updates. Fork main is 240 commits behind upstream/main.
 - Nothing pushed, no PR edits, no reply posted to issue #5530. The batch push
   awaits the user's explicit go-ahead.
+
+## 2026-09-18 (publish) — all six mods pushed to upstream PRs, CI green
+
+- Fork main was 240 behind upstream/main and 0 ahead, so it fast-forwarded
+  cleanly (no force needed) and was pushed. It remains a pristine mirror.
+- Every branch verified with `git diff --name-only upstream/main...HEAD`
+  returning exactly one path before any push, per the hard submission rule.
+- Updated in place on existing open PR branches: Privacy Anchor (#4843,
+  6e44777d), Clock Spacer (#4443, eba63e7a), VD Switcher (#4844, 9681854d).
+  VD's PR title was corrected from v1.8 to v2.0.
+- Two new update branches cut fresh FROM upstream/main for the merged mods:
+  update-taskbar-folder-menus-v2.0 -> PR #5568, and
+  update-tray-utility-customizer-v2.0 -> PR #5569. Both bodies follow the
+  established format and keep the Mod authorship template intact.
+- OmniButton needed NO push: its PR branch was already byte-identical to the
+  lab source. The earlier "8,392 changed lines" figure was pure CRLF noise
+  from diffing raw bytes across the autocrlf boundary. LESSON: normalize line
+  endings (`sed 's/\r$//'`) before quoting any diff size for these files, or
+  every comparison reports the whole file as changed.
+- All six PRs finished 5/5 SUCCESS: PR mod validation, PR flow labels, and
+  Mod compatibility check against 1.6.1, 1.7.3 and 2.0.0-alpha.5.
+- Screenshot asset filenames were listed from disk before being referenced in
+  the two new PR bodies, rather than assumed. An earlier unverified claim that
+  the VD gallery contained a hover-preview screenshot was wrong: no such asset
+  exists, and no screenshot was ever added or removed by this session.
+- Fetched the full open-issue picture for the user's mods; recorded in the
+  working notes. No reply posted to #5530 — parked by user direction.
