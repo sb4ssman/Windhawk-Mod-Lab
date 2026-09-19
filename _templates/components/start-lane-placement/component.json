@@ -1,0 +1,14 @@
+{
+  "id": "start-lane-placement",
+  "suffix": "start_placement",
+  "title": "Start-adjacent lane placement",
+  "summary": "Place owned content beside the Start button and reserve room for it by pushing the task list, following Start as a centered taskbar re-flows. Reserves a lane; it does not overlay Start.",
+  "api": ["Acquire", "Position", "Release", "Side"],
+  "includes": ["<algorithm>", "<cmath>"],
+  "winrt": [
+    "winrt/Windows.UI.Xaml.h",
+    "winrt/Windows.UI.Xaml.Automation.h",
+    "winrt/Windows.UI.Xaml.Controls.h",
+    "winrt/Windows.UI.Xaml.Media.h"
+  ]
+}

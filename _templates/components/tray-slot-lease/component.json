@@ -1,0 +1,9 @@
+{
+  "id": "tray-slot-lease",
+  "suffix": "slot_lease",
+  "title": "Tray slot lease",
+  "summary": "Lease a position in the tray panel - a column on a Grid, a child index on a StackPanel - tracked by a named zero-size marker so the release stays exact after other mods inject siblings around it.",
+  "api": ["Acquire", "AcquireAt", "PlaceChild", "Release", "Classify", "FindDirectChild", "IndexOfChild", "ClassName", "DescribeChildren"],
+  "includes": ["<algorithm>", "<string>"],
+  "winrt": ["winrt/Windows.UI.Xaml.h", "winrt/Windows.UI.Xaml.Controls.h"]
+}

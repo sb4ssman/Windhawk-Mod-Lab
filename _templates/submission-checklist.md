@@ -50,6 +50,17 @@ Use this before opening or updating a submission PR.
       name (for example, `taskbarDllHooks`) or in the immediately preceding
       module comment, as required by upstream validation.
 - [ ] Version header, init log, root catalog, and development notes agree.
+- [ ] Shared code is **assembled**, not pasted: the mod has a
+      `components.list`, and preflight reports `ASSEMBLY_OK` and
+      `COMPONENT_USE_OK`. Take the smallest set of components with real call
+      sites; when a mod needs only part of a template, split the template
+      rather than carrying its unused modes.
+- [ ] Lab provenance is out of the shipped file — review history, PR numbers,
+      template version numbers and other mods' examples live as `//!` lines in
+      `_templates/components/`, which the assembler strips.
+- [ ] No per-mod logging verbosity setting. Windhawk's own per-mod logging
+      switch already gates `Wh_Log`, and the macro only evaluates its arguments
+      when logging is on, so there is nothing for such a setting to save.
 - [ ] PR contents are reviewed only after the live checks above pass.
 
 ## Review items a script cannot decide
@@ -58,6 +69,17 @@ These reached real pull requests. Each needs the call graph or intent to judge,
 so they are read by a human rather than enforced by preflight — a check that
 cries wolf on correct code teaches everyone to ignore the whole preflight.
 
+- [ ] **Never drop `-loleaut32` from a C++/WinRT mod on a source-grep alone.**
+      A reviewer will suggest it, correctly observing that the file contains no
+      `BSTR`, `VARIANT` or `IDispatch`. It is still wrong whenever the mod calls
+      `winrt::hresult_error::message()` (or constructs one from an ABI result):
+      C++/WinRT stores that message in a `BSTR`, so the object file references
+      `SysStringLen` and `SysFreeString` and the LINK fails even though nothing
+      in the source names oleaut32. Verified on Privacy Anchor 2026-09-19 —
+      removing it produced three undefined symbols out of `hresult_error`.
+      This is exactly the class of error `-fsyntax-only` cannot see, which is
+      why `compile-check.ps1` links a real temporary DLL. Answer the suggestion
+      with the link error rather than the edit.
 - [ ] **No layout handler can re-enter itself.** `UpdateLayout()` runs a
       SYNCHRONOUS layout pass, which raises `LayoutUpdated` again. If a
       `LayoutUpdated` handler can reach `UpdateLayout()` — directly or through

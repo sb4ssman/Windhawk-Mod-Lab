@@ -1,0 +1,7 @@
+{
+  "id": "taskbar-metrics",
+  "suffix": "taskbar_metrics",
+  "title": "Taskbar metrics and orientation",
+  "summary": "The taskbar's rect in DIPs, and whether a horizontal-layout model applies at all - so a mod stands down on a vertical taskbar instead of arranging into a rotated coordinate space.",
+  "api": ["GetMetrics", "LayoutModelApplies", "OrientationName"]
+}

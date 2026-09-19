@@ -85,6 +85,27 @@ $pythonCommand = Get-Command python -ErrorAction Stop
 & $pythonCommand (Join-Path $PSScriptRoot 'verify-settings-used.py') $sourceFile.FullName
 if ($LASTEXITCODE -ne 0) { throw "$modName has settings that nothing reads" }
 
+# Assembled mods. Two checks the old copy-a-whole-template rule could not make:
+# the shipped component region must still match the library, and every
+# component the mod assembles must have a real call site in the mod's own code.
+# The second is what three successive upstream reviews flagged by hand.
+if (Test-Path -LiteralPath (Join-Path $modPath 'components.list') -PathType Leaf) {
+    & $pythonCommand (Join-Path $PSScriptRoot 'assemble.py') $modPath --check
+    if ($LASTEXITCODE -ne 0) { throw "$modName component region is out of date" }
+
+    & $pythonCommand (Join-Path $PSScriptRoot 'verify-components-used.py') $modPath
+    if ($LASTEXITCODE -ne 0) { throw "$modName assembles components it never calls" }
+}
+
+# A per-mod logging verbosity setting duplicates Windhawk's own per-mod logging
+# switch, which already gates Wh_Log — and the macro evaluates its arguments
+# only when logging is on, so there is nothing to save by adding one.
+$settingsBlock = [regex]::Match($source,
+    '(?s)==WindhawkModSettings==.*?==/WindhawkModSettings==').Value
+if ($settingsBlock -match '(?m)^\s*-\s+\w*(?:Detailed|Verbose|Debug)?Logging\s*:') {
+    throw "$modName declares a logging verbosity setting; Windhawk's own per-mod logging switch already covers this."
+}
+
 # PR #4855: preferring a cached Shell_TrayWnd without validating it. The window
 # can be recreated in-process, and the stale handle then wins forever — on the
 # unload path that skips teardown entirely and leaves callbacks pointing into a
@@ -131,6 +152,22 @@ foreach ($version in @('3.12', '3.13', '3.14')) {
     if ($LASTEXITCODE -eq 0 -and $usable -eq 'True') {
         $python = $candidate
         break
+    }
+}
+# The Windows launcher is sometimes registered without per-user PythonCore
+# installs (notably under a restricted shell). Probe the standard per-user
+# install locations directly before falling back to PATH.
+if (-not $python) {
+    $localAppData = [Environment]::GetFolderPath(
+        [Environment+SpecialFolder]::LocalApplicationData)
+    foreach ($version in @('3.12', '3.13', '3.14')) {
+        $candidate = Join-Path $localAppData ("Python\\pythoncore-$version-64\\python.exe")
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
+        $usable = & $candidate -c $probe 2>$null
+        if ($LASTEXITCODE -eq 0 -and $usable -eq 'True') {
+            $python = $candidate
+            break
+        }
     }
 }
 if (-not $python) {

@@ -1,0 +1,7 @@
+{
+  "id": "taskbar-window",
+  "suffix": "taskbar_window",
+  "title": "Taskbar window discovery",
+  "summary": "Find this process's Shell_TrayWnd, and validate a cached handle before preferring it.",
+  "api": ["FindCurrentProcessTaskbarWnd", "ResolveTaskbarWnd"]
+}

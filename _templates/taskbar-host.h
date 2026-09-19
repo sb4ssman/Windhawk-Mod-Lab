@@ -1,6 +1,6 @@
 #pragma once
 
-// Copy-source template v1.1: getting to the Windows 11 taskbar, and staying
+// Copy-source template v1.2: getting to the Windows 11 taskbar, and staying
 // attached to it.
 //
 // Every mod in this family opens with the same four moves — find the taskbar
@@ -30,6 +30,8 @@
 // for.
 
 #include <atomic>
+#include <memory>
+#include <mutex>
 
 #include <windows.h>
 
@@ -375,6 +377,20 @@ inline wchar_t const* OrientationName(Orientation orientation) {
 //
 // Stoppable and WAITED during unload. A detached thread that outlives
 // Wh_ModUninit runs mod code out of an unloaded DLL.
+//
+// STOP IS CALLED FROM MORE THAN ONE THREAD. Wh_ModUninit stops the loop from
+// Windhawk's thread while an Explorer taskbar rebuild can be starting it from
+// the taskbar's UI thread, and Start() stops the previous run before it begins
+// a new one. So the handles cannot live in bare members that each caller
+// closes: two callers would read the same handle and close it twice, and in
+// explorer.exe a double CloseHandle later closes whatever unrelated handle the
+// value was recycled into.
+//
+// One attempt therefore owns its handles through a shared Run, and EVERY
+// caller that observes a live Run waits for it. The mutex is held only across
+// the handoff, never across the wait: the retry thread marshals onto the UI
+// thread with SendMessage, so a UI-thread caller blocked on the mutex while
+// another thread waited under it could never service that message.
 
 class RetryLoop {
 public:
@@ -382,80 +398,120 @@ public:
     using AppliedFn = bool (*)();
     using AttemptFn = void (*)();
 
+    // No destructor on purpose. A namespace-scope loop's destructor would run
+    // at DLL detach, inside the loader lock, and Stop() waits on a thread —
+    // the owner stops it explicitly from Wh_ModUninit instead.
+
     void Start(AttemptFn attempt, AppliedFn applied,
                std::atomic<bool> const& unloading, int attempts = 5,
                DWORD intervalMs = 2000, bool forceFirstAttempt = false) {
         Stop();
         if (unloading) return;
-        attempt_ = attempt;
-        applied_ = applied;
-        unloading_ = &unloading;
-        attempts_ = attempts;
-        intervalMs_ = intervalMs;
-        forceFirstAttempt_ = forceFirstAttempt;
-        stopEvent_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        if (!stopEvent_) return;
-        thread_ = CreateThread(
-            nullptr, 0,
-            [](void* parameter) -> DWORD {
-                auto* self = static_cast<RetryLoop*>(parameter);
-                for (int i = 0; i < self->attempts_ && !*self->unloading_;
-                     ++i) {
-                    // A settings reload can need one restore/reapply pass even
-                    // while `applied` truthfully says we still own live XAML.
-                    // Do not overload that ownership flag merely to wake the
-                    // retry loop; request a forced first attempt instead.
-                    if (self->applied_ &&
-                        !(self->forceFirstAttempt_ && i == 0) &&
-                        self->applied_()) break;
-                    if (i && WaitForSingleObject(self->stopEvent_,
-                                                 self->intervalMs_) !=
-                                 WAIT_TIMEOUT)
-                        break;
-                    if (self->attempt_) self->attempt_();
-                }
-                return 0;
-            },
-            this, 0, nullptr);
-        if (!thread_) {
-            CloseHandle(stopEvent_);
-            stopEvent_ = nullptr;
+
+        auto run = std::make_shared<Run>();
+        run->attempt = attempt;
+        run->applied = applied;
+        run->unloading = &unloading;
+        run->attempts = attempts;
+        run->intervalMs = intervalMs;
+        run->forceFirstAttempt = forceFirstAttempt;
+        run->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!run->stopEvent) return;
+
+        // The thread carries a reference of its own, so the Run survives until
+        // both the loop and the thread are done with it, whichever ends first.
+        auto* parameter = new std::shared_ptr<Run>(run);
+        run->thread =
+            CreateThread(nullptr, 0, ThreadMain, parameter, 0, nullptr);
+        if (!run->thread) {
+            delete parameter;
+            return;
         }
+
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            if (!unloading) {
+                run_ = std::move(run);
+                return;
+            }
+        }
+        // Unload began while this attempt was being created, so the Stop that
+        // would have waited for it saw nothing. Wait for it here instead.
+        StopRun(run);
     }
 
-    // Pumps sent messages while waiting: the retry thread marshals onto the UI
-    // thread with SendMessage, so a plain wait from that same UI thread would
-    // deadlock against the thread it is waiting for.
     void Stop() {
-        if (stopEvent_) SetEvent(stopEvent_);
-        if (thread_) {
-            DWORD result;
-            do {
-                result = MsgWaitForMultipleObjects(1, &thread_, FALSE, INFINITE,
-                                                   QS_SENDMESSAGE);
-                if (result == WAIT_OBJECT_0 + 1) {
-                    MSG message;
-                    PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
-                }
-            } while (result == WAIT_OBJECT_0 + 1);
-            CloseHandle(thread_);
-            thread_ = nullptr;
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;  // shared, not moved: a concurrent Stop must wait too
         }
-        if (stopEvent_) {
-            CloseHandle(stopEvent_);
-            stopEvent_ = nullptr;
-        }
+        if (!run) return;
+        StopRun(run);
+        std::lock_guard<std::mutex> guard(mutex_);
+        if (run_ == run) run_.reset();
     }
 
 private:
-    HANDLE thread_ = nullptr;
-    HANDLE stopEvent_ = nullptr;
-    AttemptFn attempt_ = nullptr;
-    AppliedFn applied_ = nullptr;
-    std::atomic<bool> const* unloading_ = nullptr;
-    int attempts_ = 5;
-    DWORD intervalMs_ = 2000;
-    bool forceFirstAttempt_ = false;
+    struct Run {
+        HANDLE thread = nullptr;
+        HANDLE stopEvent = nullptr;
+        AttemptFn attempt = nullptr;
+        AppliedFn applied = nullptr;
+        std::atomic<bool> const* unloading = nullptr;
+        int attempts = 5;
+        DWORD intervalMs = 2000;
+        bool forceFirstAttempt = false;
+
+        // Closed exactly once, when the last of the loop and the thread lets
+        // go. Both have already stopped using them by then.
+        ~Run() {
+            if (thread) CloseHandle(thread);
+            if (stopEvent) CloseHandle(stopEvent);
+        }
+    };
+
+    static DWORD WINAPI ThreadMain(void* parameter) {
+        auto* owned = static_cast<std::shared_ptr<Run>*>(parameter);
+        std::shared_ptr<Run> run = *owned;
+        delete owned;
+        for (int i = 0; i < run->attempts && !*run->unloading; ++i) {
+            // A settings reload can need one restore/reapply pass even while
+            // `applied` truthfully says we still own live XAML. Do not
+            // overload that ownership flag merely to wake the retry loop;
+            // request a forced first attempt instead.
+            if (run->applied && !(run->forceFirstAttempt && i == 0) &&
+                run->applied())
+                break;
+            if (i && WaitForSingleObject(run->stopEvent, run->intervalMs) !=
+                         WAIT_TIMEOUT)
+                break;
+            if (run->attempt) run->attempt();
+        }
+        return 0;
+    }
+
+    // Signal and wait, pumping sent messages: a caller on the taskbar's UI
+    // thread would otherwise deadlock against the SendMessage the retry thread
+    // is making back to it. Idempotent — the stop event is manual-reset, and
+    // waiting on an already-exited thread returns at once.
+    static void StopRun(std::shared_ptr<Run> const& run) {
+        if (run->stopEvent) SetEvent(run->stopEvent);
+        if (!run->thread) return;
+        DWORD result;
+        do {
+            HANDLE thread = run->thread;
+            result = MsgWaitForMultipleObjects(1, &thread, FALSE, INFINITE,
+                                               QS_SENDMESSAGE);
+            if (result == WAIT_OBJECT_0 + 1) {
+                MSG message;
+                PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
+            }
+        } while (result == WAIT_OBJECT_0 + 1);
+    }
+
+    std::mutex mutex_;
+    std::shared_ptr<Run> run_;
 };
 
 }  // namespace windhawk_mod_templates::taskbar_host

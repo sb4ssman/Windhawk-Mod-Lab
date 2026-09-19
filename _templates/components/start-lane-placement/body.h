@@ -1,88 +1,8 @@
-#pragma once
 
-#undef GetCurrentTime
-
-// Copy-source template v1.4: place an owned taskbar group beside or over
-// Start. The group is appended to TaskbarFrame/RootGrid, the task repeater is
-// given matching left-side room, and Start is counter-shifted by a constant
-// amount so the group tracks Start's live layout position. Adopters:
-// privacy-indicator-anchor (v1.4). tray-utility-customizer carries the reduced
-// components/start-lane-placement fork, which has no Side::Over but already
-// restores local values the same way; taskbar-vd-switcher has its own inline
-// Start-offset code and is NOT an adopter of this file.
-//
-// v1.4 RESTORES BORROWED PROPERTIES EXACTLY, instead of guessing. Two writes
-// on elements this template does not own were released wrongly:
-//
-//   Start's RenderTransform was released with ClearValue. If any other mod had
-//   a transform on Start — and rotating or moving Start is exactly what the
-//   taskbar mods in this ecosystem do — releasing this lease DESTROYED it.
-//
-//   TaskItemsPanel's Margin was released by writing back a Thickness captured
-//   at Acquire. When the element had no local margin, that captured value came
-//   from its template, and writing it back as a LOCAL value permanently
-//   overrides the binding it came from.
-//
-// Both now snapshot the prior LOCAL value (ReadLocalValue) and put back exactly
-// that — or ClearValue when there was none, which is the only way an element
-// whose value came from its template keeps that binding. Same rule, and the
-// same reasoning, as property-lease.h; it is inlined here because this lease
-// owns these two properties for the whole lifetime of the placement.
-//
-// v1.3 adds Side::Over, which RESERVES NO SPACE. Left and Right push the task
-// repeater aside and counter-shift Start so the group gets a lane of its own.
-// Over does neither: the group is placed at Start's own X and overlays it, and
-// the adopter's vertical offset setting moves it out of the way. That is only
-// useful where there is somewhere to move TO, which in practice means a
-// double-height taskbar — the group sits in the upper or lower band while
-// Start keeps the other. Extracted from taskbar-vd-switcher, whose overStart
-// mode the Left/Right-only v1.2 could not express.
-//
-// Over is also the one mode that centers against START rather than the
-// RootGrid. "Over Start" is defined relative to Start, so the nudge has to be
-// relative to Start too; the v1.2 root-centering below would drop the group in
-// the middle of the whole taskbar and make an above/below nudge meaningless.
-// Start's box is still the less reliable reference, so Over falls back to root
-// centering when Start reports no usable height.
-//
-// SIDE::OVER IS FOR taskbar-vd-switcher ONLY. It is in the shared template
-// because that is where the geometry belongs, not because it is a general
-// offer. A mod that overlays Start covers it, and that is only defensible for
-// a control the user deliberately put there and can nudge clear on a
-// double-height taskbar; on a single-height taskbar there is nowhere to nudge
-// TO and the group simply sits on top of the Start button. Every other mod in
-// this family uses Left or Right, which reserve their own lane. Do not offer
-// Over in another mod's settings without a specific reason and a live test
-// that shows Start is still usable.
-//
-// v1.2 geometry fix: the group is centered vertically against the taskbar
-// RootGrid, not against Start's reported box — Start's ActualHeight can
-// include asymmetric padding, which visibly mis-centered groups in
-// tray-utility-customizer live testing.
-//
-// v1.1 geometry fix: v1.0 pinned Start to an absolute X captured at Acquire
-// and placed the Left-of-Start group at the taskbar's left edge. On a
-// center-aligned taskbar Start's layout X moves with every task-list change,
-// so the pinned anchor fought the layout and both sides drifted. The group is
-// now positioned relative to Start's live position on every layout pass, and
-// the Start counter-shift is a constant chosen from whether Start rides the
-// repeater-margin push (visual-tree containment, checked at Acquire).
-
-#include <winrt/Windows.UI.Xaml.Automation.h>
-#include <winrt/Windows.UI.Xaml.Controls.h>
-#include <winrt/Windows.UI.Xaml.Media.h>
-#include <winrt/Windows.Foundation.Collections.h>
-
-#include <algorithm>
-#include <cmath>
-#include <utility>
-
-namespace windhawk_mod_templates::start_placement {
-
-using winrt::Windows::Foundation::IInspectable;
 using winrt::Windows::UI::Xaml::DependencyObject;
 using winrt::Windows::UI::Xaml::DependencyProperty;
 using winrt::Windows::UI::Xaml::FrameworkElement;
+using winrt::Windows::Foundation::IInspectable;
 using winrt::Windows::UI::Xaml::HorizontalAlignment;
 using winrt::Windows::UI::Xaml::Thickness;
 using winrt::Windows::UI::Xaml::UIElement;
@@ -96,7 +16,6 @@ using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
 
 enum class Side {
     Left,
-    Over,   // overlays Start; reserves no space, nudged clear by the adopter
     Right,
 };
 
@@ -106,9 +25,6 @@ struct Lease {
     FrameworkElement startButton{nullptr};
     FrameworkElement taskItemsPanel{nullptr};
     Thickness groupOriginalMargin{};
-    // The task panel's margin is still needed as a VALUE while the lease is
-    // live, because the push is computed relative to it. The local-value
-    // snapshot beside it is what the release puts back.
     Thickness taskItemsPanelOriginalMargin{};
     IInspectable taskItemsPanelMarginLocal{nullptr};
     IInspectable startRenderTransformLocal{nullptr};
@@ -118,10 +34,6 @@ struct Lease {
     double spacing = 0.0;
 };
 
-// Put back a borrowed dependency property's exact prior LOCAL value, or clear
-// the property when it had none. Clearing is the important half: an element
-// whose value came from its template has no local value, and writing a
-// concrete one back would override that binding permanently.
 inline void RestoreLocalValue(DependencyObject const& object,
                               DependencyProperty const& property,
                               IInspectable const& value) {
@@ -212,10 +124,7 @@ inline bool Position(Lease& lease) noexcept {
         double rawX = point.X - currentShift;
 
         double spacing = std::max(0.0, lease.spacing);
-        bool overlays = lease.side == Side::Over;
-        // Over reserves nothing, so the repeater keeps its own margin. Writing
-        // the push here would open a lane the group is not going to occupy.
-        double push = overlays ? 0.0 : groupWidth + spacing;
+        double push = groupWidth + spacing;
         if (lease.taskItemsPanel) {
             auto margin = lease.taskItemsPanel.Margin();
             double needed =
@@ -234,9 +143,7 @@ inline bool Position(Lease& lease) noexcept {
         // roles invert: the pushed items leave the Right gap by themselves,
         // and a Left group needs Start pushed out of the way instead.
         double neededShift;
-        if (overlays)
-            neededShift = 0.0;  // Start stays exactly where Windows put it
-        else if (lease.side == Side::Left)
+        if (lease.side == Side::Left)
             neededShift = lease.startInTaskItemsPanel ? 0.0 : push;
         else
             neededShift = lease.startInTaskItemsPanel ? -push : 0.0;
@@ -244,13 +151,9 @@ inline bool Position(Lease& lease) noexcept {
             neededShift = 0.0;
 
         if (std::fabs(neededShift) <= 0.5) {
-            // No shift wanted: hand the property back as it was found, rather
-            // than clearing it. Another mod's transform on Start is not ours
-            // to delete, and this path runs on every layout pass.
-            if (existingShift || lease.startButton.RenderTransform())
-                RestoreLocalValue(lease.startButton,
-                                  UIElement::RenderTransformProperty(),
-                                  lease.startRenderTransformLocal);
+            RestoreLocalValue(lease.startButton,
+                              UIElement::RenderTransformProperty(),
+                              lease.startRenderTransformLocal);
         } else if (std::fabs(currentShift - neededShift) > 0.5) {
             TranslateTransform startShift;
             startShift.X(neededShift);
@@ -259,30 +162,18 @@ inline bool Position(Lease& lease) noexcept {
 
         // Place the group relative to where Start actually ends up.
         double startFinalX = rawX + neededShift;
-        double left = overlays ? startFinalX
-                    : lease.side == Side::Left
+        double left = lease.side == Side::Left
                           ? startFinalX - groupWidth - spacing
                           : startFinalX + startWidth + spacing;
         if (left < 0.0)
             left = 0.0;
 
-        // v1.2: center against the taskbar root; Start's own box is not a
-        // reliable vertical reference.
-        // v1.3: except for Over, which is DEFINED relative to Start — the
-        // adopter's vertical offset nudges it above or below Start from there,
-        // and root-centering would make that nudge start from the wrong place.
-        // Start's box is still the weaker reference, so fall back to root when
-        // it reports nothing usable.
+        // Center against the taskbar root; Start's own box is not a reliable
+        // vertical reference.
         double rootHeight = lease.rootGrid.ActualHeight();
         double startCenteredTop = point.Y + (startHeight - groupHeight) / 2.0;
-        double top;
-        if (overlays)
-            top = startHeight > 0.0 || rootHeight <= 0.0
-                      ? startCenteredTop
-                      : (rootHeight - groupHeight) / 2.0;
-        else
-            top = rootHeight > 0.0 ? (rootHeight - groupHeight) / 2.0
-                                   : startCenteredTop;
+        double top = rootHeight > 0.0 ? (rootHeight - groupHeight) / 2.0
+                                      : startCenteredTop;
         if (top < 0.0)
             top = 0.0;
         double rootWidth = lease.rootGrid.ActualWidth();
@@ -347,7 +238,6 @@ inline bool Acquire(FrameworkElement const& root, Grid const& group,
     lease.rootGrid = rootGrid;
     lease.startButton = startButton;
     lease.groupOriginalMargin = group.Margin();
-    // Snapshot BEFORE the first write, so the release can be exact.
     lease.startRenderTransformLocal = startButton.ReadLocalValue(
         UIElement::RenderTransformProperty());
     lease.side = side;
@@ -398,5 +288,3 @@ inline bool Acquire(FrameworkElement const& root, Grid const& group,
         });
     return true;
 }
-
-} // namespace windhawk_mod_templates::start_placement

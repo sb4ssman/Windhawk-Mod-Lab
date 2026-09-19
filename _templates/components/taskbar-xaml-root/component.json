@@ -1,0 +1,10 @@
+{
+  "id": "taskbar-xaml-root",
+  "suffix": "taskbar_xaml",
+  "title": "Taskbar XamlRoot",
+  "summary": "Hook the taskbar.dll symbols, reach the taskbar's XamlRoot, and call back when Explorer rebuilds the taskbar in place.",
+  "api": ["HookTaskbarSymbols", "GetTaskbarXamlRoot"],
+  "aliases": {"dispatch": "ui-thread-dispatch"},
+  "winrt": ["winrt/Windows.UI.Xaml.h"],
+  "symbolHookModules": ["taskbar.dll"]
+}

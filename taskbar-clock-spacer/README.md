@@ -102,13 +102,19 @@ own the whole clock width.
 
 ## How it works
 
-The mod hooks `DateTimeIconContent::OnApplyTemplate` in the system tray and
-watches the clock's time and date text blocks. When a line contains `%s%`, the
-source text block is collapsed and a generated panel is inserted in its place:
-each line becomes a Grid whose text segments sit in `Auto` columns separated by
-`Star` columns, and the star columns absorb the leftover width. When only the
-text changes — which happens every second — the existing segments are rewritten
-in place rather than rebuilt, so the visual tree stays stable.
+The mod hooks two system-tray symbols and watches the clock's time and date text
+blocks. `DateTimeIconContent::OnApplyTemplate` catches every clock that is
+templated from then on, including after Explorer rebuilds the taskbar;
+`BadgeIconContent::get_ViewModel` catches the clocks that were already on screen
+when the mod was enabled, on every monitor's taskbar. Between the two there is no
+clock left to search for, so the mod needs no visual-tree scan.
+
+When a line contains `%s%`, the source text block is collapsed and a generated
+panel is inserted in its place: each line becomes a Grid whose text segments sit
+in `Auto` columns separated by `Star` columns, and the star columns absorb the
+leftover width. When only the text changes — which happens every second — the
+existing segments are rewritten in place rather than rebuilt, so the visual tree
+stays stable.
 
 ## Relationship to Taskbar Clock Customization
 

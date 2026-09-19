@@ -1,0 +1,8 @@
+{
+  "id": "settings-values",
+  "suffix": "settings",
+  "title": "Settings values",
+  "summary": "Clamped int/bool setting reads and the $options choice table.",
+  "api": ["LoadInt", "LoadBool", "Choice"],
+  "includes": ["<algorithm>"]
+}

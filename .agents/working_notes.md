@@ -69,11 +69,68 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## ACTIVE — six review-fix updates published; awaiting AI review
+## ACTIVE — acting on the six AI reviews, one mod at a time
 
-The user live-tested OmniButton, Privacy Anchor, Clock Spacer, Folder Menus,
-VD Switcher, and Tray Utility after the review fixes and confirmed every mod
-works. Lab checkpoint `28753ec` is tagged `mod/v1.1.1` and `mod/v2.0.1`.
+All six reviews came back 2026-09-19. Saved copies are gone with the session;
+re-fetch with `gh pr view <n> --repo ramensoftware/windhawk-mods --json comments`
+and take the LAST `windhawk-reviewer` comment.
+
+**All six reviews are now acted on.** Every mod is COMPILE + preflight +
+template-parity green. Nothing is committed, pushed, or live-tested.
+
+| Mod | Review fixes | State |
+|---|---|---|
+| Tray Utility #5569 | DONE (all 3 review rounds) | preflight green; also the one ASSEMBLED mod |
+| Folder Menus #5568 | DONE (5 blocking + 7 optional) | preflight green |
+| OmniButton #4855 | DONE (1 blocking + carried-over) | preflight green |
+| VD Switcher #4844 | DONE (5 blocking + 7 optional) | preflight green |
+| Privacy Anchor #4843 | DONE (all 5 blocking + 5 of 7 optional) | preflight + parity green |
+| Clock Spacer #4443 | DONE (all 3 blocking + most optional) | preflight green; 1709 -> 1017 lines |
+| Task Manager Tail | n/a — fixed 2 pre-existing preflight failures | green but for the expected reused-version warning |
+
+### Deliberately NOT done, and why
+
+- **Privacy Anchor optional: `g_startLease` to `optional<>` + `reset()`.** The
+  bare `[[clang::no_destroy]]` aggregate works because `Release` assigns
+  `lease = {}`. Cosmetic consistency only; left for a quieter pass.
+- **VD Switcher has the same `ClearValue` bug class the start-placement
+  template just had.** `SetStartButtonVisualOffset` (~line 4267) clears
+  `RenderTransformProperty` on the Start button instead of restoring the prior
+  local value, so releasing it destroys another mod's transform on Start. Its
+  own reviewer did NOT raise this, and that mod's review work is complete and
+  verified, so it was recorded rather than changed. Fix it deliberately, with a
+  live test, not as a drive-by.
+- **Clock Spacer's standalone-vs-fold-into-TCC question** is the maintainer's
+  call; the review says so explicitly. No action.
+
+### The reviewer was WRONG about one thing — do not "fix" it again
+
+`-loleaut32` has no `BSTR`/`VARIANT`/`IDispatch` user *in the source*, and the
+reviewer suggested dropping it on both Privacy Anchor and (previously) other
+mods. It is still REQUIRED: C++/WinRT stores `hresult_error::message()` in a
+`BSTR`, so removing it produced three undefined symbols (`SysStringLen`,
+`SysFreeString`) at LINK time. Verified 2026-09-19 by actually removing it.
+This is why `compile-check.ps1` links a real DLL instead of `-fsyntax-only`.
+Recorded in the submission checklist; answer the suggestion with the link error.
+
+### Pattern established across the family — reuse it
+
+Three mods now carry the same **legacy-settings fallback** for the 2.0 key
+rename, because the reviewer raised it on every one: a `Behavior.Use*` switch,
+a `HasLegacySettings()` probe (Windhawk cannot tell "unset" from "zero", so
+prove the old config exists before trusting any single key), and
+`PreferCurrentOrLegacy{String,Int}` helpers that let a 2.0 key win as soon as
+it differs from its declared default. Folder Menus and VD Switcher use the
+`legacyDefault` parameter form, which is the better one — Tray Utility's older
+form uses `legacy == 0` instead. **Clock Spacer will need the same treatment if
+its review raises it.**
+
+Do NOT add a fallback for a boolean whose off state is the default: the legacy
+"on" then wins forever and the 2.0 switch can never turn it off. That is why
+Tray Utility's logging key was excluded before the setting was removed.
+
+Nothing is committed, pushed, or live-tested. PR heads are unchanged from the
+table below.
 
 | PR | Mod | Head |
 |---|---|---|
@@ -84,9 +141,11 @@ works. Lab checkpoint `28753ec` is tagged `mod/v1.1.1` and `mod/v2.0.1`.
 | #5568 | Folder Menus | `f7e905b3` |
 | #5569 | Tray Utility | `0e68eb34` |
 
-Every branch was rechecked as exactly one `mods/*.wh.cpp` diff from
-`upstream/main`; each has all five CI checks green. Fresh `/ai-review` commands
-were posted from PowerShell and all carry `waiting-for-ai-review`.
+Every prior published branch was rechecked as exactly one `mods/*.wh.cpp` diff
+from `upstream/main`; each had all five CI checks green. Tray Utility #5569 is
+now `waiting-for-author` on its prior head; do not post `/ai-review` again
+until this new candidate is live-tested and pushed. The other five remain in
+their AI-review flow.
 
 Reusable review lessons are now in the taskbar host/lifecycle templates and
 submission checklist: distinguish ownership from stale-tree state; force an
@@ -94,9 +153,22 @@ initial settings reapply without losing ownership; revoke explicit XAML
 callbacks even after partial injection or a failed UI dispatch; retain and wait
 worker handles; and give COM-owned monitors heap/reference-counted lifetime.
 
-Next: wait for the six reviews, resolve only valid findings, then request
-`/ready-for-reviewer`. Retain the #4855 note: memoization fixes exponential
-Measure; the depth-24 limit only bounds stack depth.
+Next: **the whole family is waiting on one thing — a human live test.** Nothing
+may be pushed before it (PRIME DIRECTIVE). Clock Spacer and Privacy Anchor
+changed most and need the most attention:
+
+- **Clock Spacer** lost its taskbar.dll hooks, its XamlRoot walk and its scan
+  thread entirely. Verify: spacers work on a clock that was ALREADY on screen
+  when the mod was enabled (that is the `get_ViewModel` path), spacers work
+  after an Explorer restart (the `OnApplyTemplate` path), spacers appear on a
+  SECOND monitor's taskbar (new capability — the old scan never reached it),
+  and changing a TCC font size/colour now restyles the spaced rows live.
+- **Privacy Anchor**: unload with the camera setting ON (the cancellable init),
+  the experimental Left/Right-of-Start positions, and a normal enable/disable
+  cycle leaving the tray exactly as found.
+
+Retain the #4855 note: memoization fixes exponential Measure; the depth-24
+limit only bounds stack depth.
 
 ## Superseded — AI review fixes written before the live test
 

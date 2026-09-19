@@ -1881,3 +1881,217 @@ prove either is true. Worth folding a README-vs-settings-block check into
   destination from its existing branch diff instead of guessing from a folder.
 - Posted `/ai-review` from PowerShell on every new head. All six PRs now show
   `waiting-for-ai-review`.
+
+## 2026-09-19 — mods are assembled from components, not pasted from templates
+
+- Three successive AI reviews of #5569 measured the same thing: about half the
+  shipped file was template library, much of it unreachable. That was the
+  "copy whole algorithm blocks" rule working exactly as written — a template
+  broad enough for six mods is broader than any one of them needs, so pasting
+  it whole guarantees dead code in every adopter.
+- Replaced pasting with assembly. `_templates/components/` holds eleven
+  components extracted from the verified Tray Utility source (settings-values,
+  arrangement-expression, visual-tree-walk, property-lease, taskbar-window,
+  ui-thread-dispatch, taskbar-xaml-root, taskbar-metrics, bounded-retry,
+  tray-slot-lease, start-lane-placement). Each carries a `component.json`
+  declaring its entry points and its aliases/dependencies.
+- `_templates/assemble.py` writes a mod's selected components into its
+  `// ==ModComponents==` region, in dependency order, under the mod's own
+  namespace prefix, preserving the file's existing line endings. `--check`
+  fails on drift. The single `tray_utility_taskbar` namespace became five
+  separate contracts, so a mod can take the dispatcher without the retry loop.
+- `_templates/verify-components-used.py` is the check the old rule could not
+  make: every assembled component must have a real call site in the mod's own
+  code. Verified it fails (exit 1) when a component goes unreferenced.
+- Lab provenance now lives as `//!` lines inside components and is stripped on
+  assembly, so review history and PR numbers stay useful in `_templates/` and
+  never reach a file a stranger reads cold. Restored the PR #4855 cached-handle
+  note and the dispatcher lParam note in that form.
+- `_templates/recipes/` is the conceptual half: `taskbar-xaml-arranger.md`
+  records the eight rules a mod body must follow that no component can carry.
+- Preflight now runs both component gates for any mod with a `components.list`,
+  and rejects a per-mod logging verbosity setting.
+- Tray Utility is fully assembled and green: COMPILE_OK,
+  EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH, SETTINGS_ALL_READ_OK,
+  ASSEMBLY_OK, COMPONENT_USE_OK, SUBMISSION_PREFLIGHT_OK. Not live-tested.
+- Removed `Behavior.DetailedLogging`. `Wh_Log` expands to
+  `if (InternalWh_IsLogEnabled(...)) { ... }`, so Windhawk's own per-mod switch
+  already gates it and the arguments are only evaluated when logging is on —
+  the setting saved nothing and duplicated a control the user already had.
+  Rule recorded in `_templates/README.md` and the submission checklist.
+- Task Manager Tail: added the heap-only audit marker its `g_settings` needed,
+  and changed `bool WhTool_ModInit()` to `BOOL`, which upstream's validator
+  flags. Its only remaining validator warning is the expected reused-version
+  one for an unbumped published mod.
+
+## 2026-09-19 (afternoon) — acting on the six AI reviews
+
+Reviews for all six PRs landed overnight. Worked them in order; Privacy Anchor
+is partial and Clock Spacer untouched.
+
+- **Tray Utility #5569** — all three review rounds resolved. Beyond Codex's
+  pass: the RetryLoop double-CloseHandle race, one shared uninit teardown,
+  removal of every lab-internal comment, ApplyLayout's return value logged,
+  and the 1.x fallback dropped for the logging key. Then converted to
+  assembly.
+- **Folder Menus #5568** — five blocking: unconditional menu-loop teardown
+  (hook and owner hoisted to globals, repeated EndMenu + WM_CANCELMODE, idle
+  event signalled only after the tail, handle not closed while the loop can
+  still SetEvent it); a 0.7 settings fallback; Desktop-root-only dedupe by
+  parsing-name leaf rather than display name; menu bitmaps at the taskbar's
+  DPI; escaped pipes in the README table. Plus StrRetToBufW (the STRRET_OFFSET
+  branch could read past the PIDL), SetExceptionLogger wired, SFGAO_HASSUBFOLDER
+  dropped, re-entrancy guard, g_appPlacement to optional, icon warming bounded
+  by g_unloading, and WindhawkUtils::StringSetting.
+- **OmniButton #4855** — the one blocking item: each uninit teardown step
+  guarded separately, since an unguarded sequence turned the first throw into
+  a fallback that runs on the wrong thread and cannot revoke XAML at all.
+  Plus HookSymbols once-per-module even on failure, LoadSettings moved onto
+  the UI thread, a g_applying flag covering the Loaded re-entry path,
+  ResolveTaskbarWnd at the last raw call site, and a note closing the
+  third-round no_destroy question.
+- **VD Switcher #4844** — five blocking: preview window class registration
+  tracked separately from the window (previews died permanently after a
+  taskbar rebuild), per-click thread handles reaped, uninit teardown guarded
+  per step with revocation independent of removal, the Start-placement size
+  cached instead of re-parsed on every layout pass, and a 1.7 settings
+  fallback. Plus settings loaded after the reader threads stop, retry restarted
+  when a reapply defers, the retry stop event freed if the thread fails,
+  LoadChoice fallbacks aligned to the declared defaults, two needless
+  no_destroy attributes removed, and the README's dead relative link fixed.
+- **Privacy Anchor #4843** — finding 1 only: the IconView hook is scoped to
+  MainStack / NonActivatableStack, and an element whose glyph resolves to a
+  non-privacy value is restored and untracked instead of being left collapsed
+  forever. Findings 2-5 remain.
+- **Task Manager Tail** — not in the PR set; fixed the two pre-existing
+  preflight failures (heap-only audit marker, `BOOL WhTool_ModInit`).
+
+Shared templates, rolled to every adopter:
+
+- `taskbar-host.h` v1.1 -> v1.2: RetryLoop now owns each attempt's handles
+  through a shared Run, so a Stop from Wh_ModUninit racing a Start from the
+  taskbar UI thread can no longer double-CloseHandle. Re-embedded into all
+  five embedders; OmniButton and Privacy Anchor needed <memory>/<mutex>, and
+  OmniButton's g_retryLoop needed no_destroy.
+- `property-lease.h` v1.0 -> v1.1: added `RestoreObject`, so a mod can hand one
+  borrowed element back without ending the whole lease. Re-embedded into
+  OmniButton, Privacy Anchor and VD Switcher; the assembled component copy was
+  synced and Tray Utility re-assembled. **Only Privacy Anchor was compiled
+  after this change.**
+
+Abandoned deliberately: converting Folder Menus to assembly. Its
+`components.list` was removed; conversions wait until the PRs are unblocked.
+
+## 2026-09-19 (evening) — the last two reviews closed; six for six
+
+Picked up the unverified work the previous session left in the tree, then
+finished the two mods whose reviews were still open.
+
+**First, the flagged risk: all three uncompiled mods compile.** `property-lease.h`
+v1.1 had been re-embedded into OmniButton, VD Switcher and Tray Utility with
+only Privacy Anchor compiled afterwards. All three are COMPILE_OK as they
+stand; `std::make_reverse_iterator` resolves without the `<iterator>` the
+previous session predicted would be needed, so no include was added.
+
+**Privacy Anchor #4843 — findings 2-5, the four that were untouched.**
+
+- `MicPrivacyMonitor::Cleanup()` now unregisters the enumerator FIRST and only
+  then detaches. The old order left a window in which an MMDevice callback
+  re-armed `RegisterControlChangeNotify` *after* the detach, and nothing
+  unregistered it again — with `Release()` doing `delete this`, a dangling
+  `IAudioEndpointVolumeCallback` whose vtable is in a freed image. Added an
+  `m_endpointLock` around `m_enum`/`m_device`/`m_volume` (written from MMDevice
+  threads, read and released on the worker) and an `m_stopped` flag so a
+  callback already blocked on the lock cannot re-arm behind Cleanup. The
+  comment that claimed heap ownership made in-flight callbacks safe is
+  corrected: the enumerator takes no reference, and Unregister does not wait.
+- Teardown: the bar-removal loop and the column-lease release in
+  `RemoveSyntheticIcons` are guarded per step, so a tray rebuild throwing out
+  of `Children()` can no longer skip the lease release and the global reset.
+  Added `g_uiHostWnd`, the window remembered AT INJECTION TIME, and unload
+  prefers it over re-deriving `Shell_TrayWnd` at the moment it is least likely
+  to be there. The retry dispatch's result is now checked and a total failure
+  logged loudly.
+- `Wh_ModUninit` can no longer block on the camera stack.
+  `MediaCapture::InitializeAsync` is published into `g_cameraInitOp` and
+  cancelled from `StopRetryThread` before the INFINITE join. The cancellation
+  state is free globals, not members: the monitor lives on the worker's stack,
+  so a pointer to it could be freed between the read and the Cancel.
+  `m_capture.Close()` remains uncancellable and is documented as such — it only
+  runs when init already succeeded, which excludes the wedged-driver case.
+- The early `g_syntheticGrid = bar` publish can no longer wedge the mod. The
+  whole post-publish region carries a scope guard that calls
+  `RemoveSyntheticIcons()` only when `std::uncaught_exceptions()` has risen
+  above its value at entry — the reviewer's `catch (...) { …; throw; }` without
+  reindenting 270 lines, and it cannot double-unwind a normal return.
+
+Five of seven Privacy Anchor optionals taken: engagement guards on
+`*g_slotEventStates`/`*g_glowAnimationStates`, the missing direct includes, the
+`start-placement.h` banner, and `Layout.Justify`'s `$description` (it is not
+"used by auto" — it aligns the cross axis of every arrangement).
+
+**A reviewer finding that does not hold: `-loleaut32`.** The review asked for it
+to be dropped from Privacy Anchor, correctly noting no `BSTR`/`VARIANT`/
+`IDispatch` in the source. Removing it FAILED THE LINK with three undefined
+symbols — `SysStringLen` and `SysFreeString`, referenced from
+`winrt::hresult_error::message()`, which stores its message in a `BSTR`.
+Restored, and recorded in `submission-checklist.md` as a review item a script
+cannot decide. This is precisely the class of error `-fsyntax-only` cannot see,
+and why `compile-check.ps1` links a real temporary DLL.
+
+**Clock Spacer #4443 — all three blocking items; 1709 -> 1017 lines.**
+
+- Item 1, which was also the maintainer's own open question on the PR: the
+  entire taskbar.dll hook set, `GetTaskbarXamlRoot`, the runtime-disassembled
+  FrameworkElement offset, `ScanForSpacerTargets`, `StartInitialScan`, the scan
+  thread with its mutex/stop-event/re-request bookkeeping, and
+  `WaitForThreadWithSentMessagePump` are all gone. Added the established
+  `BadgeIconContent::get_ViewModel` hook, which fires per live clock instance
+  shortly after load. Three wins beyond the size: `Wh_ModInit` no longer
+  hard-fails on four symbols the feature never needed; secondary-monitor
+  taskbars are now covered, which a `Shell_TrayWnd`-rooted scan could never
+  reach; and the scan's residual races are gone with the scan.
+- Item 3: `DateTimeIconContent::OnApplyTemplate` is now MANDATORY. As the only
+  functional hook it must not be `optional`, or `HookSymbols` reports success
+  on a resolution failure and the mod sits resident doing nothing.
+  `get_ViewModel` is the optional one, matching taskbar-clock-to-left.
+- Item 2: the vendored template code is gone. IMPORTANT — the trimmed
+  remainder was moved into MOD-LOCAL namespaces (`clock_spacer_tree_walk`,
+  `clock_spacer_settings`, `clock_spacer_taskbar`), because
+  `verify-template-parity.ps1` requires a `windhawk_mod_templates::X` block to
+  be a verbatim copy. Trimming one in place would have been drift; the parity
+  script's own doc states the rule. Clock Spacer now reports `0 embedded`.
+  `tbh::SetExceptionLogger` is also actually CALLED now, so the `catch (...)`
+  in the dispatch path no longer swallows silently.
+- Also: the repeated fast-path style bug is fixed — `UpdateLineElementText`
+  re-copies the text style, so a TCC font/size/colour change restyles the
+  spaced rows instead of leaving them mismatched until the shape happens to
+  change. Plus stale `g_states` pruning at registration, `BuildLineElement`
+  taking the width the caller already computed, the unreachable
+  `ApplySegmentAlignment` branch replaced by a stated precondition, a 4000-DIP
+  cap replacing the no-op `INT_MAX` clamp, the `[Spacer]`/`[Init]`/`[Hooks]`/
+  `[Settings]`/`[LoadLib]` log prefixes dropped (Windhawk prefixes the mod name
+  itself), and every cross-reference to other mods and PRs removed from the
+  commentary — each mod is read as a standalone file.
+- Both README layers describe the two-hook design; README_MATCH confirms.
+
+**`start-placement.h` v1.3 -> v1.4: borrowed properties restored exactly.** The
+single-file template still released Start's `RenderTransform` with `ClearValue`
+(destroying any other mod's transform on Start) and wrote back a captured
+`Thickness` for `TaskbarFrameRepeater`'s margin (overriding the template
+binding it came from when there was no local value). Both now snapshot the
+prior LOCAL value and restore it, or clear when there was none — the
+property-lease rule, inlined because this lease owns those two properties for
+the placement's whole lifetime. The reduced `components/start-lane-placement`
+fork that Tray Utility assembles already did this; the divergence is closed.
+Re-embedded into Privacy Anchor, its only adopter.
+
+Recorded, deliberately NOT changed: VD Switcher's own inline
+`SetStartButtonVisualOffset` has the identical `ClearValue` bug class. Its
+reviewer did not raise it and that mod's review work is complete, so changing
+it now would add untested risk to verified code.
+
+State: all six mods COMPILE_OK, EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH,
+SETTINGS_ALL_READ_OK, SUBMISSION_PREFLIGHT_OK and TEMPLATE_PARITY_OK. Nothing
+committed, nothing pushed, no PR touched, no `/ai-review` posted. The family is
+waiting on a human live test.

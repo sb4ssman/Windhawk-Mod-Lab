@@ -1,0 +1,25 @@
+{
+  "id": "arrangement-expression",
+  "suffix": "layout",
+  "title": "Arrangement expression",
+  "summary": "One user-typed string - names joined by '|' (side by side) and ',' (stacked), nested with parentheses, nudged with [dx,dy] - parsed, measured and arranged into concrete placements. Includes the automatic grid shape and the policy for items a written arrangement does not name.",
+  "api": [
+    "Compute",
+    "Parse",
+    "ResolveArrangement",
+    "BuildAutoExpression",
+    "RowsInHeight",
+    "MissingTokens",
+    "AppendMissing"
+  ],
+  "includes": [
+    "<algorithm>",
+    "<cmath>",
+    "<cwchar>",
+    "<cwctype>",
+    "<functional>",
+    "<string>",
+    "<unordered_map>",
+    "<vector>"
+  ]
+}

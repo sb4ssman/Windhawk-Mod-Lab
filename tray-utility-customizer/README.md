@@ -46,11 +46,12 @@ positions each icon individually, at its native size by default.
 
 ## Upgrading from 1.x
 
-**Version 2.0 renames every setting, and your old values do not carry over.**
-The mod now uses the same grouped settings contract as the rest of this family
-(`Placement.Position`, `Layout.Arrangement`, `Size.ItemWidth`, and so on), and
-Windhawk cannot carry a value across a renamed key. Everything returns to its
-default, including the arrangement.
+Version 2.0 groups the settings under `Placement`, `Content`, `Layout`, `Size`,
+`Adjust`, and `Behavior`. It keeps customized 1.x position, layout, size,
+group-offset, minimum-height, and detection values as a compatibility
+fallback while the matching 2.0 setting remains at its default. As soon as you
+customize the 2.0 counterpart, that value wins. Turn off
+`Behavior.Use1xFallback` if you deliberately want only the 2.0 defaults.
 
 Two things are worth knowing before you retype your layout:
 
@@ -62,8 +63,10 @@ Two things are worth knowing before you retype your layout:
 - **The twelve per-icon nudge settings are gone.** A nudge now rides in the
   arrangement itself: `emoji[+2,-1]`. One string, nothing to keep in sync.
 
-Nothing is silently reinterpreted — because the keys are new, the mod starts
-from `auto` rather than reading your old string with new rules.
+An old column-primary expression is transposed automatically as it is read, so
+its physical layout remains the same under the fixed 2.0 grammar. Existing
+per-icon nudges remain active through the fallback; re-enter them as
+`name[dx,dy]` in the one new arrangement field before turning the fallback off.
 
 ## Arrangement
 
@@ -111,7 +114,10 @@ until you add them yourself.
 The `Content` group has one switch per utility. All six are on by default:
 a utility Windows is not currently showing contributes nothing either way, and
 on most machines the pen menu, virtual touchpad and input indicator are simply
-absent. Turn one off to leave it in its native position.
+absent. The overflow chevron has its own host, so turning it off leaves it
+native. The other utilities share Windows' `MainStack`: if any sibling there is
+enabled, a disabled sibling travels with that host and is parked after the
+arrangement rather than staying at its original tray position.
 
 ## Size and adjustment
 
@@ -152,7 +158,7 @@ distinct identity.
 | Setting | Default | What it does |
 |---|---|---|
 | `Placement.Position` | `overflow` | Which tray column (or Start-adjacent spot) the group occupies |
-| `Content.*` | all on | One switch per utility: may it join the arrangement |
+| `Content.*` | all on | One switch per utility; MainStack siblings travel with an enabled sibling |
 | `Layout.Arrangement` | `auto` | The layout expression, or `auto` |
 | `Layout.FillOrder` | `rows` | Used by `auto`: fill across rows or down columns |
 | `Layout.Justify` | `center` | How a ragged row or column aligns against its siblings |
@@ -164,7 +170,7 @@ distinct identity.
 | `Adjust.OffsetX` / `OffsetY` | `0` | Moves the group visually; reserves nothing |
 | `Behavior.MinimumTrayHeight` | `44` | Below this tray height the mod leaves everything native |
 | `Behavior.Detection` | `auto` | Guarded detection, or Force MainStack |
-| `Behavior.DetailedLogging` | off | Tray hosts, glyph codepoints, and computed placements |
+| `Behavior.Use1xFallback` | on | Keep customized 1.x values until matching 2.0 settings are changed |
 
 ## Taskbar position
 
@@ -193,9 +199,9 @@ Windows 11 only puts the taskbar at the bottom, but two mods move it:
 
 ### 2.0
 
-- Adopted the shared settings contract: every key moved into a `Placement` /
-  `Content` / `Layout` / `Size` / `Adjust` / `Behavior` group. **This is a
-  clean settings break — see "Upgrading from 1.x" above.**
+- Adopted the grouped `Placement` / `Content` / `Layout` / `Size` / `Adjust` /
+  `Behavior` settings contract, while retaining customized 1.x values as an
+  opt-out compatibility fallback during the upgrade.
 - One `Layout.Arrangement` field replaces the layout expression, the primary
   axis, the group alignment, and all twelve per-icon nudge settings. `|` is
   always horizontal and `,` always vertical; nudges ride in the expression.

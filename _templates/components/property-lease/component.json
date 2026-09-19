@@ -1,0 +1,9 @@
+{
+  "id": "property-lease",
+  "suffix": "property_lease",
+  "title": "Property lease",
+  "summary": "Snapshot a dependency property's exact prior local value before writing it, and put that value back - or clear the property when there was none - on unload.",
+  "api": ["Lease"],
+  "includes": ["<functional>", "<vector>"],
+  "winrt": ["winrt/Windows.UI.Xaml.h"]
+}

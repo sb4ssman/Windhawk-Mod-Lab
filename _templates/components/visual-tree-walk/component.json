@@ -1,0 +1,9 @@
+{
+  "id": "visual-tree-walk",
+  "suffix": "tree_walk",
+  "title": "Visual-tree walk",
+  "summary": "Depth-bounded descendant visit, find-first and collect-all over a XAML subtree.",
+  "api": ["ForEachDescendant", "FindDescendant", "CollectDescendants"],
+  "includes": ["<functional>", "<vector>"],
+  "winrt": ["winrt/Windows.UI.Xaml.h", "winrt/Windows.UI.Xaml.Media.h"]
+}

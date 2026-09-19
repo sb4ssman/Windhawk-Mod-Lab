@@ -1,0 +1,18 @@
+# Shared components this mod assembles.
+#   python _templates/assemble.py tray-utility-customizer
+# Every component listed here must have a real call site in the mod's own
+# code; verify-components-used.py fails the build otherwise.
+
+prefix: tray_utility
+
+settings-values
+arrangement-expression
+visual-tree-walk
+property-lease
+taskbar-window
+ui-thread-dispatch
+taskbar-xaml-root
+taskbar-metrics
+bounded-retry
+tray-slot-lease
+start-lane-placement

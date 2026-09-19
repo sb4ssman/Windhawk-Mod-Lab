@@ -1,0 +1,8 @@
+{
+  "id": "bounded-retry",
+  "suffix": "retry",
+  "title": "Bounded retry loop",
+  "summary": "A stoppable, waited worker that retries an apply a bounded number of times. Safe against a Stop from one thread racing a Start from another.",
+  "api": ["RetryLoop"],
+  "includes": ["<atomic>", "<memory>", "<mutex>"]
+}

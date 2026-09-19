@@ -1,11 +1,57 @@
 # Windhawk Mod Templates
 
-This folder is the copy-source library for sb4ssman's taskbar mods. Windhawk
-submissions are single-file mods, so these files are not a shared runtime
-dependency. Copy a complete block into a mod, keep the template attribution
-comment, and adapt only through the documented settings or callback contract.
+Shared code for sb4ssman's taskbar mods. Windhawk submissions are single-file,
+so there is no `#include` and nothing here is a runtime dependency — a mod
+carries its own copy of everything it uses.
 
-## Template set
+## Assembled mods are the model now
+
+The old rule was *copy whole algorithm blocks; partial copies drift*. It stopped
+drift and it created the opposite problem, mechanically: a template broad enough
+to serve six mods is broader than any one of them needs, so pasting it whole
+**guarantees** dead code in every adopter. Three successive upstream AI reviews
+of this family measured the same thing — roughly half of one shipped mod was
+library, much of it unreachable.
+
+So mods are now **assembled** instead of pasted:
+
+| Piece | What it is |
+|---|---|
+| [`components/`](components/) | Working code. One namespace, one contract, one `component.json` declaring its entry points and its dependencies |
+| [`recipes/`](recipes/) | The conceptual half. Which components a *shape* of mod needs, and what the mod's own body must do to hold up its end |
+| [`assemble.py`](assemble.py) | Writes the selected components into the mod's `// ==ModComponents==` region, in dependency order, under the mod's own namespace prefix |
+| [`verify-components-used.py`](verify-components-used.py) | **The check the old rule could not make.** Every assembled component must have a real call site in the mod's own code |
+| `<mod>/components.list` | The mod's manifest: its namespace prefix and the components it takes |
+
+```
+python _templates/assemble.py tray-utility-customizer           # rewrite
+python _templates/assemble.py tray-utility-customizer --check   # fail on drift
+```
+
+Both checks run inside `submission-preflight.ps1` for any mod that has a
+`components.list`, so drift and dead components fail the build rather than
+reaching a reviewer.
+
+### Two comment audiences, separated mechanically
+
+A component's comments carry two different things, and only one of them should
+ship:
+
+- the **contract** — why this shape, what breaks without it. Keep. Reviewers
+  have consistently said this reasoning is worth having in the file.
+- the **provenance** — which PR flagged it, which other mod hit it, template
+  version numbers, what the lab tried first. Write these as `//!` lines. The
+  assembler strips them, so they stay where they are useful and never reach a
+  file a stranger reads cold.
+
+### Migration status
+
+`tray-utility-customizer` is assembled. The five other visual mods still carry
+hand-pasted templates from the table below and are being converted one at a
+time. Until a mod has a `components.list`, `verify-template-parity.ps1` is what
+guards its copies.
+
+## Template set (pre-assembly; being retired as mods convert)
 
 | Template | Use it for |
 |---|---|
@@ -97,9 +143,14 @@ visual settings family.
    not own a button surface.
 2. Published Windhawk setting keys are persistent API. Keep their keys stable;
    align `$name`, descriptions, internal structs, and future unpublished mods.
-3. Copy whole algorithm blocks. Partial copies are how grid and cleanup logic
-   drifted across the current mods.
-4. Keep mod-specific behavior outside the template namespace or adapter layer.
+3. Assemble; do not paste. Take the smallest set of components that has a real
+   call site, and let `assemble.py` write them. A component nothing calls fails
+   preflight. When a mod needs only part of an existing template, split that
+   template into components rather than carrying the unused modes along.
+4. Keep mod-specific behavior out of the component namespaces, and keep lab
+   provenance out of the shipped file — `//!` lines for review history, PR
+   numbers and other mods' examples. Do not label a modified local
+   implementation as a verbatim template embed.
 5. Preserve native XAML values when a custom setting is empty or disabled.
 6. Every insertion must have a marker or named root and a symmetric removal
    path that restores shifted columns and spans.
@@ -128,13 +179,21 @@ visual settings family.
     Settings reload forces one retry attempt; it never falsifies ownership just
     to wake a retry loop. Every callback registration has an unconditional,
     UI-thread teardown path whose dispatch result is checked.
+13. **No per-mod logging verbosity setting.** `Wh_Log` expands to
+    `if (InternalWh_IsLogEnabled(...)) { ... }`, so Windhawk's own per-mod
+    logging switch already gates it AND the arguments are only evaluated when
+    logging is on. A `DetailedLogging`-style setting therefore saves nothing,
+    duplicates a control the user already has, and is one the maintainer
+    consistently asks submissions to drop. `submission-preflight.ps1` rejects
+    one. A diagnostic whose message costs real work to BUILD (a tree walk, a
+    string join) stays in a helper that runs once per apply — never per frame.
 
 ## Update workflow
 
 When a mod exposes a reusable fix:
 
 1. Prove it in the mod that discovered the issue.
-2. Update the relevant template and its version note.
+2. Update the component (or template) and re-assemble every adopter.
 3. Compare every adopter against the changed contract.
 4. Roll it out one mod at a time; never bulk-replace published setting keys.
 

@@ -1,0 +1,8 @@
+{
+  "id": "ui-thread-dispatch",
+  "suffix": "dispatch",
+  "title": "UI-thread dispatch",
+  "summary": "Marshal a callback onto the taskbar's UI thread with a CALLWNDPROC hook and a private registered message, reporting whether it actually ran.",
+  "api": ["RunFromWindowThread", "SetExceptionLogger", "ThreadProc"],
+  "includes": ["<atomic>"]
+}

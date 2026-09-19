@@ -3,10 +3,11 @@ param(
     [string]$ModDirectory
 )
 
-# Windhawk mods are single-file, so every shared template is embedded as a
-# verbatim copy of its namespace body. Copies drift. This compares each
-# embedded block against its source and fails on any difference, so a mod can
-# never quietly carry a stale or locally-patched template.
+# Windhawk mods are single-file, so an adopted shared component is embedded as
+# a verbatim copy of its namespace body. Copies drift. This compares each such
+# explicit embed against its source and fails on any difference. A deliberately
+# local, focused implementation is not a template embed and must use its own
+# namespace rather than masquerading as a modified shared block.
 #
 # A mod that does not embed a given template is simply skipped — not every mod
 # needs every component. Only a MISMATCH fails.

@@ -1,0 +1,13 @@
+{
+  "id": "button-surface",
+  "suffix": "button_surface",
+  "title": "Button surface",
+  "summary": "Paint a button the mod owns: hex or accent colors, hover and pressed states, border, corner radius, opacity and an optional gradient shine - with an empty color meaning 'leave the system default alone'.",
+  "api": ["Apply", "Colors", "Options"],
+  "includes": ["<algorithm>", "<string>"],
+  "winrt": [
+    "winrt/Windows.UI.Xaml.h",
+    "winrt/Windows.UI.Xaml.Controls.h",
+    "winrt/Windows.UI.Xaml.Media.h"
+  ]
+}

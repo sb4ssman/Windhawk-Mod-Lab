@@ -84,7 +84,7 @@ struct Settings {
     std::wstring targetClass;
     int moveDelay;
     int debounceTime;
-} g_settings;
+} g_settings;  // exit-time-safe: heap-only
 
 // Global thread control
 HANDLE g_hThread = NULL;
@@ -560,7 +560,7 @@ DWORD WINAPI BackgroundThread(LPVOID) {
     return 0;
 }
 
-bool WhTool_ModInit() {
+BOOL WhTool_ModInit() {
     g_winVersion = DetectWindowsVersion();
     LoadSettings();
     g_stopThread = false;
