@@ -52,6 +52,37 @@ Use this before opening or updating a submission PR.
 - [ ] Version header, init log, root catalog, and development notes agree.
 - [ ] PR contents are reviewed only after the live checks above pass.
 
+## Review items a script cannot decide
+
+These reached real pull requests. Each needs the call graph or intent to judge,
+so they are read by a human rather than enforced by preflight — a check that
+cries wolf on correct code teaches everyone to ignore the whole preflight.
+
+- [ ] **No layout handler can re-enter itself.** `UpdateLayout()` runs a
+      SYNCHRONOUS layout pass, which raises `LayoutUpdated` again. If a
+      `LayoutUpdated` handler can reach `UpdateLayout()` — directly or through
+      an apply function — it re-enters while the outer frame is mid-flight,
+      and a nested reset can null the very elements the outer frame is still
+      writing to. Either deflect through a `DispatcherTimer` (as Tray Utility
+      does) or guard the handler with a re-entrancy bool (as OmniButton does).
+      Grep alone cannot tell these apart from a safe call in a click handler.
+- [ ] **A watcher compares values read from the SAME element it recorded.**
+      OmniButton recorded the percentage text from the presenter only when that
+      presenter was itself a `TextBlock`, but compared against the probed
+      surface's `TextBlock`, which can be several levels deeper. The two never
+      matched, so every layout pass triggered a full re-apply — an endless loop
+      on the Explorer UI thread. Whenever a cached "last seen" value guards a
+      re-apply, confirm the record site and the compare site read one element.
+- [ ] **Diagnostics do not cost anything when logging is off.** `Wh_Log` is
+      free, but its ARGUMENTS are evaluated regardless. A logging block that
+      calls `UpdateLayout()`, `TransformToVisual` or `get_class_name` runs in
+      full for every user who never opens the log.
+- [ ] **Unbounded recursion over user input has a cost ceiling.** A layout
+      expression is user-typed and can nest arbitrarily. Confirm the work is
+      linear in node count (nested-group-layout.h memoizes Measure for exactly
+      this reason) and that the parser caps nesting depth so deep input is a
+      clean error rather than a stack overflow.
+
 ## PR construction and CI
 
 - [ ] Rebase the submission branch on current `upstream/main` and verify that

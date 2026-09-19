@@ -71,6 +71,35 @@ foreach ($match in [regex]::Matches($source, $genericHookPattern)) {
     }
 }
 
+# ---- Lessons from upstream AI reviews -------------------------------------
+# Each of these encodes a finding that reached a real pull request. Only checks
+# that can be decided mechanically live here; judgement calls that need the call
+# graph stay in submission-checklist.md, because a preflight that cries wolf
+# gets ignored.
+
+# PR #4855: a declared setting no code reads. Windhawk has no read-only control,
+# so an inert box silently does nothing when the user edits it. This also
+# catches the far more dangerous case of a setting renamed in the block but not
+# in the loader, which Windhawk answers with a default rather than an error.
+$pythonCommand = Get-Command python -ErrorAction Stop
+& $pythonCommand (Join-Path $PSScriptRoot 'verify-settings-used.py') $sourceFile.FullName
+if ($LASTEXITCODE -ne 0) { throw "$modName has settings that nothing reads" }
+
+# PR #4855: preferring a cached Shell_TrayWnd without validating it. The window
+# can be recreated in-process, and the stale handle then wins forever — on the
+# unload path that skips teardown entirely and leaves callbacks pointing into a
+# freed image. taskbar-host.h::ResolveTaskbarWnd is the validated form.
+$staleHandlePattern = '(?<var>g_\w*[Tt]askbar\w*)\s*\?\s*\k<var>\s*:\s*FindCurrentProcessTaskbarWnd\s*\('
+foreach ($match in [regex]::Matches($source, $staleHandlePattern)) {
+    # The template documents the anti-pattern in a comment; that is not a use.
+    $lineStart = $source.LastIndexOf("`n", $match.Index) + 1
+    $line = $source.Substring($lineStart, $match.Index - $lineStart)
+    if ($line.TrimStart().StartsWith('//')) { continue }
+    throw ("Cached taskbar handle used without validation. " +
+           "Use tbh::ResolveTaskbarWnd(...) so a recreated Shell_TrayWnd " +
+           "cannot leave a dead handle winning forever.")
+}
+
 & git -C $repoRoot diff --check
 if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed' }
 
@@ -83,7 +112,40 @@ if (-not (Test-Path -LiteralPath $validator -PathType Leaf)) {
     throw "Current upstream validator not found at $validator"
 }
 
-$python = Get-Command python -ErrorAction Stop
+# The upstream validator's dependencies now use PEP 695 `type` alias statements
+# (.github/preprocessor.py), which are a SYNTAX ERROR before Python 3.12 — the
+# whole step fails to import on an older interpreter and reports itself as a
+# validation failure, which reads as "the mod is broken" when nothing is wrong
+# with it. Pick a new enough interpreter explicitly rather than whatever
+# `python` happens to be on PATH.
+# A version match alone is not enough: the validator also imports pyyaml, and
+# the newest interpreter on a machine is often the one with nothing installed
+# in it. Probe for BOTH, so this picks an interpreter that can actually run.
+$probe = 'import sys, yaml; print(sys.version_info[:2] >= (3, 12))'
+$python = $null
+foreach ($version in @('3.12', '3.13', '3.14')) {
+    $candidate = & py "-$version" -c 'import sys; print(sys.executable)' 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $candidate) { continue }
+    $candidate = $candidate.Trim()
+    $usable = & $candidate -c $probe 2>$null
+    if ($LASTEXITCODE -eq 0 -and $usable -eq 'True') {
+        $python = $candidate
+        break
+    }
+}
+if (-not $python) {
+    $onPath = Get-Command python -ErrorAction SilentlyContinue
+    if ($onPath) {
+        $usable = & $onPath.Source -c $probe 2>$null
+        if ($LASTEXITCODE -eq 0 -and $usable -eq 'True') { $python = $onPath.Source }
+    }
+}
+if (-not $python) {
+    throw ('The upstream PR validator needs Python 3.12 or newer (its ' +
+           'dependencies use PEP 695 `type` aliases) WITH pyyaml installed. ' +
+           'No interpreter satisfying both was found — install pyyaml into a ' +
+           '3.12+ interpreter, e.g. "py -3.12 -m pip install pyyaml".')
+}
 $escapedValidator = $validator.Replace("'", "''")
 $escapedValidatorDirectory = $validatorDirectory.Replace("'", "''")
 $shim = @"
@@ -112,7 +174,7 @@ try {
         $oldPythonIoEncoding = $env:PYTHONIOENCODING
         $env:PYTHONIOENCODING = 'utf-8'
         try {
-            $validatorOutput = & $python.Source -c $shim $relativeSource $PrAuthor 2>&1
+            $validatorOutput = & $python -c $shim $relativeSource $PrAuthor 2>&1
             $validatorExitCode = $LASTEXITCODE
         } finally {
             $env:PYTHONIOENCODING = $oldPythonIoEncoding

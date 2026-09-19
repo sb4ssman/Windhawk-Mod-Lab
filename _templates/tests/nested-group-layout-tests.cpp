@@ -1,6 +1,7 @@
 #include "../nested-group-layout.h"
 
 #include <cassert>
+#include <chrono>
 #include <cmath>
 
 using namespace windhawk_mod_templates::nested_group_layout;
@@ -299,6 +300,55 @@ int main() {
            L"1, 3 | 2, 4");
     auto manual = ResolveArrangement(L"1 | 2", 4, 3, FillOrder::Rows);
     assert(!manual.wasAuto && manual.expression == L"1 | 2");
+
+    // ---- Deep nesting must not blow up (AI review, PR #4855) ---------------
+    //
+    // Measure was called twice per child per level and Arrange re-measured at
+    // every level, so cost doubled per level. The grammar wraps each unit in
+    // its own group, so every "(" added two levels: a hand-typed expression
+    // with ~16 nested parentheses reached roughly 4^16 node visits and hung
+    // the Explorer UI thread. Measure is memoized now, so this is linear.
+    //
+    // The parser's cap is deliberately NOT the fix for the running time — a
+    // cap of 16 would still have allowed 4^16. It bounds STACK depth only.
+    {
+        // Just inside the cap: must compute, and must be instant.
+        std::wstring deep = L"1";
+        for (int i = 0; i < 20; ++i)
+            deep = L"(" + deep + L")";
+        auto started = std::chrono::steady_clock::now();
+        Size deepTotal;
+        std::vector<Placement> deepPlacements;
+        bool ok = Compute(deep, config, square24, deepPlacements, deepTotal);
+        auto elapsed = std::chrono::steady_clock::now() - started;
+        assert(ok);
+        assert(deepPlacements.size() == 1);
+        assert(Near(deepTotal.width, 24) && Near(deepTotal.height, 24));
+        // Uncached this took astronomically longer; a generous ceiling still
+        // catches a regression to exponential behaviour.
+        assert(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed)
+                   .count() < 500);
+
+        // A deeply nested expression still arranges CORRECTLY, not just fast.
+        std::wstring nestedPair = L"1 | 2";
+        for (int i = 0; i < 18; ++i)
+            nestedPair = L"(" + nestedPair + L")";
+        assert(Compute(nestedPair, config, square24, deepPlacements,
+                       deepTotal));
+        assert(deepPlacements.size() == 2);
+        assert(Near(deepTotal.width, 48) && Near(deepTotal.height, 24));
+        assert(Near(Find(deepPlacements, L"1")->x, 0));
+        assert(Near(Find(deepPlacements, L"2")->x, 24));
+
+        // Past the cap: a clean parse error, never a crash or a hang.
+        std::wstring tooDeep = L"1";
+        for (int i = 0; i < 64; ++i)
+            tooDeep = L"(" + tooDeep + L")";
+        ParseError tooDeepError;
+        assert(!Compute(tooDeep, config, square24, deepPlacements, deepTotal,
+                        &tooDeepError));
+        assert(!tooDeepError.expected.empty());
+    }
 
     return 0;
 }

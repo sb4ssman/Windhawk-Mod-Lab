@@ -1,6 +1,6 @@
 #pragma once
 
-// Copy-source template v1.0: getting to the Windows 11 taskbar, and staying
+// Copy-source template v1.1: getting to the Windows 11 taskbar, and staying
 // attached to it.
 //
 // Every mod in this family opens with the same four moves — find the taskbar
@@ -60,6 +60,24 @@ inline HWND FindCurrentProcessTaskbarWnd() {
         },
         reinterpret_cast<LPARAM>(&result));
     return result;
+}
+
+// A CACHED TASKBAR HANDLE IS NOT PROOF THE WINDOW STILL EXISTS. Shell_TrayWnd
+// can be recreated inside the same Explorer process, and every mod here cached
+// it and then preferred the cache unconditionally:
+//
+//     HWND w = g_taskbarWnd ? g_taskbarWnd : FindCurrentProcessTaskbarWnd();
+//
+// After a recreate that hands back a dead handle forever, because the live
+// window is only ever looked up when the cache is null. GetWindowThreadProcessId
+// then returns 0, RunFromWindowThread fails, and the caller silently does
+// nothing — which is survivable on a retry path but not on the unload path,
+// where it means the mod's callbacks are never revoked before its image is
+// freed. Flagged by the AI review on PR #4855. Validate, then fall back.
+inline HWND ResolveTaskbarWnd(HWND cached) {
+    if (cached && IsWindow(cached))
+        return cached;
+    return FindCurrentProcessTaskbarWnd();
 }
 
 // ---- UI-thread marshalling --------------------------------------------------

@@ -1793,3 +1793,56 @@ prove either is true. Worth folding a README-vs-settings-block check into
   exists, and no screenshot was ever added or removed by this session.
 - Fetched the full open-issue picture for the user's mods; recorded in the
   working notes. No reply posted to #5530 — parked by user direction.
+
+## 2026-09-18 (review) — upstream AI review on #4855; templates and preflight hardened
+
+- Discovered why nothing merged since July: upstream added a two-stage review
+  flow (pr_flow.cjs, enabled for all PRs 2026-07-30). A PR sits in
+  `waiting-for-author` until the author comments `/ai-review` and then
+  `/ready-for-reviewer`. All six PRs predate the system, and the four older
+  ones never received the bot's instruction comment, so there was no signal in
+  the threads at all. Posted `/ai-review` on all six.
+- MSYS path conversion in Git Bash rewrote `/ai-review` to
+  `C:/Program Files/Git/ai-review` and posted that to five PRs. Deleted all
+  five and reposted from PowerShell. Post flow commands from PowerShell only.
+- OmniButton's review returned five findings. Each was verified against the
+  code before being actioned; all five were real.
+  1. The percent-text watcher recorded and compared DIFFERENT elements, so the
+     comparison could never match and every layout pass ran a full re-apply —
+     an endless loop pegging the Explorer UI thread whenever the percentage
+     presenter was not itself a TextBlock, which the code explicitly
+     anticipates. Records from the probed surface now.
+  2. Wh_ModUninit preferred a cached HWND with no IsWindow check; a stale
+     handle made the dispatch fail and skipped teardown, leaving Loaded
+     delegates alive in an image Windhawk frees on return. Validated, and the
+     revoke now runs even when dispatch fails.
+  3. LayoutUpdated could re-enter itself via UpdateLayout(). Added a guard and
+     removed the [Geometry] diagnostic that forced the synchronous pass.
+  4. Deep arrangement expressions were exponential.
+  5. Placement.Status was declared but never read; removed with its group.
+- DISAGREED with one detail and said so: the reviewer's suggested nesting cap
+  of 16 would not have fixed finding 4, since 4^16 node visits is reachable at
+  exactly that cap. Memoized Measure instead (template v2.6), which makes the
+  pass linear; the cap is now 24 and bounds stack depth only.
+- taskbar-host.h v1.1 adds ResolveTaskbarWnd(cached), validating with IsWindow.
+  The unsafe ternary was present in four mods, not just OmniButton; all fixed.
+- A blunt regex replace also rewrote the template's own anti-pattern comment
+  inside every embedded copy, breaking parity. Caught by checking, then fixed
+  by re-embedding. Re-embed rather than pattern-edit inside template blocks.
+- New preflight check verify-settings-used.py: every declared setting must be
+  read. Proved against a fixture with Placement.Status restored. Also catches a
+  setting renamed in the block but not in the loader — Windhawk returns a
+  default for an unknown key rather than failing, which is how the Indicator
+  symbols regression shipped.
+- Deliberately did NOT automate the LayoutUpdated re-entrancy check: Folder
+  Menus and Tray Utility both pair LayoutUpdated with UpdateLayout safely, so a
+  grep-level check would cry wolf on correct code. Documented in
+  submission-checklist.md under "Review items a script cannot decide" instead.
+- Preflight now resolves a Python 3.12+ interpreter that also has pyyaml.
+  Upstream's validator dependencies use PEP 695 `type` aliases, a syntax error
+  on the 3.10 that was on PATH, and the failure presented as a validation
+  failure rather than an environment one. Installed pyyaml into 3.12.
+- All six mods: COMPILE_OK, TEMPLATE_PARITY_OK, SUBMISSION_PREFLIGHT_OK.
+  Template tests: 121 existing assertions pass, plus new deep-nesting cases.
+- NOT LIVE-TESTED and NOTHING PUSHED. Every mod carries template changes, so
+  the whole family needs re-testing before any of this reaches a PR.

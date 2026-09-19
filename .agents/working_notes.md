@@ -69,6 +69,68 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
+## BLOCKED ON LIVE TEST — AI review fixes are written, NOT pushed
+
+The upstream two-stage review is new (`pr_flow.cjs`, enabled for all PRs
+2026-07-30). Authors must comment `/ai-review`, then `/ready-for-reviewer`;
+until then a PR sits in `waiting-for-author` and no human sees it. That is why
+nothing merged since July — every PR predates the system and the four older
+ones never even got the bot's instruction comment. `/ai-review` is now posted
+on all six.
+
+**Post the commands from PowerShell, never Git Bash** — MSYS path conversion
+rewrites `/ai-review` into `C:/Program Files/Git/ai-review`. That happened, was
+posted to five PRs, and was deleted and reposted.
+
+OmniButton's review came back with five findings. All five verified as real
+against the code and fixed. **None of it is live-tested, so nothing is pushed.**
+
+- Percent-text watcher recorded from `g_batteryPercentFE` only when that was
+  itself a TextBlock, but compared against the probed surface's TextBlock
+  several levels deeper — never matched, so every layout pass re-applied
+  forever. Now records from the same element the watcher reads.
+- `Wh_ModUninit` preferred a cached HWND without `IsWindow`; a stale handle
+  skipped teardown entirely, leaving Loaded delegates pointing into an image
+  Windhawk frees on return. Now validated, and callbacks are revoked even when
+  dispatch fails.
+- `LayoutUpdated` could re-enter itself through `UpdateLayout()`. Added a
+  re-entrancy guard and deleted the `[Geometry]` diagnostic that forced the
+  synchronous layout pass (its arguments ran even with logging off).
+- Deep arrangement expressions were exponential. See template note below.
+- `Placement.Status` was a text box nothing read; removed with its group, and
+  both READMEs updated.
+
+Next: user live-tests OmniButton, then the other five (all carry template
+changes). Then push, then `/ai-review` again — the bot refuses
+`/ready-for-reviewer` when its recorded SHA is not the current head.
+
+## Templates and preflight hardened from the review
+
+- `nested-group-layout.h` v2.0 -> v2.6: **Measure is memoized.** Each group
+  measured every child twice and Arrange re-measured at every level, so cost
+  doubled per level; the grammar wraps each unit in its own group, so every
+  "(" added two levels and ~16 nested parens reached roughly 4^16 visits — a
+  frozen Explorer. The reviewer's suggested depth cap of 16 would NOT have
+  fixed this: 4^16 is reachable at exactly that cap. The cap is now 24 and
+  exists only to bound stack depth. Re-embedded in all five adopters, plus
+  `#include <unordered_map>` where the namespace-only embed needed it.
+- `taskbar-host.h` v1.0 -> v1.1: added `ResolveTaskbarWnd(cached)`, which
+  validates with `IsWindow` before preferring a cached handle. The unsafe
+  ternary existed in four mods; all replaced.
+- New `_templates/verify-settings-used.py` — every declared setting must be
+  read by the code. Catches the `Placement.Status` class AND the far worse
+  case of a setting renamed in the block but not in the loader, which Windhawk
+  answers with a default instead of an error. Wired into preflight.
+- Preflight also rejects the unvalidated cached-handle ternary.
+- `submission-checklist.md` gained a "Review items a script cannot decide"
+  section for the four lessons that need the call graph to judge.
+- Preflight now selects a Python 3.12+ interpreter **with pyyaml**: upstream's
+  validator deps use PEP 695 `type` aliases, which are a syntax error on the
+  3.10 that was on PATH. Installed pyyaml into 3.12. Without this the
+  validator step fails in a way that looks like a mod defect.
+- Tests: 121 existing assertions still pass, plus new deep-nesting regression
+  cases (correctness at depth, timing ceiling, clean error past the cap).
+
 ## PUBLISHED — all six PRs live and green, Sept 18
 
 Fork main re-pointed to upstream/main (was 240 behind) and pushed. Every PR

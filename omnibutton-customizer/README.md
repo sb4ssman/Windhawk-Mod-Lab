@@ -91,8 +91,8 @@ network[-2,6], volume[0,2], battery[0,0], percent[2,-6]
 
 Version 1.0 was never published — it existed only as a pull request. The 2.0 in
 the version field marks the settings contract, not a history of releases: every
-mod in this family moved to the same grouped layout — Placement, Content,
-Layout, Size, Adjust, Surface — and to the shared **Arrangement** expression
+mod in this family moved to the same grouped layout — Content, Layout,
+Size, Adjust, Surface — and to the shared **Arrangement** expression
 that replaced each mod's homegrown grid settings. This mod arrived at that
 contract second, so its first published version is the one that has it.
 
@@ -198,12 +198,6 @@ use `Item width`.
 
 ## Settings
 
-### Placement
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Placement: not available in this mod | — | A note, not a control. The OmniButton stays in its native tray position; editing the box does nothing |
-
 ### Content
 
 | Setting | Default | Description |
@@ -305,8 +299,7 @@ The mod deliberately does not move the native `ControlCenterButton` across tray
 columns. Keeping it where Windows put it is what lets other mods' semantic
 anchors — "before OmniButton", "before clock" — keep their established meaning.
 Moving it would need a shared placement lease so two mods couldn't claim
-contradictory anchor order, which is why the Placement group is a note rather
-than a control.
+contradictory anchor order, so this mod offers no placement setting at all.
 
 ## Other taskbar positions
 

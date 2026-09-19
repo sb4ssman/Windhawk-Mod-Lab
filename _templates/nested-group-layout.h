@@ -1,6 +1,6 @@
 #pragma once
 
-// Copy-source template v2.0: nested group layout — pixel-space placement of
+// Copy-source template v2.6: nested group layout — pixel-space placement of
 // named items described by ONE layout expression. No Windows or WinRT
 // dependency; the caller supplies pixel sizes and the taskbar metrics.
 //
@@ -58,6 +58,7 @@
 #include <cstdlib>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace windhawk_mod_templates::nested_group_layout {
@@ -179,33 +180,45 @@ private:
         }
     }
 
-    Node ParseExpr() {
+    // Parsing, measuring and arranging all recurse once per nesting level, so
+    // the depth a user can type is the depth three separate recursions reach.
+    // Measure is memoized, so this is no longer a running-time limit — it is a
+    // STACK limit, and it is refused at parse time so the user gets a real
+    // error instead of a crash. Nothing legible needs this many levels; the
+    // deepest arrangement in this family's own documentation uses three.
+    static constexpr int kMaxNestingDepth = 24;
+
+    Node ParseExpr(int depth = 0) {
         Node node;
         node.axis = Axis::Horizontal;
-        node.children.push_back(ParseStack());
+        node.children.push_back(ParseStack(depth));
         while (Peek() == L'|') {
             ++position_;
-            node.children.push_back(ParseStack());
+            node.children.push_back(ParseStack(depth));
         }
         return node;
     }
 
-    Node ParseStack() {
+    Node ParseStack(int depth) {
         Node node;
         node.axis = Axis::Vertical;
-        node.children.push_back(ParseUnit());
+        node.children.push_back(ParseUnit(depth));
         while (Peek() == L',') {
             ++position_;
-            node.children.push_back(ParseUnit());
+            node.children.push_back(ParseUnit(depth));
         }
         return node;
     }
 
-    Node ParseUnit() {
+    Node ParseUnit(int depth) {
         SkipSpace();
         if (position_ < text_.size() && text_[position_] == L'(') {
+            if (depth >= kMaxNestingDepth) {
+                Fail(position_, L"fewer levels of nested parentheses");
+                return {};
+            }
             ++position_;
-            Node inner = ParseExpr();
+            Node inner = ParseExpr(depth + 1);
             SkipSpace();
             if (position_ < text_.size() && text_[position_] == L')')
                 ++position_;
@@ -338,8 +351,36 @@ inline int TokenIndexWithPrefix(std::wstring const& token,
 
 using SizeResolver = std::function<Size(std::wstring const&)>;
 
-inline Size Measure(Node const& node, Config const& config,
-                    SizeResolver const& resolve) {
+// MEASURE IS MEMOIZED, AND HAS TO BE. Each group measures every child twice —
+// once in the single-visible-child scan, once in the accumulation loop — and
+// Arrange measures the same nodes again at every level. Uncached, that doubles
+// per tree level, and since the grammar wraps each unit in its own group, every
+// "(" in the expression adds two levels. A hand-typed expression with ~16
+// nested parentheses reached roughly 4^16 node visits on the Explorer UI
+// thread: a hang with no way out but killing Explorer. Memoizing collapses the
+// whole pass to one visit per node.
+//
+// The cache is keyed on the node's ADDRESS, which is only valid because a Node
+// tree is built once by Parse and never mutated or moved while it is being
+// measured. Do not hold a cache across a re-parse, and do not mutate a tree
+// that a live cache refers to.
+using MeasureCache = std::unordered_map<Node const*, Size>;
+
+inline Size MeasureNode(Node const& node, Config const& config,
+                        SizeResolver const& resolve, MeasureCache& cache);
+
+inline Size MeasureCached(Node const& node, Config const& config,
+                          SizeResolver const& resolve, MeasureCache& cache) {
+    auto found = cache.find(&node);
+    if (found != cache.end())
+        return found->second;
+    Size size = MeasureNode(node, config, resolve, cache);
+    cache.emplace(&node, size);
+    return size;
+}
+
+inline Size MeasureNode(Node const& node, Config const& config,
+                        SizeResolver const& resolve, MeasureCache& cache) {
     if (!node.token.empty())
         return resolve(node.token);
 
@@ -351,14 +392,14 @@ inline Size Measure(Node const& node, Config const& config,
         Node const* only = nullptr;
         int visible = 0;
         for (auto const& child : node.children) {
-            if (Measure(child, config, resolve).Empty())
+            if (MeasureCached(child, config, resolve, cache).Empty())
                 continue;
             only = &child;
             if (++visible > 1)
                 break;
         }
         if (visible == 1)
-            return Measure(*only, config, resolve);
+            return MeasureCached(*only, config, resolve, cache);
     }
 
     double main = 0.0;
@@ -366,7 +407,7 @@ inline Size Measure(Node const& node, Config const& config,
     double fillFallback = 0.0;
     int placed = 0;
     for (auto const& child : node.children) {
-        Size size = Measure(child, config, resolve);
+        Size size = MeasureCached(child, config, resolve, cache);
         if (size.Empty())
             continue;
         double childMain, childCross;
@@ -396,6 +437,15 @@ inline Size Measure(Node const& node, Config const& config,
                                          : Size{cross, main};
 }
 
+// Measure one tree on its own. Prefer Compute(), which shares a single cache
+// across the measure and arrange passes; this overload exists for call sites
+// that measure a tree by itself.
+inline Size Measure(Node const& node, Config const& config,
+                    SizeResolver const& resolve) {
+    MeasureCache cache;
+    return MeasureCached(node, config, resolve, cache);
+}
+
 // Resolve a child's size against its parent group's axis, so an axis-relative
 // item becomes concrete width x height.
 inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
@@ -408,10 +458,10 @@ inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
                                     : Size{cross, size.thickness};
 }
 
-inline void Arrange(Node const& node, Config const& config,
-                    SizeResolver const& resolve, double x, double y,
-                    std::vector<Placement>& out,
-                    Size const* resolvedSize = nullptr) {
+inline void ArrangeCached(Node const& node, Config const& config,
+                          SizeResolver const& resolve, double x, double y,
+                          std::vector<Placement>& out, MeasureCache& cache,
+                          Size const* resolvedSize = nullptr) {
     if (!node.token.empty()) {
         Size size = resolvedSize ? *resolvedSize : resolve(node.token);
         if (!size.Empty())
@@ -420,7 +470,7 @@ inline void Arrange(Node const& node, Config const& config,
         return;
     }
 
-    Size total = Measure(node, config, resolve);
+    Size total = MeasureCached(node, config, resolve, cache);
     if (total.Empty())
         return;
     // A group's own offset moves everything inside it and nothing outside.
@@ -433,21 +483,22 @@ inline void Arrange(Node const& node, Config const& config,
         Node const* only = nullptr;
         int visible = 0;
         for (auto const& child : node.children) {
-            if (Measure(child, config, resolve).Empty())
+            if (MeasureCached(child, config, resolve, cache).Empty())
                 continue;
             only = &child;
             if (++visible > 1)
                 break;
         }
         if (visible == 1) {
-            Arrange(*only, config, resolve, x, y, out, resolvedSize);
+            ArrangeCached(*only, config, resolve, x, y, out, cache,
+                          resolvedSize);
             return;
         }
     }
 
     double cursor = node.axis == Axis::Horizontal ? x : y;
     for (auto const& child : node.children) {
-        Size measured = Measure(child, config, resolve);
+        Size measured = MeasureCached(child, config, resolve, cache);
         if (measured.Empty())
             continue;
         Size size = ConcreteSize(measured, node.axis, total);
@@ -458,15 +509,25 @@ inline void Arrange(Node const& node, Config const& config,
                              : config.justify == Justify::End  ? unused
                                                                : 0.0;
         if (node.axis == Axis::Horizontal) {
-            Arrange(child, config, resolve, cursor, y + crossOffset, out,
-                    &size);
+            ArrangeCached(child, config, resolve, cursor, y + crossOffset, out,
+                          cache, &size);
             cursor += size.width + config.spacing;
         } else {
-            Arrange(child, config, resolve, x + crossOffset, cursor, out,
-                    &size);
+            ArrangeCached(child, config, resolve, x + crossOffset, cursor, out,
+                          cache, &size);
             cursor += size.height + config.spacing;
         }
     }
+}
+
+// Arrange one tree on its own. Prefer Compute(); this overload exists for call
+// sites that drive the arranger directly.
+inline void Arrange(Node const& node, Config const& config,
+                    SizeResolver const& resolve, double x, double y,
+                    std::vector<Placement>& out,
+                    Size const* resolvedSize = nullptr) {
+    MeasureCache cache;
+    ArrangeCached(node, config, resolve, x, y, out, cache, resolvedSize);
 }
 
 // Parse + measure + arrange in one call. Returns false only on a parse error
@@ -482,7 +543,10 @@ inline bool Compute(std::wstring const& text, Config const& config,
     Node root;
     if (!Parse(text, root, error))
         return false;
-    Size inner = Measure(root, config, resolve);
+    // One cache for both passes: Arrange re-measures the same nodes at every
+    // level, so sharing it is what keeps the whole call linear in node count.
+    MeasureCache cache;
+    Size inner = MeasureCached(root, config, resolve, cache);
     placements.clear();
     if (inner.Empty()) {
         // No visible items: an empty group has no padded box either.
@@ -495,8 +559,8 @@ inline bool Compute(std::wstring const& text, Config const& config,
         double cross = inner.cross > 0.0 ? inner.cross : inner.thickness;
         inner = Size{inner.thickness, cross};
     }
-    Arrange(root, config, resolve, config.padX, config.padY, placements,
-            &inner);
+    ArrangeCached(root, config, resolve, config.padX, config.padY, placements,
+                  cache, &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
     return true;
