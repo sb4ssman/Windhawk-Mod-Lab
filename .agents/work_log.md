@@ -1863,3 +1863,21 @@ prove either is true. Worth folding a README-vs-settings-block check into
   deviation; the other five carry the shared-template rationale.
 - Still to do: read each AI review, then /ready-for-reviewer with a note about
   the nesting-cap deviation. Nothing else is outstanding.
+
+## 2026-09-18 (review-fix publish) — six AI-review corrections live-tested and pushed
+
+- User confirmed fresh live tests of all six updated mods: OmniButton, Privacy
+  Anchor, Clock Spacer, Folder Menus, VD Switcher, and Tray Utility.
+- Committed the lab work as `28753ec` and added internal verified-save tags
+  `mod/v1.1.1` and `mod/v2.0.1`. Shared lifecycle/retry/worker-lifetime lessons
+  are now captured in the taskbar templates and submission checklist.
+- Pushed one-file updates to #4443 `ae7869a2`, #4843 `06f01b57`, #4844
+  `934df900`, #4855 `3b03963c`, #5568 `f7e905b3`, and #5569 `0e68eb34`.
+  Every branch was checked against `upstream/main` and differs by exactly its
+  intended `mods/*.wh.cpp` file; all five CI checks are green.
+- The Privacy Anchor lab-folder name differs from its upstream filename. The
+  one-file gate caught the erroneous unpushed add; it was removed and the
+  commit amended before push. The checklist now requires deriving a PR update's
+  destination from its existing branch diff instead of guessing from a folder.
+- Posted `/ai-review` from PowerShell on every new head. All six PRs now show
+  `waiting-for-ai-review`.

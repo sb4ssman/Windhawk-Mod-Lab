@@ -100,6 +100,11 @@ cries wolf on correct code teaches everyone to ignore the whole preflight.
 
 ## PR construction and CI
 
+- [ ] Before copying a source into the fork, obtain the destination filename
+      from the PR branch's existing `git diff --name-only upstream/main...HEAD`
+      (or from `@id` for a fresh PR). Do not infer `mods/<id>.wh.cpp` from a
+      local lab-folder name: Privacy Anchor's folder and its upstream filename
+      intentionally differ.
 - [ ] Rebase the submission branch on current `upstream/main` and verify that
       the PR contains exactly one added or modified `.wh.cpp` file.
 - [ ] Start from the repository's current pull-request template; keep the

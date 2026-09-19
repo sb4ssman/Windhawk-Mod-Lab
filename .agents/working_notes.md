@@ -69,42 +69,34 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## ACTIVE — all six AI reviews landed; all corrections staged locally, Sept 19
+## ACTIVE — six review-fix updates published; awaiting AI review
 
-User live-tested the whole family on 26200.9457 after the review fixes:
-OmniButton, Privacy Anchor, Clock Spacer, Folder Menus, Tray Utility, VD
-Switcher, plus Task Manager Tail still working. All good.
+The user live-tested OmniButton, Privacy Anchor, Clock Spacer, Folder Menus,
+VD Switcher, and Tray Utility after the review fixes and confirmed every mod
+works. Lab checkpoint `28753ec` is tagged `mod/v1.1.1` and `mod/v2.0.1`.
 
-Pushed Sept 18 after that confirmation. Every PR was verified as a one-file
-diff against upstream/main and was 5/5 green. Live GitHub state on Sept 19:
-All six PRs are now `waiting-for-author`: Privacy Anchor #4843, Folder Menus
-#5568 and Tray Utility #5569 completed their reviews after the earlier
-OmniButton #4855, VD Switcher #4844 and Clock Spacer #4443 reviews.
-
-| PR | Mod | New head |
+| PR | Mod | Head |
 |---|---|---|
-| #4443 | Clock Spacer | blocking lifecycle/rebuild fixes staged locally |
-| #4843 | Privacy Anchor | teardown/COM lifetime/partial-injection repair staged locally |
-| #4844 | VD Switcher | blocking teardown/cached-handle fixes staged locally |
-| #4855 | OmniButton | failed-dispatch layout-callback fix staged locally |
-| #5568 | Folder Menus | menu-loop unload, deferred icon extraction, menu cap staged locally |
-| #5569 | Tray Utility | settings-save reversibility/callback fix staged locally |
+| #4443 | Clock Spacer | `ae7869a2` |
+| #4843 | Privacy Anchor | `06f01b57` |
+| #4844 | VD Switcher | `934df900` |
+| #4855 | OmniButton | `3b03963c` |
+| #5568 | Folder Menus | `f7e905b3` |
+| #5569 | Tray Utility | `0e68eb34` |
 
-All six staged sources compile and link; README sync, settings-use and
-exit-time destructor checks pass where applicable. `taskbar-host.h` gained a
-forced-first-attempt retry contract and the lifecycle template/checklist now
-cover the shared review lessons; OmniButton, VD Switcher, Clock Spacer and Tray
-Utility were re-embedded and pass parity. Folder Menus and Privacy Anchor do
-not consume RetryLoop and retain their currently equivalent host copies. The
-full preflight cannot run in the sandbox because its Python 3.12+ interpreter
-lacks pyyaml. **None of these fresh changes has been live-tested, committed, or
-pushed.** Live-test the entire family before any commit/push. After a push,
-request `/ai-review` again;
-only then use `/ready-for-reviewer`. Include the prior #4855 nesting-cap note:
-a cap of 16 would not have fixed exponential Measure because `4^16` visits are
-reachable at that cap; memoization is the actual fix, while 24 bounds stack.
+Every branch was rechecked as exactly one `mods/*.wh.cpp` diff from
+`upstream/main`; each has all five CI checks green. Fresh `/ai-review` commands
+were posted from PowerShell and all carry `waiting-for-ai-review`.
 
-Reminder: flow commands must be posted from PowerShell, never Git Bash.
+Reusable review lessons are now in the taskbar host/lifecycle templates and
+submission checklist: distinguish ownership from stale-tree state; force an
+initial settings reapply without losing ownership; revoke explicit XAML
+callbacks even after partial injection or a failed UI dispatch; retain and wait
+worker handles; and give COM-owned monitors heap/reference-counted lifetime.
+
+Next: wait for the six reviews, resolve only valid findings, then request
+`/ready-for-reviewer`. Retain the #4855 note: memoization fixes exponential
+Measure; the depth-24 limit only bounds stack depth.
 
 ## Superseded — AI review fixes written before the live test
 
