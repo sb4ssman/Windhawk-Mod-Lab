@@ -117,7 +117,7 @@ Dimensions use device-independent pixels (DIP) and scale with Windows display sc
 | Surface.BorderThickness / CornerRadius | −1 / −1 | System default; 0 removes border or makes corners square |
 | Surface.Opacity | 100 | Button opacity, 0–100% |
 | Surface.ShineEffect | off | Gradient highlight on custom background colors |
-| Behavior.MaxMenuItems / MaxDepth | 0 / 0 | Unlimited; positive values limit items per folder or submenu depth |
+| Behavior.MaxMenuItems / MaxDepth | 150 / 0 | Limits each menu to 150 items by default; 0 remains unlimited. Submenu depth is unlimited by default. |
 | Behavior.ShowHidden | off | Include hidden and system items |
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is

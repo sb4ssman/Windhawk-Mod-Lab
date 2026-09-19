@@ -107,7 +107,7 @@ visual settings family.
    before staging a template adoption to a PR.
 8. Complete `submission-checklist.md`; compilation is not a substitute for the
    three documentation layers, current screenshots, or focused live testing.
-9. Namespace-scope ownership follows lifecycle v1.3.1's rule: heap-only
+9. Namespace-scope ownership follows lifecycle v1.4's rule: heap-only
    settings/leases/containers destruct normally (never annotated — that only
    leaks the buffer on unload); direct nullable XAML/WinRT handles use
    intentional `no_destroy`; containers of STRONG XAML/WinRT refs use
@@ -123,6 +123,11 @@ visual settings family.
 11. Start-adjacent placement is a separate extension from tray-column
     injection. Copy `start-placement.h` as a complete block, use it only for an
     owned group, and release its lease before destroying the group.
+12. Keep three states separate: whether the mod owns a live layout, whether
+    Explorer replaced that tree, and whether a fresh apply was requested.
+    Settings reload forces one retry attempt; it never falsifies ownership just
+    to wake a retry loop. Every callback registration has an unconditional,
+    UI-thread teardown path whose dispatch result is checked.
 
 ## Update workflow
 

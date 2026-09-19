@@ -69,30 +69,40 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## AWAITING AI REVIEW — all seven live-tested, all six PRs pushed and green
+## ACTIVE — all six AI reviews landed; all corrections staged locally, Sept 19
 
 User live-tested the whole family on 26200.9457 after the review fixes:
 OmniButton, Privacy Anchor, Clock Spacer, Folder Menus, Tray Utility, VD
 Switcher, plus Task Manager Tail still working. All good.
 
-Pushed Sept 18 after that confirmation. Every PR verified as a one-file diff
-against upstream/main before pushing; all six report 5/5 green and sit in
-`waiting-for-ai-review`.
+Pushed Sept 18 after that confirmation. Every PR was verified as a one-file
+diff against upstream/main and was 5/5 green. Live GitHub state on Sept 19:
+All six PRs are now `waiting-for-author`: Privacy Anchor #4843, Folder Menus
+#5568 and Tray Utility #5569 completed their reviews after the earlier
+OmniButton #4855, VD Switcher #4844 and Clock Spacer #4443 reviews.
 
 | PR | Mod | New head |
 |---|---|---|
-| #4443 | Clock Spacer | 5a218045 |
-| #4843 | Privacy Anchor | 3bf297cd |
-| #4844 | VD Switcher | de31dd07 |
-| #4855 | OmniButton | ca66bc4d |
-| #5568 | Folder Menus | f1b004d3 |
-| #5569 | Tray Utility | b1090505 |
+| #4443 | Clock Spacer | blocking lifecycle/rebuild fixes staged locally |
+| #4843 | Privacy Anchor | teardown/COM lifetime/partial-injection repair staged locally |
+| #4844 | VD Switcher | blocking teardown/cached-handle fixes staged locally |
+| #4855 | OmniButton | failed-dispatch layout-callback fix staged locally |
+| #5568 | Folder Menus | menu-loop unload, deferred icon extraction, menu cap staged locally |
+| #5569 | Tray Utility | settings-save reversibility/callback fix staged locally |
 
-**Next: read each AI review when it lands, then `/ready-for-reviewer`.**
-When posting that, include a short note on the ONE deviation from the #4855
-review: its suggested nesting cap of 16 would not have fixed the exponential
-Measure, because 4^16 visits is reachable at exactly that cap. Memoization is
-the actual fix; the cap is now 24 and bounds stack depth only.
+All six staged sources compile and link; README sync, settings-use and
+exit-time destructor checks pass where applicable. `taskbar-host.h` gained a
+forced-first-attempt retry contract and the lifecycle template/checklist now
+cover the shared review lessons; OmniButton, VD Switcher, Clock Spacer and Tray
+Utility were re-embedded and pass parity. Folder Menus and Privacy Anchor do
+not consume RetryLoop and retain their currently equivalent host copies. The
+full preflight cannot run in the sandbox because its Python 3.12+ interpreter
+lacks pyyaml. **None of these fresh changes has been live-tested, committed, or
+pushed.** Live-test the entire family before any commit/push. After a push,
+request `/ai-review` again;
+only then use `/ready-for-reviewer`. Include the prior #4855 nesting-cap note:
+a cap of 16 would not have fixed exponential Measure because `4^16` visits are
+reachable at that cap; memoization is the actual fix, while 24 bounds stack.
 
 Reminder: flow commands must be posted from PowerShell, never Git Bash.
 

@@ -76,17 +76,16 @@ Windhawk log the first time it detects this.
 enabled, and that `%s%` is in its **Top line** or **Bottom line** setting — not in
 the tooltip, the middle line, or the weather format.
 
-**The spacer works but the clock is the wrong width.** Adjust the same Max width
-value. Use **Line width override** only if the automatic width is being read
-incorrectly.
+**The spacer works but the clock is the wrong width.** Adjust either the clock
+mod's **Max width** or this mod's **Max clock width**. The latter applies only
+to generated spacer rows, so leave it at `0` when you want the clock mod to
+own the whole clock width.
 
 ## Settings
 
-- **Line width override** — explicit width for the spacer grid. Usually `0`
-  (automatic) is correct; the width is inherited from the clock's Max width.
-- **Max clock width** — fixed width for the generated spacer rows. Equivalent
-  to setting Max width in Taskbar Clock Customization; that mod's own Max width
-  is respected automatically when this is `0`.
+- **Max clock width** — fixed width for generated spacer rows. When it is `0`,
+  the mod uses a finite **Max width** already set on the shared clock panel by
+  Taskbar Clock Customization. It does not constrain an unspaced native line.
 - **Minimum spacer width** — a floor, in pixels, for every gap. `0` (the default)
   leaves gaps fully elastic. A small value such as `8` guarantees a visible gap
   even before a fixed clock width is configured.

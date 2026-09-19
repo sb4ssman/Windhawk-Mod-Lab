@@ -1,4 +1,8 @@
-// Copy-source template v1.3.1: Windows 11 taskbar XAML lifecycle.
+// Copy-source template v1.4: Windows 11 taskbar XAML lifecycle.
+// v1.4: unload correctness is independent of whether an apply succeeded:
+// revoke every explicit callback before early returns, check UI dispatch
+// results, retain worker handles until they finish, and do not overload an
+// applied/ownership flag to request a settings reapply.
 // v1.3.1: clarify that no_destroy is ONLY for strong XAML/WinRT-owning
 // containers. weak_ref and plain-heap containers are thread-safe to destroy and
 // must stay unannotated (m417z clarification across the 2026-07-23 PR reviews).
@@ -49,6 +53,11 @@ static void RemoveModUi() {
     // Reference: taskbar-ai-quota ClearQuotaEventState ("Routed event
     // delegates point into this DLL, so revoke before XAML tears down the
     // subtree"), folder-menus ClearButtonEventState.
+    //
+    // Do this even when the layout is only partially applied. A LayoutUpdated
+    // or property token can exist while the mod's `applied` flag is false;
+    // making cleanup conditional on that flag leaves a callable pointer into
+    // this DLL after Windhawk unloads it.
 }
 
 static std::atomic<bool> g_templateUnloading{false};

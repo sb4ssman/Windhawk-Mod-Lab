@@ -384,7 +384,7 @@ public:
 
     void Start(AttemptFn attempt, AppliedFn applied,
                std::atomic<bool> const& unloading, int attempts = 5,
-               DWORD intervalMs = 2000) {
+               DWORD intervalMs = 2000, bool forceFirstAttempt = false) {
         Stop();
         if (unloading) return;
         attempt_ = attempt;
@@ -392,6 +392,7 @@ public:
         unloading_ = &unloading;
         attempts_ = attempts;
         intervalMs_ = intervalMs;
+        forceFirstAttempt_ = forceFirstAttempt;
         stopEvent_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
         if (!stopEvent_) return;
         thread_ = CreateThread(
@@ -400,7 +401,13 @@ public:
                 auto* self = static_cast<RetryLoop*>(parameter);
                 for (int i = 0; i < self->attempts_ && !*self->unloading_;
                      ++i) {
-                    if (self->applied_ && self->applied_()) break;
+                    // A settings reload can need one restore/reapply pass even
+                    // while `applied` truthfully says we still own live XAML.
+                    // Do not overload that ownership flag merely to wake the
+                    // retry loop; request a forced first attempt instead.
+                    if (self->applied_ &&
+                        !(self->forceFirstAttempt_ && i == 0) &&
+                        self->applied_()) break;
                     if (i && WaitForSingleObject(self->stopEvent_,
                                                  self->intervalMs_) !=
                                  WAIT_TIMEOUT)
@@ -448,6 +455,7 @@ private:
     std::atomic<bool> const* unloading_ = nullptr;
     int attempts_ = 5;
     DWORD intervalMs_ = 2000;
+    bool forceFirstAttempt_ = false;
 };
 
 }  // namespace windhawk_mod_templates::taskbar_host

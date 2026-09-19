@@ -66,6 +66,21 @@ cries wolf on correct code teaches everyone to ignore the whole preflight.
       writing to. Either deflect through a `DispatcherTimer` (as Tray Utility
       does) or guard the handler with a re-entrancy bool (as OmniButton does).
       Grep alone cannot tell these apart from a safe call in a click handler.
+- [ ] **Keep ownership, staleness, and retry demand separate.** An `applied`
+      flag means the mod owns a live XAML tree that must be restored. Never
+      clear it merely to force a retry after settings change; use a separate
+      stale-tree flag for `TrayUI::StartTaskbar` and `RetryLoop`'s forced first
+      attempt for a requested reapply.
+- [ ] **Every explicit callback has an unconditional unload path.** Revoke
+      `LayoutUpdated`, routed-event, property-changed, Loaded, timer, subclass,
+      and hook tokens before any `applied`/root-exists early return. Check the
+      UI-thread dispatch result and retry/log a failure; a delegate retained by
+      Explorer after `FreeLibrary` is a shell crash, not cosmetic state.
+- [ ] **Background work is waited by handle, not just counted.** A counter
+      decremented inside a worker proc reaches zero before its final return out
+      of mod code. Retain handles, wait with a sent-message pump during unload,
+      then close them. COM callback objects must be heap-owned with normal
+      reference counting, never borrowed from a worker stack frame.
 - [ ] **A watcher compares values read from the SAME element it recorded.**
       OmniButton recorded the percentage text from the presenter only when that
       presenter was itself a `TextBlock`, but compared against the probed
