@@ -1846,3 +1846,20 @@ prove either is true. Worth folding a README-vs-settings-block check into
   Template tests: 121 existing assertions pass, plus new deep-nesting cases.
 - NOT LIVE-TESTED and NOTHING PUSHED. Every mod carries template changes, so
   the whole family needs re-testing before any of this reaches a PR.
+
+## 2026-09-18 (push) — family live-tested after the review fixes; all six pushed
+
+- User live-tested all seven on 26200.9457 after the AI-review work: OmniButton,
+  Privacy Anchor, Clock Spacer, Folder Menus, Tray Utility, VD Switcher, and
+  confirmed Task Manager Tail still works. That cleared the whole family,
+  including the five mods that only changed because of the shared templates.
+- Pushed all six PR branches, each verified as exactly one file against
+  upstream/main first: #4443 5a218045, #4843 3bf297cd, #4844 de31dd07,
+  #4855 ca66bc4d, #5568 f1b004d3, #5569 b1090505. All report 5/5 green.
+- Posted /ai-review on all six from PowerShell, against the new heads. Order
+  matters: pushing first and reviewing second is required, because the bot
+  refuses /ready-for-reviewer when its recorded SHA is not the current head.
+- OmniButton's commit message records all five findings and the one deliberate
+  deviation; the other five carry the shared-template rationale.
+- Still to do: read each AI review, then /ready-for-reviewer with a note about
+  the nesting-cap deviation. Nothing else is outstanding.

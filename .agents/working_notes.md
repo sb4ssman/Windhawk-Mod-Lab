@@ -69,7 +69,34 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## BLOCKED ON LIVE TEST — AI review fixes are written, NOT pushed
+## AWAITING AI REVIEW — all seven live-tested, all six PRs pushed and green
+
+User live-tested the whole family on 26200.9457 after the review fixes:
+OmniButton, Privacy Anchor, Clock Spacer, Folder Menus, Tray Utility, VD
+Switcher, plus Task Manager Tail still working. All good.
+
+Pushed Sept 18 after that confirmation. Every PR verified as a one-file diff
+against upstream/main before pushing; all six report 5/5 green and sit in
+`waiting-for-ai-review`.
+
+| PR | Mod | New head |
+|---|---|---|
+| #4443 | Clock Spacer | 5a218045 |
+| #4843 | Privacy Anchor | 3bf297cd |
+| #4844 | VD Switcher | de31dd07 |
+| #4855 | OmniButton | ca66bc4d |
+| #5568 | Folder Menus | f1b004d3 |
+| #5569 | Tray Utility | b1090505 |
+
+**Next: read each AI review when it lands, then `/ready-for-reviewer`.**
+When posting that, include a short note on the ONE deviation from the #4855
+review: its suggested nesting cap of 16 would not have fixed the exponential
+Measure, because 4^16 visits is reachable at exactly that cap. Memoization is
+the actual fix; the cap is now 24 and bounds stack depth only.
+
+Reminder: flow commands must be posted from PowerShell, never Git Bash.
+
+## Superseded — AI review fixes written before the live test
 
 The upstream two-stage review is new (`pr_flow.cjs`, enabled for all PRs
 2026-07-30). Authors must comment `/ai-review`, then `/ready-for-reviewer`;
