@@ -75,8 +75,30 @@ All six reviews came back 2026-09-19. Saved copies are gone with the session;
 re-fetch with `gh pr view <n> --repo ramensoftware/windhawk-mods --json comments`
 and take the LAST `windhawk-reviewer` comment.
 
-**All six reviews are now acted on.** Every mod is COMPILE + preflight +
-template-parity green. Nothing is committed, pushed, or live-tested.
+**DONE AND PUBLISHED — all six live-tested, pushed, and re-reviewed.**
+User live-tested all six on 2026-09-19 and confirmed every one works as
+expected. All six pushed, 5/5 CI green, `/ai-review` posted and accepted
+(labels moved `waiting-for-author` -> `waiting-for-ai-review`).
+
+| PR | Mod | New head | CI |
+|---|---|---|---|
+| #4443 | Clock Spacer | `4ecbcc6a` | 5/5 |
+| #4843 | Privacy Anchor | `1139b8b2` | 5/5 |
+| #4844 | VD Switcher | `3cce707b` | 5/5 |
+| #4855 | OmniButton | `6a78c667` | 5/5 |
+| #5568 | Folder Menus | `ed1d26f6` | 5/5 |
+| #5569 | Tray Utility | `b25bf87a` | 5/5 |
+
+Each branch was verified as exactly one `mods/*.wh.cpp` diff against
+`upstream/main` before and after committing, and each pushed file was
+confirmed byte-identical to the live-tested lab source.
+
+**Next: wait for the six AI reviews, then act on them.** Do not post
+`/ready-for-reviewer` until a review comes back and its findings are
+answered — and remember the bot refuses it when its recorded SHA is not the
+current head.
+
+Every mod is COMPILE + preflight + template-parity green.
 
 | Mod | Review fixes | State |
 |---|---|---|
@@ -153,22 +175,16 @@ initial settings reapply without losing ownership; revoke explicit XAML
 callbacks even after partial injection or a failed UI dispatch; retain and wait
 worker handles; and give COM-owned monitors heap/reference-counted lifetime.
 
-Next: **the whole family is waiting on one thing — a human live test.** Nothing
-may be pushed before it (PRIME DIRECTIVE). Clock Spacer and Privacy Anchor
-changed most and need the most attention:
-
-- **Clock Spacer** lost its taskbar.dll hooks, its XamlRoot walk and its scan
-  thread entirely. Verify: spacers work on a clock that was ALREADY on screen
-  when the mod was enabled (that is the `get_ViewModel` path), spacers work
-  after an Explorer restart (the `OnApplyTemplate` path), spacers appear on a
-  SECOND monitor's taskbar (new capability — the old scan never reached it),
-  and changing a TCC font size/colour now restyles the spaced rows live.
-- **Privacy Anchor**: unload with the camera setting ON (the cancellable init),
-  the experimental Left/Right-of-Start positions, and a normal enable/disable
-  cycle leaving the tray exactly as found.
-
 Retain the #4855 note: memoization fixes exponential Measure; the depth-24
 limit only bounds stack depth.
+
+### Housekeeping not done
+
+Fork `main` is at `7d26c6c1` while `upstream/main` is at `68ea8919`. That did
+NOT matter for this push, because every branch already existed and was only
+added to — nothing was cut from `main`. Re-point it (`git branch -f main
+upstream/main` + `--force-with-lease`) BEFORE cutting any new update branch,
+or the new branch inherits whatever `main` is carrying.
 
 ## Superseded — AI review fixes written before the live test
 

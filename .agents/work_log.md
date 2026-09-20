@@ -2095,3 +2095,50 @@ State: all six mods COMPILE_OK, EXIT_TIME_DESTRUCTOR_AUDIT_OK, README_MATCH,
 SETTINGS_ALL_READ_OK, SUBMISSION_PREFLIGHT_OK and TEMPLATE_PARITY_OK. Nothing
 committed, nothing pushed, no PR touched, no `/ai-review` posted. The family is
 waiting on a human live test.
+
+## 2026-09-19 (night) — live-tested, pushed, and re-reviewed: all six
+
+User live-tested all six mods and confirmed each works as expected: Clock
+Spacer, Tray Utility, OmniButton, VD Switcher, Folder Menus, Privacy Anchor.
+That cleared the prime directive, so the family was published.
+
+Mechanics, in order, with the checks that actually ran:
+
+1. Verified the lab tree was clean and that commit `2e5b47f` really carried
+   the session's work, rather than trusting the notes.
+2. Pulled live PR state for all six: every one OPEN, exactly one file,
+   labelled `waiting-for-author`, heads matching the recorded table.
+3. Fetched `upstream` and confirmed all six branches matched `origin` and
+   were each exactly one file against `upstream/main` BEFORE touching them.
+4. Copied each live-tested lab source onto its branch, refusing to proceed
+   unless the working tree and the staged set were that single expected
+   path, then committed with the per-mod changelog.
+5. Re-checked `git diff --name-only upstream/main...HEAD` after each commit —
+   the hard upstream gate — and confirmed each pushed file was byte-identical
+   to the lab source.
+6. Pushed all six; confirmed GitHub showed the new heads with one file each.
+7. Waited for CI: 5/5 green on all six.
+8. Posted `/ai-review` from PowerShell and verified each comment landed
+   literally as `/ai-review`. All six labels moved `waiting-for-author` ->
+   `waiting-for-ai-review`.
+
+| PR | Mod | Old head | New head |
+|---|---|---|---|
+| #4443 | Clock Spacer | `ae7869a2` | `4ecbcc6a` |
+| #4843 | Privacy Anchor | `06f01b57` | `1139b8b2` |
+| #4844 | VD Switcher | `934df900` | `3cce707b` |
+| #4855 | OmniButton | `3b03963c` | `6a78c667` |
+| #5568 | Folder Menus | `f7e905b3` | `ed1d26f6` |
+| #5569 | Tray Utility | `0e68eb34` | `b25bf87a` |
+
+No version bumps were needed: the four add-PRs are unpublished, so their
+header version is what they would publish as, and both update PRs already
+carried their required bumps (Folder Menus 0.7 -> 2.0, Tray Utility 1.1 ->
+2.0).
+
+Deliberately not done: fork `main` is still behind `upstream/main`. It was
+irrelevant here because no branch was cut from it, but it must be re-pointed
+before any future update branch is created.
+
+Still open, unchanged by this push: no reply posted to issue #5530 (the
+Folder Menus fix is in #5568), and #4830 is closeable once #4844 merges.
