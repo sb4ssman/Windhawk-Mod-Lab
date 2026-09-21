@@ -69,7 +69,19 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## ACTIVE — all six round-4/5 review fixes done; awaiting ONE live test
+## ACTIVE — round 5/6 AI reviews requested Sept 21; wait for them
+
+User live-tested all six (Sept 21, all "looking good"). Pushed, CI 5/5 green on
+all six, replies posted on five, `/ai-review` posted on all six; every PR is
+`waiting-for-ai-review`. New heads: #4443 `a78f6636`, #4843 `b77afb23`,
+#4844 `b5a24403`, #4855 `c48a4f1e`, #5568 `20abef99`, #5569 `2f2a7da7`.
+Lab commit that was pushed: `6cf1320`.
+
+Next: when the reviews land, save the bodies into a new
+`_research/ai-reviews-<date>/` folder and verify each finding against the
+source before acting. `/ready-for-reviewer` only on a clean round.
+
+## Superseded — all six round-4/5 review fixes done; awaiting ONE live test
 
 Every finding in the round-4/5 reviews is resolved in the lab (Sept 20-21),
 optional and functionality items included. Reviews, the verified per-mod

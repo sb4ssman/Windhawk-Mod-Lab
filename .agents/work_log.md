@@ -2337,3 +2337,26 @@ State: all six `SUBMISSION_PREFLIGHT_OK`, `TEMPLATE_PARITY_OK (0 embedded)`,
 assembled mods `ASSEMBLY_OK`. Replies drafted for all five that need one.
 Combined test guide: `.agents/outputs/live-test-2026-09-21.md`. Nothing
 committed or pushed.
+
+## 2026-09-21 — all six published and re-reviewed
+
+User live-tested all six ("looking good" on each). Pushed from the fork after
+checking every branch matched origin and the recorded head, the working tree
+held only the expected file, the diff against upstream/main was exactly one
+path, and the committed file matched the lab (`6cf1320`). CI 5/5 green on all
+six. Posted the five drafted replies and `/ai-review` on all six from
+PowerShell; all six are `waiting-for-ai-review`.
+
+| PR | Mod | New head |
+|---|---|---|
+| #4443 | Clock Spacer | `a78f6636` |
+| #4843 | Privacy Anchor | `b77afb23` |
+| #4844 | VD Switcher | `b5a24403` |
+| #4855 | OmniButton | `c48a4f1e` |
+| #5568 | Folder Menus | `20abef99` |
+| #5569 | Tray Utility | `2f2a7da7` |
+
+Slip, corrected: the first posting script indexed a PowerShell ordered
+dictionary by int, which selects by POSITION, so the replies were skipped and
+only `/ai-review` went out. Verified nothing was duplicated, then posted the
+replies alone. Use string keys (or an array of records) for PR maps.
