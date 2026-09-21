@@ -81,12 +81,12 @@ height and logs its equivalent expression. Use folder numbers from the list:
 
 | Expression | Result |
 |---|---|
-| `1 | 2 | 3` | One row |
+| `1 \| 2 \| 3` | One row |
 | `1, 2, 3` | One column |
-| `1, 2 | 3, 4` | Two columns of two |
-| `(1 | 2), 3` | Two buttons above a third |
-| `1 | pad | 2` | An empty button-sized space between entries |
-| `1[2,-1] | 2` | Nudge the first button right 2 DIP and up 1 DIP |
+| `1, 2 \| 3, 4` | Two columns of two |
+| `(1 \| 2), 3` | Two buttons above a third |
+| `1 \| pad \| 2` | An empty button-sized space between entries |
+| `1[2,-1] \| 2` | Nudge the first button right 2 DIP and up 1 DIP |
 
 `folder1` is an alias for `1`. Unknown or unavailable items occupy no space;
 duplicate folder tokens show one button. Invalid syntax logs its position and
@@ -118,7 +118,7 @@ Dimensions use device-independent pixels (DIP) and scale with Windows display sc
 | Surface.Opacity | 100 | Button opacity, 0–100% |
 | Surface.ShineEffect | off | Gradient highlight on custom background colors |
 | Behavior.MaxMenuItems / MaxDepth | 150 / 0 | Limits each menu to 150 items by default; 0 remains unlimited. Submenu depth is unlimited by default. |
-| Behavior.ShowHidden | off | Include hidden and system items |
+| Behavior.ShowHidden | off | Include hidden items; protected operating system files follow Explorer's own setting |
 
 All color settings accept `#RRGGBB` or `#AARRGGBB` hex (the alpha byte is
 honored), the generics `accent`, `accentLight`, and `accentDark` for the
@@ -135,11 +135,15 @@ folder. Duplicates from the user+public Desktop merge are suppressed automatical
 
 ## Upgrading from 0.7
 
-This is the upcoming 2.0 settings format. **Back up your textual settings before
-replacing the source. Old flat keys are not migrated automatically.** Re-enter
-your folders under Content → Folders, preserving their order and targets, and
-copy appearance and menu preferences into their corresponding groups above.
-Defaults remain 24×22 buttons, 4 DIP spacing, 10 DIP labels and unlimited menus.
+2.0 reorganised every setting into the groups above, and Windhawk cannot
+carry a value across a renamed setting. **After updating, your buttons return
+to the defaults (Desktop and Control Panel) until you re-apply your settings
+once.** Before updating, copy your settings from the mod's Settings page in
+**Textual mode**; afterwards, re-enter your folders under Content → Folders,
+preserving their order and targets, and copy appearance and menu preferences
+into their corresponding groups. Defaults remain 24×22 buttons, 4 DIP spacing
+and 10 DIP labels; menus are now limited to 150 items per folder by default
+(Behavior → Max menu items, 0 for unlimited).
 
 Replace single-row/single-column settings with `1 | 2` / `1, 2` (extend for your
 folder count), or use `auto`. The former separate left/right padding controls

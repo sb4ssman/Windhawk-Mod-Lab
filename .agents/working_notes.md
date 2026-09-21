@@ -85,7 +85,7 @@ Do not re-fetch the reviews unless a NEW round has landed.
 | #4443 | Clock Spacer | `4ecbcc6a` | 4 | Code CLEAN per reviewer. README + pushback only |
 | #4843 | Privacy Anchor | `1139b8b2` | 4 | **DONE in lab Sept 20, assembled, preflight OK. Awaiting live test.** Reply drafted in `_research/ai-reviews-2026-09-20/replies/` |
 | #4844 | VD Switcher | `3cce707b` | 4 | 2 blocking, both real, both in the 1.7 bridge |
-| #5568 | Folder Menus | `ed1d26f6` | 5 | 4 blocking, all real, one a crash path |
+| #5568 | Folder Menus | `ed1d26f6` | 5 | **DONE in lab Sept 20, assembled, preflight OK, bridge removed. Awaiting live test.** Reply drafted |
 | #5569 | Tray Utility | `b25bf87a` | 5 | 1 blocking, a real stand-down regression |
 
 ### GOAL: get all six to live-testable, then submit. Resolve EVERYTHING per mod
@@ -101,8 +101,8 @@ places where that applies and gives the evidence for each.
    `python _templates/assemble.py <mod>` + `<mod>/components.list`. This
    instruction had been given before and only half-executed; do not leave it
    half-done again. Conversion recipe is in the `_research/` README.
-   Converted: **OmniButton, Tray Utility, Privacy Anchor**. Not yet:
-   VD Switcher, Folder Menus.
+   Converted: **OmniButton, Tray Utility, Privacy Anchor, Folder Menus**.
+   Not yet: VD Switcher.
 2. **The legacy-settings bridge is REMOVED** from VD Switcher, Folder Menus and
    Tray Utility. READMEs say settings were reorganised in 2.0 and must be
    re-applied once. Reason (do not re-add it): Windhawk cannot write settings,
@@ -113,8 +113,8 @@ places where that applies and gives the evidence for each.
 ### EXPECTED FAILURE, do not "fix" it the wrong way
 
 `_templates/taskbar-host.h` was changed (the `RetryLoop` orphan race), so
-**TEMPLATE_PARITY now FAILS for VD Switcher and Folder Menus** — the two that
-still embed it verbatim (Privacy Anchor is converted and out of it). The correct resolution is to CONVERT
+**TEMPLATE_PARITY now FAILS for VD Switcher** — the last mod that still embeds
+it verbatim (Privacy Anchor and Folder Menus are converted and out of it). The correct resolution is to CONVERT
 those three to assembly, which removes the `windhawk_mod_templates::*`
 namespaces entirely and makes parity moot. Do not re-embed the template to go
 green; that is throwaway work.
@@ -141,7 +141,13 @@ green; that is throwaway work.
    off, open the camera: Windows' own camera glyph must appear; (c) all four
    Content off: every native indicator visible, no bar; (d) toggle settings
    and disable/enable the mod: no stranded hidden natives; (e) glow on/off.
-2. **Folder Menus** — modal Shell verb outside the unload wait is a real crash.
+2. ~~Folder Menus~~ — done Sept 20. Live-test checklist: (a) enable the mod
+   on a running Explorer with "Use native Shell icon" on: icons appear
+   without an Explorer restart; (b) toggle that setting: icons follow;
+   (c) right-click an item → Delete, leave the confirmation open, disable
+   the mod: unload waits, answer the dialog, no crash; (d) same with a folder
+   popup left open; (e) settings reset to defaults is expected (0.7 bridge
+   removed) — re-enter folders; (f) Desktop menu shows no duplicates.
 3. **Tray Utility** — transient states permanently retire the retry.
 4. **VD Switcher** — bridge removal covers both blocking findings.
 5. **Clock Spacer** — README plus the pushback; code already clean.

@@ -2277,3 +2277,26 @@ Converted to assembly (10 components, own tree walk, no bounded-retry):
 6383 -> 6039 lines. First compile clean. `SUBMISSION_PREFLIGHT_OK`. Reply
 drafted at `_research/ai-reviews-2026-09-20/replies/4843-privacy-anchor.md`.
 Nothing committed or pushed; awaiting the user's live test.
+
+## 2026-09-20 (later) — Folder Menus #5568 finished and assembled
+
+All four blocking items fixed. Unload: the 50-attempt cap is gone (loop until
+the menu path is idle; each dispatch is a SendMessage, so it tracks real
+progress); a shared RAII `MenuPathScope` now brackets both `ShowFolderMenu`
+and the posted `InvokePendingShellCommand`, so a modal Shell verb holds unload.
+Found beyond the review: both sites read `g_unloading` BEFORE opening their
+scope — a Dekker race letting uninit's cleanup dispatch run inside
+`TrackPopupMenu` and return into a freed image. Both now open the scope first,
+then check the flag. Icons: no direct apply in AfterInit/SettingsChanged; the
+worker's first attempt prepares icons then builds.
+
+0.7 bridge removed per the standing decision (LoadLegacyFolders with it);
+README says settings reset once and how to carry them. Position is an enum;
+FillOrder/Justify/NewItems via `LoadChoice`. Retry is now the shared
+`RetryLoop` (40 x 1.5 s; vertical stand-down counts as settled), closing the
+concurrent-Stop hole. `GetSystemMetricsForDpi` direct; dedupe sort tie-breaks
+on fileName.
+
+Assembled (8 components, own tree walk). `SUBMISSION_PREFLIGHT_OK`. Reply
+drafted at `_research/ai-reviews-2026-09-20/replies/5568-folder-menus.md`.
+Nothing committed or pushed.
