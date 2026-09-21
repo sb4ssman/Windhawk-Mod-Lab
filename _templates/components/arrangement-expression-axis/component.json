@@ -1,0 +1,33 @@
+{
+  "id": "arrangement-expression-axis",
+  "suffix": "layout",
+  "title": "Arrangement expression (axis-relative)",
+  "summary": "One user-typed string - names joined by '|' (side by side) and ',' (stacked), nested with parentheses, nudged with [dx,dy] - parsed, measured and arranged into concrete placements. This variant also sizes an item RELATIVE TO THE AXIS its group lays out along, which a mod needs when an item's thickness is known but its cross extent should match its neighbours.",
+  "api": [
+    "Compute",
+    "Parse",
+    "ResolveArrangement",
+    "BuildAutoExpression",
+    "BuildGridExpression",
+    "RowsInHeight",
+    "MissingTokens",
+    "AppendMissing",
+    "TokenIs",
+    "TokenIndexWithPrefix",
+    "AlongAxis",
+    "ContentAlong",
+    "Measure",
+    "Arrange",
+    "ChooseShape"
+  ],
+  "includes": [
+    "<algorithm>",
+    "<cwctype>",
+    "<cstdlib>",
+    "<functional>",
+    "<string>",
+    "<unordered_map>",
+    "<vector>"
+  ],
+  "variant_of": "arrangement-expression"
+}

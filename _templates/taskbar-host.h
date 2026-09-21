@@ -428,16 +428,24 @@ public:
             return;
         }
 
+        // PUBLISH BY EXCHANGE, AND WAIT FOR WHATEVER THIS DISPLACES. The Stop()
+        // above runs OUTSIDE the mutex and pumps sent messages while it waits,
+        // so a second Start() can slip in behind it: two callers both get past
+        // Stop(), and an unconditional store would drop the first run's last
+        // tracked reference. Its thread keeps going on its own reference with
+        // nothing able to stop it, and an unload inside that window frees the
+        // image under a thread still dereferencing `unloading`.
+        std::shared_ptr<Run> displaced;
         {
             std::lock_guard<std::mutex> guard(mutex_);
-            if (!unloading) {
-                run_ = std::move(run);
-                return;
-            }
+            if (!unloading)
+                displaced = std::exchange(run_, std::move(run));
         }
-        // Unload began while this attempt was being created, so the Stop that
-        // would have waited for it saw nothing. Wait for it here instead.
-        StopRun(run);
+        // `run` is only non-null here when unload began while this attempt was
+        // being created, so the Stop that would have waited for it saw nothing.
+        if (run) StopRun(run);
+        // A concurrent Start() installed its run after ours got past Stop().
+        if (displaced) StopRun(displaced);
     }
 
     void Stop() {

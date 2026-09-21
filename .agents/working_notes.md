@@ -69,122 +69,82 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## ACTIVE — acting on the six AI reviews, one mod at a time
+## ACTIVE — round 4/5 reviews: OmniButton done, five mods to go
 
-All six reviews came back 2026-09-19. Saved copies are gone with the session;
-re-fetch with `gh pr view <n> --repo ramensoftware/windhawk-mods --json comments`
-and take the LAST `windhawk-reviewer` comment.
+All six reviews came back 2026-09-20 against the pushed heads. **The bodies and
+a VERIFIED per-mod plan are saved in
+[../_research/ai-reviews-2026-09-20/](../_research/ai-reviews-2026-09-20/) —
+read `README.md` there first.** Every finding in it was checked against the
+source; the ones that do not hold up are marked, with the evidence.
 
-**DONE AND PUBLISHED — all six live-tested, pushed, and re-reviewed.**
-User live-tested all six on 2026-09-19 and confirmed every one works as
-expected. All six pushed, 5/5 CI green, `/ai-review` posted and accepted
-(labels moved `waiting-for-author` -> `waiting-for-ai-review`).
+Do not re-fetch the reviews unless a NEW round has landed.
 
-| PR | Mod | New head | CI |
-|---|---|---|---|
-| #4443 | Clock Spacer | `4ecbcc6a` | 5/5 |
-| #4843 | Privacy Anchor | `1139b8b2` | 5/5 |
-| #4844 | VD Switcher | `3cce707b` | 5/5 |
-| #4855 | OmniButton | `6a78c667` | 5/5 |
-| #5568 | Folder Menus | `ed1d26f6` | 5/5 |
-| #5569 | Tray Utility | `b25bf87a` | 5/5 |
+| PR | Mod | Head reviewed | Round | State |
+|---|---|---|---|---|
+| #4855 | OmniButton | `6a78c667` | 4 | **"No blocking issues — looks good to merge."** All items taken. DONE, awaiting live test |
+| #4443 | Clock Spacer | `4ecbcc6a` | 4 | Code CLEAN per reviewer. README + pushback only |
+| #4843 | Privacy Anchor | `1139b8b2` | 4 | 2 blocking, both real; one is a privacy-safety bug |
+| #4844 | VD Switcher | `3cce707b` | 4 | 2 blocking, both real, both in the 1.7 bridge |
+| #5568 | Folder Menus | `ed1d26f6` | 5 | 4 blocking, all real, one a crash path |
+| #5569 | Tray Utility | `b25bf87a` | 5 | 1 blocking, a real stand-down regression |
 
-Each branch was verified as exactly one `mods/*.wh.cpp` diff against
-`upstream/main` before and after committing, and each pushed file was
-confirmed byte-identical to the live-tested lab source.
+### GOAL: get all six to live-testable, then submit. Resolve EVERYTHING per mod
 
-**Next: wait for the six AI reviews, then act on them.** Do not post
-`/ready-for-reviewer` until a review comes back and its findings are
-answered — and remember the bot refuses it when its recorded SHA is not the
-current head.
+The user wants the reviewer HAPPY and the mods FINISHED — optional and
+functionality items included, not just blocking ones. Push back only where a
+finding genuinely does not hold; the README in `_research/` lists the four
+places where that applies and gives the evidence for each.
 
-Every mod is COMPILE + preflight + template-parity green.
+### Two standing decisions (both from the user, 2026-09-20)
 
-| Mod | Review fixes | State |
-|---|---|---|
-| Tray Utility #5569 | DONE (all 3 review rounds) | preflight green; also the one ASSEMBLED mod |
-| Folder Menus #5568 | DONE (5 blocking + 7 optional) | preflight green |
-| OmniButton #4855 | DONE (1 blocking + carried-over) | preflight green |
-| VD Switcher #4844 | DONE (5 blocking + 7 optional) | preflight green |
-| Privacy Anchor #4843 | DONE (all 5 blocking + 5 of 7 optional) | preflight + parity green |
-| Clock Spacer #4443 | DONE (all 3 blocking + most optional) | preflight green; 1709 -> 1017 lines |
-| Task Manager Tail | n/a — fixed 2 pre-existing preflight failures | green but for the expected reused-version warning |
+1. **Mods are ASSEMBLED from components, never verbatim copy-paste.**
+   `python _templates/assemble.py <mod>` + `<mod>/components.list`. This
+   instruction had been given before and only half-executed; do not leave it
+   half-done again. Conversion recipe is in the `_research/` README.
+   Converted: **OmniButton, Tray Utility**. Not yet: Privacy Anchor,
+   VD Switcher, Folder Menus.
+2. **The legacy-settings bridge is REMOVED** from VD Switcher, Folder Menus and
+   Tray Utility. READMEs say settings were reorganised in 2.0 and must be
+   re-applied once. Reason (do not re-add it): Windhawk cannot write settings,
+   so any bridge means the UI shows one value while the mod uses another, and
+   "prefer legacy when the 2.0 value equals its default" makes a carried value
+   impossible to reset. It already caused two real mis-migrations in VD Switcher.
 
-### Deliberately NOT done, and why
+### EXPECTED FAILURE, do not "fix" it the wrong way
 
-- **Privacy Anchor optional: `g_startLease` to `optional<>` + `reset()`.** The
-  bare `[[clang::no_destroy]]` aggregate works because `Release` assigns
-  `lease = {}`. Cosmetic consistency only; left for a quieter pass.
-- **VD Switcher has the same `ClearValue` bug class the start-placement
-  template just had.** `SetStartButtonVisualOffset` (~line 4267) clears
-  `RenderTransformProperty` on the Start button instead of restoring the prior
-  local value, so releasing it destroys another mod's transform on Start. Its
-  own reviewer did NOT raise this, and that mod's review work is complete and
-  verified, so it was recorded rather than changed. Fix it deliberately, with a
-  live test, not as a drive-by.
-- **Clock Spacer's standalone-vs-fold-into-TCC question** is the maintainer's
-  call; the review says so explicitly. No action.
+`_templates/taskbar-host.h` was changed (the `RetryLoop` orphan race), so
+**TEMPLATE_PARITY now FAILS for Privacy Anchor, VD Switcher and Folder Menus** —
+the three that still embed it verbatim. The correct resolution is to CONVERT
+those three to assembly, which removes the `windhawk_mod_templates::*`
+namespaces entirely and makes parity moot. Do not re-embed the template to go
+green; that is throwaway work.
 
-### The reviewer was WRONG about one thing — do not "fix" it again
+### What changed in the component library this session
 
-`-loleaut32` has no `BSTR`/`VARIANT`/`IDispatch` user *in the source*, and the
-reviewer suggested dropping it on both Privacy Anchor and (previously) other
-mods. It is still REQUIRED: C++/WinRT stores `hresult_error::message()` in a
-`BSTR`, so removing it produced three undefined symbols (`SysStringLen`,
-`SysFreeString`) at LINK time. Verified 2026-09-19 by actually removing it.
-This is why `compile-check.ps1` links a real DLL instead of `-fsyntax-only`.
-Recorded in the submission checklist; answer the suggestion with the link error.
+- New: `color-tokens`, `native-glyph-surface`, `arrangement-expression-axis`
+  (superset of `arrangement-expression` adding axis-relative sizing; OmniButton
+  and VD Switcher need it, the other adopters must keep the reduced one or they
+  regress).
+- `settings-values` gained `LoadString` / `LoadChoice` built on
+  `WindhawkUtils::StringSetting`, retiring the duplicate `sio::StringSetting`
+  class the reviewer flagged on four mods.
+- `bounded-retry` + `taskbar-host.h`: `RetryLoop::Start` publishes by
+  `std::exchange` under the mutex and waits for a displaced run, closing the
+  orphan race raised on OmniButton and Tray Utility. Needs `<utility>`.
+- Deleted as dead in every mod: `ngl::PixelsToDip`, `ngl::AvailableRows`,
+  `vtw::FindInnerStackPanel`.
 
-### Pattern established across the family — reuse it
+### Order to work the remaining five, worst defect first
 
-Three mods now carry the same **legacy-settings fallback** for the 2.0 key
-rename, because the reviewer raised it on every one: a `Behavior.Use*` switch,
-a `HasLegacySettings()` probe (Windhawk cannot tell "unset" from "zero", so
-prove the old config exists before trusting any single key), and
-`PreferCurrentOrLegacy{String,Int}` helpers that let a 2.0 key win as soon as
-it differs from its declared default. Folder Menus and VD Switcher use the
-`legacyDefault` parameter form, which is the better one — Tray Utility's older
-form uses `legacy == 0` instead. **Clock Spacer will need the same treatment if
-its review raises it.**
+1. **Privacy Anchor** — suppressing the native indicator with no replacement is
+   the worst bug in the set, in the one mod where it is a safety issue.
+2. **Folder Menus** — modal Shell verb outside the unload wait is a real crash.
+3. **Tray Utility** — transient states permanently retire the retry.
+4. **VD Switcher** — bridge removal covers both blocking findings.
+5. **Clock Spacer** — README plus the pushback; code already clean.
 
-Do NOT add a fallback for a boolean whose off state is the default: the legacy
-"on" then wins forever and the 2.0 switch can never turn it off. That is why
-Tray Utility's logging key was excluded before the setting was removed.
-
-Nothing is committed, pushed, or live-tested. PR heads are unchanged from the
-table below.
-
-| PR | Mod | Head |
-|---|---|---|
-| #4443 | Clock Spacer | `ae7869a2` |
-| #4843 | Privacy Anchor | `06f01b57` |
-| #4844 | VD Switcher | `934df900` |
-| #4855 | OmniButton | `3b03963c` |
-| #5568 | Folder Menus | `f7e905b3` |
-| #5569 | Tray Utility | `0e68eb34` |
-
-Every prior published branch was rechecked as exactly one `mods/*.wh.cpp` diff
-from `upstream/main`; each had all five CI checks green. Tray Utility #5569 is
-now `waiting-for-author` on its prior head; do not post `/ai-review` again
-until this new candidate is live-tested and pushed. The other five remain in
-their AI-review flow.
-
-Reusable review lessons are now in the taskbar host/lifecycle templates and
-submission checklist: distinguish ownership from stale-tree state; force an
-initial settings reapply without losing ownership; revoke explicit XAML
-callbacks even after partial injection or a failed UI dispatch; retain and wait
-worker handles; and give COM-owned monitors heap/reference-counted lifetime.
-
-Retain the #4855 note: memoization fixes exponential Measure; the depth-24
-limit only bounds stack depth.
-
-### Housekeeping not done
-
-Fork `main` is at `7d26c6c1` while `upstream/main` is at `68ea8919`. That did
-NOT matter for this push, because every branch already existed and was only
-added to — nothing was cut from `main`. Re-point it (`git branch -f main
-upstream/main` + `--force-with-lease`) BEFORE cutting any new update branch,
-or the new branch inherits whatever `main` is carrying.
+Nothing is committed to the PR branches. PR heads are unchanged from the table
+above; the lab has local commits only.
 
 ## Superseded — AI review fixes written before the live test
 

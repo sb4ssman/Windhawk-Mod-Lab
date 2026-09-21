@@ -295,6 +295,17 @@ native color.
 
 ## Other taskbar mods
 
+**[Tray system icon tweaks](https://windhawk.net/mods/taskbar-tray-system-icon-tweaks)**
+has its own `hideNetworkIcon` / `hideVolumeIcon` / `hideBatteryIcon` switches,
+which cover the same three icons as this mod's `Content` switches. They are not
+aware of each other: if an icon is hidden there and enabled here, this mod
+reserves an arrangement cell for something Windows is not drawing. Pick one
+mod to own the show/hide decision.
+
+**[Multiple taskbars](https://windhawk.net/mods/taskbar-multi-tray).** This mod
+resolves the primary `Shell_TrayWnd` only, so OmniButtons on secondary-monitor
+taskbars keep their native arrangement. The primary one is arranged normally.
+
 The mod deliberately does not move the native `ControlCenterButton` across tray
 columns. Keeping it where Windows put it is what lets other mods' semantic
 anchors — "before OmniButton", "before clock" — keep their established meaning.
@@ -335,3 +346,6 @@ each one's exact prior local value when it unloads.
 - Turning the battery percentage on or off in Windows Settings sometimes needs
   the next Explorer start before the taskbar reflects it. That is Windows, not
   this mod — the arrangement follows whatever ends up on screen
+- Switching every item off under `Content` leaves a small blank button rather
+  than nothing at all. That button is still the way into Quick Settings, so it
+  keeps a minimum clickable size on purpose

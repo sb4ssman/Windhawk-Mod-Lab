@@ -2142,3 +2142,112 @@ before any future update branch is created.
 
 Still open, unchanged by this push: no reply posted to issue #5530 (the
 Folder Menus fix is in #5568), and #4830 is closeable once #4844 merges.
+
+## 2026-09-20 — round 4/5 reviews scrutinized; OmniButton finished and assembled
+
+All six PRs came back from `/ai-review`. The user asked for the reviews to be
+genuinely scrutinized rather than implemented on trust, one mod at a time, and
+for push-back where a finding does not hold.
+
+**Every finding was checked against the source.** Results, and the evidence, are
+saved with the review bodies in
+`_research/ai-reviews-2026-09-20/README.md` so no future session re-does the
+analysis or re-fetches the comments.
+
+Headline: **OmniButton #4855 came back "No blocking issues — looks good to
+merge."** The premise that nothing passed was wrong. Folder Menus and Tray
+Utility are on round 5; the other four on round 4. Findings are getting fewer
+and more specific each round, so the process is converging — the one thing that
+kept recurring was dead vendored template code, which the lab had not acted on.
+
+Findings that do NOT hold up, with evidence:
+
+- **Clock Spacer's only blocking item.** It asserts the maintainer "has said
+  twice they'd rather extend TCC than merge a companion". The upstream thread
+  (m417z/my-windhawk-mods#68) ends the other way: on 2026-06-29 m417z tested his
+  own `Justify` approach, reported that Windows stretches inter-character
+  spacing ("MB/s" gets large gaps), wrote "So it doesn't work as well as I
+  hoped... creating additional TextBlock controls is out of scope for this mod",
+  and then offered: "We can merge #4443 if you prefer, let me know." The
+  reviewer also confirms there is no correctness or stability defect left in the
+  file. The README ask is still worth doing — TCC 1.8 really does ship
+  `Justified` (verified at published lines 385 and 456) — so users deserve to be
+  told, with the honest residual difference.
+- **`-loleaut32`, third time.** Verified again: both Privacy Anchor and VD
+  Switcher call `hresult_error::message()`, which C++/WinRT stores in a `BSTR`;
+  removing the flag fails the link on `SysStringLen`/`SysFreeString`. Answer
+  with the linker output.
+- **Privacy Anchor's `NonActivatableStack`.** This round says drop it; the
+  previous round said add it. Dropping is probably right, but it went in on the
+  reviewer's own instruction and the reply should say so.
+
+Findings that DO hold, all verified in source: Privacy Anchor's
+suppress-with-no-replacement (three separate paths, including a discarded
+`InjectSyntheticIcons` result and an all-toggles-off early `return true` that
+never publishes `g_syntheticGrid`) and its bypassed vertical stand-down; Folder
+Menus' modal-Shell-verb crash path, unapplied native icons, and the
+`LoadLegacyFolders` missing `ExpandEnv`; Tray Utility's three transient states
+being marked as settled stand-downs; VD Switcher's missing `"dot"` row and
+`gridVerticalOffset` mapped to `PadY` instead of `OffsetY`.
+
+**Two decisions taken with the user.**
+
+1. Mods are ASSEMBLED from `_templates/components`, never copy-pasted. The
+   instruction pre-dated this session and had been only half-executed; recorded
+   in agent memory as `feedback_build_from_recipes` so it cannot be lost again.
+2. The legacy-settings bridge is REMOVED from VD Switcher, Folder Menus and Tray
+   Utility, with the one-time reset documented instead. Windhawk has no API to
+   write settings, so any bridge guarantees a UI/behaviour mismatch, and
+   "prefer legacy when the 2.0 value equals its default" makes a carried value
+   impossible to return to its default. m417z's own precedent is narrower than
+   what was built here: he reads legacy keys only when the CURRENT config proves
+   they are still needed, and only for keys with no 2.0 counterpart.
+
+**OmniButton #4855 — finished, 4485 -> 3974 lines.**
+
+Converted to assembly (10 components, `COMPONENT_USE_OK`). To make that possible
+the component library gained `color-tokens` and `native-glyph-surface` (extracted
+from the existing templates) and `arrangement-expression-axis`, a superset of
+`arrangement-expression` carrying axis-relative sizing. Two variants exist
+deliberately: only OmniButton uses `ContentAlong` and only VD Switcher uses
+`AlongAxis`/`TokenIndexWithPrefix`, so folding axis support into the base would
+have regressed Tray Utility, which the reviewer currently rates clean on exactly
+that point. `settings-values` gained `LoadString`/`LoadChoice` on
+`WindhawkUtils::StringSetting`, retiring the duplicate `sio::StringSetting` the
+reviewer flagged on four mods. `ngl::PixelsToDip`, `ngl::AvailableRows` and
+`vtw::FindInnerStackPanel` were deleted outright after confirming no mod calls
+them. OmniButton dropped `visual-tree-walk` entirely — it made one descendant
+query, so it carries its own focused walk.
+
+Code fixes: the `RetryLoop::Start` orphan race closed at the source by
+publishing with `std::exchange` under the mutex and waiting for whatever it
+displaces (Tray Utility picked this up automatically on re-assembly); a settings
+change is no longer lost when the dispatch fails before invoking the callback,
+via a `SettingsDispatch` struct that reports whether it ran; `ApplyingScope` now
+covers the whole rebuild block, not just `ApplyLayout`, because
+`CleanupAndResetCurrentElements` can raise `Loaded` through `UpdateLayout`.
+
+Functionality fixes: network/volume are no longer taken positionally when the
+battery occupies slot 0 or 1, so one element can never hold two roles; hiding
+every item keeps a 16 DIP clickable floor, because that button is the only route
+into Quick Settings; and a runtime DPI or taskbar-height change now triggers a
+re-apply by comparing cached `constrainedDip`/`dpi` on layout passes, which is
+the item that most affects "lasting". README gained the overlap with
+taskbar-tray-system-icon-tweaks' hide switches, the multi-tray limitation, and
+the hide-everything note.
+
+One reviewer suggestion was declined on evidence: dropping `no_destroy` from
+`g_retryLoop` failed the lab's own exit-time-destructor audit, so the reviewer's
+stated alternative was taken instead — keep the attribute, rewrite the comment
+so it no longer claims a wait that does not exist.
+
+**Known, intentional failure state at handoff.** Changing
+`_templates/taskbar-host.h` put Privacy Anchor, VD Switcher and Folder Menus out
+of TEMPLATE_PARITY, because those three still embed it verbatim. The correct
+resolution is converting them to assembly, which removes the embedded namespaces
+altogether; re-embedding to go green would be throwaway work.
+
+State: OmniButton and Tray Utility are `SUBMISSION_PREFLIGHT_OK`, `ASSEMBLY_OK`,
+`COMPONENT_USE_OK`, `README_MATCH`. Nothing pushed, no PR touched, no
+`/ready-for-reviewer` posted. Five mods remain; the per-mod plan and the
+conversion recipe are in `_research/ai-reviews-2026-09-20/README.md`.

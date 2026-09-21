@@ -2,7 +2,17 @@
   "id": "settings-values",
   "suffix": "settings",
   "title": "Settings values",
-  "summary": "Clamped int/bool setting reads and the $options choice table.",
-  "api": ["LoadInt", "LoadBool", "Choice"],
-  "includes": ["<algorithm>"]
+  "summary": "Clamped int/bool setting reads, fixed-buffer string reads, and the $options choice table - so a renamed option fails loudly instead of silently falling back.",
+  "api": [
+    "LoadInt",
+    "LoadBool",
+    "LoadString",
+    "LoadChoice",
+    "Choice",
+    "Clamp"
+  ],
+  "includes": [
+    "<algorithm>",
+    "<windhawk_utils.h>"
+  ]
 }

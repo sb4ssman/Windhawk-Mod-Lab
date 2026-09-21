@@ -1,0 +1,21 @@
+# Shared components this mod assembles.
+#   python _templates/assemble.py omnibutton-customizer
+# Every component listed here must have a real call site in the mod's own
+# code; verify-components-used.py fails the build otherwise.
+#
+# visual-tree-walk is deliberately NOT listed. This mod makes exactly one
+# descendant query, so it carries its own focused walk rather than the shared
+# component's three entry points.
+
+prefix: omni
+
+settings-values
+color-tokens
+arrangement-expression-axis
+native-glyph-surface
+property-lease
+taskbar-window
+ui-thread-dispatch
+taskbar-xaml-root
+taskbar-metrics
+bounded-retry

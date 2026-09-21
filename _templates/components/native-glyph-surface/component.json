@@ -1,0 +1,22 @@
+{
+  "id": "native-glyph-surface",
+  "suffix": "glyph_surface",
+  "title": "Native glyph surface",
+  "summary": "Find the real text and icon elements inside a native tray item's template and restyle them in place - size, font, color, opacity - without replacing the element Windows owns.",
+  "api": [
+    "Surface",
+    "Probe",
+    "MeasureNatural",
+    "ApplyColor",
+    "ApplyOpacity",
+    "ApplyFontSize",
+    "ApplyFontFamily",
+    "KindName",
+    "TrackFn"
+  ],
+  "includes": [
+    "<winrt/Windows.UI.Xaml.h>",
+    "<winrt/Windows.UI.Xaml.Controls.h>",
+    "<winrt/Windows.UI.Xaml.Media.h>"
+  ]
+}

@@ -424,7 +424,9 @@ using namespace winrt::Windows::UI::Xaml::Media;
 // code begins after them.
 
 // -- Settings values --------------------------------------------------------
-// Clamped int/bool setting reads and the $options choice table.
+// Clamped int/bool setting reads, fixed-buffer string reads, and the
+// $options choice table - so a renamed option fails loudly instead of
+// silently falling back.
 namespace tray_utility_settings {
 
 inline int Clamp(int value, int low, int high) {
@@ -450,6 +452,34 @@ struct Choice {
     wchar_t const* token;
     T value;
 };
+
+template <typename T, size_t N>
+inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
+    auto setting = WindhawkUtils::StringSetting::make(key);
+    PCWSTR value = setting.get() ? setting.get() : L"";
+    if (!*value) return fallback;
+    for (auto const& choice : choices) {
+        if (_wcsicmp(value, choice.token) == 0) return choice.value;
+    }
+    return fallback;
+}
+
+// Copy a string setting into a fixed buffer, always NUL-terminated, using
+// `fallback` when the setting is empty. Fixed buffers rather than std::wstring
+// because a namespace-scope settings struct must not own heap - see the
+// exit-time destructor audit.
+//
+// Reading goes through WindhawkUtils::StringSetting rather than a local RAII
+// wrapper: it is the same contract, it already ships with Windhawk, and a
+// second copy of it is one more thing for a reader to check.
+template <size_t N>
+inline void LoadString(PCWSTR key, wchar_t (&buffer)[N],
+                       PCWSTR fallback = nullptr) {
+    auto setting = WindhawkUtils::StringSetting::make(key);
+    PCWSTR value = setting.get() ? setting.get() : L"";
+    if (!*value && fallback) value = fallback;
+    wcsncpy_s(buffer, N, value, _TRUNCATE);
+}
 
 }  // namespace tray_utility_settings
 
@@ -1602,16 +1632,24 @@ public:
             return;
         }
 
+        // PUBLISH BY EXCHANGE, AND WAIT FOR WHATEVER THIS DISPLACES. The Stop()
+        // above runs OUTSIDE the mutex and pumps sent messages while it waits,
+        // so a second Start() can slip in behind it: two callers both get past
+        // Stop(), and an unconditional store would drop the first run's last
+        // tracked reference. Its thread keeps going on its own reference with
+        // nothing able to stop it, and an unload inside that window frees the
+        // image under a thread still dereferencing `unloading`.
+        std::shared_ptr<Run> displaced;
         {
             std::lock_guard<std::mutex> guard(mutex_);
-            if (!unloading) {
-                run_ = std::move(run);
-                return;
-            }
+            if (!unloading)
+                displaced = std::exchange(run_, std::move(run));
         }
-        // Unload began while this attempt was being created, so the Stop that
-        // would have waited for it saw nothing. Wait for it here instead.
-        StopRun(run);
+        // `run` is only non-null here when unload began while this attempt was
+        // being created, so the Stop that would have waited for it saw nothing.
+        if (run) StopRun(run);
+        // A concurrent Start() installed its run after ours got past Stop().
+        if (displaced) StopRun(displaced);
     }
 
     void Stop() {
@@ -1650,10 +1688,11 @@ private:
         std::shared_ptr<Run> run = *owned;
         delete owned;
         for (int i = 0; i < run->attempts && !*run->unloading; ++i) {
-            // A settings reload can need one restore/reapply pass even while
-            // `applied` truthfully says we still own live XAML. Do not
-            // overload that ownership flag merely to wake the retry loop;
-            // request a forced first attempt instead.
+            // Opt-in, via forceFirstAttempt. A caller that clears its own
+            // "applied" flag before starting does not need it. It exists for
+            // the caller that must run one restore/reapply pass while `applied`
+            // still truthfully reports that it owns live XAML — so that flag
+            // does not have to be falsified just to wake this loop.
             if (run->applied && !(run->forceFirstAttempt && i == 0) &&
                 run->applied())
                 break;

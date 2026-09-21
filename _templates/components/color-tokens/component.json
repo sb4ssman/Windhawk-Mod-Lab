@@ -1,0 +1,16 @@
+{
+  "id": "color-tokens",
+  "suffix": "color_tokens",
+  "title": "Color tokens",
+  "summary": "Parse a user-typed color setting - hex, an accent token, or transparent - into a Color or a Brush. An empty or unparseable value means 'leave this native', never a fallback color.",
+  "api": [
+    "Parse",
+    "ParseBrush",
+    "AccentErrorFn"
+  ],
+  "includes": [
+    "<winrt/Windows.UI.h>",
+    "<winrt/Windows.UI.ViewManagement.h>",
+    "<winrt/Windows.UI.Xaml.Media.h>"
+  ]
+}
