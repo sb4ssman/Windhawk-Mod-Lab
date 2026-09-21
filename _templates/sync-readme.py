@@ -12,6 +12,11 @@ readme = (mod / 'README.md').read_text(encoding='utf-8').rstrip()
 readme = re.sub(r'\]\((assets/[^)]+)\)',
     lambda m: '](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/'
     + mod.name + '/' + m[1] + ')', readme)
+# Links to elsewhere in the lab ("../other-mod/...") resolve to nothing once
+# the readme is shown on windhawk.net; point them at the repository instead.
+# verify-readme-sync.ps1 maps this prefix back to "../" when comparing.
+readme = readme.replace(
+    '](../', '](https://github.com/sb4ssman/Windhawk-Mod-Lab/blob/main/')
 text = source.read_text(encoding='utf-8')
 text, count = re.subn(
     r'// ==WindhawkModReadme==\s*/\*.*?\*/\s*// ==/WindhawkModReadme==',

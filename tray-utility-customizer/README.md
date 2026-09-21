@@ -47,11 +47,11 @@ positions each icon individually, at its native size by default.
 ## Upgrading from 1.x
 
 Version 2.0 groups the settings under `Placement`, `Content`, `Layout`, `Size`,
-`Adjust`, and `Behavior`. It keeps customized 1.x position, layout, size,
-group-offset, minimum-height, and detection values as a compatibility
-fallback while the matching 2.0 setting remains at its default. As soon as you
-customize the 2.0 counterpart, that value wins. Turn off
-`Behavior.Use1xFallback` if you deliberately want only the 2.0 defaults.
+`Adjust`, and `Behavior`. Windhawk cannot carry a value across a renamed
+setting, so **after updating, the mod starts from the 2.0 defaults until you
+re-apply your settings once.** Before updating, copy your settings from the
+mod's Settings page in **Textual mode**; afterwards, re-enter them in their new
+groups.
 
 Two things are worth knowing before you retype your layout:
 
@@ -62,11 +62,6 @@ Two things are worth knowing before you retype your layout:
   it did before.
 - **The twelve per-icon nudge settings are gone.** A nudge now rides in the
   arrangement itself: `emoji[+2,-1]`. One string, nothing to keep in sync.
-
-An old column-primary expression is transposed automatically as it is read, so
-its physical layout remains the same under the fixed 2.0 grammar. Existing
-per-icon nudges remain active through the fallback; re-enter them as
-`name[dx,dy]` in the one new arrangement field before turning the fallback off.
 
 ## Arrangement
 
@@ -170,7 +165,6 @@ distinct identity.
 | `Adjust.OffsetX` / `OffsetY` | `0` | Moves the group visually; reserves nothing |
 | `Behavior.MinimumTrayHeight` | `44` | Below this tray height the mod leaves everything native |
 | `Behavior.Detection` | `auto` | Guarded detection, or Force MainStack |
-| `Behavior.Use1xFallback` | on | Keep customized 1.x values until matching 2.0 settings are changed |
 
 ## Taskbar position
 
@@ -200,8 +194,8 @@ Windows 11 only puts the taskbar at the bottom, but two mods move it:
 ### 2.0
 
 - Adopted the grouped `Placement` / `Content` / `Layout` / `Size` / `Adjust` /
-  `Behavior` settings contract, while retaining customized 1.x values as an
-  opt-out compatibility fallback during the upgrade.
+  `Behavior` settings contract. 1.x settings are not read; re-apply them once
+  after updating (see "Upgrading from 1.x").
 - One `Layout.Arrangement` field replaces the layout expression, the primary
   axis, the group alignment, and all twelve per-icon nudge settings. `|` is
   always horizontal and `,` always vertical; nudges ride in the expression.

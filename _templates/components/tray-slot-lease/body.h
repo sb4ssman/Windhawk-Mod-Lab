@@ -142,12 +142,32 @@ inline bool ResolveSlot(Panel const& parent, Anchor anchor, int& slot) {
     return true;
 }
 
+inline bool Release(Panel const& parent, Lease& lease);
+
 inline bool AcquireAt(Panel const& parent, int slot,
                       std::wstring const& markerName, Lease& lease) {
     Kind kind = Classify(parent);
-    if (kind == Kind::Unsupported || slot < 0 || markerName.empty() ||
-        FindDirectChild(parent, markerName.c_str()))
+    if (kind == Kind::Unsupported || slot < 0 || markerName.empty())
         return false;
+
+    // A marker with this name already in the tray is either this caller's own
+    // live lease — refuse, acquiring twice would strand the first slot — or a
+    // leftover from an instance whose teardown never reached the UI thread.
+    // Refusing the leftover would block every later apply until Explorer
+    // restarts, so release it and take the slot fresh, correcting the
+    // requested slot if the released one sat before it.
+    if (auto stale = FindDirectChild(parent, markerName.c_str())) {
+        if (lease.markerName == markerName)
+            return false;
+        int staleSlot = kind == Kind::Columns
+                            ? Grid::GetColumn(stale)
+                            : IndexOfChild(parent, stale);
+        Lease leftover{markerName, staleSlot, kind};
+        if (!Release(parent, leftover))
+            return false;
+        if (staleSlot >= 0 && staleSlot < slot)
+            --slot;
+    }
 
     Grid marker;
     marker.Name(markerName);

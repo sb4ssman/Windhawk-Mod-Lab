@@ -2300,3 +2300,40 @@ on fileName.
 Assembled (8 components, own tree walk). `SUBMISSION_PREFLIGHT_OK`. Reply
 drafted at `_research/ai-reviews-2026-09-20/replies/5568-folder-menus.md`.
 Nothing committed or pushed.
+
+## 2026-09-21 — Tray Utility, VD Switcher, Clock Spacer finished; all six ready
+
+**Tray Utility #5569.** The blocking regression fixed: `g_stoodDown` now marks
+only settled decisions (vertical, every utility off, a MEASURED tray below the
+minimum); a zero tray height, no items yet, and no placements yet return false
+and keep the retry alive (budget 20 x 1.5 s). Unmanaged candidate hosts'
+visible-icon counts are recorded per apply and compared in the LayoutUpdated
+check (throttle 250 -> 500 ms). 1.x bridge removed with `Use1xFallback`,
+legacy nudges and the transpose. AfterInit starts the bounded retry; settings
+without a taskbar still load; dead `FindDirectTrayHost` and wrapper removed;
+host markers inserted at the live index on both panel kinds so restore order
+is exact. `tray-slot-lease` AcquireAt now clears a stale same-named marker.
+
+**VD Switcher #4844.** 1.7 bridge removed (both blocking items were inside
+it). Converted to assembly (8 components, 5432 -> 5119 lines). Retry is the
+shared RetryLoop with `g_reapplyPending`, so a deferred settings reapply
+rebuilds the old bar instead of treating it as done, and the notification
+thread keeps running meanwhile. `ui-thread-dispatch` gained `Dispatch::ran`
+(double-invoke under concurrent dispatch; every assembled mod re-assembled).
+Unload fallback no longer releases XAML-holding records off-thread and
+unregisters the preview class. Previews: host taskbar resolved by cursor
+(secondary taskbars now work), untitled windows kept, overflow counted, stray
+DWM flag dropped. `sync-readme.py` now rewrites `](../` lab links.
+
+**Clock Spacer #4443.** README gained "Try the built-in option first"
+(TCC 1.8 Justified) with the honest residual difference; @description
+updated. Three single-use namespaces flattened to file-scope statics;
+ClearSpacerStates guarded per entry with tokens zeroed; LineHeight and
+LineStackingStrategy copied; state recorded before it is built. Declined
+with reasoning: copying the parent's Spacing between rows (it is the
+time/date gap, not a line gap).
+
+State: all six `SUBMISSION_PREFLIGHT_OK`, `TEMPLATE_PARITY_OK (0 embedded)`,
+assembled mods `ASSEMBLY_OK`. Replies drafted for all five that need one.
+Combined test guide: `.agents/outputs/live-test-2026-09-21.md`. Nothing
+committed or pushed.

@@ -26,6 +26,25 @@ Either one works. 120 px is a reasonable starting point.
 
 Windows 11 only. This mod does not work on Windows 10.
 
+## Try the built-in option first
+
+Taskbar Clock Customization 1.8 and later can spread a line across a fixed
+width on its own: set its **Text alignment** to **Justified**, use ordinary
+spaces where you want the gaps, and use a non-breaking space inside items you
+want kept together. If that looks right for your clock, you don't need this mod.
+
+What `%s%` does that **Justified** does not:
+
+- **Gaps only where you put them.** Justified stretches every space in the
+  line, and can widen the spacing between characters — its author noted large
+  gaps opening inside `MB/s`. With `%s%`, ordinary spaces and the characters
+  inside each item are left exactly as they are.
+- **Weighted gaps.** `%s%%s%` takes twice the share of a single `%s%`.
+- **A minimum gap.** **Minimum spacer width** keeps every gap visible even when
+  the text nearly fills the clock.
+- **Gaps inside the weather.** `{spacer}` works inside the Weather format, where
+  the weather text arrives as one pre-formatted string.
+
 ## What it does
 
 Put `%s%` between items in the clock's Top Line or Bottom Line format. Each `%s%`
@@ -120,6 +139,8 @@ stays stable.
 
 The spacer was first offered as a patch to Taskbar Clock Customization itself
 ([m417z/my-windhawk-mods#68](https://github.com/m417z/my-windhawk-mods/pull/68)).
-The maintainer preferred an approach that does not add generated layout elements,
-so this companion mod carries the feature separately and leaves that mod
+Its maintainer preferred an approach without generated layout elements and
+added the **Justified** text alignment described above, then judged creating
+extra text elements to be out of scope for that mod. This companion carries the
+explicit-gap approach separately and leaves Taskbar Clock Customization
 untouched.

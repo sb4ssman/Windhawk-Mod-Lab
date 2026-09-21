@@ -1,0 +1,22 @@
+# Shared components this mod assembles.
+#   python _templates/assemble.py taskbar-vd-switcher
+# Every component listed here must have a real call site in the mod's own
+# code; verify-components-used.py fails the build otherwise.
+#
+# arrangement-expression-axis, not the reduced arrangement-expression: this mod
+# sizes the Task View button along the grid's axis (AlongAxis) and accepts
+# prefixed desktop tokens (TokenIndexWithPrefix).
+#
+# visual-tree-walk is deliberately NOT listed. This mod makes one kind of
+# descendant query, so it carries its own focused walk.
+
+prefix: vd_switcher
+
+settings-values
+color-tokens
+arrangement-expression-axis
+taskbar-window
+ui-thread-dispatch
+taskbar-xaml-root
+taskbar-metrics
+bounded-retry

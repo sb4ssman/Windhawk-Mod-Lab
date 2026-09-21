@@ -69,91 +69,50 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## ACTIVE — round 4/5 reviews: OmniButton done, five mods to go
+## ACTIVE — all six round-4/5 review fixes done; awaiting ONE live test
 
-All six reviews came back 2026-09-20 against the pushed heads. **The bodies and
-a VERIFIED per-mod plan are saved in
-[../_research/ai-reviews-2026-09-20/](../_research/ai-reviews-2026-09-20/) —
-read `README.md` there first.** Every finding in it was checked against the
-source; the ones that do not hold up are marked, with the evidence.
+Every finding in the round-4/5 reviews is resolved in the lab (Sept 20-21),
+optional and functionality items included. Reviews, the verified per-mod
+analysis and the drafted replies are in
+[../_research/ai-reviews-2026-09-20/](../_research/ai-reviews-2026-09-20/)
+(`replies/` holds one draft per PR). Do not re-fetch unless a NEW round lands.
 
-Do not re-fetch the reviews unless a NEW round has landed.
+**The user is live-testing all six at once**, following
+[outputs/live-test-2026-09-21.md](outputs/live-test-2026-09-21.md). Nothing
+pushed; PR heads unchanged:
 
-| PR | Mod | Head reviewed | Round | State |
-|---|---|---|---|---|
-| #4855 | OmniButton | `6a78c667` | 4 | **"No blocking issues — looks good to merge."** All items taken. DONE, awaiting live test |
-| #4443 | Clock Spacer | `4ecbcc6a` | 4 | Code CLEAN per reviewer. README + pushback only |
-| #4843 | Privacy Anchor | `1139b8b2` | 4 | **DONE in lab Sept 20, assembled, preflight OK. Awaiting live test.** Reply drafted in `_research/ai-reviews-2026-09-20/replies/` |
-| #4844 | VD Switcher | `3cce707b` | 4 | 2 blocking, both real, both in the 1.7 bridge |
-| #5568 | Folder Menus | `ed1d26f6` | 5 | **DONE in lab Sept 20, assembled, preflight OK, bridge removed. Awaiting live test.** Reply drafted |
-| #5569 | Tray Utility | `b25bf87a` | 5 | 1 blocking, a real stand-down regression |
+| PR | Mod | Head reviewed | Round |
+|---|---|---|---|
+| #4855 | OmniButton | `6a78c667` | 4 ("looks good to merge") |
+| #4443 | Clock Spacer | `4ecbcc6a` | 4 |
+| #4843 | Privacy Anchor | `1139b8b2` | 4 |
+| #4844 | VD Switcher | `3cce707b` | 4 |
+| #5568 | Folder Menus | `ed1d26f6` | 5 |
+| #5569 | Tray Utility | `b25bf87a` | 5 |
 
-### GOAL: get all six to live-testable, then submit. Resolve EVERYTHING per mod
+After the user confirms: push each lab file to its PR branch (one-file diff
+against upstream/main), post each drafted reply from PowerShell, then
+`/ai-review`. `/ready-for-reviewer` only once a round comes back clean — the bot
+refuses it when its recorded SHA is not the current head. OmniButton has no
+reply to post; push, then `/ai-review`.
 
-The user wants the reviewer HAPPY and the mods FINISHED — optional and
-functionality items included, not just blocking ones. Push back only where a
-finding genuinely does not hold; the README in `_research/` lists the four
-places where that applies and gives the evidence for each.
+### Standing decisions (user, 2026-09-20) — still in force
 
-### Two standing decisions (both from the user, 2026-09-20)
+1. **Mods are ASSEMBLED from `_templates/components`**, never copy-pasted.
+   All five taskbar mods are now assembled; Clock Spacer uses only plain
+   file-scope helpers. Every mod reports `TEMPLATE_PARITY_OK (0 embedded)`.
+2. **The legacy-settings bridge is REMOVED** (VD Switcher, Folder Menus, Tray
+   Utility). Windhawk cannot write settings, so any bridge leaves the UI showing
+   one value while the mod uses another. Do not re-add it.
 
-1. **Mods are ASSEMBLED from components, never verbatim copy-paste.**
-   `python _templates/assemble.py <mod>` + `<mod>/components.list`. This
-   instruction had been given before and only half-executed; do not leave it
-   half-done again. Conversion recipe is in the `_research/` README.
-   Converted: **OmniButton, Tray Utility, Privacy Anchor, Folder Menus**.
-   Not yet: VD Switcher.
-2. **The legacy-settings bridge is REMOVED** from VD Switcher, Folder Menus and
-   Tray Utility. READMEs say settings were reorganised in 2.0 and must be
-   re-applied once. Reason (do not re-add it): Windhawk cannot write settings,
-   so any bridge means the UI shows one value while the mod uses another, and
-   "prefer legacy when the 2.0 value equals its default" makes a carried value
-   impossible to reset. It already caused two real mis-migrations in VD Switcher.
+### Shared-component changes this round (all adopters re-assembled)
 
-### EXPECTED FAILURE, do not "fix" it the wrong way
-
-`_templates/taskbar-host.h` was changed (the `RetryLoop` orphan race), so
-**TEMPLATE_PARITY now FAILS for VD Switcher** — the last mod that still embeds
-it verbatim (Privacy Anchor and Folder Menus are converted and out of it). The correct resolution is to CONVERT
-those three to assembly, which removes the `windhawk_mod_templates::*`
-namespaces entirely and makes parity moot. Do not re-embed the template to go
-green; that is throwaway work.
-
-### What changed in the component library this session
-
-- New: `color-tokens`, `native-glyph-surface`, `arrangement-expression-axis`
-  (superset of `arrangement-expression` adding axis-relative sizing; OmniButton
-  and VD Switcher need it, the other adopters must keep the reduced one or they
-  regress).
-- `settings-values` gained `LoadString` / `LoadChoice` built on
-  `WindhawkUtils::StringSetting`, retiring the duplicate `sio::StringSetting`
-  class the reviewer flagged on four mods.
-- `bounded-retry` + `taskbar-host.h`: `RetryLoop::Start` publishes by
-  `std::exchange` under the mutex and waits for a displaced run, closing the
-  orphan race raised on OmniButton and Tray Utility. Needs `<utility>`.
-- Deleted as dead in every mod: `ngl::PixelsToDip`, `ngl::AvailableRows`,
-  `vtw::FindInnerStackPanel`.
-
-### Order to work the remaining five, worst defect first
-
-1. ~~Privacy Anchor~~ — done Sept 20. Live-test checklist: (a) default
-   settings, all four icons show, natives hidden; (b) turn `Content.Camera`
-   off, open the camera: Windows' own camera glyph must appear; (c) all four
-   Content off: every native indicator visible, no bar; (d) toggle settings
-   and disable/enable the mod: no stranded hidden natives; (e) glow on/off.
-2. ~~Folder Menus~~ — done Sept 20. Live-test checklist: (a) enable the mod
-   on a running Explorer with "Use native Shell icon" on: icons appear
-   without an Explorer restart; (b) toggle that setting: icons follow;
-   (c) right-click an item → Delete, leave the confirmation open, disable
-   the mod: unload waits, answer the dialog, no crash; (d) same with a folder
-   popup left open; (e) settings reset to defaults is expected (0.7 bridge
-   removed) — re-enter folders; (f) Desktop menu shows no duplicates.
-3. **Tray Utility** — transient states permanently retire the retry.
-4. **VD Switcher** — bridge removal covers both blocking findings.
-5. **Clock Spacer** — README plus the pushback; code already clean.
-
-Nothing is committed to the PR branches. PR heads are unchanged from the table
-above; the lab has local commits only.
+- `ui-thread-dispatch`: `Dispatch::ran` — concurrent dispatches no longer run a
+  callback once per installed hook.
+- `tray-slot-lease`: `AcquireAt` releases a stale same-named marker unless the
+  caller's own lease holds it (then it still refuses).
+- `sync-readme.py`: `](../` lab links become repository URLs in the embedded
+  readme (verify-readme-sync already mapped them back).
 
 ## Superseded — AI review fixes written before the live test
 

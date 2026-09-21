@@ -1328,12 +1328,32 @@ inline bool ResolveSlot(Panel const& parent, Anchor anchor, int& slot) {
     return true;
 }
 
+inline bool Release(Panel const& parent, Lease& lease);
+
 inline bool AcquireAt(Panel const& parent, int slot,
                       std::wstring const& markerName, Lease& lease) {
     Kind kind = Classify(parent);
-    if (kind == Kind::Unsupported || slot < 0 || markerName.empty() ||
-        FindDirectChild(parent, markerName.c_str()))
+    if (kind == Kind::Unsupported || slot < 0 || markerName.empty())
         return false;
+
+    // A marker with this name already in the tray is either this caller's own
+    // live lease — refuse, acquiring twice would strand the first slot — or a
+    // leftover from an instance whose teardown never reached the UI thread.
+    // Refusing the leftover would block every later apply until Explorer
+    // restarts, so release it and take the slot fresh, correcting the
+    // requested slot if the released one sat before it.
+    if (auto stale = FindDirectChild(parent, markerName.c_str())) {
+        if (lease.markerName == markerName)
+            return false;
+        int staleSlot = kind == Kind::Columns
+                            ? Grid::GetColumn(stale)
+                            : IndexOfChild(parent, stale);
+        Lease leftover{markerName, staleSlot, kind};
+        if (!Release(parent, leftover))
+            return false;
+        if (staleSlot >= 0 && staleSlot < slot)
+            --slot;
+    }
 
     Grid marker;
     marker.Name(markerName);
@@ -1542,6 +1562,12 @@ struct Dispatch {
     ThreadProc proc;
     void* parameter;
     bool succeeded = false;
+    // Every concurrent caller installs its own hook with this same proc, and
+    // each hook instance sees every message equal to g_dispatchMessage. With
+    // two dispatches in flight, both hooks are in the chain when either
+    // message arrives, so without this each callback would run twice. The
+    // hooks run one after another on the UI thread, so a plain flag suffices.
+    bool ran = false;
 };
 
 // The private message this mod dispatches on. Set before the hook is
@@ -1585,7 +1611,9 @@ inline bool RunFromWindowThread(HWND window, ThreadProc proc, void* parameter,
                     g_dispatchMessage.load(std::memory_order_acquire);
                 if (expected && call->message == expected) {
                     if (auto* dispatch =
-                            reinterpret_cast<Dispatch*>(call->lParam)) {
+                            reinterpret_cast<Dispatch*>(call->lParam);
+                        dispatch && !dispatch->ran) {
+                        dispatch->ran = true;
                         dispatch->succeeded =
                             Invoke(dispatch->proc, dispatch->parameter);
                     }

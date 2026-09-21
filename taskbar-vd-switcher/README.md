@@ -57,7 +57,9 @@ is given rather than to a desktop count.*
 Version 2.0 reorganizes every setting into groups — Placement, Content, Layout,
 Size, Adjust, Surface, State, Behavior — so this mod matches the rest of the
 family. Windhawk cannot carry values across renamed keys, so **your previous
-customizations are not migrated; re-apply them once after updating.**
+customizations are not migrated; re-apply them once after updating.** Before
+updating, copy your settings from the mod's Settings page in **Textual mode**
+so you have them to hand.
 
 The layout settings collapsed into a single **Arrangement** field. Grid mode,
 smart layout, rows, columns, primary axis, cross alignment, the four padding
