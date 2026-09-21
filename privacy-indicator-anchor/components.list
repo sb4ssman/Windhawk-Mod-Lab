@@ -1,0 +1,22 @@
+# Shared components this mod assembles.
+#   python _templates/assemble.py privacy-indicator-anchor
+# Every component listed here must have a real call site in the mod's own
+# code; verify-components-used.py fails the build otherwise.
+#
+# visual-tree-walk is deliberately NOT listed. This mod makes one kind of
+# descendant query, so it carries its own focused walk rather than the shared
+# component's three entry points. bounded-retry is not listed either: the mod
+# drives its own worker thread, which also hosts the event-driven state loop.
+
+prefix: privacy_anchor
+
+settings-values
+color-tokens
+arrangement-expression
+property-lease
+taskbar-window
+ui-thread-dispatch
+taskbar-xaml-root
+taskbar-metrics
+tray-slot-lease
+start-lane-placement

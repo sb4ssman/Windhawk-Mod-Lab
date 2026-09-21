@@ -15,12 +15,13 @@ demanding attention:
 
 ![Idle location and microphone placeholders](assets/location-mic-availble-not-in-use.png)
 
-All four unavailable indicators in a single row:
+All four unavailable indicators in a single row, arranged as
+`location | mic | camera | copilot`:
 
 ![All four privacy indicators unavailable in one row](assets/all-4-disabled.png)
 
-The same four indicators in a compact block, which is what `auto` picks when
-the taskbar is tall enough for two rows:
+The same four indicators in a compact block, which is what `auto` picks on a
+standard taskbar, where two rows of the default 16 px icons fit:
 
 ![All four unavailable indicators in a compact grid](assets/all-4-disabled-grid.png)
 
@@ -60,7 +61,8 @@ Copilot reports its installation state and links to the relevant settings:
 - Idle opacity setting so inactive icons can be subtle but still reserve space
 - One nestable **Arrangement** expression places the icons in any shape —
   fitted to your taskbar height automatically, or written out by hand
-- Turn any of the four icons off individually
+- Turn any of the four icons off individually; Windows' own indicator for that
+  device then stays visible, so nothing goes unreported
 - Tray placement before icons, before OmniButton, before clock, after clock, or after Show Desktop
 - Experimental placement immediately left or right of Start
 - Per-icon and per-group pixel nudges inside the arrangement expression, plus a
@@ -101,8 +103,9 @@ field that does. Its default value is the word `auto`:
   order` chooses whether they fill across rows or down columns; `Short row or
   column` aligns a ragged last group. The shape is worked out for you: the mod
   takes the narrowest grid that fits the height, preferring the one that wastes
-  the fewest slots — four icons on a double-height taskbar become a 2×2 block,
-  not a lopsided 3+1.
+  the fewest slots. A standard taskbar already fits two rows of the default
+  16 px icons, so four icons become a 2×2 block, not a lopsided 3+1; write
+  `location | mic | camera | copilot` for a single row instead.
 - **Anything else** is an arrangement you write. Names sit side by side with
   `|` and stack with `,`, and parentheses group them:
 
@@ -216,6 +219,10 @@ Copilot opens taskbar or installed-app settings.
 
 `Behavior` -> `Suppress Windows privacy indicators` is on by default, so the
 mod hides Windows' own pop-in indicators and mirrors their state into the
-stable placeholders. Turn it off temporarily when comparing against Windows'
-native tray glyphs during testing. Everything the mod changes on a native icon
-is restored to its exact prior value when the mod unloads.
+stable placeholders. A native indicator is only ever hidden while this mod is
+showing a placeholder for that same device: if its icon is turned off in
+`Content`, if the placeholders could not be placed, or on a vertical taskbar,
+Windows' indicator stays exactly as Windows draws it. Turn the setting off
+temporarily when comparing against Windows' native tray glyphs during testing.
+Everything the mod changes on a native icon is restored to its exact prior
+value when the mod unloads.

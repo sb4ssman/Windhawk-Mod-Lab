@@ -2251,3 +2251,29 @@ State: OmniButton and Tray Utility are `SUBMISSION_PREFLIGHT_OK`, `ASSEMBLY_OK`,
 `COMPONENT_USE_OK`, `README_MATCH`. Nothing pushed, no PR touched, no
 `/ready-for-reviewer` posted. Five mods remain; the per-mod plan and the
 conversion recipe are in `_research/ai-reviews-2026-09-20/README.md`.
+
+## 2026-09-20 (later) — Privacy Anchor #4843 finished and assembled
+
+Both blocking items fixed. Native suppression is now one decision,
+`ApplyNativeSuppression`: collapse only while the bar is live AND has a slot
+for that type (`Both` needs loc+mic); otherwise restore through the lease. An
+empty glyph is `typeKnown = false` — no active flag, never suppressed — and is
+decided in the text callback. A re-entrancy guard is REQUIRED there: restoring
+writes Visibility, which synchronously re-enters via the visibility callback
+while `RestoreObject` is mid-iteration. The vertical check moved into
+`TaskbarRequiresStandDown()`, called by `InjectSyntheticIcons`;
+stand-down clears `g_taskbarRestarted` first and removes any injected UI.
+
+Optionals taken: `NonActivatableStack` dropped, unleased `IsHitTestVisible`
+write removed, `g_uiHostWnd` set at injection, redundant PlaceChild catch
+removed, glow tree built only when enabled, `g_taskbarWnd`/`g_uiHostWnd`
+atomic, settings loaded into a copy and published on the UI thread,
+`g_startLease` optional, AppModel Copilot re-checks debounced 2 s. Declined
+with reasons: `-loleaut32` (link proof), `ShellExecuteW` off-thread (needs a
+joined thread). `auto` = 2x2 on a stock taskbar is correct behaviour; the
+README's "double-height" example was the error and is fixed.
+
+Converted to assembly (10 components, own tree walk, no bounded-retry):
+6383 -> 6039 lines. First compile clean. `SUBMISSION_PREFLIGHT_OK`. Reply
+drafted at `_research/ai-reviews-2026-09-20/replies/4843-privacy-anchor.md`.
+Nothing committed or pushed; awaiting the user's live test.
