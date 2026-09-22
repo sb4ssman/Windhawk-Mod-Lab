@@ -32,6 +32,35 @@ Both checks run inside `submission-preflight.ps1` for any mod that has a
 `components.list`, so drift and dead components fail the build rather than
 reaching a reviewer.
 
+### Optional pieces of a component are pruned per mod
+
+`verify-components-used.py` proves a component is reached, but not that every
+function inside it is. Reviewers kept finding the difference: `LoadString`,
+`ContentAlong`, a second `Acquire` overload, each shipped to mods that never
+called it. So a component marks its optional entry points:
+
+```cpp
+//@part LoadStringSetting
+template <size_t N>
+inline void LoadStringSetting(...) { ... }
+//@end
+```
+
+`assemble.py` ships a part only when one of its names is referenced by the
+mod's own code, or by component code that itself ships (comments and string
+literals don't count). Several blocks may share a name, such as a struct field
+and the lines that fill it, and they ship or drop together. The marker lines
+never reach the mod.
+
+Two consequences:
+
+- **Give a part a name nothing else uses.** Matching is by identifier, so a
+  part called `Empty` or `Acquire` is kept by any unrelated `Size::Empty()` or
+  `start_placement::Acquire`. That is why the lease exposes `HasSnapshots`,
+  not `Empty`, and the slot lease `AcquireAtAnchor`.
+- **Before a reply says something was removed, search the pushed file for
+  it.** Round 5 claimed three removals that had not happened.
+
 ### Two comment audiences, separated mechanically
 
 A component's comments carry two different things, and only one of them should

@@ -212,13 +212,15 @@ inline bool AcquireAt(Panel const& parent, int slot,
     return true;
 }
 
-inline bool Acquire(Panel const& parent, Anchor anchor,
-                    std::wstring const& markerName, Lease& lease) {
+//@part AcquireAtAnchor
+inline bool AcquireAtAnchor(Panel const& parent, Anchor anchor,
+                            std::wstring const& markerName, Lease& lease) {
     int slot = -1;
     if (!parent || !ResolveSlot(parent, anchor, slot))
         return false;
     return AcquireAt(parent, slot, markerName, lease);
 }
+//@end
 
 // Live index of the lease marker. Other mods inject and remove siblings around
 // us, so the acquire-time index is a hint, never the truth at removal time.

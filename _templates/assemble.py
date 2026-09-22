@@ -23,6 +23,13 @@ code rather than as a copied library:
     they are useful, and never reach a file a stranger reads cold.
   * Components are emitted in dependency order, and a component may reach
     another only through an alias it declares.
+  * Optional API is pruned. A component wraps an entry point that not every
+    adopter needs in `//@part Name [Alias ...]` ... `//@end`. The block ships
+    only when one of its names is referenced - by the mod's own code, or by
+    component code that itself ships. Several blocks may share a part name
+    (a struct field and the lines that fill it); they ship or drop together.
+    A component is therefore allowed to be broader than any one mod, and
+    no mod carries the difference.
 """
 
 import argparse
@@ -127,12 +134,107 @@ def strip_lab_notes(body: str) -> str:
     return "\n".join(out)
 
 
+PART_BEGIN = re.compile(r"^\s*//@part\s+(.+?)\s*$")
+PART_END = re.compile(r"^\s*//@end\s*$")
+
+
+def split_parts(cid: str, body: str) -> list:
+    """Body -> [(part_names_or_None, text)], in source order."""
+    segments, current, names = [], [], None
+    for line in body.splitlines():
+        begin, end = PART_BEGIN.match(line), PART_END.match(line)
+        if begin:
+            if names is not None:
+                fail(f"{cid}: nested //@part")
+            segments.append((None, "\n".join(current)))
+            current, names = [], tuple(begin.group(1).split())
+        elif end:
+            if names is None:
+                fail(f"{cid}: //@end without //@part")
+            segments.append((names, "\n".join(current)))
+            current, names = [], None
+        else:
+            current.append(line)
+    if names is not None:
+        fail(f"{cid}: //@part {' '.join(names)} is never closed")
+    segments.append((None, "\n".join(current)))
+    return segments
+
+
+def code_only(text: str) -> str:
+    """Strip comments and string/char literals, so a name mentioned in prose
+    or inside a setting key ("Layout.Arrangement") does not keep a part."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if text.startswith("//", i):
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            out.append(" ")
+        elif c == '"' and i > 0 and text[i - 1] == "R":
+            # Raw string: R"delim( ... )delim"
+            k = text.find("(", i)
+            delim = text[i + 1:k]
+            j = text.find(")" + delim + '"', k)
+            i = n if j < 0 else j + len(delim) + 2
+            out.append('""')
+        elif c in "\"'":
+            j = i + 1
+            while j < n and text[j] != c and text[j] != "\n":
+                j += 2 if text[j] == "\\" else 1
+            i = j + 1
+            out.append(c * 2)
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
+def referenced(name: str, text: str) -> bool:
+    return re.search(r"(?<![A-Za-z0-9_])" + re.escape(name) +
+                     r"(?![A-Za-z0-9_])", text) is not None
+
+
+def prune(ids: list, loaded: dict, mod_code: str) -> dict:
+    """Decide which parts ship. Returns {cid: [segment texts to emit]}."""
+    segments = {cid: split_parts(cid, loaded[cid]["body"]) for cid in ids}
+    keep = set()  # part-name tuples that ship
+    while True:
+        # Everything that ships so far, as code, minus the part being tested.
+        shipped = {}
+        for cid in ids:
+            for names, text in segments[cid]:
+                if names is None or names in keep:
+                    shipped.setdefault(names, []).append(code_only(text))
+        changed = False
+        for cid in ids:
+            for names, _ in segments[cid]:
+                if names is None or names in keep:
+                    continue
+                others = mod_code + "\n".join(
+                    "\n".join(texts) for key, texts in shipped.items()
+                    if key != names)
+                if any(referenced(n, others) for n in names):
+                    keep.add(names)
+                    changed = True
+        if not changed:
+            break
+    return {
+        cid: [text for names, text in segments[cid]
+              if names is None or names in keep]
+        for cid in ids
+    }
+
+
 def rule(title: str) -> str:
     dashes = max(3, RULE_WIDTH - len(title) - 5)
     return f"// -- {title} " + "-" * dashes
 
 
-def render(prefix: str, ids: list, loaded: dict) -> str:
+def render(prefix: str, ids: list, loaded: dict, kept: dict) -> str:
     # The banner ships, so it is written for someone reading the published mod
     # cold, not for the lab. Nothing here points at the component library.
     chunks = [
@@ -154,7 +256,10 @@ def render(prefix: str, ids: list, loaded: dict) -> str:
             )
         chunks.append(f"namespace {namespace} {{")
         chunks.append("")
-        chunks.append(strip_lab_notes(component["body"]).strip("\n"))
+        body = "\n".join(kept[cid])
+        # A dropped part can leave two blank lines meeting; keep one.
+        body = re.sub(r"\n{3,}", "\n\n", strip_lab_notes(body))
+        chunks.append(body.strip("\n"))
         chunks.append("")
         chunks.append(f"}}  // namespace {namespace}")
     chunks.append("")
@@ -213,8 +318,13 @@ def main() -> int:
     loaded = {cid: load_component(cid) for cid in ids}
     ordered = order(ids, loaded)
 
-    region = render(prefix, ordered, loaded)
     original = source_path.read_text(encoding="utf-8")
+    # The mod's own code is everything outside the region being written.
+    mod_code = code_only(re.sub(
+        re.escape(BEGIN) + r".*?" + re.escape(END), " ", original,
+        count=1, flags=re.S))
+    kept = prune(ordered, loaded, mod_code)
+    region = render(prefix, ordered, loaded, kept)
     updated = splice(original, region)
 
     name = mod_dir.name

@@ -577,7 +577,6 @@ This mod builds directly on patterns established by several community mods:
 #include <sstream>
 #include <functional>
 #include <algorithm>
-#include <climits>
 #include <cmath>
 #include <cwchar>
 #include <cwctype>
@@ -625,6 +624,9 @@ inline bool LoadBool(PCWSTR key) {
 //
 // Use a table rather than a chain of comparisons, so the accepted literals and
 // their enum mapping stay adjacent when this mod's settings evolve.
+//
+// Wh_GetStringSetting never returns null - an unset or unreadable setting is
+// L"" - so the value is used as is.
 template <typename T>
 struct Choice {
     wchar_t const* token;
@@ -634,29 +636,12 @@ struct Choice {
 template <typename T, size_t N>
 inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value) return fallback;
     for (auto const& choice : choices) {
         if (_wcsicmp(value, choice.token) == 0) return choice.value;
     }
     return fallback;
-}
-
-// Copy a string setting into a fixed buffer, always NUL-terminated, using
-// `fallback` when the setting is empty. Fixed buffers rather than std::wstring
-// because a namespace-scope settings struct must not own heap - see the
-// exit-time destructor audit.
-//
-// Reading goes through WindhawkUtils::StringSetting rather than a local RAII
-// wrapper: it is the same contract, it already ships with Windhawk, and a
-// second copy of it is one more thing for a reader to check.
-template <size_t N>
-inline void LoadString(PCWSTR key, wchar_t (&buffer)[N],
-                       PCWSTR fallback = nullptr) {
-    auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
-    if (!*value && fallback) value = fallback;
-    wcsncpy_s(buffer, N, value, _TRUNCATE);
 }
 
 }  // namespace vd_switcher_settings
@@ -788,26 +773,6 @@ inline Size AlongAxis(double thickness, double cross = 0.0) {
     size.thickness = thickness;
     size.cross = cross;
     return size;
-}
-
-// CONTENT-SIZED ITEMS. A settings-driven item size describes a GLYPH: a box of
-// a chosen width that a character is centered in. It does not describe TEXT.
-// "9%", "80%", and "100%" are three different widths, a font or locale change
-// moves them again, and a battery percentage grows while you watch it. Handing
-// such an item the same fixed width as its neighbours reserves too little
-// space, and the overflow is discovered at paint time — as a clipped edge.
-//
-// The SizeResolver is a callback precisely so a mod can answer with something
-// it measured. Measure the live element (native_glyph_surface::MeasureNatural)
-// and pass the result through here: the arrangement then RESERVES the real
-// width, the group's total grows to match, and nothing clips.
-//
-// `minimum` keeps a short value from collapsing below the item size the user
-// chose, so "9%" still lines up with the glyphs above it. Round `measured` up
-// and add a pixel or two of slack, or the item will re-measure every time its
-// text ticks over.
-inline Size ContentAlong(double measured, double minimum, double cross) {
-    return {std::max(measured, minimum), cross};
 }
 
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
@@ -1126,15 +1091,6 @@ inline Size MeasureNode(Node const& node, Config const& config,
                                          : Size{cross, main};
 }
 
-// Measure one tree on its own. Prefer Compute(), which shares a single cache
-// across the measure and arrange passes; this overload exists for call sites
-// that measure a tree by itself.
-inline Size Measure(Node const& node, Config const& config,
-                    SizeResolver const& resolve) {
-    MeasureCache cache;
-    return MeasureCached(node, config, resolve, cache);
-}
-
 // Resolve a child's size against its parent group's axis, so an axis-relative
 // item becomes concrete width x height.
 inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
@@ -1209,29 +1165,15 @@ inline void ArrangeCached(Node const& node, Config const& config,
     }
 }
 
-// Arrange one tree on its own. Prefer Compute(); this overload exists for call
-// sites that drive the arranger directly.
-inline void Arrange(Node const& node, Config const& config,
-                    SizeResolver const& resolve, double x, double y,
-                    std::vector<Placement>& out,
-                    Size const* resolvedSize = nullptr) {
-    MeasureCache cache;
-    ArrangeCached(node, config, resolve, x, y, out, cache, resolvedSize);
-}
-
-// Parse + measure + arrange in one call. Returns false only on a parse error
-// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
-// should then fall back to the auto expression and log that it did.
-// placements come back in expression order; totalSize is the group's bounding
-// box INCLUDING outer padding. A per-item offset shifts its leaf without
-// changing totalSize or any neighbor.
-inline bool Compute(std::wstring const& text, Config const& config,
-                    SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize,
-                    ParseError* error = nullptr) {
-    Node root;
-    if (!Parse(text, root, error))
-        return false;
+// Measure + arrange a tree that is already parsed. For a mod that rewrites the
+// tree between Parse and layout - hiding an absent item, dropping a duplicate
+// - rather than laying out the text exactly as typed. placements come back in
+// expression order; totalSize is the group's bounding box INCLUDING outer
+// padding. A per-item offset shifts its leaf without changing totalSize or any
+// neighbor.
+inline void ComputeTree(Node const& root, Config const& config,
+                        SizeResolver const& resolve,
+                        std::vector<Placement>& placements, Size& totalSize) {
     // One cache for both passes: Arrange re-measures the same nodes at every
     // level, so sharing it is what keeps the whole call linear in node count.
     MeasureCache cache;
@@ -1240,7 +1182,7 @@ inline bool Compute(std::wstring const& text, Config const& config,
     if (inner.Empty()) {
         // No visible items: an empty group has no padded box either.
         totalSize = {};
-        return true;
+        return;
     }
     if (inner.axisRelative) {
         // The whole arrangement is one axis-relative item, so there is no group
@@ -1252,6 +1194,19 @@ inline bool Compute(std::wstring const& text, Config const& config,
                   cache, &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
+}
+
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
+    Node root;
+    if (!Parse(text, root, error))
+        return false;
+    ComputeTree(root, config, resolve, placements, totalSize);
     return true;
 }
 
@@ -1431,11 +1386,6 @@ inline std::wstring AppendMissing(std::wstring const& expression,
 // logs the result when wasAuto is true so the user can paste it back into the
 // same field and edit it.
 
-struct Arrangement {
-    std::wstring expression;
-    bool wasAuto = false;
-};
-
 inline bool IsAutoSetting(std::wstring const& setting) {
     size_t first = setting.find_first_not_of(L" \t\r\n");
     if (first == std::wstring::npos)
@@ -1450,14 +1400,6 @@ inline bool IsAutoSetting(std::wstring const& setting) {
     return true;
 }
 
-inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
-                                      int maxRows, FillOrder fill,
-                                      TokenNamer const& namer = {}) {
-    if (IsAutoSetting(setting))
-        return {BuildAutoExpression(count, maxRows, fill, namer), true};
-    return {setting, false};
-}
-
 }  // namespace vd_switcher_layout
 
 // -- Taskbar window discovery -----------------------------------------------
@@ -1466,7 +1408,6 @@ inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
 namespace vd_switcher_taskbar_window {
 
 // ---- Window discovery -------------------------------------------------------
-
 
 inline HWND FindCurrentProcessTaskbarWnd() {
     HWND result = nullptr;
@@ -1774,8 +1715,6 @@ struct Metrics {
     // The extent the arranged group has to fit INTO: the taskbar's height when
     // it runs across the screen, its width when it runs down the side.
     double constrainedDip = 0.0;
-    // The extent it can run ALONG.
-    double alongDip = 0.0;
 };
 
 inline Metrics GetMetrics(HWND taskbarWnd) {
@@ -1795,13 +1734,8 @@ inline Metrics GetMetrics(HWND taskbarWnd) {
     // that shape, so this needs no cooperation from whatever moved it.
     metrics.orientation =
         height > width ? Orientation::Vertical : Orientation::Horizontal;
-    if (metrics.orientation == Orientation::Horizontal) {
-        metrics.constrainedDip = height * scale;
-        metrics.alongDip = width * scale;
-    } else {
-        metrics.constrainedDip = width * scale;
-        metrics.alongDip = height * scale;
-    }
+    bool horizontal = metrics.orientation == Orientation::Horizontal;
+    metrics.constrainedDip = (horizontal ? height : width) * scale;
     return metrics;
 }
 
@@ -1842,9 +1776,10 @@ namespace vd_switcher_retry {
 // thread with SendMessage, so a UI-thread caller blocked on the mutex while
 // another thread waited under it could never service that message.
 //
-// Start() itself is not serialized against a concurrent Start(), because both
-// of this mod's callers run on the taskbar's UI thread.
-
+// Start() may be called from Windhawk's thread (init, a settings change) and
+// from the taskbar's UI thread (a rebuild) at once. Two overlapping Start()
+// calls are safe: each publishes its run by exchange and stops whatever run it
+// displaced, so no run is ever left without an owner that will wait for it.
 
 class RetryLoop {
 public:
@@ -1858,7 +1793,57 @@ public:
 
     void Start(AttemptFn attempt, AppliedFn applied,
                std::atomic<bool> const& unloading, int attempts = 5,
-               DWORD intervalMs = 2000, bool forceFirstAttempt = false) {
+               DWORD intervalMs = 2000) {
+        Launch(attempt, applied, unloading, attempts, intervalMs, false);
+    }
+
+    // For a caller that must not wait - the taskbar's UI thread, inside
+    // Explorer's own taskbar construction. A live run is woken instead of
+    // being stopped: it skips its interval, runs an attempt now and gets a
+    // fresh attempt budget. Only when no run is live is a new one started,
+    // and the Stop() inside it then waits on a thread that has already left
+    // the loop, which returns at once.
+    //
+    // Either way the FIRST attempt runs even if `applied` still reports done.
+    // A caller wakes the loop because something changed, and may truthfully
+    // still own live state that the attempt has to restore and reapply - so it
+    // must not have to falsify `applied` just to be heard.
+    void StartOrWake(AttemptFn attempt, AppliedFn applied,
+                     std::atomic<bool> const& unloading, int attempts = 5,
+                     DWORD intervalMs = 2000) {
+        if (unloading) return;
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;
+        }
+        if (run) {
+            std::lock_guard<std::mutex> gate(run->gate);
+            if (!run->finished) {
+                run->woken = true;
+                SetEvent(run->wakeEvent);
+                return;
+            }
+        }
+        Launch(attempt, applied, unloading, attempts, intervalMs, true);
+    }
+
+    void Stop() {
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;  // shared, not moved: a concurrent Stop must wait too
+        }
+        if (!run) return;
+        StopRun(run);
+        std::lock_guard<std::mutex> guard(mutex_);
+        if (run_ == run) run_.reset();
+    }
+
+private:
+    void Launch(AttemptFn attempt, AppliedFn applied,
+                std::atomic<bool> const& unloading, int attempts,
+                DWORD intervalMs, bool forced) {
         Stop();
         if (unloading) return;
 
@@ -1868,9 +1853,11 @@ public:
         run->unloading = &unloading;
         run->attempts = attempts;
         run->intervalMs = intervalMs;
-        run->forceFirstAttempt = forceFirstAttempt;
+        run->woken = forced;
         run->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        if (!run->stopEvent) return;  // ~Run closes nothing it did not create
+        run->wakeEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        // ~Run closes only what was created.
+        if (!run->stopEvent || !run->wakeEvent) return;
 
         // The thread carries a reference of its own, so the Run survives until
         // both the loop and the thread are done with it, whichever ends first.
@@ -1902,53 +1889,77 @@ public:
         if (displaced) StopRun(displaced);
     }
 
-    void Stop() {
-        std::shared_ptr<Run> run;
-        {
-            std::lock_guard<std::mutex> guard(mutex_);
-            run = run_;  // shared, not moved: a concurrent Stop must wait too
-        }
-        if (!run) return;
-        StopRun(run);
-        std::lock_guard<std::mutex> guard(mutex_);
-        if (run_ == run) run_.reset();
-    }
-
-private:
     struct Run {
         HANDLE thread = nullptr;
         HANDLE stopEvent = nullptr;
+        HANDLE wakeEvent = nullptr;  // auto-reset
         AttemptFn attempt = nullptr;
         AppliedFn applied = nullptr;
         std::atomic<bool> const* unloading = nullptr;
         int attempts = 5;
         DWORD intervalMs = 2000;
-        bool forceFirstAttempt = false;
+        // Guards woken/finished, so a wake is either seen by the loop or
+        // refused because the loop has already ended - never lost between.
+        std::mutex gate;
+        bool woken = false;
+        bool finished = false;
 
         // Closed exactly once, when the last of the loop and the thread lets
         // go. Both have already stopped using them by then.
         ~Run() {
             if (thread) CloseHandle(thread);
             if (stopEvent) CloseHandle(stopEvent);
+            if (wakeEvent) CloseHandle(wakeEvent);
         }
     };
+
+    // The loop is about to end. A wake that arrived since the last attempt
+    // restarts it instead; otherwise the run is marked finished, so a later
+    // StartOrWake starts a new run rather than waking this dead one.
+    static bool ContinueForWake(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        bool stopping = *run.unloading ||
+                        WaitForSingleObject(run.stopEvent, 0) != WAIT_TIMEOUT;
+        if (run.woken && !stopping) return true;
+        run.finished = true;
+        return false;
+    }
+
+    static void MarkFinished(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        run.finished = true;
+    }
 
     static DWORD WINAPI ThreadMain(void* parameter) {
         auto* owned = static_cast<std::shared_ptr<Run>*>(parameter);
         std::shared_ptr<Run> run = *owned;
         delete owned;
-        for (int i = 0; i < run->attempts && !*run->unloading; ++i) {
-            // Opt-in, via forceFirstAttempt. A caller that clears its own
-            // "applied" flag before starting does not need it. It exists for
-            // the caller that must run one restore/reapply pass while `applied`
-            // still truthfully reports that it owns live XAML — so that flag
-            // does not have to be falsified just to wake this loop.
-            if (run->applied && !(run->forceFirstAttempt && i == 0) &&
-                run->applied())
-                break;
-            if (i && WaitForSingleObject(run->stopEvent, run->intervalMs) !=
-                         WAIT_TIMEOUT)
-                break;
+        for (int i = 0;; ++i) {
+            bool done = *run->unloading || i >= run->attempts ||
+                        (run->applied && run->applied());
+            if (done) {
+                // A pending wake overrides `applied` and the spent budget: it
+                // earns a fresh budget whose first attempt runs now.
+                if (!ContinueForWake(*run)) break;
+                i = 0;
+            } else if (i) {
+                HANDLE events[] = {run->stopEvent, run->wakeEvent};
+                DWORD result = WaitForMultipleObjects(2, events, FALSE,
+                                                      run->intervalMs);
+                if (result == WAIT_OBJECT_0 + 1) {
+                    i = 0;
+                } else if (result != WAIT_TIMEOUT) {
+                    MarkFinished(*run);
+                    break;
+                }
+            }
+            // This attempt answers every wake that came before it. One that
+            // arrives while it runs sets both again and earns another.
+            {
+                std::lock_guard<std::mutex> gate(run->gate);
+                run->woken = false;
+                ResetEvent(run->wakeEvent);
+            }
             if (run->attempt) run->attempt();
         }
         return 0;
@@ -2010,7 +2021,7 @@ enum class VdTaskViewPlacement { Before, After, Above, Below, InGrid };
 
 struct ModSettings {
     // Placement
-    VdPosition   position = VdPosition::BeforeOmni;
+    VdPosition   position = VdPosition::AfterClock;
     bool         allTaskbars       = false;
     // Content
     VdLabelFormat labelFormat = VdLabelFormat::Number;
@@ -2156,14 +2167,17 @@ static void LoadSettings() {
     g_settings.offsetX           = Int(L"Adjust.OffsetX");
     g_settings.offsetY           = Int(L"Adjust.OffsetY");
 
-    g_settings.fontSize          = Int(L"Surface.FontSize");
+    // XAML rejects a non-positive FontSize and a negative CornerRadius or
+    // BorderThickness by throwing, and the bar would then vanish behind a
+    // generic "exception during injection" line. Clamp at load instead.
+    g_settings.fontSize          = std::max(1, Int(L"Surface.FontSize"));
     g_settings.fontFamily        = Str(L"Surface.FontFamily");
     g_settings.hoverBackgroundColor = Str(L"Surface.HoverBackgroundColor");
     g_settings.pressedBackgroundColor =
         Str(L"Surface.PressedBackgroundColor");
     g_settings.borderColor       = Str(L"Surface.BorderColor");
-    g_settings.borderThickness   = Int(L"Surface.BorderThickness");
-    g_settings.cornerRadius      = Int(L"Surface.CornerRadius");
+    g_settings.borderThickness   = std::max(0, Int(L"Surface.BorderThickness"));
+    g_settings.cornerRadius      = std::max(0, Int(L"Surface.CornerRadius"));
     g_settings.opacity           = Int(L"Surface.Opacity");
     g_settings.shineEffect       = Bool(L"Surface.ShineEffect");
     g_settings.taskViewFontFamily = Str(L"Surface.TaskViewFontFamily");
@@ -2215,13 +2229,17 @@ static DWORD  g_notificationCookie    = 0;
 
 // Bounded reapply worker. RetryLoop makes every caller that observes a live
 // run wait for it, so Wh_ModUninit and a concurrent restart cannot orphan one.
-// no_destroy guards no wait (the implicit destructor only closes handles); it
-// keeps the exit-time-destructor audit exact, and Wh_ModUninit stops the loop.
-[[clang::no_destroy]] static retry_loop::RetryLoop g_retry;
+// Wh_ModUninit stops it; after that it holds nothing, and even at process exit
+// its implicit destructor only closes handles and frees memory.
+static retry_loop::RetryLoop g_retry;  // exit-time-safe: heap-only
 // A settings change whose reapply could not run (no live XAML root, or the
 // dispatch failed). The old bar is still in the tree, so "a grid exists" no
 // longer means "done": the retry must remove and rebuild it while this is set.
 static std::atomic<bool> g_reapplyPending{false};
+// A settings change that could not be loaded on the UI thread. Every reader of
+// g_settings runs there, so a reload from Windhawk's thread would race them;
+// the next UI-thread retry attempt loads it instead.
+static std::atomic<bool> g_settingsStale{false};
 // Written on the UI thread by each attempt; read by the retry thread.
 static std::atomic<bool> g_applySettled{false};
 
@@ -2743,6 +2761,30 @@ struct ScopedBrush {
     operator HBRUSH() const { return handle; }
 };
 
+// The shell's message font at the popup's DPI. DEFAULT_GUI_FONT is a fixed
+// ~8pt-at-96-DPI stock font, so on a 150-200% monitor the scaled heading and
+// footer boxes grew while their text stayed tiny. Created per paint, like the
+// brushes, so a DPI change needs no cached state; falls back to the stock
+// font if the metrics cannot be read.
+struct ScopedFont {
+    HFONT handle = nullptr;
+    explicit ScopedFont(HWND window) {
+        NONCLIENTMETRICSW metrics{sizeof(metrics)};
+        UINT dpi = GetDpiForWindow(window);
+        if (dpi && SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS,
+                                              sizeof(metrics), &metrics, 0,
+                                              dpi))
+            handle = CreateFontIndirectW(&metrics.lfMessageFont);
+    }
+    ~ScopedFont() { if (handle) DeleteObject(handle); }
+    ScopedFont(ScopedFont const&) = delete;
+    ScopedFont& operator=(ScopedFont const&) = delete;
+    HGDIOBJ get() const {
+        return handle ? static_cast<HGDIOBJ>(handle)
+                      : GetStockObject(DEFAULT_GUI_FONT);
+    }
+};
+
 // Present in the Windows 11 SDK, but the bundled headers may predate them.
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
@@ -2835,8 +2877,23 @@ static BOOL CALLBACK Collect(HWND window, LPARAM parameter) {
     if (!IntersectRect(&intersection, &candidate.screen, &state.desktop)) return TRUE;
     if (state.count == ARRAYSIZE(state.windows)) { ++state.overflow; return TRUE; }
     // An untitled window is still a window on this desktop: draw it, just
-    // without a caption.
-    GetWindowTextW(window, candidate.title, ARRAYSIZE(candidate.title));
+    // without a caption. For another process GetWindowText reads the cached
+    // caption and never blocks, but File Explorer windows live in THIS process
+    // on their own threads, and for those it sends WM_GETTEXT synchronously -
+    // a window stuck on a slow network share would freeze the taskbar for the
+    // whole hover. Bound that read; an aborted one is just an untitled window.
+    DWORD owner{};
+    GetWindowThreadProcessId(window, &owner);
+    if (owner == GetCurrentProcessId()) {
+        DWORD_PTR copied{};
+        if (!SendMessageTimeoutW(window, WM_GETTEXT, ARRAYSIZE(candidate.title),
+                                 reinterpret_cast<LPARAM>(candidate.title),
+                                 SMTO_ABORTIFHUNG | SMTO_BLOCK, 100, &copied))
+            candidate.title[0] = L'\0';
+        candidate.title[ARRAYSIZE(candidate.title) - 1] = L'\0';
+    } else {
+        GetWindowTextW(window, candidate.title, ARRAYSIZE(candidate.title));
+    }
     candidate.source = window;
     state.windows[state.count++] = candidate;
     return TRUE;
@@ -2936,7 +2993,8 @@ static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wp, LPARAM 
         FillRect(dc, &client, chrome);
         SetTextColor(dc, palette.chromeText);
         SetBkMode(dc, TRANSPARENT);
-        auto oldFont = SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
+        ScopedFont font(window);
+        auto oldFont = SelectObject(dc, font.get());
         RECT title{state.inset, 0, state.width - state.inset, state.heading};
         DrawTextW(dc, state.title, -1, &title, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
         RECT canvas{state.inset, state.heading, state.width - state.inset, state.height - state.heading};
@@ -3688,10 +3746,8 @@ static void StyleButtonGeometry(Control const& btn,
     double r = (double)g_settings.cornerRadius;
     btn.CornerRadius({ r, r, r, r });
 
-    if (g_settings.borderThickness >= 0) {
-        double t = (double)g_settings.borderThickness;
-        btn.BorderThickness({ t, t, t, t });
-    }
+    double t = (double)g_settings.borderThickness;
+    btn.BorderThickness({ t, t, t, t });
 }
 
 static void StyleDesktopButton(ToggleButton& btn, bool isActive,
@@ -4858,14 +4914,23 @@ HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dw
 // Symbol hook setup
 // ============================================================
 
-// Explorer rebuilt the taskbar: everything we were holding is gone. The
-// IconView hook alone is not enough — a rebuild that constructs no fresh
-// IconView would leave the grid missing — so TrayUI::StartTaskbar, hooked by
-// the taskbar XAML component, triggers a reapply too.
+static void WakeRetryThread();
+
+// Explorer rebuilt the taskbar: the old XAML tree is gone with the bar in it,
+// but g_buttonGrid, the Start-overlay globals and the button records still
+// point into it. So this is a deferred reapply, not an apply: a stale non-null
+// g_buttonGrid would otherwise make the IconView hook and the retry both skip,
+// and nothing would come back for the bar. The retry's first attempt removes
+// what is left of the old bar - revoking its handlers and records - and
+// rebuilds once the new tray XAML is reachable.
+//
+// This runs on the taskbar's UI thread, inside Explorer's own taskbar
+// construction, so it wakes the retry rather than waiting for it.
 static void OnTaskbarRebuilt() {
     if (g_unloading) return;
     g_taskbarWnd = nullptr;
-    ApplyAllSettingsOnWindowThread();
+    g_reapplyPending = true;
+    WakeRetryThread();
 }
 
 static bool HookTaskbarDllSymbols() {
@@ -4928,18 +4993,24 @@ BOOL Wh_ModInit() {
 }
 
 // One reapply attempt, on the taskbar thread. With a reapply pending the old
-// bar is still up and carries the OLD settings, so it is removed and rebuilt
-// rather than taken as proof that the work is done.
+// bar is stale - it carries the OLD settings, or it belonged to a taskbar
+// Explorer has since rebuilt - so it is removed rather than taken as proof
+// that the work is done. Once it is removed the pending state has done its
+// job: if the apply then finds no tray yet, g_buttonGrid is null and the next
+// attempt simply applies.
 static void ReapplyOnWindowThread(void*) {
+    // A settings change whose own dispatch never ran is loaded here, on the
+    // thread every reader of g_settings runs on.
+    if (g_settingsStale.exchange(false))
+        LoadSettings();
     if (g_reapplyPending.load()) {
         HWND hWnd = taskbar_window::ResolveTaskbarWnd(g_taskbarWnd);
         if (hWnd && GetTaskbarXamlRoot(hWnd)) {
             InvalidateButtonGridSizeEstimate();
             RemoveButtonGrid();
+            g_reapplyPending = false;
             ApplyAllSettings();
             RefreshSecondaryBars();
-            if (g_buttonGrid)
-                g_reapplyPending = false;
         }
     } else if (!g_buttonGrid) {
         ApplyAllSettings();
@@ -4964,7 +5035,16 @@ static void StartRetryThread() {
     if (g_unloading)
         return;
     g_applySettled = false;
-    g_retry.Start(RetryAttempt, RetrySettled, g_unloading, 5, 2000, false);
+    g_retry.Start(RetryAttempt, RetrySettled, g_unloading, 5, 2000);
+}
+
+// The same retry, for the taskbar's UI thread: a live run is woken rather than
+// stopped and waited for.
+static void WakeRetryThread() {
+    if (g_unloading)
+        return;
+    g_applySettled = false;
+    g_retry.StartOrWake(RetryAttempt, RetrySettled, g_unloading, 5, 2000);
 }
 
 void Wh_ModAfterInit() {
@@ -5065,29 +5145,31 @@ void Wh_ModUninit() {
 }
 
 void Wh_ModSettingsChanged() {
-    // STOP THE READERS BEFORE REWRITING WHAT THEY READ. LoadSettings
-    // reassigns a dozen std::wstring members, and the notification thread can
-    // still be dispatching RebuildButtonGrid onto the UI thread — which reads
-    // activeSymbol, customLabels and the color strings. That is a data race on
-    // the string buffers, not merely a stale read.
+    // Stop the worker threads first. The notification thread dispatches
+    // RebuildButtonGrid, and a late callback during a save could otherwise
+    // rebuild the old bar while the UI thread is removing/reinserting columns.
     StopRetryThread();
-    // Stop desktop-change callbacks before rebuilding tray columns. A late
-    // callback during settings save can otherwise rebuild the old bar while the
-    // UI thread is removing/reinserting columns.
     StopNotificationThread();
-
-    LoadSettings();
     Wh_Log(L"[Settings] Changed");
 
     struct SettingsReapply {
         HWND window;
+        bool loaded;
         bool reapplied;
-    } reapply{taskbar_window::ResolveTaskbarWnd(g_taskbarWnd), false};
+    } reapply{taskbar_window::ResolveTaskbarWnd(g_taskbarWnd), false, false};
 
-    // RunFromWindowThread is synchronous, so the stack struct outlives it.
+    // LOAD ON THE UI THREAD. LoadSettings reassigns a dozen std::wstring
+    // members, and the UI thread has readers the stops above do not reach - an
+    // IconView Loaded handler can build a grid, which reads every string in
+    // g_settings. Loading inside the dispatch makes the write and every read
+    // share one thread. RunFromWindowThread is synchronous, so the stack struct
+    // outlives it.
     if (reapply.window) {
         RunFromWindowThread(reapply.window, [](void* parameter) {
             auto* r = static_cast<SettingsReapply*>(parameter);
+            LoadSettings();
+            g_settingsStale = false;
+            r->loaded = true;
             // The size estimate is read by the LayoutUpdated handler on this
             // thread, so it is invalidated here rather than on Windhawk's.
             InvalidateButtonGridSizeEstimate();
@@ -5103,6 +5185,17 @@ void Wh_ModSettingsChanged() {
             r->reapplied = true;
             g_reapplyPending = false;
         }, &reapply);
+    }
+
+    if (!reapply.loaded) {
+        if (reapply.window) {
+            // The taskbar thread exists but the dispatch did not run: load on
+            // it from the retry instead of racing its readers from here.
+            g_settingsStale = true;
+        } else {
+            // No taskbar UI thread, so nothing is reading g_settings.
+            LoadSettings();
+        }
     }
 
     // "Deferring reapply" only means something if somebody comes back, and

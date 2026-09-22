@@ -65,6 +65,11 @@ the icon cannot be obtained. Icons are cached as pixels at the requested
 display size; changing settings refreshes the requested DPI size. Text color
 and font size affect labels; button dimensions determine native icon size.
 
+Icons are fetched in the background, so a slow target never holds up the
+taskbar. A target that takes a long time to fail, such as a network share
+that is offline, keeps its label and is not tried again until you next change
+the mod's settings.
+
 ## Placement after app icons
 
 **Placement → Position → After pinned/running app icons** places the whole

@@ -9,6 +9,25 @@ struct Size {
     bool Empty() const { return width <= 0.0 || height <= 0.0; }
 };
 
+//@part ContentAlong
+// CONTENT-SIZED ITEMS. A settings-driven item size describes a GLYPH: a box of
+// a chosen width that a character is centered in. It does not describe TEXT.
+// "9%", "80%", and "100%" are three different widths, a font or locale change
+// moves them again, and a battery percentage grows while you watch it. Handing
+// such an item the same fixed width as its neighbours reserves too little
+// space, and the overflow is discovered at paint time — as a clipped edge.
+//
+// The SizeResolver is a callback precisely so a mod can answer with something
+// it measured: the arrangement then RESERVES the real width, the group's total
+// grows to match, and nothing clips. `minimum` keeps a short value from
+// collapsing below the item size the user chose, so "9%" still lines up with
+// the glyphs above it. Round `measured` up and add a pixel or two of slack, or
+// the item will re-measure every time its text ticks over.
+inline Size ContentAlong(double measured, double minimum, double height) {
+    return {std::max(measured, minimum), height};
+}
+//@end
+
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
 struct Offset {
     double x = 0.0;
@@ -203,8 +222,9 @@ inline bool Parse(std::wstring const& text, Node& root,
 
 // ---- Token vocabulary -------------------------------------------------------
 //
-// Tokens are stable utility identities, compared case-insensitively so an
-// arrangement remains readable without depending on localized labels.
+// A token is an item's stable IDENTITY, never its displayed label, compared
+// case-insensitively. Labels are not unique, can be localized, empty, or an
+// emoji, and renaming one would silently break an arrangement the user wrote.
 
 inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
     size_t i = 0;
@@ -346,19 +366,15 @@ inline void ArrangeCached(Node const& node, Config const& config,
     }
 }
 
-// Parse + measure + arrange in one call. Returns false only on a parse error
-// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
-// should then fall back to the auto expression and log that it did.
-// placements come back in expression order; totalSize is the group's bounding
-// box INCLUDING outer padding. A per-item offset shifts its leaf without
-// changing totalSize or any neighbor.
-inline bool Compute(std::wstring const& text, Config const& config,
-                    SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize,
-                    ParseError* error = nullptr) {
-    Node root;
-    if (!Parse(text, root, error))
-        return false;
+// Measure + arrange a tree that is already parsed. For a mod that rewrites the
+// tree between Parse and layout - hiding an absent item, dropping a duplicate
+// - rather than laying out the text exactly as typed. placements come back in
+// expression order; totalSize is the group's bounding box INCLUDING outer
+// padding. A per-item offset shifts its leaf without changing totalSize or any
+// neighbor.
+inline void ComputeTree(Node const& root, Config const& config,
+                        SizeResolver const& resolve,
+                        std::vector<Placement>& placements, Size& totalSize) {
     // One cache for both passes: Arrange re-measures the same nodes at every
     // level, so sharing it is what keeps the whole call linear in node count.
     MeasureCache cache;
@@ -367,15 +383,29 @@ inline bool Compute(std::wstring const& text, Config const& config,
     if (inner.Empty()) {
         // No visible items: an empty group has no padded box either.
         totalSize = {};
-        return true;
+        return;
     }
     ArrangeCached(root, config, resolve, config.padX, config.padY, placements,
                   cache, &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
+}
+
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
+    Node root;
+    if (!Parse(text, root, error))
+        return false;
+    ComputeTree(root, config, resolve, placements, totalSize);
     return true;
 }
 
+//@part RowsInHeight
 // How many item rows fit in a height already expressed in DIPs. Pitch is one
 // item plus one gap; the trailing gap of the last row is not required, hence
 // the + spacing.
@@ -391,6 +421,7 @@ inline int RowsInHeight(double heightDip, double itemHeight, double spacing) {
         return 1;
     return std::max(1, (int)((heightDip + std::max(0.0, spacing)) / pitch));
 }
+//@end
 
 // ---- The auto shape ---------------------------------------------------------
 //
@@ -480,11 +511,10 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 
 // ---- Items the arrangement forgot -------------------------------------------
 //
-// A hand-written arrangement names the utilities that existed when it was
-// written. Windows shows and hides these live — the touch keyboard comes and
-// goes, the taskbar settings toggle the rest — so a utility that appears later
-// is in no group, resolves to nothing, and silently vanishes from the taskbar.
-// That is a trap, hence Layout.NewItems:
+// A hand-written arrangement names the items that existed when it was written.
+// When the set changes at runtime, an item that appears later is in no group,
+// resolves to nothing, and silently vanishes from the taskbar. That is a trap,
+// hence Layout.NewItems:
 //
 //   Append (default) — arrange the unlisted items automatically and put that
 //                      block after everything the user wrote, so a new item is
@@ -496,10 +526,10 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 // arrangement when they next edit it.
 
 // Whether a token the user wrote refers to the same item as the one expected.
-// A plain case-insensitive name match is WRONG here, because the vocabulary
-// accepts aliases: "chevron" and "overflow" are one button, and comparing them
-// as strings makes an aliased item look missing and get appended a second
-// time. SameUtility below supplies the identity comparison.
+// Defaults to a case-insensitive name match, which is WRONG for a vocabulary
+// with aliases: two names for one item compare unequal as strings, so the
+// aliased item looks missing and is appended a second time. A mod with aliases
+// supplies its own identity comparison.
 using TokenMatcher =
     std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
 
@@ -546,10 +576,12 @@ inline std::wstring AppendMissing(std::wstring const& expression,
 // logs the result when wasAuto is true so the user can paste it back into the
 // same field and edit it.
 
+//@part ResolveArrangement Arrangement
 struct Arrangement {
     std::wstring expression;
     bool wasAuto = false;
 };
+//@end
 
 inline bool IsAutoSetting(std::wstring const& setting) {
     size_t first = setting.find_first_not_of(L" \t\r\n");
@@ -565,6 +597,7 @@ inline bool IsAutoSetting(std::wstring const& setting) {
     return true;
 }
 
+//@part ResolveArrangement Arrangement
 inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
                                       int maxRows, FillOrder fill,
                                       TokenNamer const& namer = {}) {
@@ -572,3 +605,4 @@ inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
         return {BuildAutoExpression(count, maxRows, fill, namer), true};
     return {setting, false};
 }
+//@end

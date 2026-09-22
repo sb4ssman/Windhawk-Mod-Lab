@@ -11,7 +11,7 @@ prefix: omni
 
 settings-values
 color-tokens
-arrangement-expression-axis
+arrangement-expression
 native-glyph-surface
 property-lease
 taskbar-window

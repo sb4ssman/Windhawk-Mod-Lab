@@ -17,6 +17,9 @@ inline bool LoadBool(PCWSTR key) {
 //
 // Use a table rather than a chain of comparisons, so the accepted literals and
 // their enum mapping stay adjacent when this mod's settings evolve.
+//
+// Wh_GetStringSetting never returns null - an unset or unreadable setting is
+// L"" - so the value is used as is.
 template <typename T>
 struct Choice {
     wchar_t const* token;
@@ -26,7 +29,7 @@ struct Choice {
 template <typename T, size_t N>
 inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value) return fallback;
     for (auto const& choice : choices) {
         if (_wcsicmp(value, choice.token) == 0) return choice.value;
@@ -34,6 +37,7 @@ inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
     return fallback;
 }
 
+//@part LoadStringSetting
 // Copy a string setting into a fixed buffer, always NUL-terminated, using
 // `fallback` when the setting is empty. Fixed buffers rather than std::wstring
 // because a namespace-scope settings struct must not own heap - see the
@@ -43,10 +47,11 @@ inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
 // wrapper: it is the same contract, it already ships with Windhawk, and a
 // second copy of it is one more thing for a reader to check.
 template <size_t N>
-inline void LoadString(PCWSTR key, wchar_t (&buffer)[N],
-                       PCWSTR fallback = nullptr) {
+inline void LoadStringSetting(PCWSTR key, wchar_t (&buffer)[N],
+                              PCWSTR fallback = nullptr) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value && fallback) value = fallback;
     wcsncpy_s(buffer, N, value, _TRUNCATE);
 }
+//@end

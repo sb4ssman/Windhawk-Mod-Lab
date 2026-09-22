@@ -1,6 +1,8 @@
 using winrt::Windows::UI::Color;
+//@part ParseBrush
 using winrt::Windows::UI::Xaml::Media::Brush;
 using winrt::Windows::UI::Xaml::Media::SolidColorBrush;
+//@end
 
 // Reported when the Windows accent color cannot be read, so the mod can log.
 using AccentErrorFn = void (*)();
@@ -61,6 +63,7 @@ inline bool Parse(wchar_t const* value, Color& out,
     return true;
 }
 
+//@part ParseBrush
 // nullptr means "no color here". Never a fallback brush — a caller that wrote
 // a default color on parse failure would make an empty setting paint.
 inline Brush ParseBrush(wchar_t const* value,
@@ -71,3 +74,4 @@ inline Brush ParseBrush(wchar_t const* value,
     brush.Color(color);
     return brush;
 }
+//@end

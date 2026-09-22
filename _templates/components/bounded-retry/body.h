@@ -17,8 +17,10 @@
 // thread with SendMessage, so a UI-thread caller blocked on the mutex while
 // another thread waited under it could never service that message.
 //
-// Start() itself is not serialized against a concurrent Start(), because both
-// of this mod's callers run on the taskbar's UI thread.
+// Start() may be called from Windhawk's thread (init, a settings change) and
+// from the taskbar's UI thread (a rebuild) at once. Two overlapping Start()
+// calls are safe: each publishes its run by exchange and stops whatever run it
+// displaced, so no run is ever left without an owner that will wait for it.
 
 //! LAB NOTE - stripped on assembly.
 //!
@@ -34,6 +36,10 @@
 //!   - swap the handles to a local under the lock and let the winner close
 //!     them. The LOSER then returns from Stop() without waiting, so
 //!     Wh_ModUninit can return while the worker is still running mod code.
+//!
+//! StartOrWake exists because Folder Menus' attempt extracts Shell icons, and
+//! the review of PR #5568 showed the StartTaskbar hook blocking the taskbar
+//! thread in Start() -> Stop() for as long as an unreachable UNC target took.
 
 class RetryLoop {
 public:
@@ -47,7 +53,70 @@ public:
 
     void Start(AttemptFn attempt, AppliedFn applied,
                std::atomic<bool> const& unloading, int attempts = 5,
-               DWORD intervalMs = 2000, bool forceFirstAttempt = false) {
+               DWORD intervalMs = 2000) {
+        Launch(attempt, applied, unloading, attempts, intervalMs, false);
+    }
+
+//@part StartOrWake
+    // For a caller that must not wait - the taskbar's UI thread, inside
+    // Explorer's own taskbar construction. A live run is woken instead of
+    // being stopped: it skips its interval, runs an attempt now and gets a
+    // fresh attempt budget. Only when no run is live is a new one started,
+    // and the Stop() inside it then waits on a thread that has already left
+    // the loop, which returns at once.
+    //
+    // Either way the FIRST attempt runs even if `applied` still reports done.
+    // A caller wakes the loop because something changed, and may truthfully
+    // still own live state that the attempt has to restore and reapply - so it
+    // must not have to falsify `applied` just to be heard.
+    void StartOrWake(AttemptFn attempt, AppliedFn applied,
+                     std::atomic<bool> const& unloading, int attempts = 5,
+                     DWORD intervalMs = 2000) {
+        if (unloading) return;
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;
+        }
+        if (run) {
+            std::lock_guard<std::mutex> gate(run->gate);
+            if (!run->finished) {
+                run->woken = true;
+                SetEvent(run->wakeEvent);
+                return;
+            }
+        }
+        Launch(attempt, applied, unloading, attempts, intervalMs, true);
+    }
+//@end
+
+//@part StopRequested
+    // True inside an attempt whose run is being stopped. An attempt that does
+    // long work of its own - Shell icon extraction, say - checks this between
+    // steps, so whoever is waiting for the run is not kept waiting for the
+    // whole of it.
+    static bool StopRequested() {
+        return t_stopEvent &&
+               WaitForSingleObject(t_stopEvent, 0) == WAIT_OBJECT_0;
+    }
+//@end
+
+    void Stop() {
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;  // shared, not moved: a concurrent Stop must wait too
+        }
+        if (!run) return;
+        StopRun(run);
+        std::lock_guard<std::mutex> guard(mutex_);
+        if (run_ == run) run_.reset();
+    }
+
+private:
+    void Launch(AttemptFn attempt, AppliedFn applied,
+                std::atomic<bool> const& unloading, int attempts,
+                DWORD intervalMs, bool forced) {
         Stop();
         if (unloading) return;
 
@@ -57,9 +126,11 @@ public:
         run->unloading = &unloading;
         run->attempts = attempts;
         run->intervalMs = intervalMs;
-        run->forceFirstAttempt = forceFirstAttempt;
+        run->woken = forced;
         run->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        if (!run->stopEvent) return;  // ~Run closes nothing it did not create
+        run->wakeEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        // ~Run closes only what was created.
+        if (!run->stopEvent || !run->wakeEvent) return;
 
         // The thread carries a reference of its own, so the Run survives until
         // both the loop and the thread are done with it, whichever ends first.
@@ -91,55 +162,90 @@ public:
         if (displaced) StopRun(displaced);
     }
 
-    void Stop() {
-        std::shared_ptr<Run> run;
-        {
-            std::lock_guard<std::mutex> guard(mutex_);
-            run = run_;  // shared, not moved: a concurrent Stop must wait too
-        }
-        if (!run) return;
-        StopRun(run);
-        std::lock_guard<std::mutex> guard(mutex_);
-        if (run_ == run) run_.reset();
-    }
-
-private:
     struct Run {
         HANDLE thread = nullptr;
         HANDLE stopEvent = nullptr;
+        HANDLE wakeEvent = nullptr;  // auto-reset
         AttemptFn attempt = nullptr;
         AppliedFn applied = nullptr;
         std::atomic<bool> const* unloading = nullptr;
         int attempts = 5;
         DWORD intervalMs = 2000;
-        bool forceFirstAttempt = false;
+        // Guards woken/finished, so a wake is either seen by the loop or
+        // refused because the loop has already ended - never lost between.
+        std::mutex gate;
+        bool woken = false;
+        bool finished = false;
 
         // Closed exactly once, when the last of the loop and the thread lets
         // go. Both have already stopped using them by then.
         ~Run() {
             if (thread) CloseHandle(thread);
             if (stopEvent) CloseHandle(stopEvent);
+            if (wakeEvent) CloseHandle(wakeEvent);
         }
     };
+
+//@part StopRequested
+    // The stop event of the run executing on this thread.
+    static inline thread_local HANDLE t_stopEvent = nullptr;
+//@end
+
+    // The loop is about to end. A wake that arrived since the last attempt
+    // restarts it instead; otherwise the run is marked finished, so a later
+    // StartOrWake starts a new run rather than waking this dead one.
+    static bool ContinueForWake(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        bool stopping = *run.unloading ||
+                        WaitForSingleObject(run.stopEvent, 0) != WAIT_TIMEOUT;
+        if (run.woken && !stopping) return true;
+        run.finished = true;
+        return false;
+    }
+
+    static void MarkFinished(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        run.finished = true;
+    }
 
     static DWORD WINAPI ThreadMain(void* parameter) {
         auto* owned = static_cast<std::shared_ptr<Run>*>(parameter);
         std::shared_ptr<Run> run = *owned;
         delete owned;
-        for (int i = 0; i < run->attempts && !*run->unloading; ++i) {
-            // Opt-in, via forceFirstAttempt. A caller that clears its own
-            // "applied" flag before starting does not need it. It exists for
-            // the caller that must run one restore/reapply pass while `applied`
-            // still truthfully reports that it owns live XAML — so that flag
-            // does not have to be falsified just to wake this loop.
-            if (run->applied && !(run->forceFirstAttempt && i == 0) &&
-                run->applied())
-                break;
-            if (i && WaitForSingleObject(run->stopEvent, run->intervalMs) !=
-                         WAIT_TIMEOUT)
-                break;
+//@part StopRequested
+        t_stopEvent = run->stopEvent;
+//@end
+        for (int i = 0;; ++i) {
+            bool done = *run->unloading || i >= run->attempts ||
+                        (run->applied && run->applied());
+            if (done) {
+                // A pending wake overrides `applied` and the spent budget: it
+                // earns a fresh budget whose first attempt runs now.
+                if (!ContinueForWake(*run)) break;
+                i = 0;
+            } else if (i) {
+                HANDLE events[] = {run->stopEvent, run->wakeEvent};
+                DWORD result = WaitForMultipleObjects(2, events, FALSE,
+                                                      run->intervalMs);
+                if (result == WAIT_OBJECT_0 + 1) {
+                    i = 0;
+                } else if (result != WAIT_TIMEOUT) {
+                    MarkFinished(*run);
+                    break;
+                }
+            }
+            // This attempt answers every wake that came before it. One that
+            // arrives while it runs sets both again and earns another.
+            {
+                std::lock_guard<std::mutex> gate(run->gate);
+                run->woken = false;
+                ResetEvent(run->wakeEvent);
+            }
             if (run->attempt) run->attempt();
         }
+//@part StopRequested
+        t_stopEvent = nullptr;
+//@end
         return 0;
     }
 

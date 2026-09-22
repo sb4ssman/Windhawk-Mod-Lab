@@ -16,9 +16,8 @@
     "TokenIndexWithPrefix",
     "AlongAxis",
     "ContentAlong",
-    "Measure",
-    "Arrange",
-    "ChooseShape"
+    "ChooseShape",
+    "ComputeTree"
   ],
   "includes": [
     "<algorithm>",

@@ -10,7 +10,9 @@
     "BuildAutoExpression",
     "RowsInHeight",
     "MissingTokens",
-    "AppendMissing"
+    "AppendMissing",
+    "ComputeTree",
+    "ContentAlong"
   ],
   "includes": [
     "<algorithm>",

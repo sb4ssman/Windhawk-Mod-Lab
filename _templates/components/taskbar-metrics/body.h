@@ -40,8 +40,10 @@ struct Metrics {
     // The extent the arranged group has to fit INTO: the taskbar's height when
     // it runs across the screen, its width when it runs down the side.
     double constrainedDip = 0.0;
+//@part alongDip
     // The extent it can run ALONG.
     double alongDip = 0.0;
+//@end
 };
 
 inline Metrics GetMetrics(HWND taskbarWnd) {
@@ -61,13 +63,11 @@ inline Metrics GetMetrics(HWND taskbarWnd) {
     // that shape, so this needs no cooperation from whatever moved it.
     metrics.orientation =
         height > width ? Orientation::Vertical : Orientation::Horizontal;
-    if (metrics.orientation == Orientation::Horizontal) {
-        metrics.constrainedDip = height * scale;
-        metrics.alongDip = width * scale;
-    } else {
-        metrics.constrainedDip = width * scale;
-        metrics.alongDip = height * scale;
-    }
+    bool horizontal = metrics.orientation == Orientation::Horizontal;
+    metrics.constrainedDip = (horizontal ? height : width) * scale;
+//@part alongDip
+    metrics.alongDip = (horizontal ? width : height) * scale;
+//@end
     return metrics;
 }
 

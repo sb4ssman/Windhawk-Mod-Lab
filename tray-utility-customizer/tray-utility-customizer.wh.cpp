@@ -435,6 +435,9 @@ inline bool LoadBool(PCWSTR key) {
 //
 // Use a table rather than a chain of comparisons, so the accepted literals and
 // their enum mapping stay adjacent when this mod's settings evolve.
+//
+// Wh_GetStringSetting never returns null - an unset or unreadable setting is
+// L"" - so the value is used as is.
 template <typename T>
 struct Choice {
     wchar_t const* token;
@@ -444,29 +447,12 @@ struct Choice {
 template <typename T, size_t N>
 inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value) return fallback;
     for (auto const& choice : choices) {
         if (_wcsicmp(value, choice.token) == 0) return choice.value;
     }
     return fallback;
-}
-
-// Copy a string setting into a fixed buffer, always NUL-terminated, using
-// `fallback` when the setting is empty. Fixed buffers rather than std::wstring
-// because a namespace-scope settings struct must not own heap - see the
-// exit-time destructor audit.
-//
-// Reading goes through WindhawkUtils::StringSetting rather than a local RAII
-// wrapper: it is the same contract, it already ships with Windhawk, and a
-// second copy of it is one more thing for a reader to check.
-template <size_t N>
-inline void LoadString(PCWSTR key, wchar_t (&buffer)[N],
-                       PCWSTR fallback = nullptr) {
-    auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
-    if (!*value && fallback) value = fallback;
-    wcsncpy_s(buffer, N, value, _TRUNCATE);
 }
 
 }  // namespace tray_utility_settings
@@ -682,8 +668,9 @@ inline bool Parse(std::wstring const& text, Node& root,
 
 // ---- Token vocabulary -------------------------------------------------------
 //
-// Tokens are stable utility identities, compared case-insensitively so an
-// arrangement remains readable without depending on localized labels.
+// A token is an item's stable IDENTITY, never its displayed label, compared
+// case-insensitively. Labels are not unique, can be localized, empty, or an
+// emoji, and renaming one would silently break an arrangement the user wrote.
 
 inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
     size_t i = 0;
@@ -825,19 +812,15 @@ inline void ArrangeCached(Node const& node, Config const& config,
     }
 }
 
-// Parse + measure + arrange in one call. Returns false only on a parse error
-// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
-// should then fall back to the auto expression and log that it did.
-// placements come back in expression order; totalSize is the group's bounding
-// box INCLUDING outer padding. A per-item offset shifts its leaf without
-// changing totalSize or any neighbor.
-inline bool Compute(std::wstring const& text, Config const& config,
-                    SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize,
-                    ParseError* error = nullptr) {
-    Node root;
-    if (!Parse(text, root, error))
-        return false;
+// Measure + arrange a tree that is already parsed. For a mod that rewrites the
+// tree between Parse and layout - hiding an absent item, dropping a duplicate
+// - rather than laying out the text exactly as typed. placements come back in
+// expression order; totalSize is the group's bounding box INCLUDING outer
+// padding. A per-item offset shifts its leaf without changing totalSize or any
+// neighbor.
+inline void ComputeTree(Node const& root, Config const& config,
+                        SizeResolver const& resolve,
+                        std::vector<Placement>& placements, Size& totalSize) {
     // One cache for both passes: Arrange re-measures the same nodes at every
     // level, so sharing it is what keeps the whole call linear in node count.
     MeasureCache cache;
@@ -846,12 +829,25 @@ inline bool Compute(std::wstring const& text, Config const& config,
     if (inner.Empty()) {
         // No visible items: an empty group has no padded box either.
         totalSize = {};
-        return true;
+        return;
     }
     ArrangeCached(root, config, resolve, config.padX, config.padY, placements,
                   cache, &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
+}
+
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
+    Node root;
+    if (!Parse(text, root, error))
+        return false;
+    ComputeTree(root, config, resolve, placements, totalSize);
     return true;
 }
 
@@ -959,11 +955,10 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 
 // ---- Items the arrangement forgot -------------------------------------------
 //
-// A hand-written arrangement names the utilities that existed when it was
-// written. Windows shows and hides these live — the touch keyboard comes and
-// goes, the taskbar settings toggle the rest — so a utility that appears later
-// is in no group, resolves to nothing, and silently vanishes from the taskbar.
-// That is a trap, hence Layout.NewItems:
+// A hand-written arrangement names the items that existed when it was written.
+// When the set changes at runtime, an item that appears later is in no group,
+// resolves to nothing, and silently vanishes from the taskbar. That is a trap,
+// hence Layout.NewItems:
 //
 //   Append (default) — arrange the unlisted items automatically and put that
 //                      block after everything the user wrote, so a new item is
@@ -975,10 +970,10 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 // arrangement when they next edit it.
 
 // Whether a token the user wrote refers to the same item as the one expected.
-// A plain case-insensitive name match is WRONG here, because the vocabulary
-// accepts aliases: "chevron" and "overflow" are one button, and comparing them
-// as strings makes an aliased item look missing and get appended a second
-// time. SameUtility below supplies the identity comparison.
+// Defaults to a case-insensitive name match, which is WRONG for a vocabulary
+// with aliases: two names for one item compare unequal as strings, so the
+// aliased item looks missing and is appended a second time. A mod with aliases
+// supplies its own identity comparison.
 using TokenMatcher =
     std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
 
@@ -1165,40 +1160,14 @@ public:
         snapshots_.clear();
     }
 
-    // Put ONE object's properties back and forget them, leaving every other
-    // object's snapshots alone. For the case where a mod discovers that an
-    // element it began borrowing was never actually its business — handing
-    // that element back has to be possible without ending the whole lease.
-    void RestoreObject(DependencyObject const& object,
-                       RestoreErrorFn const& onError = {}) {
-        if (!object) return;
-        for (auto it = snapshots_.rbegin(); it != snapshots_.rend();) {
-            if (it->object != object) {
-                ++it;
-                continue;
-            }
-            try {
-                if (it->localValue == DependencyProperty::UnsetValue())
-                    it->object.ClearValue(it->property);
-                else
-                    it->object.SetValue(it->property, it->localValue);
-            } catch (...) {
-                if (onError) onError();
-            }
-            // Erase through the reverse iterator without invalidating the
-            // traversal: base() points one past the element being erased.
-            it = std::make_reverse_iterator(snapshots_.erase(
-                std::next(it).base()));
-        }
-    }
-
     // Drop the snapshots WITHOUT restoring. For the case where the elements
     // are already gone (an Explorer rebuild threw the tree away), so restoring
     // would only throw. Do not use it to "skip" a restore that could run.
     void Abandon() { snapshots_.clear(); }
 
-    size_t Count() const { return snapshots_.size(); }
-    bool Empty() const { return snapshots_.empty(); }
+    size_t SnapshotCount() const { return snapshots_.size(); }
+
+    bool HasSnapshots() const { return !snapshots_.empty(); }
 
 private:
     std::vector<Snapshot> snapshots_;
@@ -1212,7 +1181,6 @@ private:
 namespace tray_utility_taskbar_window {
 
 // ---- Window discovery -------------------------------------------------------
-
 
 inline HWND FindCurrentProcessTaskbarWnd() {
     HWND result = nullptr;
@@ -1541,13 +1509,9 @@ inline Metrics GetMetrics(HWND taskbarWnd) {
     // that shape, so this needs no cooperation from whatever moved it.
     metrics.orientation =
         height > width ? Orientation::Vertical : Orientation::Horizontal;
-    if (metrics.orientation == Orientation::Horizontal) {
-        metrics.constrainedDip = height * scale;
-        metrics.alongDip = width * scale;
-    } else {
-        metrics.constrainedDip = width * scale;
-        metrics.alongDip = height * scale;
-    }
+    bool horizontal = metrics.orientation == Orientation::Horizontal;
+    metrics.constrainedDip = (horizontal ? height : width) * scale;
+    metrics.alongDip = (horizontal ? width : height) * scale;
     return metrics;
 }
 
@@ -1588,9 +1552,10 @@ namespace tray_utility_retry {
 // thread with SendMessage, so a UI-thread caller blocked on the mutex while
 // another thread waited under it could never service that message.
 //
-// Start() itself is not serialized against a concurrent Start(), because both
-// of this mod's callers run on the taskbar's UI thread.
-
+// Start() may be called from Windhawk's thread (init, a settings change) and
+// from the taskbar's UI thread (a rebuild) at once. Two overlapping Start()
+// calls are safe: each publishes its run by exchange and stops whatever run it
+// displaced, so no run is ever left without an owner that will wait for it.
 
 class RetryLoop {
 public:
@@ -1604,7 +1569,57 @@ public:
 
     void Start(AttemptFn attempt, AppliedFn applied,
                std::atomic<bool> const& unloading, int attempts = 5,
-               DWORD intervalMs = 2000, bool forceFirstAttempt = false) {
+               DWORD intervalMs = 2000) {
+        Launch(attempt, applied, unloading, attempts, intervalMs, false);
+    }
+
+    // For a caller that must not wait - the taskbar's UI thread, inside
+    // Explorer's own taskbar construction. A live run is woken instead of
+    // being stopped: it skips its interval, runs an attempt now and gets a
+    // fresh attempt budget. Only when no run is live is a new one started,
+    // and the Stop() inside it then waits on a thread that has already left
+    // the loop, which returns at once.
+    //
+    // Either way the FIRST attempt runs even if `applied` still reports done.
+    // A caller wakes the loop because something changed, and may truthfully
+    // still own live state that the attempt has to restore and reapply - so it
+    // must not have to falsify `applied` just to be heard.
+    void StartOrWake(AttemptFn attempt, AppliedFn applied,
+                     std::atomic<bool> const& unloading, int attempts = 5,
+                     DWORD intervalMs = 2000) {
+        if (unloading) return;
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;
+        }
+        if (run) {
+            std::lock_guard<std::mutex> gate(run->gate);
+            if (!run->finished) {
+                run->woken = true;
+                SetEvent(run->wakeEvent);
+                return;
+            }
+        }
+        Launch(attempt, applied, unloading, attempts, intervalMs, true);
+    }
+
+    void Stop() {
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;  // shared, not moved: a concurrent Stop must wait too
+        }
+        if (!run) return;
+        StopRun(run);
+        std::lock_guard<std::mutex> guard(mutex_);
+        if (run_ == run) run_.reset();
+    }
+
+private:
+    void Launch(AttemptFn attempt, AppliedFn applied,
+                std::atomic<bool> const& unloading, int attempts,
+                DWORD intervalMs, bool forced) {
         Stop();
         if (unloading) return;
 
@@ -1614,9 +1629,11 @@ public:
         run->unloading = &unloading;
         run->attempts = attempts;
         run->intervalMs = intervalMs;
-        run->forceFirstAttempt = forceFirstAttempt;
+        run->woken = forced;
         run->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        if (!run->stopEvent) return;  // ~Run closes nothing it did not create
+        run->wakeEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        // ~Run closes only what was created.
+        if (!run->stopEvent || !run->wakeEvent) return;
 
         // The thread carries a reference of its own, so the Run survives until
         // both the loop and the thread are done with it, whichever ends first.
@@ -1648,53 +1665,77 @@ public:
         if (displaced) StopRun(displaced);
     }
 
-    void Stop() {
-        std::shared_ptr<Run> run;
-        {
-            std::lock_guard<std::mutex> guard(mutex_);
-            run = run_;  // shared, not moved: a concurrent Stop must wait too
-        }
-        if (!run) return;
-        StopRun(run);
-        std::lock_guard<std::mutex> guard(mutex_);
-        if (run_ == run) run_.reset();
-    }
-
-private:
     struct Run {
         HANDLE thread = nullptr;
         HANDLE stopEvent = nullptr;
+        HANDLE wakeEvent = nullptr;  // auto-reset
         AttemptFn attempt = nullptr;
         AppliedFn applied = nullptr;
         std::atomic<bool> const* unloading = nullptr;
         int attempts = 5;
         DWORD intervalMs = 2000;
-        bool forceFirstAttempt = false;
+        // Guards woken/finished, so a wake is either seen by the loop or
+        // refused because the loop has already ended - never lost between.
+        std::mutex gate;
+        bool woken = false;
+        bool finished = false;
 
         // Closed exactly once, when the last of the loop and the thread lets
         // go. Both have already stopped using them by then.
         ~Run() {
             if (thread) CloseHandle(thread);
             if (stopEvent) CloseHandle(stopEvent);
+            if (wakeEvent) CloseHandle(wakeEvent);
         }
     };
+
+    // The loop is about to end. A wake that arrived since the last attempt
+    // restarts it instead; otherwise the run is marked finished, so a later
+    // StartOrWake starts a new run rather than waking this dead one.
+    static bool ContinueForWake(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        bool stopping = *run.unloading ||
+                        WaitForSingleObject(run.stopEvent, 0) != WAIT_TIMEOUT;
+        if (run.woken && !stopping) return true;
+        run.finished = true;
+        return false;
+    }
+
+    static void MarkFinished(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        run.finished = true;
+    }
 
     static DWORD WINAPI ThreadMain(void* parameter) {
         auto* owned = static_cast<std::shared_ptr<Run>*>(parameter);
         std::shared_ptr<Run> run = *owned;
         delete owned;
-        for (int i = 0; i < run->attempts && !*run->unloading; ++i) {
-            // Opt-in, via forceFirstAttempt. A caller that clears its own
-            // "applied" flag before starting does not need it. It exists for
-            // the caller that must run one restore/reapply pass while `applied`
-            // still truthfully reports that it owns live XAML — so that flag
-            // does not have to be falsified just to wake this loop.
-            if (run->applied && !(run->forceFirstAttempt && i == 0) &&
-                run->applied())
-                break;
-            if (i && WaitForSingleObject(run->stopEvent, run->intervalMs) !=
-                         WAIT_TIMEOUT)
-                break;
+        for (int i = 0;; ++i) {
+            bool done = *run->unloading || i >= run->attempts ||
+                        (run->applied && run->applied());
+            if (done) {
+                // A pending wake overrides `applied` and the spent budget: it
+                // earns a fresh budget whose first attempt runs now.
+                if (!ContinueForWake(*run)) break;
+                i = 0;
+            } else if (i) {
+                HANDLE events[] = {run->stopEvent, run->wakeEvent};
+                DWORD result = WaitForMultipleObjects(2, events, FALSE,
+                                                      run->intervalMs);
+                if (result == WAIT_OBJECT_0 + 1) {
+                    i = 0;
+                } else if (result != WAIT_TIMEOUT) {
+                    MarkFinished(*run);
+                    break;
+                }
+            }
+            // This attempt answers every wake that came before it. One that
+            // arrives while it runs sets both again and earns another.
+            {
+                std::lock_guard<std::mutex> gate(run->gate);
+                run->woken = false;
+                ResetEvent(run->wakeEvent);
+            }
             if (run->attempt) run->attempt();
         }
         return 0;
@@ -1944,8 +1985,8 @@ inline bool AcquireAt(Panel const& parent, int slot,
     return true;
 }
 
-inline bool Acquire(Panel const& parent, Anchor anchor,
-                    std::wstring const& markerName, Lease& lease) {
+inline bool AcquireAtAnchor(Panel const& parent, Anchor anchor,
+                            std::wstring const& markerName, Lease& lease) {
     int slot = -1;
     if (!parent || !ResolveSlot(parent, anchor, slot))
         return false;
@@ -2506,6 +2547,11 @@ struct CandidateCount {
 // Weak refs and ints only; weak_ref release is a plain refcount decrement.
 static std::vector<CandidateCount> g_candidateCounts;  // exit-time-safe: heap-only
 static winrt::event_token g_trayLayoutToken{};
+// The last apply settled with nothing to place - a written arrangement naming
+// only utilities Windows is not showing. The drift check stays registered on
+// the tray (g_layoutGrid) to notice them appear; nothing else is owned.
+static bool g_watchingOnly = false;
+static int g_candidateHostCount = 0;
 [[clang::no_destroy]] static DispatcherTimer g_reapplyTimer{nullptr};
 [[clang::no_destroy]] static DispatcherTimer g_startSettleTimer{nullptr};
 
@@ -2830,6 +2876,29 @@ static std::wstring DescribeElementGlyphs(FrameworkElement const& element) {
     return buffer;
 }
 
+// The microphone, location and camera in-use indicators are IconViews in
+// MainStack alongside the utilities, and they come and go with every call or
+// map lookup. They are never utilities, so they must not make an unmanaged
+// host look changed - that re-ran a full restore and re-apply per mic session
+// for an identical result. Glyphs as Windows draws them (Segoe Fluent Icons).
+static bool IsPrivacyIndicatorGlyph(wchar_t glyph) {
+    return glyph == 0xE37A || glyph == 0xF47F || glyph == 0xE361 ||
+           glyph == 0xE720 || glyph == 0xEC71 || glyph == 0xE722;
+}
+
+// Visible icons in an unmanaged candidate host that could be a utility. Not a
+// match against the utility glyphs: the lone-icon emoji fallback exists for an
+// emoji panel whose glyph is not recognised, so every non-indicator icon counts.
+static int CountCandidateIconViews(FrameworkElement const& host) {
+    std::vector<FrameworkElement> icons;
+    CollectVisibleIconViews(host, icons);
+    int count = 0;
+    for (auto const& icon : icons) {
+        if (!IsPrivacyIndicatorGlyph(FirstGlyphChar(icon))) ++count;
+    }
+    return count;
+}
+
 static bool IconViewMatchesToken(FrameworkElement const& iconView,
                                  std::wstring const& token) {
     wchar_t glyph = FirstGlyphChar(iconView);
@@ -3032,8 +3101,27 @@ static std::vector<LayoutItem> ResolveLayoutItems(
 
             if (!item.element && item.token == L"emoji" && mainStack) {
                 int visibleIcons = CountVisibleIconViews(mainStack);
+                // A lone icon is only taken to be the emoji panel when it is
+                // not recognisably some OTHER utility. Otherwise, with the
+                // emoji panel hidden and the touch keyboard the one icon left,
+                // both tokens would claim MainStack and the keyboard's slot
+                // would come out empty.
+                bool loneIconIsAnotherUtility = false;
+                if (visibleIcons == 1) {
+                    std::vector<FrameworkElement> icons;
+                    CollectVisibleIconViews(mainStack, icons);
+                    for (auto const& icon : icons) {
+                        for (int i = 0; i < kUtilityCount; ++i) {
+                            std::wstring other = kUtilityTokens[i];
+                            if (other != L"emoji" && other != L"overflow" &&
+                                IconViewMatchesToken(icon, other)) {
+                                loneIconIsAnotherUtility = true;
+                            }
+                        }
+                    }
+                }
                 if (g_settings.mergeMode == MergeMode::ForceMainStack ||
-                    visibleIcons == 1) {
+                    (visibleIcons == 1 && !loneIconIsAnotherUtility)) {
                     item.element = mainStack;
                     item.host = mainStack;
                     item.hostLeaf = true;
@@ -3260,6 +3348,12 @@ static void RestoreLayout() {
     // Tokens can be live while an apply is pending. Revoke them before the
     // ownership check so controlled unload cannot leave mod callbacks in XAML.
     RevokeLayoutCallbacks();
+    if (g_watchingOnly) {
+        // Watching owned only the drift check, just revoked, and the tray
+        // reference it was registered on.
+        g_watchingOnly = false;
+        if (!g_layoutApplied) g_layoutGrid = nullptr;
+    }
     if (!g_layoutApplied) {
         return;
     }
@@ -3350,6 +3444,101 @@ struct IconTarget {
     double height = 0.0;
 };
 
+// Remember every unmanaged candidate host's icon count (see g_candidateCounts),
+// and how many candidate hosts there are, so a utility that appears later -
+// inside an existing host or as a new one - is noticed.
+static void RecordCandidateCounts(
+    Panel const& trayGrid, std::vector<FrameworkElement> const& managedHosts) {
+    g_candidateHostCount = 0;
+    for (auto const& child : trayGrid.Children()) {
+        auto element = child.try_as<FrameworkElement>();
+        if (!element || !IsUtilityCandidateHost(element)) {
+            continue;
+        }
+        ++g_candidateHostCount;
+        bool managed = false;
+        for (auto const& host : managedHosts) {
+            if (host == element) {
+                managed = true;
+                break;
+            }
+        }
+        if (!managed) {
+            g_candidateCounts.push_back(
+                {winrt::make_weak(element), CountCandidateIconViews(element)});
+        }
+    }
+}
+
+// Visibility watchers miss icons appearing or vanishing inside a host, so on
+// tray layout passes verify that every managed host is intact with an
+// unchanged visible icon count, and that no unmanaged candidate has gained or
+// lost icons; any drift re-runs layout. It also runs WATCH-ONLY, when the last
+// apply settled with nothing to place, so the utility that apply was waiting
+// for is picked up when Windows shows it.
+static void RegisterTrayDriftCheck(Panel const& trayGrid) {
+    g_trayLayoutToken = trayGrid.LayoutUpdated([](auto const&, auto const&) {
+        if (g_unloading || (!g_layoutApplied && !g_watchingOnly)) {
+            return;
+        }
+        // Throttle: layout passes come in bursts (animations, clock ticks),
+        // and each check walks every candidate host's subtree. Utility icons
+        // change on a human timescale, so twice a second keeps this off the
+        // hot path without making a change feel late.
+        static ULONGLONG lastCheckTick = 0;
+        ULONGLONG nowTick = GetTickCount64();
+        if (nowTick - lastCheckTick < 500) {
+            return;
+        }
+        lastCheckTick = nowTick;
+        for (auto const& record : *g_hostRecords) {
+            if (!record.element) {
+                continue;
+            }
+            bool changed = false;
+            try {
+                changed = !VisualTreeHelper::GetParent(record.element) ||
+                          record.element.Visibility() != Visibility::Visible;
+                if (!changed) {
+                    changed = CountVisibleIconViews(record.element) !=
+                              record.visibleIconViews;
+                }
+            } catch (...) {
+                changed = true;
+            }
+            if (changed) {
+                ScheduleReapply();
+                return;
+            }
+        }
+        for (auto const& candidate : g_candidateCounts) {
+            try {
+                auto host = candidate.host.get();
+                if (host && CountCandidateIconViews(host) !=
+                                candidate.visibleIconViews) {
+                    ScheduleReapply();
+                    return;
+                }
+            } catch (...) {
+            }
+        }
+        // Watching only: a utility may also arrive as a host of its own.
+        if (g_watchingOnly && g_layoutGrid) {
+            try {
+                int hosts = 0;
+                for (auto const& child : g_layoutGrid.Children()) {
+                    auto element = child.try_as<FrameworkElement>();
+                    if (element && IsUtilityCandidateHost(element)) ++hosts;
+                }
+                if (hosts != g_candidateHostCount) {
+                    ScheduleReapply();
+                }
+            } catch (...) {
+            }
+        }
+    });
+}
+
 static bool ApplyLayout() {
     ClearHostWatchers();
     g_candidateCounts.clear();
@@ -3358,7 +3547,7 @@ static bool ApplyLayout() {
     // After an in-place taskbar rebuild (TrayUI::StartTaskbar) the old XAML
     // tree is gone; drop stale references instead of restoring into it.
     if (g_treeStale.exchange(false) &&
-        (!g_hostRecords->empty() || !g_lease->Empty())) {
+        (!g_hostRecords->empty() || g_lease->HasSnapshots())) {
         // We still own strong references to the old tree here, so revoke its
         // callbacks before releasing those references. Don't attempt full
         // placement restoration into a detached taskbar tree.
@@ -3606,9 +3795,19 @@ static bool ApplyLayout() {
     }
 
     if (placements.empty() || total.Empty()) {
-        // Every present item resolved to an empty size — still measuring.
-        Wh_Log(L"[Apply] Layout produced no placements yet");
-        return false;
+        // SETTLED, not measuring: NaturalWidth floors every present item at
+        // 24 px, so this is only reached when a written arrangement (with
+        // Layout.NewItems = ignore) names none of the utilities Windows is
+        // showing. Retrying would only log this for the whole budget. Watch
+        // the tray instead, so the named utility is placed when it appears.
+        Wh_Log(L"[Apply] The arrangement names no utility Windows is showing; "
+               L"watching for one to appear");
+        g_layoutGrid = trayGrid;
+        g_watchingOnly = true;
+        RecordCandidateCounts(trayGrid, {});
+        RegisterTrayDriftCheck(trayGrid);
+        g_stoodDown = true;
+        return true;
     }
 
     if (arrangement.wasAuto) {
@@ -3822,7 +4021,7 @@ static bool ApplyLayout() {
                 default:
                     break;
             }
-            if (!lease_column::Acquire(trayGrid, anchor,
+            if (!lease_column::AcquireAtAnchor(trayGrid, anchor,
                                        kLayoutColumnMarkerName,
                                        g_columnLease)) {
                 Wh_Log(
@@ -3941,79 +4140,8 @@ static bool ApplyLayout() {
         }
     }
 
-    // Remember the unmanaged candidates too (see g_candidateCounts).
-    for (auto const& child : trayGrid.Children()) {
-        auto element = child.try_as<FrameworkElement>();
-        if (!element || !IsUtilityCandidateHost(element)) {
-            continue;
-        }
-        bool managed = false;
-        for (auto const& host : managedHosts) {
-            if (host == element) {
-                managed = true;
-                break;
-            }
-        }
-        if (!managed) {
-            g_candidateCounts.push_back(
-                {winrt::make_weak(element), CountVisibleIconViews(element)});
-        }
-    }
-
-    // Visibility watchers miss icons appearing or vanishing inside a host,
-    // so verify on tray layout passes that every managed host is intact
-    // and its visible icon count is unchanged, and that no unmanaged
-    // candidate has gained or lost icons; any drift re-runs layout.
-    g_trayLayoutToken = trayGrid.LayoutUpdated(
-        [](auto const&, auto const&) {
-            if (g_unloading || !g_layoutApplied) {
-                return;
-            }
-            // Throttle: layout passes come in bursts (animations, clock
-            // ticks), and each check walks every candidate host's subtree.
-            // Utility icons change on a human timescale, so twice a second
-            // keeps this off the hot path without making a change feel late.
-            static ULONGLONG lastCheckTick = 0;
-            ULONGLONG nowTick = GetTickCount64();
-            if (nowTick - lastCheckTick < 500) {
-                return;
-            }
-            lastCheckTick = nowTick;
-            for (auto const& record : *g_hostRecords) {
-                if (!record.element) {
-                    continue;
-                }
-                bool changed = false;
-                try {
-                    changed =
-                        !VisualTreeHelper::GetParent(record.element) ||
-                        record.element.Visibility() !=
-                            Visibility::Visible;
-                    if (!changed) {
-                        changed =
-                            CountVisibleIconViews(record.element) !=
-                            record.visibleIconViews;
-                    }
-                } catch (...) {
-                    changed = true;
-                }
-                if (changed) {
-                    ScheduleReapply();
-                    return;
-                }
-            }
-            for (auto const& candidate : g_candidateCounts) {
-                try {
-                    auto host = candidate.host.get();
-                    if (host && CountVisibleIconViews(host) !=
-                                    candidate.visibleIconViews) {
-                        ScheduleReapply();
-                        return;
-                    }
-                } catch (...) {
-                }
-            }
-        });
+    RecordCandidateCounts(trayGrid, managedHosts);
+    RegisterTrayDriftCheck(trayGrid);
 
     if (startPosition && g_startLease.group) {
         // Removing the hosts shrinks the tray and the centered taskbar
@@ -4059,7 +4187,7 @@ static bool ApplyLayout() {
         total.width,
         total.height,
         trayGrid.ActualHeight(),
-        static_cast<int>(g_lease->Count()),
+        static_cast<int>(g_lease->SnapshotCount()),
         expression.c_str());
     return true;
 }
@@ -4092,12 +4220,10 @@ static void ApplyLayoutOnWindowThread() {
 // rebuild trigger all live in tray_utility_taskbar. Three things kick an apply —
 // this retry, an Explorer taskbar rebuild, and the visibility watchers — and
 // all three converge on the one idempotent ApplyLayout.
-// no_destroy is not about waiting — RetryLoop's destructor waits for nothing;
-// it would only release the last Run and close two handles. It is kept so the
-// lab's exit-time-destructor audit stays exact (every namespace-scope object
-// with a non-trivial destructor is either marked or proven heap-only), and
-// Wh_ModUninit stops the loop explicitly.
-[[clang::no_destroy]] static retry_loop::RetryLoop g_retry;
+// Wh_ModUninit stops the loop explicitly. After that it holds nothing, and even
+// at process exit its implicit destructor only closes handles and frees memory,
+// so it needs no no_destroy.
+static retry_loop::RetryLoop g_retry;  // exit-time-safe: heap-only
 
 // Attempts x 1.5 s. Transient "not ready yet" states return false and keep
 // the loop alive, so the budget has to cover a tray that populates slowly at
@@ -4126,8 +4252,11 @@ static void OnTaskbarRebuilt() {
     g_taskbarWnd.store(nullptr);
     g_treeStale = true;
     g_stoodDown = false;
-    g_retry.Start(RetryAttempt, LayoutIsApplied, g_unloading, kRetryAttempts,
-                  kRetryIntervalMs, true);
+    // On the taskbar's UI thread: wake a live retry rather than stopping and
+    // waiting for it. The woken attempt runs even though g_layoutApplied still
+    // truthfully reports the old tree, and restores it before re-applying.
+    g_retry.StartOrWake(RetryAttempt, LayoutIsApplied, g_unloading,
+                        kRetryAttempts, kRetryIntervalMs);
 }
 
 BOOL Wh_ModInit() {
@@ -4148,7 +4277,7 @@ void Wh_ModAfterInit() {
     // attach to an Explorer whose taskbar window exists while its tray XAML
     // is still being built, and one failed attempt would never come back.
     g_retry.Start(RetryAttempt, LayoutIsApplied, g_unloading, kRetryAttempts,
-                  kRetryIntervalMs, false);
+                  kRetryIntervalMs);
 }
 
 void Wh_ModSettingsChanged() {
@@ -4170,11 +4299,12 @@ void Wh_ModSettingsChanged() {
                 LoadSettings();
                 Wh_Log(L"[Settings] Reapplying");
                 // Request a retry without lying about ownership of the live
-                // layout; the forced first pass restores it before applying
-                // the new settings.
+                // layout: StartOrWake's first attempt runs regardless, and
+                // restores the layout before applying the new settings. The
+                // loop was stopped above, so this starts a fresh run.
                 g_stoodDown = false;
-                g_retry.Start(RetryAttempt, LayoutIsApplied, g_unloading,
-                              kRetryAttempts, kRetryIntervalMs, true);
+                g_retry.StartOrWake(RetryAttempt, LayoutIsApplied, g_unloading,
+                                    kRetryAttempts, kRetryIntervalMs);
             },
             nullptr)) {
         Wh_Log(L"[Settings] Could not dispatch the reapply to the taskbar UI thread");

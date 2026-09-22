@@ -36,6 +36,7 @@ inline Size AlongAxis(double thickness, double cross = 0.0) {
     return size;
 }
 
+//@part ContentAlong
 // CONTENT-SIZED ITEMS. A settings-driven item size describes a GLYPH: a box of
 // a chosen width that a character is centered in. It does not describe TEXT.
 // "9%", "80%", and "100%" are three different widths, a font or locale change
@@ -55,6 +56,7 @@ inline Size AlongAxis(double thickness, double cross = 0.0) {
 inline Size ContentAlong(double measured, double minimum, double cross) {
     return {std::max(measured, minimum), cross};
 }
+//@end
 
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
 struct Offset {
@@ -266,6 +268,7 @@ inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
     return i == token.size() && !name[i];
 }
 
+//@part TokenIndexWithPrefix
 // "desktop2" -> 2 with prefix L"desktop"; 0 when the token does not match.
 inline int TokenIndexWithPrefix(std::wstring const& token,
                                 wchar_t const* prefix) {
@@ -283,6 +286,7 @@ inline int TokenIndexWithPrefix(std::wstring const& token,
     }
     return value;
 }
+//@end
 
 using SizeResolver = std::function<Size(std::wstring const&)>;
 
@@ -372,15 +376,6 @@ inline Size MeasureNode(Node const& node, Config const& config,
                                          : Size{cross, main};
 }
 
-// Measure one tree on its own. Prefer Compute(), which shares a single cache
-// across the measure and arrange passes; this overload exists for call sites
-// that measure a tree by itself.
-inline Size Measure(Node const& node, Config const& config,
-                    SizeResolver const& resolve) {
-    MeasureCache cache;
-    return MeasureCached(node, config, resolve, cache);
-}
-
 // Resolve a child's size against its parent group's axis, so an axis-relative
 // item becomes concrete width x height.
 inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
@@ -455,29 +450,15 @@ inline void ArrangeCached(Node const& node, Config const& config,
     }
 }
 
-// Arrange one tree on its own. Prefer Compute(); this overload exists for call
-// sites that drive the arranger directly.
-inline void Arrange(Node const& node, Config const& config,
-                    SizeResolver const& resolve, double x, double y,
-                    std::vector<Placement>& out,
-                    Size const* resolvedSize = nullptr) {
-    MeasureCache cache;
-    ArrangeCached(node, config, resolve, x, y, out, cache, resolvedSize);
-}
-
-// Parse + measure + arrange in one call. Returns false only on a parse error
-// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
-// should then fall back to the auto expression and log that it did.
-// placements come back in expression order; totalSize is the group's bounding
-// box INCLUDING outer padding. A per-item offset shifts its leaf without
-// changing totalSize or any neighbor.
-inline bool Compute(std::wstring const& text, Config const& config,
-                    SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize,
-                    ParseError* error = nullptr) {
-    Node root;
-    if (!Parse(text, root, error))
-        return false;
+// Measure + arrange a tree that is already parsed. For a mod that rewrites the
+// tree between Parse and layout - hiding an absent item, dropping a duplicate
+// - rather than laying out the text exactly as typed. placements come back in
+// expression order; totalSize is the group's bounding box INCLUDING outer
+// padding. A per-item offset shifts its leaf without changing totalSize or any
+// neighbor.
+inline void ComputeTree(Node const& root, Config const& config,
+                        SizeResolver const& resolve,
+                        std::vector<Placement>& placements, Size& totalSize) {
     // One cache for both passes: Arrange re-measures the same nodes at every
     // level, so sharing it is what keeps the whole call linear in node count.
     MeasureCache cache;
@@ -486,7 +467,7 @@ inline bool Compute(std::wstring const& text, Config const& config,
     if (inner.Empty()) {
         // No visible items: an empty group has no padded box either.
         totalSize = {};
-        return true;
+        return;
     }
     if (inner.axisRelative) {
         // The whole arrangement is one axis-relative item, so there is no group
@@ -498,6 +479,19 @@ inline bool Compute(std::wstring const& text, Config const& config,
                   cache, &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
+}
+
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
+    Node root;
+    if (!Parse(text, root, error))
+        return false;
+    ComputeTree(root, config, resolve, placements, totalSize);
     return true;
 }
 
@@ -512,6 +506,7 @@ inline bool Compute(std::wstring const& text, Config const& config,
 //! to live here as PixelsToDip/AvailableRows, which no adopter called once the
 //! metrics component existed, so both were removed rather than shipped dead.
 
+//@part RowsInHeight
 // How many item rows fit in a height already expressed in DIPs. Pitch is one
 // item plus one gap; the trailing gap of the last row is not required, hence
 // the + spacing.
@@ -527,6 +522,7 @@ inline int RowsInHeight(double heightDip, double itemHeight, double spacing) {
         return 1;
     return std::max(1, (int)((heightDip + std::max(0.0, spacing)) / pitch));
 }
+//@end
 
 // ---- The auto shape ---------------------------------------------------------
 //
@@ -681,10 +677,12 @@ inline std::wstring AppendMissing(std::wstring const& expression,
 // logs the result when wasAuto is true so the user can paste it back into the
 // same field and edit it.
 
+//@part ResolveArrangement Arrangement
 struct Arrangement {
     std::wstring expression;
     bool wasAuto = false;
 };
+//@end
 
 inline bool IsAutoSetting(std::wstring const& setting) {
     size_t first = setting.find_first_not_of(L" \t\r\n");
@@ -700,6 +698,7 @@ inline bool IsAutoSetting(std::wstring const& setting) {
     return true;
 }
 
+//@part ResolveArrangement Arrangement
 inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
                                       int maxRows, FillOrder fill,
                                       TokenNamer const& namer = {}) {
@@ -707,3 +706,4 @@ inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
         return {BuildAutoExpression(count, maxRows, fill, namer), true};
     return {setting, false};
 }
+//@end

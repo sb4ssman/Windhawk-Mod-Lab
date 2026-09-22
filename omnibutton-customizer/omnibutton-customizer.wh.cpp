@@ -517,6 +517,8 @@ each one's exact prior local value when it unloads.
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cwchar>
+#include <cwctype>
 #include <exception>
 #include <functional>
 #include <limits>
@@ -580,6 +582,9 @@ inline bool LoadBool(PCWSTR key) {
 //
 // Use a table rather than a chain of comparisons, so the accepted literals and
 // their enum mapping stay adjacent when this mod's settings evolve.
+//
+// Wh_GetStringSetting never returns null - an unset or unreadable setting is
+// L"" - so the value is used as is.
 template <typename T>
 struct Choice {
     wchar_t const* token;
@@ -589,7 +594,7 @@ struct Choice {
 template <typename T, size_t N>
 inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value) return fallback;
     for (auto const& choice : choices) {
         if (_wcsicmp(value, choice.token) == 0) return choice.value;
@@ -606,10 +611,10 @@ inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
 // wrapper: it is the same contract, it already ships with Windhawk, and a
 // second copy of it is one more thing for a reader to check.
 template <size_t N>
-inline void LoadString(PCWSTR key, wchar_t (&buffer)[N],
-                       PCWSTR fallback = nullptr) {
+inline void LoadStringSetting(PCWSTR key, wchar_t (&buffer)[N],
+                              PCWSTR fallback = nullptr) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value && fallback) value = fallback;
     wcsncpy_s(buffer, N, value, _TRUNCATE);
 }
@@ -698,52 +703,22 @@ inline Brush ParseBrush(wchar_t const* value,
 
 }  // namespace omni_color_tokens
 
-// -- Arrangement expression (axis-relative) ---------------------------------
+// -- Arrangement expression -------------------------------------------------
 // One user-typed string - names joined by '|' (side by side) and ','
 // (stacked), nested with parentheses, nudged with [dx,dy] - parsed,
-// measured and arranged into concrete placements. This variant also sizes
-// an item RELATIVE TO THE AXIS its group lays out along, which a mod needs
-// when an item's thickness is known but its cross extent should match its
-// neighbours.
+// measured and arranged into concrete placements. Includes the automatic
+// grid shape and the policy for items a written arrangement does not name.
 namespace omni_layout {
 
 enum class Axis { Horizontal, Vertical };  // node orientation, not a setting
 enum class Justify { Start, Center, End };
 enum class FillOrder { Rows, Columns };
 
-// An item is sized either absolutely (width x height) or RELATIVE TO THE AXIS
-// its group happens to lay out along. Axis-relative sizing exists because an
-// item like a Task View button should be "as wide as it needs and as tall as
-// the buttons beside it" when it is a column, and the mirror image when it is
-// a row — and in a hand-written arrangement the mod cannot know which it will
-// be. The parent group knows its own axis, so it resolves this at measure and
-// arrange time:
-//
-//   thickness — extent ALONG the group's axis (its width as a column, its
-//               height as a row)
-//   cross     — extent ACROSS the group's axis; 0 means fill, i.e. match
-//               whatever the rest of the group measures
 struct Size {
     double width = 0.0;
     double height = 0.0;
-    bool axisRelative = false;
-    double thickness = 0.0;
-    double cross = 0.0;
-
-    bool Empty() const {
-        return axisRelative ? thickness <= 0.0
-                            : (width <= 0.0 || height <= 0.0);
-    }
+    bool Empty() const { return width <= 0.0 || height <= 0.0; }
 };
-
-// Size an item against its group's axis. cross = 0 fills the group.
-inline Size AlongAxis(double thickness, double cross = 0.0) {
-    Size size;
-    size.axisRelative = true;
-    size.thickness = thickness;
-    size.cross = cross;
-    return size;
-}
 
 // CONTENT-SIZED ITEMS. A settings-driven item size describes a GLYPH: a box of
 // a chosen width that a character is centered in. It does not describe TEXT.
@@ -753,16 +728,13 @@ inline Size AlongAxis(double thickness, double cross = 0.0) {
 // space, and the overflow is discovered at paint time — as a clipped edge.
 //
 // The SizeResolver is a callback precisely so a mod can answer with something
-// it measured. Measure the live element (native_glyph_surface::MeasureNatural)
-// and pass the result through here: the arrangement then RESERVES the real
-// width, the group's total grows to match, and nothing clips.
-//
-// `minimum` keeps a short value from collapsing below the item size the user
-// chose, so "9%" still lines up with the glyphs above it. Round `measured` up
-// and add a pixel or two of slack, or the item will re-measure every time its
-// text ticks over.
-inline Size ContentAlong(double measured, double minimum, double cross) {
-    return {std::max(measured, minimum), cross};
+// it measured: the arrangement then RESERVES the real width, the group's total
+// grows to match, and nothing clips. `minimum` keeps a short value from
+// collapsing below the item size the user chose, so "9%" still lines up with
+// the glyphs above it. Round `measured` up and add a pixel or two of slack, or
+// the item will re-measure every time its text ticks over.
+inline Size ContentAlong(double measured, double minimum, double height) {
+    return {std::max(measured, minimum), height};
 }
 
 // Cosmetic per-leaf nudge parsed from the expression's "[dx,dy]" suffix.
@@ -829,7 +801,7 @@ private:
     // Measure is memoized, so this is no longer a running-time limit — it is a
     // STACK limit, and it is refused at parse time so the user gets a real
     // error instead of a crash. Nothing legible needs this many levels; the
-    // deepest arrangement in this family's own documentation uses three.
+    // deepest arrangement in this mod's own documentation uses three.
     static constexpr int kMaxNestingDepth = 24;
 
     Node ParseExpr(int depth = 0) {
@@ -917,7 +889,14 @@ private:
             return 0.0;
         }
         position_ += consumed;
-        return value;
+        if (!std::isfinite(value)) {
+            Fail(position_ - consumed, L"a finite number");
+            return 0.0;
+        }
+        // Offsets are cosmetic. Keep expression nudges within the same
+        // user-facing range as Adjust.OffsetX/Y so a typo cannot move an icon
+        // outside its owned group or hand XAML NaN/infinity.
+        return std::clamp(value, -100.0, 100.0);
     }
 
     static bool IsDelimiter(wchar_t c) {
@@ -952,20 +931,9 @@ inline bool Parse(std::wstring const& text, Node& root,
 
 // ---- Token vocabulary -------------------------------------------------------
 //
-// A token is an item's stable IDENTITY, never its displayed label. Labels are
-// not unique, can contain the expression's own delimiters, can be empty or an
+// A token is an item's stable IDENTITY, never its displayed label, compared
+// case-insensitively. Labels are not unique, can be localized, empty, or an
 // emoji, and renaming one would silently break an arrangement the user wrote.
-// Each mod declares its vocabulary and documents it:
-//
-//   fixed set     -> semantic names: wifi, volume, battery, percent, clock
-//   dynamic set   -> 1, 2, 3, ... because the set changes at runtime
-//   either        -> an extra named item such as "master"
-//
-// A dynamic mod may accept a readable alias for a number (desktop2 == 2). Log
-// the token-to-label map next to the arrangement so a user can tell which
-// number is which item without the arrangement depending on the labels.
-//
-// Matching is case-insensitive: someone typing "Wifi" means wifi.
 
 inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
     size_t i = 0;
@@ -973,24 +941,6 @@ inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
         if (towlower(token[i]) != towlower(name[i]))
             return false;
     return i == token.size() && !name[i];
-}
-
-// "desktop2" -> 2 with prefix L"desktop"; 0 when the token does not match.
-inline int TokenIndexWithPrefix(std::wstring const& token,
-                                wchar_t const* prefix) {
-    size_t i = 0;
-    for (; prefix[i]; ++i)
-        if (i >= token.size() || towlower(token[i]) != towlower(prefix[i]))
-            return 0;
-    if (i >= token.size())
-        return 0;
-    int value = 0;
-    for (; i < token.size(); ++i) {
-        if (token[i] < L'0' || token[i] > L'9')
-            return 0;
-        value = value * 10 + (token[i] - L'0');
-    }
-    return value;
 }
 
 using SizeResolver = std::function<Size(std::wstring const&)>;
@@ -1028,10 +978,8 @@ inline Size MeasureNode(Node const& node, Config const& config,
     if (!node.token.empty())
         return resolve(node.token);
 
-    // The grammar wraps every unit in a group, so most groups have a single
-    // child. Such a group IS its child — pass the size through verbatim, or an
-    // axis-relative child would be flattened into a concrete size by its own
-    // wrapper before the real parent ever sees it.
+    // The grammar wraps every unit in a group, so a single-child group is its
+    // child and introduces no geometry of its own.
     {
         Node const* only = nullptr;
         int visible = 0;
@@ -1048,58 +996,23 @@ inline Size MeasureNode(Node const& node, Config const& config,
 
     double main = 0.0;
     double cross = 0.0;
-    double fillFallback = 0.0;
     int placed = 0;
     for (auto const& child : node.children) {
         Size size = MeasureCached(child, config, resolve, cache);
         if (size.Empty())
             continue;
-        double childMain, childCross;
-        if (size.axisRelative) {
-            childMain = size.thickness;
-            // A filling item takes its cross extent FROM the group, so it must
-            // not drive the group's cross size — otherwise it would size itself.
-            childCross = size.cross;
-            fillFallback = std::max(fillFallback, size.thickness);
-        } else {
-            childMain =
-                node.axis == Axis::Horizontal ? size.width : size.height;
-            childCross =
-                node.axis == Axis::Horizontal ? size.height : size.width;
-        }
+        double childMain =
+            node.axis == Axis::Horizontal ? size.width : size.height;
+        double childCross =
+            node.axis == Axis::Horizontal ? size.height : size.width;
         main += (placed ? config.spacing : 0.0) + childMain;
         cross = std::max(cross, childCross);
         ++placed;
     }
     if (!placed)
         return {};
-    // Degenerate case: every child fills, so nothing established a cross size.
-    // Fall back to the largest thickness rather than collapsing the group.
-    if (cross <= 0.0)
-        cross = fillFallback;
     return node.axis == Axis::Horizontal ? Size{main, cross}
                                          : Size{cross, main};
-}
-
-// Measure one tree on its own. Prefer Compute(), which shares a single cache
-// across the measure and arrange passes; this overload exists for call sites
-// that measure a tree by itself.
-inline Size Measure(Node const& node, Config const& config,
-                    SizeResolver const& resolve) {
-    MeasureCache cache;
-    return MeasureCached(node, config, resolve, cache);
-}
-
-// Resolve a child's size against its parent group's axis, so an axis-relative
-// item becomes concrete width x height.
-inline Size ConcreteSize(Size const& size, Axis axis, Size const& groupTotal) {
-    if (!size.axisRelative)
-        return size;
-    double groupCross =
-        axis == Axis::Horizontal ? groupTotal.height : groupTotal.width;
-    double cross = size.cross > 0.0 ? size.cross : groupCross;
-    return axis == Axis::Horizontal ? Size{size.thickness, cross}
-                                    : Size{cross, size.thickness};
 }
 
 inline void ArrangeCached(Node const& node, Config const& config,
@@ -1121,8 +1034,7 @@ inline void ArrangeCached(Node const& node, Config const& config,
     x += node.offset.x;
     y += node.offset.y;
 
-    // Single-child group: forward the size the real parent already resolved,
-    // so axis-relative sizing survives the grammar's per-unit wrapper.
+    // A single-child group only carries an optional offset.
     {
         Node const* only = nullptr;
         int visible = 0;
@@ -1134,8 +1046,7 @@ inline void ArrangeCached(Node const& node, Config const& config,
                 break;
         }
         if (visible == 1) {
-            ArrangeCached(*only, config, resolve, x, y, out, cache,
-                          resolvedSize);
+            ArrangeCached(*only, config, resolve, x, y, out, cache);
             return;
         }
     }
@@ -1145,7 +1056,7 @@ inline void ArrangeCached(Node const& node, Config const& config,
         Size measured = MeasureCached(child, config, resolve, cache);
         if (measured.Empty())
             continue;
-        Size size = ConcreteSize(measured, node.axis, total);
+        Size size = measured;
         double unused = node.axis == Axis::Horizontal
                             ? total.height - size.height
                             : total.width - size.width;
@@ -1164,29 +1075,15 @@ inline void ArrangeCached(Node const& node, Config const& config,
     }
 }
 
-// Arrange one tree on its own. Prefer Compute(); this overload exists for call
-// sites that drive the arranger directly.
-inline void Arrange(Node const& node, Config const& config,
-                    SizeResolver const& resolve, double x, double y,
-                    std::vector<Placement>& out,
-                    Size const* resolvedSize = nullptr) {
-    MeasureCache cache;
-    ArrangeCached(node, config, resolve, x, y, out, cache, resolvedSize);
-}
-
-// Parse + measure + arrange in one call. Returns false only on a parse error
-// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
-// should then fall back to the auto expression and log that it did.
-// placements come back in expression order; totalSize is the group's bounding
-// box INCLUDING outer padding. A per-item offset shifts its leaf without
-// changing totalSize or any neighbor.
-inline bool Compute(std::wstring const& text, Config const& config,
-                    SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize,
-                    ParseError* error = nullptr) {
-    Node root;
-    if (!Parse(text, root, error))
-        return false;
+// Measure + arrange a tree that is already parsed. For a mod that rewrites the
+// tree between Parse and layout - hiding an absent item, dropping a duplicate
+// - rather than laying out the text exactly as typed. placements come back in
+// expression order; totalSize is the group's bounding box INCLUDING outer
+// padding. A per-item offset shifts its leaf without changing totalSize or any
+// neighbor.
+inline void ComputeTree(Node const& root, Config const& config,
+                        SizeResolver const& resolve,
+                        std::vector<Placement>& placements, Size& totalSize) {
     // One cache for both passes: Arrange re-measures the same nodes at every
     // level, so sharing it is what keeps the whole call linear in node count.
     MeasureCache cache;
@@ -1195,27 +1092,27 @@ inline bool Compute(std::wstring const& text, Config const& config,
     if (inner.Empty()) {
         // No visible items: an empty group has no padded box either.
         totalSize = {};
-        return true;
-    }
-    if (inner.axisRelative) {
-        // The whole arrangement is one axis-relative item, so there is no group
-        // for it to fill against; square it off on its own thickness.
-        double cross = inner.cross > 0.0 ? inner.cross : inner.thickness;
-        inner = Size{inner.thickness, cross};
+        return;
     }
     ArrangeCached(root, config, resolve, config.padX, config.padY, placements,
                   cache, &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
-    return true;
 }
 
-// ---- Row capacity -----------------------------------------------------------
-//
-// The caller passes a height ALREADY IN DIPs. A taskbar rect from
-// GetWindowRect is in physical pixels while every XAML size is a DIP, so
-// dividing one by the other silently misreports the row count at any scaling
-// other than 100%; convert before calling.
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
+    Node root;
+    if (!Parse(text, root, error))
+        return false;
+    ComputeTree(root, config, resolve, placements, totalSize);
+    return true;
+}
 
 // How many item rows fit in a height already expressed in DIPs. Pitch is one
 // item plus one gap; the trailing gap of the last row is not required, hence
@@ -1322,9 +1219,9 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 // ---- Items the arrangement forgot -------------------------------------------
 //
 // A hand-written arrangement names the items that existed when it was written.
-// When the set is dynamic — a desktop is added, a folder appears — the new item
-// is in no group, resolves to nothing, and silently vanishes from the taskbar.
-// That is a trap, so a mod with a dynamic set offers a policy:
+// When the set changes at runtime, an item that appears later is in no group,
+// resolves to nothing, and silently vanishes from the taskbar. That is a trap,
+// hence Layout.NewItems:
 //
 //   Append (default) — arrange the unlisted items automatically and put that
 //                      block after everything the user wrote, so a new item is
@@ -1332,14 +1229,14 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 //   Ignore           — the arrangement is the whole truth; unlisted items stay
 //                      off the taskbar until the user adds them.
 //
-// A mod that appends should log that it did, so the user knows to fold the new
-// item into their arrangement when they next edit it.
+// Appending is logged, so the user knows to fold the new item into their
+// arrangement when they next edit it.
 
-// Whether a token the user wrote refers to the same item as one the mod
-// expects. Defaults to a case-insensitive name match, which is WRONG for any
-// mod that accepts aliases: "desktop1" and "1" are the same button, and
-// comparing them as strings makes every aliased item look missing and get
-// appended a second time. A mod with a vocabulary must supply this.
+// Whether a token the user wrote refers to the same item as the one expected.
+// Defaults to a case-insensitive name match, which is WRONG for a vocabulary
+// with aliases: two names for one item compare unequal as strings, so the
+// aliased item looks missing and is appended a second time. A mod with aliases
+// supplies its own identity comparison.
 using TokenMatcher =
     std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
 
@@ -1875,41 +1772,6 @@ public:
         snapshots_.clear();
     }
 
-    // Put ONE object's properties back and forget them, leaving every other
-    // object's snapshots alone. For the case where a mod discovers that an
-    // element it began borrowing was never actually its business — handing
-    // that element back has to be possible without ending the whole lease.
-    void RestoreObject(DependencyObject const& object,
-                       RestoreErrorFn const& onError = {}) {
-        if (!object) return;
-        for (auto it = snapshots_.rbegin(); it != snapshots_.rend();) {
-            if (it->object != object) {
-                ++it;
-                continue;
-            }
-            try {
-                if (it->localValue == DependencyProperty::UnsetValue())
-                    it->object.ClearValue(it->property);
-                else
-                    it->object.SetValue(it->property, it->localValue);
-            } catch (...) {
-                if (onError) onError();
-            }
-            // Erase through the reverse iterator without invalidating the
-            // traversal: base() points one past the element being erased.
-            it = std::make_reverse_iterator(snapshots_.erase(
-                std::next(it).base()));
-        }
-    }
-
-    // Drop the snapshots WITHOUT restoring. For the case where the elements
-    // are already gone (an Explorer rebuild threw the tree away), so restoring
-    // would only throw. Do not use it to "skip" a restore that could run.
-    void Abandon() { snapshots_.clear(); }
-
-    size_t Count() const { return snapshots_.size(); }
-    bool Empty() const { return snapshots_.empty(); }
-
 private:
     std::vector<Snapshot> snapshots_;
 };
@@ -1922,7 +1784,6 @@ private:
 namespace omni_taskbar_window {
 
 // ---- Window discovery -------------------------------------------------------
-
 
 inline HWND FindCurrentProcessTaskbarWnd() {
     HWND result = nullptr;
@@ -2230,8 +2091,6 @@ struct Metrics {
     // The extent the arranged group has to fit INTO: the taskbar's height when
     // it runs across the screen, its width when it runs down the side.
     double constrainedDip = 0.0;
-    // The extent it can run ALONG.
-    double alongDip = 0.0;
 };
 
 inline Metrics GetMetrics(HWND taskbarWnd) {
@@ -2251,13 +2110,8 @@ inline Metrics GetMetrics(HWND taskbarWnd) {
     // that shape, so this needs no cooperation from whatever moved it.
     metrics.orientation =
         height > width ? Orientation::Vertical : Orientation::Horizontal;
-    if (metrics.orientation == Orientation::Horizontal) {
-        metrics.constrainedDip = height * scale;
-        metrics.alongDip = width * scale;
-    } else {
-        metrics.constrainedDip = width * scale;
-        metrics.alongDip = height * scale;
-    }
+    bool horizontal = metrics.orientation == Orientation::Horizontal;
+    metrics.constrainedDip = (horizontal ? height : width) * scale;
     return metrics;
 }
 
@@ -2298,9 +2152,10 @@ namespace omni_retry {
 // thread with SendMessage, so a UI-thread caller blocked on the mutex while
 // another thread waited under it could never service that message.
 //
-// Start() itself is not serialized against a concurrent Start(), because both
-// of this mod's callers run on the taskbar's UI thread.
-
+// Start() may be called from Windhawk's thread (init, a settings change) and
+// from the taskbar's UI thread (a rebuild) at once. Two overlapping Start()
+// calls are safe: each publishes its run by exchange and stops whatever run it
+// displaced, so no run is ever left without an owner that will wait for it.
 
 class RetryLoop {
 public:
@@ -2314,7 +2169,57 @@ public:
 
     void Start(AttemptFn attempt, AppliedFn applied,
                std::atomic<bool> const& unloading, int attempts = 5,
-               DWORD intervalMs = 2000, bool forceFirstAttempt = false) {
+               DWORD intervalMs = 2000) {
+        Launch(attempt, applied, unloading, attempts, intervalMs, false);
+    }
+
+    // For a caller that must not wait - the taskbar's UI thread, inside
+    // Explorer's own taskbar construction. A live run is woken instead of
+    // being stopped: it skips its interval, runs an attempt now and gets a
+    // fresh attempt budget. Only when no run is live is a new one started,
+    // and the Stop() inside it then waits on a thread that has already left
+    // the loop, which returns at once.
+    //
+    // Either way the FIRST attempt runs even if `applied` still reports done.
+    // A caller wakes the loop because something changed, and may truthfully
+    // still own live state that the attempt has to restore and reapply - so it
+    // must not have to falsify `applied` just to be heard.
+    void StartOrWake(AttemptFn attempt, AppliedFn applied,
+                     std::atomic<bool> const& unloading, int attempts = 5,
+                     DWORD intervalMs = 2000) {
+        if (unloading) return;
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;
+        }
+        if (run) {
+            std::lock_guard<std::mutex> gate(run->gate);
+            if (!run->finished) {
+                run->woken = true;
+                SetEvent(run->wakeEvent);
+                return;
+            }
+        }
+        Launch(attempt, applied, unloading, attempts, intervalMs, true);
+    }
+
+    void Stop() {
+        std::shared_ptr<Run> run;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            run = run_;  // shared, not moved: a concurrent Stop must wait too
+        }
+        if (!run) return;
+        StopRun(run);
+        std::lock_guard<std::mutex> guard(mutex_);
+        if (run_ == run) run_.reset();
+    }
+
+private:
+    void Launch(AttemptFn attempt, AppliedFn applied,
+                std::atomic<bool> const& unloading, int attempts,
+                DWORD intervalMs, bool forced) {
         Stop();
         if (unloading) return;
 
@@ -2324,9 +2229,11 @@ public:
         run->unloading = &unloading;
         run->attempts = attempts;
         run->intervalMs = intervalMs;
-        run->forceFirstAttempt = forceFirstAttempt;
+        run->woken = forced;
         run->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        if (!run->stopEvent) return;  // ~Run closes nothing it did not create
+        run->wakeEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        // ~Run closes only what was created.
+        if (!run->stopEvent || !run->wakeEvent) return;
 
         // The thread carries a reference of its own, so the Run survives until
         // both the loop and the thread are done with it, whichever ends first.
@@ -2358,53 +2265,77 @@ public:
         if (displaced) StopRun(displaced);
     }
 
-    void Stop() {
-        std::shared_ptr<Run> run;
-        {
-            std::lock_guard<std::mutex> guard(mutex_);
-            run = run_;  // shared, not moved: a concurrent Stop must wait too
-        }
-        if (!run) return;
-        StopRun(run);
-        std::lock_guard<std::mutex> guard(mutex_);
-        if (run_ == run) run_.reset();
-    }
-
-private:
     struct Run {
         HANDLE thread = nullptr;
         HANDLE stopEvent = nullptr;
+        HANDLE wakeEvent = nullptr;  // auto-reset
         AttemptFn attempt = nullptr;
         AppliedFn applied = nullptr;
         std::atomic<bool> const* unloading = nullptr;
         int attempts = 5;
         DWORD intervalMs = 2000;
-        bool forceFirstAttempt = false;
+        // Guards woken/finished, so a wake is either seen by the loop or
+        // refused because the loop has already ended - never lost between.
+        std::mutex gate;
+        bool woken = false;
+        bool finished = false;
 
         // Closed exactly once, when the last of the loop and the thread lets
         // go. Both have already stopped using them by then.
         ~Run() {
             if (thread) CloseHandle(thread);
             if (stopEvent) CloseHandle(stopEvent);
+            if (wakeEvent) CloseHandle(wakeEvent);
         }
     };
+
+    // The loop is about to end. A wake that arrived since the last attempt
+    // restarts it instead; otherwise the run is marked finished, so a later
+    // StartOrWake starts a new run rather than waking this dead one.
+    static bool ContinueForWake(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        bool stopping = *run.unloading ||
+                        WaitForSingleObject(run.stopEvent, 0) != WAIT_TIMEOUT;
+        if (run.woken && !stopping) return true;
+        run.finished = true;
+        return false;
+    }
+
+    static void MarkFinished(Run& run) {
+        std::lock_guard<std::mutex> gate(run.gate);
+        run.finished = true;
+    }
 
     static DWORD WINAPI ThreadMain(void* parameter) {
         auto* owned = static_cast<std::shared_ptr<Run>*>(parameter);
         std::shared_ptr<Run> run = *owned;
         delete owned;
-        for (int i = 0; i < run->attempts && !*run->unloading; ++i) {
-            // Opt-in, via forceFirstAttempt. A caller that clears its own
-            // "applied" flag before starting does not need it. It exists for
-            // the caller that must run one restore/reapply pass while `applied`
-            // still truthfully reports that it owns live XAML — so that flag
-            // does not have to be falsified just to wake this loop.
-            if (run->applied && !(run->forceFirstAttempt && i == 0) &&
-                run->applied())
-                break;
-            if (i && WaitForSingleObject(run->stopEvent, run->intervalMs) !=
-                         WAIT_TIMEOUT)
-                break;
+        for (int i = 0;; ++i) {
+            bool done = *run->unloading || i >= run->attempts ||
+                        (run->applied && run->applied());
+            if (done) {
+                // A pending wake overrides `applied` and the spent budget: it
+                // earns a fresh budget whose first attempt runs now.
+                if (!ContinueForWake(*run)) break;
+                i = 0;
+            } else if (i) {
+                HANDLE events[] = {run->stopEvent, run->wakeEvent};
+                DWORD result = WaitForMultipleObjects(2, events, FALSE,
+                                                      run->intervalMs);
+                if (result == WAIT_OBJECT_0 + 1) {
+                    i = 0;
+                } else if (result != WAIT_TIMEOUT) {
+                    MarkFinished(*run);
+                    break;
+                }
+            }
+            // This attempt answers every wake that came before it. One that
+            // arrives while it runs sets both again and earns another.
+            {
+                std::lock_guard<std::mutex> gate(run->gate);
+                run->woken = false;
+                ResetEvent(run->wakeEvent);
+            }
             if (run->attempt) run->attempt();
         }
         return 0;
@@ -2532,7 +2463,7 @@ static void LoadSettings() {
 
     // Layout. Table-driven rather than a chain of _wcsicmp: after any option
     // is renamed a stale literal fails silently and the mod quietly falls back.
-    sio::LoadString(L"Layout.Arrangement", g_settings.arrangement, L"auto");
+    sio::LoadStringSetting(L"Layout.Arrangement", g_settings.arrangement, L"auto");
 
     static constexpr sio::Choice<ngl::FillOrder> kFillOrders[] = {
         {L"rows", ngl::FillOrder::Rows},
@@ -2571,13 +2502,13 @@ static void LoadSettings() {
     g_settings.offsetY = sio::LoadInt(L"Adjust.OffsetY", -40, 40);
 
     // Surface
-    sio::LoadString(L"Surface.NetworkColor", g_settings.networkColor);
-    sio::LoadString(L"Surface.VolumeColor", g_settings.volumeColor);
-    sio::LoadString(L"Surface.BatteryColor", g_settings.batteryColor);
-    sio::LoadString(L"Surface.PercentColor", g_settings.percentColor);
+    sio::LoadStringSetting(L"Surface.NetworkColor", g_settings.networkColor);
+    sio::LoadStringSetting(L"Surface.VolumeColor", g_settings.volumeColor);
+    sio::LoadStringSetting(L"Surface.BatteryColor", g_settings.batteryColor);
+    sio::LoadStringSetting(L"Surface.PercentColor", g_settings.percentColor);
 
     g_settings.percentSize = sio::LoadInt(L"Surface.PercentSize", 0, 64);
-    sio::LoadString(L"Surface.PercentFontFamily", g_settings.percentFontFamily);
+    sio::LoadStringSetting(L"Surface.PercentFontFamily", g_settings.percentFontFamily);
 
     g_settings.networkOpacity =
         sio::LoadInt(L"Surface.NetworkOpacity", -1, 100);
@@ -2640,22 +2571,17 @@ static std::atomic<bool> g_applied{false};
 static std::atomic<bool> g_reapplyPending{false};
 // Stoppable and WAITED during unload: a detached retry thread that outlives
 // Wh_ModUninit would run mod code out of an unloaded DLL. Wh_ModUninit stops it
-// explicitly, which is what actually makes unload safe.
-//
-// no_destroy is INSURANCE, not a claim that the destructor is dangerous today:
-// RetryLoop declares none, so the implicit one only releases a shared_ptr (at
-// most two CloseHandles) and a std::mutex (a no-op on Windows), and neither
-// blocks nor needs a particular thread. It stays because this object owns a
-// worker thread's lifetime, so a future destructor here would be exactly the
-// kind that must not run at DLL detach under the loader lock.
-[[clang::no_destroy]] static retry_loop::RetryLoop g_retryLoop;
+// explicitly, which is what actually makes unload safe. After that the loop
+// holds nothing, and even at process exit its implicit destructor only closes
+// handles and frees memory, so it needs no no_destroy.
+static retry_loop::RetryLoop g_retryLoop;  // exit-time-safe: heap-only
 
 [[clang::no_destroy]] static std::optional<std::list<FrameworkElement::Loaded_revoker>>
     g_autoRevokerList{std::in_place};
 
 // Optional-backed so Wh_ModUninit can reset() it on the UI thread and free the
 // vector, instead of leaving an exit-time destructor to touch XAML at process
-// teardown. See _templates/property-lease.h.
+// teardown.
 [[clang::no_destroy]] static std::optional<ple::Lease> g_lease{std::in_place};
 
 static void LogCurrentUiException(PCWSTR context) noexcept;
@@ -2799,6 +2725,9 @@ static ngl::Config OmniLayoutConfig() {
 // and a new IconView. OnLayoutUpdatedImpl compares these.
 static double g_appliedConstrainedDip = 0.0;
 static UINT g_appliedDpi = 0;
+// The items host's child count as the last ApplyLayout saw it; -1 when nothing
+// is applied. The LayoutUpdated monitor re-applies when the live count differs.
+static int g_appliedChildCount = -1;
 
 static int AvailableOmniRows(HWND hTaskbarWnd) {
     auto metrics = taskbar_metrics::GetMetrics(hTaskbarWnd);
@@ -2851,21 +2780,7 @@ static bool ComputeOmniNode(ngl::Node const& root,
         int item = OmniItemIndex(token);
         return item >= 0 ? OmniItemSize(item) : ngl::Size{};
     };
-    ngl::Config config = OmniLayoutConfig();
-    ngl::Size inner = ngl::Measure(root, config, resolve);
-    placements.clear();
-    if (inner.Empty()) {
-        total = {};
-        return true;
-    }
-    if (inner.axisRelative) {
-        double cross = inner.cross > 0.0 ? inner.cross : inner.thickness;
-        inner = {inner.thickness, cross};
-    }
-    ngl::Arrange(root, config, resolve, config.padX, config.padY,
-                 placements, &inner);
-    total = {inner.width + config.padX * 2.0,
-             inner.height + config.padY * 2.0};
+    ngl::ComputeTree(root, OmniLayoutConfig(), resolve, placements, total);
     return true;
 }
 
@@ -3223,6 +3138,7 @@ static void ApplyItemsHostFootprint(StackPanel const& sp,
 // defaults, which vary across Windows builds and taskbar templates.
 
 static void ResetElementRefs() {
+    g_appliedChildCount = -1;
     g_omniStackPanel = nullptr; g_omniButton = nullptr;
     g_networkPresenter = nullptr;  g_volumePresenter = nullptr;
     g_batteryPresenter = nullptr; g_batteryInnerPanel = nullptr;
@@ -3446,6 +3362,7 @@ static void ApplyLayout(StackPanel const& sp, HWND hTaskbarWnd) {
     sp.Spacing(0);
 
     int n = VisualTreeHelper::GetChildrenCount(sp);
+    g_appliedChildCount = n;
 
     // Locate battery slot by class-name substring search.
     int battIdx = -1;
@@ -3845,11 +3762,35 @@ static void OnLayoutUpdatedImpl() {
     auto sp = g_layoutUpdatedSP;
     if (!sp) return;
 
+    // A vertical taskbar mod enabled mid-session rotates the very elements
+    // this layout translates. ApplyAllSettings stands down for that, but a
+    // rebuild from here would bypass it and re-arrange into the rotated space,
+    // so stand down here too: hand everything back and stop watching. The next
+    // TrayUI::StartTaskbar re-evaluates, once the vertical mod is off again.
+    auto metrics = taskbar_metrics::GetMetrics(
+        taskbar_window::ResolveTaskbarWnd(g_taskbarWnd));
+    if (metrics.valid && !taskbar_metrics::LayoutModelApplies(metrics)) {
+        Wh_Log(L"[Layout] Taskbar became %s - standing down and restoring the "
+               L"native OmniButton",
+               taskbar_metrics::OrientationName(metrics.orientation));
+        ApplyingScope applying;
+        CleanupAndResetCurrentElements();
+        RevokeLayoutUpdated();
+        g_applied = false;
+        return;
+    }
+
+    // Compare against the child count the last apply actually saw, rather than
+    // re-deriving "a slot appeared" from which presenters are set: ApplyLayout
+    // deliberately leaves the network or volume presenter null when the battery
+    // occupies that slot, and inferring from those would report a change on
+    // every pass - a teardown and re-apply per frame. The recorded count also
+    // catches a child REMOVED from the items host, which nothing else notices.
+    // -1 means the last apply bailed before counting; comparing against that
+    // would itself rebuild on every pass.
     bool changed = false;
     int childCount = VisualTreeHelper::GetChildrenCount(sp);
-    if (!g_networkPresenter && childCount >= 1)
-        changed = true;
-    if (!g_volumePresenter && childCount >= 2)
+    if (g_appliedChildCount >= 0 && childCount != g_appliedChildCount)
         changed = true;
 
     if (!g_batteryPresenter) {
@@ -3884,8 +3825,6 @@ static void OnLayoutUpdatedImpl() {
     // window to a display at another scale keeps the old row count until
     // something unrelated forces a re-apply.
     if (!changed && g_appliedDpi) {
-        auto metrics =
-            taskbar_metrics::GetMetrics(taskbar_window::ResolveTaskbarWnd(g_taskbarWnd));
         if (metrics.valid &&
             (metrics.dpi != g_appliedDpi ||
              std::fabs(metrics.constrainedDip - g_appliedConstrainedDip) > 0.5)) {
@@ -4025,7 +3964,7 @@ static bool RunFromWindowThread(HWND hWnd, RunFromWindowThreadProc_t proc,
 
 // ── GetTaskbarXamlRoot ────────────────────────────────────────────────────
 // The CTaskBand walk, the runtime-disassembled FrameworkElement offset, and
-// the taskbar.dll symbol hooks all live in _templates/taskbar-host.h now.
+// the taskbar.dll symbol hooks live in the taskbar XamlRoot component above.
 
 static XamlRoot GetTaskbarXamlRoot(HWND hTaskbarWnd) {
     return taskbar_xaml::GetTaskbarXamlRoot(hTaskbarWnd);
@@ -4244,9 +4183,7 @@ static void ApplyOnTaskbarWindowThread() {
     // Same stale-handle trap as the unload path: if Shell_TrayWnd was recreated
     // the cached handle is dead, and preferring it makes the retry dispatch to
     // a dead window forever instead of re-finding the live one.
-    HWND window = (g_taskbarWnd && IsWindow(g_taskbarWnd))
-                      ? g_taskbarWnd
-                      : FindCurrentProcessTaskbarWnd();
+    HWND window = taskbar_window::ResolveTaskbarWnd(g_taskbarWnd);
     if (!window) return;
     RunFromWindowThread(window, [](void*) {
         if (!g_unloading) g_applied = ApplyPendingSettings();
@@ -4270,7 +4207,10 @@ static void OnTaskbarRebuilt() {
     // new tree gets its own bounded budget of re-measure passes.
     for (double& width : g_itemContentWidth) width = 0.0;
     g_remeasures = 0;
-    StartRetryThread();
+    // On the taskbar's UI thread, inside Explorer's own taskbar construction:
+    // wake a live retry rather than stopping and waiting for it.
+    g_retryLoop.StartOrWake(ApplyOnTaskbarWindowThread,
+                            [] { return g_applied.load(); }, g_unloading);
 }
 
 static bool HookTaskbarDllSymbols() {

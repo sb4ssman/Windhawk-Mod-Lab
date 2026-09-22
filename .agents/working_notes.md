@@ -69,7 +69,36 @@ complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
 
-## ACTIVE — round 5/6 AI reviews requested Sept 21; wait for them
+## ACTIVE — round 5/6 fixes done Sept 22; awaiting ONE live test of all six
+
+User directed: fix the three blocking items AND take every optional item.
+All done in the lab, uncommitted, nothing pushed. Every mod
+`SUBMISSION_PREFLIGHT_OK`. Test guide:
+[outputs/live-test-2026-09-22.md](outputs/live-test-2026-09-22.md) — the key
+test is a taskbar REBUILD (display-scale change), not an Explorer restart.
+Reviews, analysis and the six drafted replies:
+[_research/ai-reviews-2026-09-21/](../_research/ai-reviews-2026-09-21/).
+
+After the user confirms: push each lab file to its PR branch (one-file diff vs
+upstream/main), post each reply from PowerShell, then `/ai-review` on all six.
+Replies correct round 5's false "removed" claims (#4844, #4843, #5568).
+
+Shared changes this round (all adopters re-assembled):
+- `assemble.py` prunes `//@part Name` ... `//@end` blocks nothing references
+  (comments/strings ignored). Documented in `_templates/README.md`. Renamed
+  collision-prone API: `LoadString`→`LoadStringSetting`, lease
+  `Count/Empty`→`SnapshotCount/HasSnapshots`, slot-lease anchor `Acquire`→
+  `AcquireAtAnchor`.
+- `bounded-retry`: `forceFirstAttempt` removed; new `StartOrWake` (never waits,
+  first attempt forced) and `StopRequested`. Tests:
+  `_templates/tests/bounded-retry-tests.cpp` (pass, build `-static`).
+- arrangement components: `ComputeTree`; uncached `Measure`/`Arrange` removed;
+  OmniButton moved to the plain (non-axis) variant. Legacy layout suite passes
+  against the axis component through a test-only `AvailableRows` shim.
+- property-lease `Refresh` (Privacy Anchor's stale Visibility snapshot).
+- Exit-time audit now rejects `no_destroy` on a `RetryLoop`; removed in 4 mods.
+
+## Superseded — round 5/6 AI reviews requested Sept 21; wait for them
 
 User live-tested all six (Sept 21, all "looking good"). Pushed, CI 5/5 green on
 all six, replies posted on five, `/ai-review` posted on all six; every PR is

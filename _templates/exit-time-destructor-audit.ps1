@@ -38,7 +38,7 @@ foreach ($match in [regex]::Matches($declarationSource, $settingsPattern)) {
         "$($match.Groups['name'].Value): settings are heap-only; remove no_destroy")
 }
 
-$heapOnlyPattern = '(?s)\[\[clang::no_destroy\]\]\s*(?:static\s+)?(?:std::(?:w?string)|lease_column::Lease)\s+(?<name>g_[A-Za-z0-9_]+)\s*(?:\{.*?\}|=.*?)?;'
+$heapOnlyPattern = '(?s)\[\[clang::no_destroy\]\]\s*(?:static\s+)?(?:std::(?:w?string)|lease_column::Lease|\w+::RetryLoop)\s+(?<name>g_[A-Za-z0-9_]+)\s*(?:\{.*?\}|=.*?)?;'
 foreach ($match in [regex]::Matches($declarationSource, $heapOnlyPattern)) {
     $ownershipErrors.Add(
         "$($match.Groups['name'].Value): heap-only owner; remove no_destroy")

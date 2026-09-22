@@ -411,7 +411,6 @@ value when the mod unloads.
 #include <winrt/Windows.Media.Capture.h>
 #include <winrt/Windows.Media.Devices.h>
 #include <winrt/Windows.UI.h>
-#include <winrt/Windows.UI.Text.h>
 #include <winrt/Windows.UI.ViewManagement.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Automation.h>
@@ -486,6 +485,9 @@ inline bool LoadBool(PCWSTR key) {
 //
 // Use a table rather than a chain of comparisons, so the accepted literals and
 // their enum mapping stay adjacent when this mod's settings evolve.
+//
+// Wh_GetStringSetting never returns null - an unset or unreadable setting is
+// L"" - so the value is used as is.
 template <typename T>
 struct Choice {
     wchar_t const* token;
@@ -495,7 +497,7 @@ struct Choice {
 template <typename T, size_t N>
 inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value) return fallback;
     for (auto const& choice : choices) {
         if (_wcsicmp(value, choice.token) == 0) return choice.value;
@@ -512,10 +514,10 @@ inline T LoadChoice(PCWSTR key, Choice<T> const (&choices)[N], T fallback) {
 // wrapper: it is the same contract, it already ships with Windhawk, and a
 // second copy of it is one more thing for a reader to check.
 template <size_t N>
-inline void LoadString(PCWSTR key, wchar_t (&buffer)[N],
-                       PCWSTR fallback = nullptr) {
+inline void LoadStringSetting(PCWSTR key, wchar_t (&buffer)[N],
+                              PCWSTR fallback = nullptr) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    PCWSTR value = setting.get() ? setting.get() : L"";
+    PCWSTR value = setting.get();
     if (!*value && fallback) value = fallback;
     wcsncpy_s(buffer, N, value, _TRUNCATE);
 }
@@ -529,8 +531,6 @@ inline void LoadString(PCWSTR key, wchar_t (&buffer)[N],
 namespace privacy_anchor_color_tokens {
 
 using winrt::Windows::UI::Color;
-using winrt::Windows::UI::Xaml::Media::Brush;
-using winrt::Windows::UI::Xaml::Media::SolidColorBrush;
 
 // Reported when the Windows accent color cannot be read, so the mod can log.
 using AccentErrorFn = void (*)();
@@ -589,17 +589,6 @@ inline bool Parse(wchar_t const* value, Color& out,
                BYTE(packed)};
     }
     return true;
-}
-
-// nullptr means "no color here". Never a fallback brush — a caller that wrote
-// a default color on parse failure would make an empty setting paint.
-inline Brush ParseBrush(wchar_t const* value,
-                        AccentErrorFn onAccentError = nullptr) {
-    Color color{};
-    if (!Parse(value, color, onAccentError)) return nullptr;
-    SolidColorBrush brush;
-    brush.Color(color);
-    return brush;
 }
 
 }  // namespace privacy_anchor_color_tokens
@@ -815,8 +804,9 @@ inline bool Parse(std::wstring const& text, Node& root,
 
 // ---- Token vocabulary -------------------------------------------------------
 //
-// Tokens are stable utility identities, compared case-insensitively so an
-// arrangement remains readable without depending on localized labels.
+// A token is an item's stable IDENTITY, never its displayed label, compared
+// case-insensitively. Labels are not unique, can be localized, empty, or an
+// emoji, and renaming one would silently break an arrangement the user wrote.
 
 inline bool TokenIs(std::wstring const& token, wchar_t const* name) {
     size_t i = 0;
@@ -958,19 +948,15 @@ inline void ArrangeCached(Node const& node, Config const& config,
     }
 }
 
-// Parse + measure + arrange in one call. Returns false only on a parse error
-// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
-// should then fall back to the auto expression and log that it did.
-// placements come back in expression order; totalSize is the group's bounding
-// box INCLUDING outer padding. A per-item offset shifts its leaf without
-// changing totalSize or any neighbor.
-inline bool Compute(std::wstring const& text, Config const& config,
-                    SizeResolver const& resolve,
-                    std::vector<Placement>& placements, Size& totalSize,
-                    ParseError* error = nullptr) {
-    Node root;
-    if (!Parse(text, root, error))
-        return false;
+// Measure + arrange a tree that is already parsed. For a mod that rewrites the
+// tree between Parse and layout - hiding an absent item, dropping a duplicate
+// - rather than laying out the text exactly as typed. placements come back in
+// expression order; totalSize is the group's bounding box INCLUDING outer
+// padding. A per-item offset shifts its leaf without changing totalSize or any
+// neighbor.
+inline void ComputeTree(Node const& root, Config const& config,
+                        SizeResolver const& resolve,
+                        std::vector<Placement>& placements, Size& totalSize) {
     // One cache for both passes: Arrange re-measures the same nodes at every
     // level, so sharing it is what keeps the whole call linear in node count.
     MeasureCache cache;
@@ -979,12 +965,25 @@ inline bool Compute(std::wstring const& text, Config const& config,
     if (inner.Empty()) {
         // No visible items: an empty group has no padded box either.
         totalSize = {};
-        return true;
+        return;
     }
     ArrangeCached(root, config, resolve, config.padX, config.padY, placements,
                   cache, &inner);
     totalSize = {inner.width + config.padX * 2.0,
                  inner.height + config.padY * 2.0};
+}
+
+// Parse + measure + arrange in one call. Returns false only on a parse error
+// (unbalanced parentheses, malformed offset, trailing garbage) — the caller
+// should then fall back to the auto expression and log that it did.
+inline bool Compute(std::wstring const& text, Config const& config,
+                    SizeResolver const& resolve,
+                    std::vector<Placement>& placements, Size& totalSize,
+                    ParseError* error = nullptr) {
+    Node root;
+    if (!Parse(text, root, error))
+        return false;
+    ComputeTree(root, config, resolve, placements, totalSize);
     return true;
 }
 
@@ -1092,11 +1091,10 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 
 // ---- Items the arrangement forgot -------------------------------------------
 //
-// A hand-written arrangement names the utilities that existed when it was
-// written. Windows shows and hides these live — the touch keyboard comes and
-// goes, the taskbar settings toggle the rest — so a utility that appears later
-// is in no group, resolves to nothing, and silently vanishes from the taskbar.
-// That is a trap, hence Layout.NewItems:
+// A hand-written arrangement names the items that existed when it was written.
+// When the set changes at runtime, an item that appears later is in no group,
+// resolves to nothing, and silently vanishes from the taskbar. That is a trap,
+// hence Layout.NewItems:
 //
 //   Append (default) — arrange the unlisted items automatically and put that
 //                      block after everything the user wrote, so a new item is
@@ -1108,10 +1106,10 @@ inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
 // arrangement when they next edit it.
 
 // Whether a token the user wrote refers to the same item as the one expected.
-// A plain case-insensitive name match is WRONG here, because the vocabulary
-// accepts aliases: "chevron" and "overflow" are one button, and comparing them
-// as strings makes an aliased item look missing and get appended a second
-// time. SameUtility below supplies the identity comparison.
+// Defaults to a case-insensitive name match, which is WRONG for a vocabulary
+// with aliases: two names for one item compare unequal as strings, so the
+// aliased item looks missing and is appended a second time. A mod with aliases
+// supplies its own identity comparison.
 using TokenMatcher =
     std::function<bool(std::wstring const& placed, std::wstring const& expected)>;
 
@@ -1236,6 +1234,23 @@ public:
         snapshots_.clear();
     }
 
+    // The OWNER of the element changed a property the lease already holds.
+    // Re-read its local value into the snapshot, so a restore hands back what
+    // the owner last set rather than what it had set when the lease began.
+    // Call it from a property-changed callback, and only for a write that is
+    // not the mod's own - re-reading the mod's own value would make the lease
+    // "restore" the mod's change. A property never tracked is left alone.
+    void Refresh(DependencyObject const& object,
+                 DependencyProperty const& property) {
+        if (!object || !property) return;
+        for (auto& snapshot : snapshots_) {
+            if (snapshot.object == object && snapshot.property == property) {
+                snapshot.localValue = object.ReadLocalValue(property);
+                return;
+            }
+        }
+    }
+
     // Put ONE object's properties back and forget them, leaving every other
     // object's snapshots alone. For the case where a mod discovers that an
     // element it began borrowing was never actually its business — handing
@@ -1263,14 +1278,6 @@ public:
         }
     }
 
-    // Drop the snapshots WITHOUT restoring. For the case where the elements
-    // are already gone (an Explorer rebuild threw the tree away), so restoring
-    // would only throw. Do not use it to "skip" a restore that could run.
-    void Abandon() { snapshots_.clear(); }
-
-    size_t Count() const { return snapshots_.size(); }
-    bool Empty() const { return snapshots_.empty(); }
-
 private:
     std::vector<Snapshot> snapshots_;
 };
@@ -1283,7 +1290,6 @@ private:
 namespace privacy_anchor_taskbar_window {
 
 // ---- Window discovery -------------------------------------------------------
-
 
 inline HWND FindCurrentProcessTaskbarWnd() {
     HWND result = nullptr;
@@ -1591,8 +1597,6 @@ struct Metrics {
     // The extent the arranged group has to fit INTO: the taskbar's height when
     // it runs across the screen, its width when it runs down the side.
     double constrainedDip = 0.0;
-    // The extent it can run ALONG.
-    double alongDip = 0.0;
 };
 
 inline Metrics GetMetrics(HWND taskbarWnd) {
@@ -1612,13 +1616,8 @@ inline Metrics GetMetrics(HWND taskbarWnd) {
     // that shape, so this needs no cooperation from whatever moved it.
     metrics.orientation =
         height > width ? Orientation::Vertical : Orientation::Horizontal;
-    if (metrics.orientation == Orientation::Horizontal) {
-        metrics.constrainedDip = height * scale;
-        metrics.alongDip = width * scale;
-    } else {
-        metrics.constrainedDip = width * scale;
-        metrics.alongDip = height * scale;
-    }
+    bool horizontal = metrics.orientation == Orientation::Horizontal;
+    metrics.constrainedDip = (horizontal ? height : width) * scale;
     return metrics;
 }
 
@@ -1852,14 +1851,6 @@ inline bool AcquireAt(Panel const& parent, int slot,
 
     lease = {markerName, slot, kind};
     return true;
-}
-
-inline bool Acquire(Panel const& parent, Anchor anchor,
-                    std::wstring const& markerName, Lease& lease) {
-    int slot = -1;
-    if (!parent || !ResolveSlot(parent, anchor, slot))
-        return false;
-    return AcquireAt(parent, slot, markerName, lease);
 }
 
 // Live index of the lease marker. Other mods inject and remove siblings around
@@ -2390,7 +2381,7 @@ static void LoadSettings(ModSettings& s) {
     s.camera = sio::LoadBool(L"Content.Camera");
     s.copilot = sio::LoadBool(L"Content.Copilot");
 
-    sio::LoadString(L"Layout.Arrangement", s.arrangement, L"auto");
+    sio::LoadStringSetting(L"Layout.Arrangement", s.arrangement, L"auto");
 
     static constexpr sio::Choice<ngl::FillOrder> kFillOrders[] = {
         {L"rows", ngl::FillOrder::Rows},
@@ -2560,6 +2551,9 @@ static std::atomic<bool> g_taskbarDarkTheme{true};
 // thread. Controlled unload still clears them explicitly on the taskbar UI
 // thread in Wh_ModUninit.
 [[clang::no_destroy]] static Grid g_syntheticGrid = nullptr;
+// Mirrors "g_syntheticGrid is a finished, published bar" for the worker thread,
+// which must not read the projected type the UI thread writes.
+static std::atomic<bool> g_syntheticBarLive{false};
 [[clang::no_destroy]] static FrameworkElement g_locIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_micIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_camIcon = nullptr;
@@ -5103,6 +5097,7 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     }
 
     g_syntheticGrid   = bar;
+    g_syntheticBarLive = true;
     // Every callback on the bar lives on this window's thread. Remember it
     // here, where injection succeeds on every path (the IconView Loaded path
     // never reaches the end of ApplyStyle), so teardown dispatches to the
@@ -5195,6 +5190,7 @@ static void RemoveSyntheticIcons() {
     }
 
     g_syntheticGrid    = nullptr;
+    g_syntheticBarLive = false;
     g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
     g_locSlot = nullptr; g_micSlot = nullptr; g_camSlot = nullptr; g_copilotSlot = nullptr;
     g_locGlowIcon = nullptr; g_micGlowIcon = nullptr; g_camGlowIcon = nullptr; g_copilotGlowIcon = nullptr;
@@ -5288,10 +5284,19 @@ static PrivacyState* FindPrivacyStateByIconView(FrameworkElement const& iconView
 // synchronously, which calls back in here. RestoreObject is mid-iteration over
 // its snapshot list at that moment, so the nested call must not touch the
 // lease; the guard turns it into a no-op.
+//
+// g_ownVisibilityWrite marks every Visibility write this function makes, so
+// the visibility callback can tell the mod's own writes from Windows' - only
+// Windows' may refresh the snapshot the lease restores on unload.
+static bool g_ownVisibilityWrite = false;
+
 static void ApplyNativeSuppression(FrameworkElement const& iconView,
                                    PrivacyState const& state) {
-    static bool restoring = false;
-    if (restoring) return;
+    if (g_ownVisibilityWrite) return;
+    struct OwnWrite {
+        OwnWrite() { g_ownVisibilityWrite = true; }
+        ~OwnWrite() { g_ownVisibilityWrite = false; }
+    };
     bool suppress = g_settings.suppressNativeIndicators && state.typeKnown &&
                     SyntheticSlotReplaces(state.type);
     if (suppress) {
@@ -5300,14 +5305,14 @@ static void ApplyNativeSuppression(FrameworkElement const& iconView,
             return;
         TrackProperty(iconView, UIElement::VisibilityProperty());
         TrackProperty(iconView, UIElement::IsHitTestVisibleProperty());
+        OwnWrite own;
         iconView.Visibility(Visibility::Collapsed);
         iconView.IsHitTestVisible(false);
     } else if (g_lease) {
-        restoring = true;
+        OwnWrite own;
         g_lease->RestoreObject(iconView, [] {
             Wh_Log(L"[Privacy] Failed to restore an unreplaced icon");
         });
-        restoring = false;
     }
 }
 
@@ -5388,12 +5393,15 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
                         SetPrivacyActive(state->type, false);
                 } else {
                     auto detectedType = DetectPrivacyType(newText);
-                    if (state->typeKnown && state->type != detectedType)
-                        SetPrivacyActive(state->type, false);
+                    bool hadType = state->typeKnown;
+                    auto previousType = state->type;
+                    // Record the new type BEFORE calling SetPrivacyActive: it
+                    // can re-enter XAML, so no pointer into the vector is held
+                    // across it, and the entry is re-found afterwards.
                     state->type = detectedType;
                     state->typeKnown = true;
-                    // SetPrivacyActive can re-enter XAML; re-find the entry
-                    // rather than holding a pointer into the vector across it.
+                    if (hadType && previousType != detectedType)
+                        SetPrivacyActive(previousType, false);
                     SetPrivacyActive(detectedType, true);
                     for (auto& s : g_privacyStates) {
                         if (s.textBlockRef.get() != tbRef) continue;
@@ -5411,9 +5419,14 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
         UIElement::VisibilityProperty(),
         [](DependencyObject sender, DependencyProperty) {
             try {
-                if (g_unloading) return;
+                if (g_unloading || g_ownVisibilityWrite) return;
                 auto iconView = sender.try_as<FrameworkElement>();
-                if (!iconView || iconView.Visibility() == Visibility::Collapsed) return;
+                if (!iconView) return;
+                // Windows set this, not the mod: it is now the value to hand
+                // back on unload, whichever way it went.
+                if (g_lease)
+                    g_lease->Refresh(iconView, UIElement::VisibilityProperty());
+                if (iconView.Visibility() == Visibility::Collapsed) return;
                 if (auto* s = FindPrivacyStateByIconView(iconView))
                     ApplyNativeSuppression(iconView, *s);
             } catch (...) {
@@ -5779,7 +5792,7 @@ void Wh_ModAfterInit() {
         // Phase 1: retry injection up to 5×
         for (int i = 0; i < 5 && !g_unloading; i++) {
             if (WaitForSingleObject(stop, 2000) != WAIT_TIMEOUT) return 0;
-            if (g_syntheticGrid) break;
+            if (g_syntheticBarLive) break;
             Wh_Log(L"[AfterInit] Retry %d", i + 1);
             ApplyStyleOnWindowThread();
         }
