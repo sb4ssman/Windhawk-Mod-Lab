@@ -5,6 +5,28 @@ Windhawk process status. Historical details and all deferred work remain in
 [the previous handoff](knowledge/lab-handoff-before-2026-09-09.md); its status
 claims are historical and often superseded. Durable rules: [README](README.md).
 
+## PUBLISHED Oct 6 — OmniButton 2.1 and Clock Spacer 1.1 (round-6 fixes)
+
+Both live-tested by the user (installed sources == lab, verified by diff).
+- #4443 Clock Spacer: pushed `85d9f69d` (round-6 fixes from the Sept 22
+  checkpoint), reply posted, `/ai-review` requested.
+- #4855 OmniButton: title now v2.1, PR description rewritten for 2.1,
+  pushed `f2516de9`, reply (round-6 + 2.1 summary) posted, `/ai-review`
+  requested. Posted texts:
+  [replies/posted-2026-10-06/](../_research/ai-reviews-2026-09-21/replies/posted-2026-10-06/).
+- Next: when the bot reviews land, save them and verify each finding before
+  acting. `/ready-for-reviewer` only on a clean round.
+- Tree dump: NOT submitted — v1.0 never run. Local fork branch
+  `add-mod-lab-taskbar-tree-dump` ready (unpushed). Test steps + PR draft:
+  [outputs/tree-dump-publish.md](outputs/tree-dump-publish.md).
+- Privacy Anchor, VD Switcher, Folder Menus, Tray Utility 2.1: still need the
+  user's live test; their round-6 replies are drafted in
+  `_research/ai-reviews-2026-09-21/replies/` (OmniButton's needed rewriting
+  for 2.1 — check the others the same way before posting).
+- `_research/tree-dumps/` is deliberately uncommitted: the Oct 4 dumps
+  contain the user's window titles (Gmail, CalFresh, LinkedIn...). Redact or
+  gitignore before ever committing.
+
 ## ACTIVE — 2.1 pass: every mod works on every taskbar edge (Oct 4)
 
 User direction (Oct 4): fix the family for Windows' native taskbar positions
