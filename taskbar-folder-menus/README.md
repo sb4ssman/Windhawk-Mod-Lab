@@ -74,15 +74,33 @@ the mod's settings.
 
 **Placement → Position → After pinned/running app icons** places the whole
 toolbar after the rendered app buttons and follows them as apps open and close.
-It reserves space and stops at the tray's left edge. If the taskbar cannot fit
+It reserves space and stops at the tray's edge. If the taskbar cannot fit
 the toolbar, it hides until enough room is available. Other positions place the
 group before notification icons, before the OmniButton, before/after the clock,
-or after Show Desktop. This mod targets the primary horizontal Windows 11 taskbar.
+or after Show Desktop. This mod targets the primary Windows 11 taskbar.
+
+## Taskbar position
+
+Windows 11 can put the taskbar on any edge (Settings → Personalization →
+Taskbar → Taskbar behaviors, on builds that have the setting). The toolbar
+follows the edge Windows reports and is rebuilt when the taskbar moves, so it
+loads on a side taskbar too.
+
+- **Top** behaves exactly like bottom.
+- **Left or right**: an arrangement you write is laid out exactly as
+  written - `|` side by side, `,` stacked - and every `[dx,dy]` nudge
+  moves a button `dx` right and `dy` down, on every edge. `auto` fits the
+  taskbar's width instead of its height, filling rows first or columns
+  first as set. Nothing is mirrored between left and right. *After app icons*
+  places the toolbar below the app buttons.
+- A taskbar rotated by another mod (for example Vertical Taskbar with its
+  native mode turned off) is left alone; the log says so.
 
 ## Layout
 
 **Layout → Arrangement** defaults to `auto`, which fits the available taskbar
-height and logs its equivalent expression. Use folder numbers from the list:
+height and logs its equivalent expression. Use folder numbers from the list.
+Order of operations: parentheses first, then `,`, then `|`.
 
 | Expression | Result |
 |---|---|

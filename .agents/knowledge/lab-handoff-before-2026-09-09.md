@@ -89,6 +89,12 @@ v2.0", head `6f71b39f`, all five CI jobs green. Diff vs `upstream/main` is one
 ADDED file, `mods/tray-privacy-indicator-anchor.wh.cpp` (named for its `@id`,
 not the lab folder), byte-identical to the lab copy.
 
+> **WRONG NAME — corrected 2026-09-24.** That `@id` and title were never the
+> user's. An agent added the `tray-` prefix; the mod is **Privacy Indicator
+> Anchor** / `privacy-indicator-anchor`. See
+> [mod-identity.md](../mod-identity.md). The PR still carries the wrong name
+> and file path, which is an open item, not a record of intent.
+
 **Both READMEs were rewritten first, and they needed it.** They were still
 v1.0-era: an entire "Icon order and grid layout" section documenting
 `itemOrder`, `gridMode`, `smartLayout`, `gridRows`/`gridColumns` and

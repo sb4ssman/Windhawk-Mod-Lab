@@ -5,6 +5,107 @@ Windhawk process status. Historical details and all deferred work remain in
 [the previous handoff](knowledge/lab-handoff-before-2026-09-09.md); its status
 claims are historical and often superseded. Durable rules: [README](README.md).
 
+## ACTIVE — 2.1 pass: every mod works on every taskbar edge (Oct 4)
+
+User direction (Oct 4): fix the family for Windows' native taskbar positions
+(Bottom/Top/Left/Right, Sept 2026 update) before any more testing or pushing.
+Every changed mod goes to 2.1; one live test per mod at the end. Clock Spacer
+is unaffected (it only rewrites `%s%` inside TCC's clock text) and stays 1.1.
+The untested Sept 22 round (`e37222d`) and the Privacy Anchor name fix ride
+along in the same pass. Machine is now 26300.9550 (26H2); native positioning
+is active on it. Clock height on a side taskbar: Styler's job, out of scope.
+
+Decided:
+- READ Windows' own edge per taskbar (XAML visual states `DockingStates` /
+  `OrientationStates`), like m417z — not the aspect-ratio test.
+- Arrangement strings stay one string for all edges. Precedence: `()`, then
+  `,`, then `|`. **Everything is LITERAL on every edge (user, Oct 6, after
+  live-testing both transposition schemes):** a written arrangement is laid
+  out exactly as written, nudges/padding/offsets are screen pixels, and
+  screen-named places mean what they say. Only GENERATED layout adapts:
+  `auto` and the appended block fill across a side taskbar's width (component
+  `across` parameter). No mirroring. Transposition code is deleted.
+  Facts: [_research/taskbar-orientation-2026-10.md](../_research/taskbar-orientation-2026-10.md).
+- If a layout reads badly on another edge, the user re-nudges. No per-edge
+  override setting.
+
+Progress (Oct 4):
+- Tree dumps DONE (findings in the research note). Styler clock rule recorded
+  in [knowledge/styler-recipes.md](knowledge/styler-recipes.md).
+- Shared code DONE: `taskbar-metrics` gained `ReadDockedEdge` (RootGrid
+  DockingStates), `CanArrange` (stand down only when ROTATED: window runs down
+  a side while Windows reports a horizontal edge, or edge unknown),
+  `RunsDownSide`, `EdgeName`, `StartEdgeWatch`/`StopEdgeWatch` (TaskbarFrame
+  SizeChanged; a move is a re-layout, not a rebuild). `LayoutModelApplies`
+  kept as a pruned legacy part until every mod migrates. Both arrangement
+  components gained `Config::transposed` (padX along / padY across, nudges
+  swap). Tests: `_templates/tests/arrangement-transpose-tests.cpp` pass.
+- OmniButton 2.1 DONE, preflight OK, NOT live-tested: items host is a Panel
+  (StackPanel bottom/top, WrapGrid sides — Windows swaps it in place);
+  WrapGrid set to one footprint cell per row; slot origins measured on the
+  WrapGrid; button MinHeight on sides (Windows pins Height 38); offsets swap;
+  edge watch + "host detached" check schedule a full re-apply. README updated.
+- Tray Utility, Privacy Anchor, Folder Menus, VD Switcher 2.1 DONE, all six
+  `SUBMISSION_PREFLIGHT_OK` (Clock Spacer unchanged at 1.1). NOT live-tested.
+  `start-lane-placement` is axis-aware (Left/Right of Start = above/below on
+  a side taskbar); Folder Menus now assembles `taskbar-metrics`; VD's own
+  Start placement and hover preview are side-aware. `LayoutModelApplies`
+  removed from the component (no users). Recipe + settings-profiles docs
+  updated to the edge model.
+- Oct 6 live test, round 1 (Windows updated again; clock height now right
+  natively): Clock Spacer OK. OmniButton OK at bottom, side "a disaster" —
+  screenshots showed only wifi drawn in a tall empty button. Cause: reshaping
+  Windows' side WrapGrid to one footprint cell per row pushed volume and the
+  battery slot into rows outside the grid's height, which are never drawn.
+  FIXED (preflight OK, untested): the side path now leaves the WrapGrid as
+  Windows built it (only MinHeight raised), keeps every slot in its native
+  cell, and centers each drawn glyph on its arranged cell by RenderTransform
+  (`ApplySideTaskbarLayout`). Bottom/top StackPanel path untouched. VD OK bottom/top; on sides "Fill order did
+  nothing" = all desktops fit one line across 160 px (not a bug), plus a real
+  bug fixed: transposition inverted "rows first" and Task View above/below
+  on screen. Nudges made screen-literal family-wide (all five preflight OK).
+- Oct 6 round 2: OmniButton side path draws all items now. User's
+  `percent | battery | volume | wifi` showed `wifi` is not a token (network
+  was appended) — `wifi` added as an alias and unknown names are logged.
+  Bottom->top left the OmniButton low until a re-apply: the edge watch now
+  also follows RootGrid's DockingStates (fires on same-size moves). Written
+  shapes made literal (above). Tests renamed
+  `_templates/tests/arrangement-side-taskbar-tests.cpp` (pass). All five
+  preflight OK, untested.
+- **Tree-dump tool to be PUBLISHED** (user, Oct 6) as "Mod-Lab: Taskbar
+  Tree Dump" (name set by user). Polished to v1.0, moved Oct 6 to
+  [tool-mods/mod-lab-taskbar-tree-dump/](../tool-mods/mod-lab-taskbar-tree-dump/),
+  `SUBMISSION_PREFLIGHT_OK`, untested since the
+  rewrite: configurable output folder (env vars, default
+  `%USERPROFILE%\Documents\Taskbar Tree Dumps`), text/JSON, subtree filter,
+  text content off by default (privacy), dump on load/change toggles,
+  deterministic output (no HWNDs/pointers). Identity CONFIRMED by the user
+  Oct 6: `@id` `mod-lab-taskbar-tree-dump`, `@name` "Mod-Lab: Taskbar Tree
+  Dump", folder `tool-mods/` (recorded in mod-identity.md). Publishes with
+  the 2.1 batch, after the live test.
+- **OmniButton side-taskbar spacing** (Oct 6): user wants defaults right
+  with NO nudges ("get it right once ourselves"). Tree dumps showed the
+  centre was already right (WrapGrid 160@0, highlight 152@4, both centred on
+  80); the uneven gaps came from slot-measured cells (network slot gets the
+  WrapGrid's first-cell 4px pad -> 28 vs 24; battery 20 and percent text+2
+  carry no inset). Side cells are now drawn width + 4px each side (even 8px
+  gaps); bottom/top sizing unchanged. Measured widths are forgotten on every
+  edge change. Preflight OK, untested: retest left with zero nudges.
+- **User wants VD Switcher on Windows 10** (two Win10 machines). Separate
+  track after the 2.1 pass: Win32 UI hosted in the classic taskbar; desktop
+  engine (registry + build-specific COM IIDs) is mostly portable. Not started.
+- **Next: ONE live test of all six:**
+  [outputs/live-test-2026-10-04.md](outputs/live-test-2026-10-04.md)
+  (supersedes the Sept 22 guide; its items are folded in). Then: decide the
+  Privacy Anchor PR rename, push, reply on #5568/#5530, `/ai-review`.
+
+Next (superseded): user runs the tree-dump diagnostic
+(now [tool-mods/mod-lab-taskbar-tree-dump/](../tool-mods/mod-lab-taskbar-tree-dump/), writes to
+`_research/tree-dumps/`) at all four edges. Then shared components (edge
+detection, edge transform, edge/size watcher, narrowed stand-down, side-taskbar
+anchors), then mods in order: OmniButton, Tray Utility, Privacy Anchor,
+Folder Menus (answers PeTomczyk on #5568), VD Switcher.
+
 ## RESOLVED — SystemTrayFrameGrid StackPanel break, live-confirmed Sept 18
 
 KB5129195 changed the tray panel's type while keeping its name, so every
@@ -68,6 +169,28 @@ Old notes wrongly said Tray Utility still needed the rework: git shows it
 complete Aug 5, six checks green then, **not live-tested**. Working installed
 builds are not evidence of live tests of newer lab code. OmniButton/Privacy
 have no maintainer review newer than July 23 despite August PR updates.
+
+## BLOCKING — Privacy Indicator Anchor was renamed by an agent (Sept 24)
+
+The mod's real name is **Privacy Indicator Anchor** / `privacy-indicator-anchor`.
+An agent added a `tray-` prefix; it went out with PR #4843 on 2026-08-03 and
+every note since recorded the wrong name as fact. The user caught it Sept 24.
+Canonical values now live in [mod-identity.md](mod-identity.md) — read it every
+session, and never edit a mod's `@id`, `@name` or `@description`.
+
+Corrected in the lab (preflight OK): source header, folder README, embedded
+README, `tools/package-test-candidates.ps1`. Archives and the frozen
+`outputs/test-candidates-2026-09-11/` snapshots keep the old name as history.
+
+STILL WRONG, and not yet acted on:
+- PR #4843's title and its file path, `mods/tray-privacy-indicator-anchor.wh.cpp`.
+- The fork branch `add-tray-privacy-indicator-anchor` (a branch cannot be
+  renamed on an open PR).
+- The user's installed copy: Windhawk keys settings by `@id`, so this reinstalls
+  as a new mod and the old `local@tray-privacy-indicator-anchor` entry remains.
+
+How to resolve each of these has NOT been researched or decided. Do not guess,
+and do not push anything, until the user settles it.
 
 ## ACTIVE — round 5/6 fixes done Sept 22; awaiting ONE live test of all six
 

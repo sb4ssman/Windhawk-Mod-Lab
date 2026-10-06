@@ -14,6 +14,9 @@ using winrt::Windows::UI::Xaml::Controls::Grid;
 using winrt::Windows::UI::Xaml::Media::TranslateTransform;
 using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
 
+// BEFORE or AFTER Start along the taskbar. On a bottom or top taskbar that is
+// left or right of Start; on a left or right taskbar, where Start sits at the
+// top and the task list runs down, Left means ABOVE Start and Right BELOW it.
 enum class Side {
     Left,
     Right,
@@ -32,7 +35,16 @@ struct Lease {
     winrt::event_token layoutToken{};
     Side side = Side::Left;
     double spacing = 0.0;
+    // A left or right taskbar: the lane runs vertically. Fixed for the
+    // lease's life; a move between edges re-acquires.
+    bool vertical = false;
 };
+
+// The leading edge of a margin along the lane: Left across a horizontal
+// taskbar, Top down a vertical one.
+inline double& LaneLead(Thickness& thickness, bool vertical) {
+    return vertical ? thickness.Top : thickness.Left;
+}
 
 inline void RestoreLocalValue(DependencyObject const& object,
                               DependencyProperty const& property,
@@ -98,50 +110,60 @@ inline bool Position(Lease& lease) noexcept {
         return false;
 
     try {
-        double groupWidth = lease.group.Width() +
-                            lease.groupOriginalMargin.Left +
-                            lease.groupOriginalMargin.Right;
-        double groupHeight = lease.group.Height() +
-                             lease.groupOriginalMargin.Top +
-                             lease.groupOriginalMargin.Bottom;
+        // ALONG is the lane's direction (x on a horizontal taskbar, y on a
+        // vertical one); ACROSS is the taskbar's thickness. Every quantity
+        // below is read along or across, so one arithmetic serves both.
+        bool vertical = lease.vertical;
+        auto const& original = lease.groupOriginalMargin;
+        double groupWidth = lease.group.Width() + original.Left + original.Right;
+        double groupHeight =
+            lease.group.Height() + original.Top + original.Bottom;
+        double groupAlong = vertical ? groupHeight : groupWidth;
+        double groupAcross = vertical ? groupWidth : groupHeight;
         bool startHidden =
             lease.startButton.Visibility() == Visibility::Collapsed;
-        double startWidth = lease.startButton.ActualWidth();
-        double startHeight = lease.startButton.ActualHeight();
-        if (startWidth <= 0.0 && !startHidden)
-            startWidth = 44.0;
-        if (startHeight <= 0.0)
-            startHeight = groupHeight;
+        double startAlong = vertical ? lease.startButton.ActualHeight()
+                                     : lease.startButton.ActualWidth();
+        double startAcross = vertical ? lease.startButton.ActualWidth()
+                                      : lease.startButton.ActualHeight();
+        if (startAlong <= 0.0 && !startHidden)
+            startAlong = 44.0;
+        if (startAcross <= 0.0)
+            startAcross = groupAcross;
 
-        // rawX is Start's live layout position with our own counter-shift
+        // rawAlong is Start's live layout position with our own counter-shift
         // backed out. It is re-read on every layout pass, so task-list churn
         // on a center-aligned taskbar re-centers the group naturally.
         auto transform = lease.startButton.TransformToVisual(lease.rootGrid);
         auto point = transform.TransformPoint({0.0f, 0.0f});
         auto existingShift =
             lease.startButton.RenderTransform().try_as<TranslateTransform>();
-        double currentShift = existingShift ? existingShift.X() : 0.0;
-        double rawX = point.X - currentShift;
+        double currentShift =
+            existingShift ? (vertical ? existingShift.Y() : existingShift.X())
+                          : 0.0;
+        double pointAlong = vertical ? point.Y : point.X;
+        double pointAcross = vertical ? point.X : point.Y;
+        double rawAlong = pointAlong - currentShift;
 
         double spacing = std::max(0.0, lease.spacing);
-        double push = groupWidth + spacing;
+        double push = groupAlong + spacing;
         if (lease.taskItemsPanel) {
             auto margin = lease.taskItemsPanel.Margin();
-            double needed =
-                lease.taskItemsPanelOriginalMargin.Left + push;
-            if (std::fabs(margin.Left - needed) > 0.5) {
-                margin.Left = needed;
+            auto originalPanel = lease.taskItemsPanelOriginalMargin;
+            double needed = LaneLead(originalPanel, vertical) + push;
+            if (std::fabs(LaneLead(margin, vertical) - needed) > 0.5) {
+                LaneLead(margin, vertical) = needed;
                 lease.taskItemsPanel.Margin(margin);
             }
         }
 
         // The Start counter-shift is a constant per mode, not an absolute-
         // anchor correction. When Start rides the repeater-margin push, room
-        // for a Left group already opens at the block's left edge (no shift),
-        // and a Right group needs Start pulled back so the gap opens between
-        // Start and the task items. When Start sits outside the repeater the
-        // roles invert: the pushed items leave the Right gap by themselves,
-        // and a Left group needs Start pushed out of the way instead.
+        // for a Left group already opens at the block's leading edge (no
+        // shift), and a Right group needs Start pulled back so the gap opens
+        // between Start and the task items. When Start sits outside the
+        // repeater the roles invert: the pushed items leave the Right gap by
+        // themselves, and a Left group needs Start pushed out of the way.
         double neededShift;
         if (lease.side == Side::Left)
             neededShift = lease.startInTaskItemsPanel ? 0.0 : push;
@@ -156,33 +178,39 @@ inline bool Position(Lease& lease) noexcept {
                               lease.startRenderTransformLocal);
         } else if (std::fabs(currentShift - neededShift) > 0.5) {
             TranslateTransform startShift;
-            startShift.X(neededShift);
+            if (vertical)
+                startShift.Y(neededShift);
+            else
+                startShift.X(neededShift);
             lease.startButton.RenderTransform(startShift);
         }
 
         // Place the group relative to where Start actually ends up.
-        double startFinalX = rawX + neededShift;
-        double left = lease.side == Side::Left
-                          ? startFinalX - groupWidth - spacing
-                          : startFinalX + startWidth + spacing;
-        if (left < 0.0)
-            left = 0.0;
+        double startFinal = rawAlong + neededShift;
+        double lead = lease.side == Side::Left
+                          ? startFinal - groupAlong - spacing
+                          : startFinal + startAlong + spacing;
+        if (lead < 0.0)
+            lead = 0.0;
 
-        // Center against the taskbar root; Start's own box is not a reliable
-        // vertical reference.
-        double rootHeight = lease.rootGrid.ActualHeight();
-        double startCenteredTop = point.Y + (startHeight - groupHeight) / 2.0;
-        double top = rootHeight > 0.0 ? (rootHeight - groupHeight) / 2.0
-                                      : startCenteredTop;
-        if (top < 0.0)
-            top = 0.0;
-        double rootWidth = lease.rootGrid.ActualWidth();
-        if (rootWidth > 0.0 && left + groupWidth > rootWidth)
-            left = std::max(0.0, rootWidth - groupWidth);
+        // Center across the taskbar root; Start's own box is not a reliable
+        // reference for the thickness.
+        double rootAcross = vertical ? lease.rootGrid.ActualWidth()
+                                     : lease.rootGrid.ActualHeight();
+        double startCentered =
+            pointAcross + (startAcross - groupAcross) / 2.0;
+        double across = rootAcross > 0.0 ? (rootAcross - groupAcross) / 2.0
+                                         : startCentered;
+        if (across < 0.0)
+            across = 0.0;
+        double rootAlong = vertical ? lease.rootGrid.ActualHeight()
+                                    : lease.rootGrid.ActualWidth();
+        if (rootAlong > 0.0 && lead + groupAlong > rootAlong)
+            lead = std::max(0.0, rootAlong - groupAlong);
 
         auto target = lease.groupOriginalMargin;
-        target.Left += left;
-        target.Top += top;
+        target.Left += vertical ? across : lead;
+        target.Top += vertical ? lead : across;
         auto current = lease.group.Margin();
         if (std::fabs(current.Left - target.Left) > 0.5 ||
             std::fabs(current.Top - target.Top) > 0.5) {
@@ -223,8 +251,11 @@ inline bool Release(Lease& lease) noexcept {
     return true;
 }
 
+// `vertical` is true on a left or right taskbar (taskbar_metrics::
+// RunsDownSide); the lane then runs down from Start instead of across.
 inline bool Acquire(FrameworkElement const& root, Grid const& group,
-                    Side side, double spacing, Lease& lease) {
+                    Side side, double spacing, Lease& lease,
+                    bool vertical = false) {
     if (!root || !group || lease.group || group.Width() <= 0.0 ||
         group.Height() <= 0.0)
         return false;
@@ -242,6 +273,7 @@ inline bool Acquire(FrameworkElement const& root, Grid const& group,
         UIElement::RenderTransformProperty());
     lease.side = side;
     lease.spacing = spacing;
+    lease.vertical = vertical;
 
     group.HorizontalAlignment(HorizontalAlignment::Left);
     group.VerticalAlignment(VerticalAlignment::Top);

@@ -87,6 +87,9 @@ field that does. Its default value is the word `auto`:
   master | (1, 2)    Task View button left of a stacked pair
   ```
 
+  Order of operations: parentheses first, then `,`, then `|` — so
+  `1 | 2, 3 | 4` is three columns with `2` stacked over `3`.
+
   Buttons are named by desktop number; the Task View button is `master` or
   `taskview`. `desktop2` also works as a readable alias for `2`, and names are
   case-insensitive. A separator is always required — `1 (2 | 3)` is an error,
@@ -115,7 +118,8 @@ A parenthesized group takes an offset too, moving everything inside it:
 
 Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole group instead, use `Adjust` → horizontal and
-vertical offset.
+vertical offset. Nudges and offsets are screen pixels on every taskbar edge —
+see [Taskbar position](#taskbar-position).
 
 **Desktops you create later.** An arrangement you write names the desktops that
 existed when you wrote it. Create another one and it is in no group, so by
@@ -268,6 +272,26 @@ keeps the native behavior described for that setting — including the Active
 desktop color, where empty means the current desktop's button keeps the plain
 native surface with no highlight at all.
 
+## Taskbar position
+
+Windows 11 can put the taskbar on any edge (Settings → Personalization →
+Taskbar → Taskbar behaviors, on builds that have the setting). The mod reads
+the edge Windows reports and rebuilds the bar when the taskbar moves.
+
+- **Top** behaves exactly like bottom.
+- **Left or right**: an arrangement you write is laid out exactly as
+  written - `|` side by side, `,` stacked - and every `[dx,dy]` nudge
+  moves a button `dx` right and `dy` down, on every edge. `auto` fits the
+  taskbar's width instead of its height, filling rows first or columns
+  first as set. Nothing is mirrored between left and right. The Task View button's
+  *before/after* and *above/below* are screen places too. The taskbar is
+  wide enough that a handful of desktops fit in one row across it, and
+  then `Fill order` and *Short row or column* have nothing to change.
+  *Left of Start* and *Right of Start* become above and below Start, and
+  the hover preview opens beside the button instead of above it.
+- A taskbar rotated by another mod (for example Vertical Taskbar with its
+  native mode turned off) is left untouched; the log says so.
+
 ## Taskbar Styler
 
 Desktop buttons are XAML `ToggleButton` controls named `VdBtn_0`, `VdBtn_1`,
@@ -285,7 +309,7 @@ without inferring the active desktop from its color.
 
 ## Known limitations
 
-- Multi-monitor support is experimental and off by default: secondary taskbars use the tray positions only (Start positions stay on the primary taskbar), and they are discovered as their tray icons load — after enabling the option, an Explorer restart (or toggling the mod off and on) may be needed before the buttons appear on other monitors
+- Multi-monitor support is experimental and off by default: secondary taskbars use the tray positions only (Start positions stay on the primary taskbar), they follow the primary taskbar's edge, and they are discovered as their tray icons load — after enabling the option, an Explorer restart (or toggling the mod off and on) may be needed before the buttons appear on other monitors
 - Buttons may not appear until the mod injects on the first tray icon load; retry loop runs up to 5 times at 2-second intervals
 
 ## Credits and inspirations

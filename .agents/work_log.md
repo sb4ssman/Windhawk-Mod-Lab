@@ -1589,6 +1589,10 @@ hours after the first.
   five CI jobs green. One ADDED file, byte-identical to the lab copy. The fork
   filename follows the `@id` (`tray-privacy-indicator-anchor`), not the lab
   folder name (`privacy-indicator-anchor`).
+  - **WRONG NAME — corrected 2026-09-24.** The `tray-` prefix was an agent's
+    invention, never the user's. The mod is **Privacy Indicator Anchor** /
+    `privacy-indicator-anchor`; see [mod-identity.md](mod-identity.md). This
+    entry stands as the record of what was submitted, not of what is correct.
 - All five review items from the 2026-07-23 wave are fixed and stated
   explicitly in the PR body: the `wstring_view` use-after-free, the camera
   default, `no_destroy`, hook-array naming, and the px/DIP row heuristic.

@@ -12,18 +12,27 @@ mid-update, so any single file can be stale. Getting your bearings at the
 start of a new chat means cross-checking all of these, not just reading one:
 
 1. Read this file.
-2. Start at [working_notes.md](working_notes.md) — current goals, active work,
+2. Read [mod-identity.md](mod-identity.md) — the canonical `@id` and `@name` of
+   every mod. Notes can be wrong about these; that file is the authority.
+3. Start at [working_notes.md](working_notes.md) — current goals, active work,
    key facts.
-3. ALWAYS also check [work_log.md](work_log.md) AND git history
+4. ALWAYS also check [work_log.md](work_log.md) AND git history
    (`git log --oneline`, `git status`, and the PR branches in the fork at
    `t:/Github/sb4ssman/windhawk-mods/` when PR state matters). Where they
    disagree, the newest evidence wins — and git/PR state beats notes.
-4. If you need a map of the repo, run `python .agents/tools/generate_folder_map.py`
+5. If you need a map of the repo, run `python .agents/tools/generate_folder_map.py`
    (writes to [outputs/folder_structure.md](outputs/folder_structure.md)).
-5. Check [../_research/](../_research/) for investigations, design docs, and open
+6. Check [../_research/](../_research/) for investigations, design docs, and open
    questions on specific problems.
 
 ## Standing directives (do not violate)
+
+- **A MOD'S IDENTITY IS THE USER'S, NOT YOURS.** `@id`, `@name` and
+  `@description` are set by the user. Never add, drop or reword them — not to
+  match a folder, not to match a convention, not to be clearer. If one looks
+  wrong, say so and stop. The canonical values are in
+  [mod-identity.md](mod-identity.md); it is the authority, and any source file,
+  note, branch or PR title that disagrees is the thing that is wrong.
 
 - **PRIME DIRECTIVE — NEVER PUSH WITHOUT A HUMAN LIVE TEST.** Do not push to any
   branch, update any PR, or submit anything until the user has personally run

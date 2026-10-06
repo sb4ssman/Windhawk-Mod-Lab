@@ -503,9 +503,19 @@ inline std::wstring BuildGridExpression(int count, int rows, int columns,
     return expr;
 }
 
-inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
-                                        TokenNamer const& namer = {}) {
-    Shape shape = ChooseShape(count, maxRows);
+// `maxLines` is how many lines of items fit across the taskbar's THICKNESS:
+// rows on a bottom or top taskbar, and - with `across` - columns on a left or
+// right one, where the width is the limit. The shape rule is the same either
+// way, the fewest lines along the taskbar, and the result is a plain screen
+// expression: '|' side by side and ',' stacked, and FillOrder::Rows still
+// fills left to right, then down.
+inline std::wstring BuildAutoExpression(int count, int maxLines, FillOrder fill,
+                                        TokenNamer const& namer = {},
+                                        bool across = false) {
+    Shape shape = ChooseShape(count, maxLines);
+    if (across)
+        return BuildGridExpression(count, shape.columns, shape.rows, fill,
+                                   namer);
     return BuildGridExpression(count, shape.rows, shape.columns, fill, namer);
 }
 
@@ -554,19 +564,23 @@ inline std::vector<std::wstring> MissingTokens(
     return missing;
 }
 
+// The appended block goes after the written one ALONG the taskbar: to its
+// right on a bottom or top taskbar, below it on a left or right one
+// (`across`), where there is room to grow.
 inline std::wstring AppendMissing(std::wstring const& expression,
                                   std::vector<std::wstring> const& missing,
-                                  int maxRows, FillOrder fill) {
+                                  int maxLines, FillOrder fill,
+                                  bool across = false) {
     if (missing.empty())
         return expression;
     auto namer = [&missing](int index) { return missing[index]; };
-    std::wstring block = BuildAutoExpression((int)missing.size(), maxRows, fill,
-                                             namer);
+    std::wstring block = BuildAutoExpression((int)missing.size(), maxLines,
+                                             fill, namer, across);
     if (block.empty())
         return expression;
     if (expression.empty())
         return block;
-    return L"(" + expression + L") | (" + block + L")";
+    return L"(" + expression + (across ? L"), (" : L") | (") + block + L")";
 }
 
 // ---- The one setting --------------------------------------------------------
@@ -599,10 +613,12 @@ inline bool IsAutoSetting(std::wstring const& setting) {
 
 //@part ResolveArrangement Arrangement
 inline Arrangement ResolveArrangement(std::wstring const& setting, int count,
-                                      int maxRows, FillOrder fill,
-                                      TokenNamer const& namer = {}) {
+                                      int maxLines, FillOrder fill,
+                                      TokenNamer const& namer = {},
+                                      bool across = false) {
     if (IsAutoSetting(setting))
-        return {BuildAutoExpression(count, maxRows, fill, namer), true};
+        return {BuildAutoExpression(count, maxLines, fill, namer, across),
+                true};
     return {setting, false};
 }
 //@end

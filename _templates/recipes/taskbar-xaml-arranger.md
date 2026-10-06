@@ -45,13 +45,24 @@ second path that mutates the tree.
 
 ## What the mod body must do
 
-### 1. Stand down before you touch anything
+### 1. Read the edge, and stand down only for a rotated taskbar
 
-`taskbar_metrics::LayoutModelApplies` first. A vertical taskbar is another
-mod's rotated coordinate space; arranging into it paints garbage the user
+`taskbar_metrics::GetMetrics(hwnd, ReadDockedEdge(root))`, then
+`CanArrange` first. Windows' native left/right taskbar is supported: arrange
+and pass `across = RunsDownSide(metrics)` to `ResolveArrangement`,
+`BuildAutoExpression` and `AppendMissing`: a written arrangement stays exactly
+as written, and only generated layout fills across a side taskbar's width. A taskbar another mod is
+ROTATING (it runs down a side while Windows reports a horizontal edge) is
+another mod's coordinate space; arranging into it paints garbage the user
 cannot diagnose. Stand down, say so in the log, and retire the retry — a
 settled decision not to act is not the same as "not applied yet", and if you
 conflate them the stand-down repeats once per retry attempt.
+
+`StartEdgeWatch` on the first apply and `StopEdgeWatch` on the UI thread at
+unload. Moving the taskbar between edges RE-LAYS OUT the tree without a
+rebuild (`TrayUI::StartTaskbar` does not fire), so the watch is the only thing
+that tells the mod. Its callback runs inside a layout pass: schedule the
+re-apply, never arrange synchronously.
 
 ### 2. Announce every write before you make it
 

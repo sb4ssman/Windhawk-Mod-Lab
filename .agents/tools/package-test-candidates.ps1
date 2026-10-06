@@ -10,7 +10,7 @@ $mods = @(
     @{ Folder = 'taskbar-folder-menus'; Installed = 'taskbar-folder-menus' },
     @{ Folder = 'taskbar-clock-spacer'; Installed = 'local@taskbar-clock-spacer' },
     @{ Folder = 'tray-utility-customizer'; Installed = 'local@tray-utility-customizer2' },
-    @{ Folder = 'privacy-indicator-anchor'; Installed = 'local@tray-privacy-indicator-anchor' }
+    @{ Folder = 'privacy-indicator-anchor'; Installed = 'local@privacy-indicator-anchor' }
 )
 $manifest = foreach ($mod in $mods) {
     $source = Get-ChildItem -LiteralPath (Join-Path $labRoot $mod.Folder) -Filter '*.wh.cpp'

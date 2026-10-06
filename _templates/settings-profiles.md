@@ -489,31 +489,37 @@ competing with them.
 
 ## Taskbar position, and living with the rest of the ecosystem
 
-Windows 11 only puts the taskbar at the bottom. Two mods by m417z move it, and
-both are part of the ecosystem these mods must coexist with. Every mod in this
-family checks `taskbar_host::LayoutModelApplies` BEFORE touching anything.
+Windows 11 (September 2026 update, rolled out per PC) puts the taskbar on any
+edge itself, and announces it: `Grid#RootGrid` under `Taskbar.TaskbarFrame`
+sits in a `DockingStates` visual state. Every mod in this family reads that
+(`taskbar_metrics::ReadDockedEdge`) BEFORE touching anything. Facts and tree
+dumps: `_research/taskbar-orientation-2026-10.md`.
 
-- **[taskbar-on-top](https://windhawk.net/mods/taskbar-on-top) — supported.**
-  Nothing here positions against screen coordinates; everything is relative to
-  the taskbar's own XAML tree, so a top taskbar is the same tree at a different
-  y. Test it, don't special-case it.
-- **[taskbar-vertical](https://windhawk.net/mods/taskbar-vertical) — NOT
-  compatible, by construction.** It walks the identical
-  `ControlCenterButton > Grid > ContentPresenter > ItemsPresenter > StackPanel`
-  path and owns `RenderTransform` on those children to rotate them. This
-  family's positioning writes `RenderTransform` on the same elements. One
-  dependency property, two owners, last writer wins — cooperation cannot fix
-  it. m417z documents the same class of conflict for `taskbar-multirow`.
+- **Top — the same as bottom.** Nothing here positions against screen
+  coordinates; everything is relative to the taskbar's own XAML tree. This
+  also covers m417z's [taskbar-on-top](https://windhawk.net/mods/taskbar-on-top).
+- **Left or right — supported, everything literal.** A written arrangement
+  is laid out exactly as written on every edge (`|` side by side, `,`
+  stacked), and item sizes, `[dx,dy]` nudges, padding, group offsets and
+  screen-named places ("above", "rows first") are screen terms everywhere.
+  Only GENERATED layout adapts: `auto` and the block appended for unnamed
+  items fill across a side taskbar's width (`ResolveArrangement` /
+  `BuildAutoExpression` / `AppendMissing` with `across = RunsDownSide`).
+  History: transposing written shapes and nudges for side taskbars was built
+  and live-tested on 2026-10-06 and rejected by the user as "against my
+  expectations". No mirroring; no per-edge setting.
+- **Rotated — not compatible, by construction.** m417z's
+  [taskbar-vertical](https://windhawk.net/mods/taskbar-vertical) uses the
+  native side taskbar by default; with its native mode off it rotates a
+  horizontal taskbar, owning `RenderTransform` on the very tray children this
+  family positions. One dependency property, two owners — cooperation cannot
+  fix it. Recognised as "runs down a side while Windows reports a horizontal
+  (or no) edge" (`CanArrange`), never by sniffing for the mod.
 
-**The rule: detect the condition, stand down completely, and say so in the
-log.** Detect via the taskbar's own rect aspect (`taskbar_host::GetMetrics`),
-never by sniffing for a specific mod — the aspect is the thing that actually
-matters and stays true however the taskbar got that way. Standing down means
-leaving the taskbar EXACTLY as found, not a half-applied layout. Report it in
-both READMEs the way m417z does: name the mod, say why, say what happens.
-
-A mod that arranges into a coordinate space someone else is rotating produces
-garbage the user cannot diagnose, and it will be reported as *our* bug.
+**The rule for the rotated case: stand down completely, and say so in the
+log.** Standing down means leaving the taskbar EXACTLY as found, not a
+half-applied layout. Report it in the READMEs the way m417z does: name the
+mod, say why, say what happens.
 
 ## Settings that drive a WINDOWS setting
 

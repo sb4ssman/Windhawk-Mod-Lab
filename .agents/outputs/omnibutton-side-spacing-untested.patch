@@ -1,0 +1,157 @@
+--- a/omnibutton-customizer/omnibutton-customizer.wh.cpp
++++ b/omnibutton-customizer/omnibutton-customizer.wh.cpp
+@@ -351,6 +351,9 @@
+ `auto` fits the taskbar's width instead of its height. Nothing is mirrored
+ between left and right. Windows makes the OmniButton a fixed height on a
+ side taskbar; the mod raises its minimum height to fit the arrangement.
++With `Item width` at 0, every item there gets the width it draws plus
++Windows' own 4px on each side, so the icons are evenly spaced and centered
++in the button without any nudges.
+ 
+ **[Vertical Taskbar](https://windhawk.net/mods/taskbar-vertical) —
+ supported in its default native mode.** It then uses the same native side
+@@ -2894,12 +2897,45 @@
+ static constexpr int kMaxRemeasures = 3;
+ static int g_remeasures = 0;
+ 
++// SIDE-TASKBAR CELLS ARE SIZED FROM WHAT IS DRAWN. Measuring the native slot,
++// as the bottom and top taskbars do, counts padding that differs per item:
++// on 26300.9550 a side taskbar's WrapGrid pads only its FIRST slot (network,
++// 4px on the left), network and volume carry Windows' 4px inset around a 16px
++// glyph, and the battery glyph and percentage carry none. In a row that read
++// as gaps of roughly 1, 4 and 12px between the drawn icons. Instead every item
++// gets its drawn width plus the same inset on both sides, so the default
++// spacing is even and nudges are only for taste. Widths are sticky like
++// g_itemContentWidth and cleared with it - and on every edge change, since a
++// slot measured on one edge is padded differently on another.
++static constexpr double kNativeGlyphInset = 4.0;
++static double g_itemDrawnWidth[3]{};  // network, volume, battery glyph
++
++// Whether the current arrangement was laid out for a left or right taskbar:
++// a written arrangement is laid out exactly as written, while "auto" and the
++// block appended for unnamed items fill across the taskbar's WIDTH there, and
++// cells are sized from what is drawn (above). Set by AvailableOmniRows before
++// the layout is computed. UI thread only.
++static bool g_appliedSide = false;
++
++static void ForgetMeasuredWidths() {
++    for (double& width : g_itemContentWidth) width = 0.0;
++    for (double& width : g_itemDrawnWidth) width = 0.0;
++    g_remeasures = 0;
++}
++
+ // Every cell size in one place, so the arranger, the missing-token pass, and
+ // the per-item centering cannot disagree about how wide an item is.
+ static ngl::Size OmniItemSize(int item) {
+     double width = (double)g_settings.itemWidth;  // 0 = fit to content
+     double height = (double)g_settings.itemHeight;
+ 
++    if (g_appliedSide && width <= 0.0 && item >= 0 && item < 4) {
++        double drawn =
++            item == 3 ? g_percentCellWidth : g_itemDrawnWidth[item];
++        if (drawn > 0.0)
++            return {drawn + 2.0 * kNativeGlyphInset, height};
++    }
++
+     // The percentage is ALWAYS content-sized: "9%" and "100%" are different
+     // widths and no single number describes both. ItemWidth is only its floor,
+     // which at 0 means it is sized purely by its text.
+@@ -2918,11 +2954,6 @@
+ // read on every apply. UI thread only.
+ static taskbar_metrics::Edge g_dockedEdge = taskbar_metrics::Edge::Unknown;
+ 
+-// Whether the current arrangement was laid out for a left or right taskbar:
+-// a written arrangement is laid out exactly as written, while "auto" and the
+-// block appended for unnamed items fill across the taskbar's WIDTH there. Set by AvailableOmniRows before the
+-// layout is computed. UI thread only.
+-static bool g_appliedSide = false;
+ 
+ // Follows a move between edges, which re-lays out the existing taskbar tree
+ // rather than rebuilding it. Holds only a weak reference and a token; it is
+@@ -3687,6 +3718,20 @@
+ // No slack is added, unlike the percentage. Slack exists there to absorb text
+ // growing from "9%" to "100%"; a glyph does not grow, and padding it would put
+ // back the dead space this is here to remove.
++// The drawn element's own width, for side-taskbar cells. `owner` is the item's
++// native element; while it exists but its glyph has not been found yet, the
++// answer is "not yet" and the caller asks for another pass.
++static bool MeasureDrawnWidth(int item, FrameworkElement const& owner,
++                              FrameworkElement const& drawn) {
++    if (item < 0 || item > 2) return true;
++    if (g_itemDrawnWidth[item] > 0.0 || !owner) return true;
++    if (!drawn) return false;
++    double width = drawn.ActualWidth();
++    if (width <= 0.0) return false;
++    g_itemDrawnWidth[item] = std::ceil(width);
++    return true;
++}
++
+ static bool MeasureItemContentWidth(int item, FrameworkElement const& element) {
+     if (item < 0 || item > 3) return true;
+     if (g_itemContentWidth[item] > 0.0) return true;  // already settled
+@@ -3805,14 +3850,23 @@
+         settled &= MeasureItemContentWidth(0, g_networkPresenter);
+         settled &= MeasureItemContentWidth(1, g_volumePresenter);
+         settled &= MeasureItemContentWidth(2, g_batteryGlyphFE);
++        if (sp.try_as<WrapGrid>()) {
++            settled &= MeasureDrawnWidth(0, g_networkPresenter,
++                                         g_networkSurface.text);
++            settled &= MeasureDrawnWidth(1, g_volumePresenter,
++                                         g_volumeSurface.text);
++            settled &= MeasureDrawnWidth(2, g_batteryGlyphFE, g_batteryGlyphFE);
++        }
+         if (!settled && g_remeasures < kMaxRemeasures) {
+             g_remeasures++;
+             g_cellsNeedRemeasure = true;
+         }
+         Wh_Log(L"[Layout] fit to content: network=%.0f volume=%.0f battery=%.0f "
+-               L"(0 = not measured yet, falling back to %.0f)%s",
++               L"drawn=%.0f/%.0f/%.0f (0 = not measured yet, falling back to "
++               L"%.0f)%s",
+                g_itemContentWidth[0], g_itemContentWidth[1],
+-               g_itemContentWidth[2], kUnmeasuredCellWidth,
++               g_itemContentWidth[2], g_itemDrawnWidth[0], g_itemDrawnWidth[1],
++               g_itemDrawnWidth[2], kUnmeasuredCellWidth,
+                g_cellsNeedRemeasure ? L" - will re-measure" : L"");
+     }
+ 
+@@ -4631,8 +4685,7 @@
+     g_reapplyPending = true;
+     // The elements those widths were measured from no longer exist, and the
+     // new tree gets its own bounded budget of re-measure passes.
+-    for (double& width : g_itemContentWidth) width = 0.0;
+-    g_remeasures = 0;
++    ForgetMeasuredWidths();
+     // On the taskbar's UI thread, inside Explorer's own taskbar construction:
+     // wake a live retry rather than stopping and waiting for it.
+     g_retryLoop.StartOrWake(ApplyOnTaskbarWindowThread,
+@@ -4647,6 +4700,9 @@
+ // never re-arrange synchronously.
+ static void OnTaskbarEdgeChanged() {
+     if (g_unloading) return;
++    // A slot is padded differently on each edge, so widths measured on the
++    // old one would size the new layout's cells.
++    ForgetMeasuredWidths();
+     g_applied = false;
+     g_reapplyPending = true;
+     g_retryLoop.StartOrWake(ApplyOnTaskbarWindowThread,
+@@ -4808,8 +4864,7 @@
+     LoadSettings();
+     g_percentWidestDesired = 0.0;
+     SetPercentMeasuredText(nullptr);
+-    for (double& width : g_itemContentWidth) width = 0.0;
+-    g_remeasures = 0;
++    ForgetMeasuredWidths();
+     g_reapplyPending = true;
+     g_applied = false;
+     Wh_Log(L"[Settings] %s; scheduling retry", reason);
+@@ -4836,8 +4891,7 @@
+         // so far — the percentage's text width and every fit-to-content cell.
+         g_percentWidestDesired = 0.0;
+         SetPercentMeasuredText(nullptr);
+-        for (double& width : g_itemContentWidth) width = 0.0;
+-        g_remeasures = 0;
++        ForgetMeasuredWidths();
+         g_reapplyPending = true;
+         g_applied = false;
+         Wh_Log(L"[Settings] Updated");

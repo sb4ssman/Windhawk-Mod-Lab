@@ -18,6 +18,12 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; PR #4844 open; v2.0 hover previews live-tested on 26200.9457 | Clickable desktop buttons with hover previews, customizable indicators, nested layouts, Task View button and tray/Start placement |
 | [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; v2.0 on the shared contract, live-tested on 26200.9457 | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
 
+## Tools for mod authors
+
+| Folder | Status | Description |
+|--------|--------|-------------|
+| [tool-mods/mod-lab-taskbar-tree-dump/](tool-mods/mod-lab-taskbar-tree-dump/) | v1.0, unpublished | Writes the Windows 11 taskbar's XAML element tree to a text or JSON file - on load, whenever the taskbar moves, resizes or is rebuilt, and on demand. Read-only |
+
 ## Repository Layout
 
 ```text
@@ -30,6 +36,7 @@ Windhawk-Mod-Lab/
   taskmanager-tail/
   taskbar-vd-switcher/
   tray-utility-customizer/
+  tool-mods/         Windhawk mods that are tools for mod authors, not end users
   .agents/           agent instructions, notes, tools, and generated outputs
   _archive/          old retired folders or moved work
   _profiles/         local Windhawk profile snapshots

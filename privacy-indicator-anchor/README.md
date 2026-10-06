@@ -1,4 +1,4 @@
-# Tray Privacy Indicator Anchor
+# Privacy Indicator Anchor
 
 A Windhawk mod for Windows 11 that reserves stable tray space for privacy and
 status indicators. Location, microphone, camera, and Copilot placeholders stay
@@ -116,6 +116,9 @@ field that does. Its default value is the word `auto`:
   location | (mic, camera) | copilot  a diamond
   ```
 
+  Order of operations: parentheses first, then `,`, then `|` — so
+  `a | b, c | d` is three columns with `b` stacked over `c`.
+
   The tokens are `location`, `mic` (or `microphone`), `camera`, and `copilot`,
   and they are case-insensitive. A separator is always required —
   `location (mic | camera)` is an error, not a shorthand.
@@ -138,7 +141,8 @@ location[+2,-1] | mic | camera   location moves 2px right and 1px up
 
 Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole cluster instead, use `Adjust` → horizontal and
-vertical offset.
+vertical offset. Nudges and offsets are screen pixels on every taskbar edge —
+see [Taskbar position](#taskbar-position).
 
 **Enabling an icon later.** An arrangement you write names the icons that
 existed when you wrote it. Turn another one on afterwards and it is in no
@@ -154,6 +158,26 @@ experimental `leftOfStart` and `rightOfStart` positions instead place the
 owned indicator group beside Start and reserve matching room in the centered
 taskbar items area. These Start-adjacent modes may need adjustment on future
 Windows builds or with other mods that also reposition Start.
+
+## Taskbar position
+
+Windows 11 can put the taskbar on any edge (Settings → Personalization →
+Taskbar → Taskbar behaviors, on builds that have the setting). The mod reads
+the edge Windows reports and rebuilds the group when the taskbar moves.
+
+- **Top** behaves exactly like bottom.
+- **Left or right**: an arrangement you write is laid out exactly as
+  written - `|` side by side, `,` stacked - and every `[dx,dy]` nudge
+  moves an icon `dx` right and `dy` down, on every edge. `auto` fits the
+  taskbar's width instead of its height, filling rows first or columns
+  first as set. Nothing is mirrored between left and right. `leftOfStart` and
+  `rightOfStart` become above and below Start.
+- [Vertical Taskbar](https://windhawk.net/mods/taskbar-vertical) in its default
+  native mode is the same native side taskbar. With its "Use the native taskbar
+  when possible" option off it rotates the tray elements this mod places,
+  through the same `RenderTransform` property, so the mod detects that (the
+  taskbar runs down a side while Windows still reports a horizontal edge) and
+  leaves the tray completely untouched.
 
 ## States and colors
 
@@ -221,8 +245,8 @@ Copilot opens taskbar or installed-app settings.
 mod hides Windows' own pop-in indicators and mirrors their state into the
 stable placeholders. A native indicator is only ever hidden while this mod is
 showing a placeholder for that same device: if its icon is turned off in
-`Content`, if the placeholders could not be placed, or on a vertical taskbar,
-Windows' indicator stays exactly as Windows draws it. Turn the setting off
+`Content`, if the placeholders could not be placed, or on a taskbar another
+mod is rotating, Windows' indicator stays exactly as Windows draws it. Turn the setting off
 temporarily when comparing against Windows' native tray glyphs during testing.
 Everything the mod changes on a native icon is restored to its exact prior
 value when the mod unloads.

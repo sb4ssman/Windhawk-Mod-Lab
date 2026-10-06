@@ -16,4 +16,5 @@ tray-slot-lease
 taskbar-window
 ui-thread-dispatch
 taskbar-xaml-root
+taskbar-metrics
 bounded-retry

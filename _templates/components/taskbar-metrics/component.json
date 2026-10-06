@@ -1,7 +1,9 @@
 {
   "id": "taskbar-metrics",
   "suffix": "taskbar_metrics",
-  "title": "Taskbar metrics and orientation",
-  "summary": "The taskbar's rect in DIPs, and whether a horizontal-layout model applies at all - so a mod stands down on a vertical taskbar instead of arranging into a rotated coordinate space.",
-  "api": ["GetMetrics", "LayoutModelApplies", "OrientationName"]
+  "title": "Taskbar metrics, edge and orientation",
+  "summary": "The taskbar's rect in DIPs, the edge Windows says it is docked to (RootGrid's DockingStates), whether a mod may arrange there (any native edge, never a taskbar another mod is rotating), and a watcher that reports a move or thickness change - which re-lays out the taskbar without rebuilding it.",
+  "api": ["GetMetrics", "ReadDockedEdge", "CanArrange", "RunsDownSide", "OrientationName", "EdgeName", "StartEdgeWatch", "StopEdgeWatch"],
+  "includes": ["<cmath>"],
+  "winrt": ["winrt/Windows.UI.Xaml.h", "winrt/Windows.UI.Xaml.Media.h"]
 }

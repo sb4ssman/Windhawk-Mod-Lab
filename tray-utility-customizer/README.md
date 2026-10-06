@@ -70,6 +70,8 @@ One string describes the whole layout, under `Layout` → `Arrangement`:
 - `|` places items **side by side**, always
 - `,` stacks them **on top of each other**, always
 - parentheses nest, to any depth
+- order of operations: parentheses first, then `,`, then `|` — so
+  `a | b, c | d` is three columns with `b` stacked over `c`
 - `name[dx,dy]` nudges one item; `(a, b)[dx,dy]` nudges a whole group
 - every group is centered against its siblings (see `Layout.Justify`)
 
@@ -163,21 +165,32 @@ distinct identity.
 | `Size.ItemSpacing` | `0` | Gap between items; negative pulls them together |
 | `Adjust.PadX` / `PadY` | `0` | Space reserved at the group's edges; participates in layout |
 | `Adjust.OffsetX` / `OffsetY` | `0` | Moves the group visually; reserves nothing |
-| `Behavior.MinimumTrayHeight` | `44` | Below this tray height the mod leaves everything native |
+| `Behavior.MinimumTrayHeight` | `44` | Below this tray thickness (height, or width on a side taskbar) the mod leaves everything native |
 | `Behavior.Detection` | `auto` | Guarded detection, or Force MainStack |
 
 ## Taskbar position
 
-Windows 11 only puts the taskbar at the bottom, but two mods move it:
+Windows 11 can put the taskbar on any edge (Settings → Personalization →
+Taskbar → Taskbar behaviors, on builds that have the setting). This mod reads
+the edge Windows reports and re-arranges when the taskbar moves.
 
-- **[taskbar-on-top](https://windhawk.net/mods/taskbar-on-top) — supported.**
-  Nothing here positions against screen coordinates; everything is relative to
-  the taskbar's own XAML tree.
-- **[taskbar-vertical](https://windhawk.net/mods/taskbar-vertical) — not
-  compatible.** It rotates the same tray elements this mod positions, through
-  the same `RenderTransform` property. One property, two owners. This mod
-  detects a vertical taskbar, **leaves it completely untouched**, and says so
-  in the log rather than painting a rotated mess.
+- **Top — the same as bottom.** Nothing here positions against screen
+  coordinates; everything is relative to the taskbar's own XAML tree. This
+  also covers [taskbar-on-top](https://windhawk.net/mods/taskbar-on-top).
+- **Left or right**: an arrangement you write is laid out exactly as
+  written - `|` side by side, `,` stacked - and every `[dx,dy]` nudge
+  moves an item `dx` right and `dy` down, on every edge. `auto` fits the
+  taskbar's width instead of its height, filling rows first or columns
+  first as set. Nothing is mirrored between left and right. *Left of Start* and
+  *Right of Start* become *above Start* and *below Start*.
+- **[taskbar-vertical](https://windhawk.net/mods/taskbar-vertical) —
+  supported in its default native mode**, which uses the same native side
+  taskbar. With its "Use the native taskbar when possible" option off, it
+  rotates the same tray elements this mod positions, through the same
+  `RenderTransform` property — one property, two owners. This mod detects
+  that case (the taskbar runs down a side while Windows still reports a
+  horizontal edge), **leaves it completely untouched**, and says so in the
+  log rather than painting a rotated mess.
 
 ## Known limitations
 

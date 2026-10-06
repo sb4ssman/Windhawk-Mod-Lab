@@ -2,7 +2,7 @@
 // @id              taskbar-vd-switcher
 // @name            Taskbar Virtual Desktop Switcher
 // @description     Injects clickable buttons into the taskbar — one per virtual desktop — with configurable grid arrangement for direct switching.
-// @version         2.0
+// @version         2.1
 // @author          sb4ssman
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
@@ -101,6 +101,9 @@ field that does. Its default value is the word `auto`:
   master | (1, 2)    Task View button left of a stacked pair
   ```
 
+  Order of operations: parentheses first, then `,`, then `|` — so
+  `1 | 2, 3 | 4` is three columns with `2` stacked over `3`.
+
   Buttons are named by desktop number; the Task View button is `master` or
   `taskview`. `desktop2` also works as a readable alias for `2`, and names are
   case-insensitive. A separator is always required — `1 (2 | 3)` is an error,
@@ -129,7 +132,8 @@ A parenthesized group takes an offset too, moving everything inside it:
 
 Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole group instead, use `Adjust` → horizontal and
-vertical offset.
+vertical offset. Nudges and offsets are screen pixels on every taskbar edge —
+see [Taskbar position](#taskbar-position).
 
 **Desktops you create later.** An arrangement you write names the desktops that
 existed when you wrote it. Create another one and it is in no group, so by
@@ -282,6 +286,26 @@ keeps the native behavior described for that setting — including the Active
 desktop color, where empty means the current desktop's button keeps the plain
 native surface with no highlight at all.
 
+## Taskbar position
+
+Windows 11 can put the taskbar on any edge (Settings → Personalization →
+Taskbar → Taskbar behaviors, on builds that have the setting). The mod reads
+the edge Windows reports and rebuilds the bar when the taskbar moves.
+
+- **Top** behaves exactly like bottom.
+- **Left or right**: an arrangement you write is laid out exactly as
+  written - `|` side by side, `,` stacked - and every `[dx,dy]` nudge
+  moves a button `dx` right and `dy` down, on every edge. `auto` fits the
+  taskbar's width instead of its height, filling rows first or columns
+  first as set. Nothing is mirrored between left and right. The Task View button's
+  *before/after* and *above/below* are screen places too. The taskbar is
+  wide enough that a handful of desktops fit in one row across it, and
+  then `Fill order` and *Short row or column* have nothing to change.
+  *Left of Start* and *Right of Start* become above and below Start, and
+  the hover preview opens beside the button instead of above it.
+- A taskbar rotated by another mod (for example Vertical Taskbar with its
+  native mode turned off) is left untouched; the log says so.
+
 ## Taskbar Styler
 
 Desktop buttons are XAML `ToggleButton` controls named `VdBtn_0`, `VdBtn_1`,
@@ -299,7 +323,7 @@ without inferring the active desktop from its color.
 
 ## Known limitations
 
-- Multi-monitor support is experimental and off by default: secondary taskbars use the tray positions only (Start positions stay on the primary taskbar), and they are discovered as their tray icons load — after enabling the option, an Explorer restart (or toggling the mod off and on) may be needed before the buttons appear on other monitors
+- Multi-monitor support is experimental and off by default: secondary taskbars use the tray positions only (Start positions stay on the primary taskbar), they follow the primary taskbar's edge, and they are discovered as their tray icons load — after enabling the option, an Explorer restart (or toggling the mod off and on) may be needed before the buttons appear on other monitors
 - Buttons may not appear until the mod injects on the first tray icon load; retry loop runs up to 5 times at 2-second intervals
 
 ## Credits and inspirations
@@ -1313,9 +1337,19 @@ inline std::wstring BuildGridExpression(int count, int rows, int columns,
     return expr;
 }
 
-inline std::wstring BuildAutoExpression(int count, int maxRows, FillOrder fill,
-                                        TokenNamer const& namer = {}) {
-    Shape shape = ChooseShape(count, maxRows);
+// `maxLines` is how many lines of items fit across the taskbar's THICKNESS:
+// rows on a bottom or top taskbar, and - with `across` - columns on a left or
+// right one, where the width is the limit. The shape rule is the same either
+// way, the fewest lines along the taskbar, and the result is a plain screen
+// expression: '|' side by side and ',' stacked, and FillOrder::Rows still
+// fills left to right, then down.
+inline std::wstring BuildAutoExpression(int count, int maxLines, FillOrder fill,
+                                        TokenNamer const& namer = {},
+                                        bool across = false) {
+    Shape shape = ChooseShape(count, maxLines);
+    if (across)
+        return BuildGridExpression(count, shape.columns, shape.rows, fill,
+                                   namer);
     return BuildGridExpression(count, shape.rows, shape.columns, fill, namer);
 }
 
@@ -1364,19 +1398,23 @@ inline std::vector<std::wstring> MissingTokens(
     return missing;
 }
 
+// The appended block goes after the written one ALONG the taskbar: to its
+// right on a bottom or top taskbar, below it on a left or right one
+// (`across`), where there is room to grow.
 inline std::wstring AppendMissing(std::wstring const& expression,
                                   std::vector<std::wstring> const& missing,
-                                  int maxRows, FillOrder fill) {
+                                  int maxLines, FillOrder fill,
+                                  bool across = false) {
     if (missing.empty())
         return expression;
     auto namer = [&missing](int index) { return missing[index]; };
-    std::wstring block = BuildAutoExpression((int)missing.size(), maxRows, fill,
-                                             namer);
+    std::wstring block = BuildAutoExpression((int)missing.size(), maxLines,
+                                             fill, namer, across);
     if (block.empty())
         return expression;
     if (expression.empty())
         return block;
-    return L"(" + expression + L") | (" + block + L")";
+    return L"(" + expression + (across ? L"), (" : L") | (") + block + L")";
 }
 
 // ---- The one setting --------------------------------------------------------
@@ -1667,57 +1705,113 @@ inline XamlRoot GetTaskbarXamlRoot(HWND taskbarWnd) {
 
 }  // namespace vd_switcher_taskbar_xaml
 
-// -- Taskbar metrics and orientation ----------------------------------------
-// The taskbar's rect in DIPs, and whether a horizontal-layout model applies
-// at all - so a mod stands down on a vertical taskbar instead of arranging
-// into a rotated coordinate space.
+// -- Taskbar metrics, edge and orientation ----------------------------------
+// The taskbar's rect in DIPs, the edge Windows says it is docked to
+// (RootGrid's DockingStates), whether a mod may arrange there (any native
+// edge, never a taskbar another mod is rotating), and a watcher that
+// reports a move or thickness change - which re-lays out the taskbar
+// without rebuilding it.
 namespace vd_switcher_taskbar_metrics {
 
-// ---- Taskbar metrics and orientation ----------------------------------------
+// ---- Taskbar metrics, edge and orientation ----------------------------------
 //
 // WHERE THE TASKBAR IS, AND WHETHER THIS MOD CAN WORK THERE.
 //
-// Windows 11 itself only puts the taskbar at the bottom. Two mods by m417z
-// move it, and both are first-class parts of the ecosystem this mod has to
-// live in:
+// Windows 11 builds with the native taskbar position setting (September 2026
+// update) put the taskbar on any edge themselves. On those builds Windows
+// ANNOUNCES the edge, and that announcement is what this component reads:
+// the taskbar root Grid (Taskbar.TaskbarFrame > Grid#RootGrid) sits in a
+// DockingStates visual state — DockedBottom, DockedTop, DockedLeft or
+// DockedRight. It is the same signal m417z's own mods read.
 //
-//   taskbar-on-top       — bottom -> top. FINE here. Everything
-//                          here is positioned relative to the taskbar's own
-//                          XAML tree, never to screen coordinates, so a top
-//                          taskbar is the same tree at a different y.
+// A NATIVE SIDE TASKBAR IS SUPPORTED. The tree is the same tree laid out
+// vertically: every tray anchor keeps its name, order and parent. A written
+// arrangement is laid out exactly as written there; only generated layouts
+// fill across the taskbar's width (the arrangement component's `across`).
 //
-//   taskbar-vertical     — bottom -> left/right. NOT COMPATIBLE, and not for
-//                          a reason cooperation can fix. It walks the very
-//                          same path this mod walks
-//                          (ControlCenterButton > Grid > ContentPresenter >
-//                          ItemsPresenter > StackPanel) and applies a
-//                          RotateTransform to `RenderTransform` on those
-//                          children. Positioning here sets a
-//                          TranslateTransform on the SAME property of the SAME
-//                          elements. One dependency property, two owners, last
-//                          writer wins — the two layouts cannot coexist.
-//
-// So: DETECT AND STAND DOWN, loudly, rather than fight and paint garbage. The
-// detection is the taskbar's own rect aspect, not a check for a specific mod —
-// it is the condition that matters, and it stays true however the taskbar got
-// that way.
+// A ROTATED TASKBAR IS NOT. m417z's Vertical Taskbar, with its native mode
+// turned off (or on a build without the native setting), rotates a horizontal
+// taskbar with RenderTransform on the very tray children this family positions
+// — one property, two owners, last writer wins. Windows still reports a
+// horizontal dock there while the window runs down the side, and that
+// mismatch is how it is recognised. A mod stands down rather than paint
+// garbage.
 //
 // The rect is in PHYSICAL pixels and every XAML size is a DIP, so conversion
 // belongs here instead of being re-derived at each call site.
 
+using winrt::Windows::UI::Xaml::FrameworkElement;
+using winrt::Windows::UI::Xaml::VisualStateManager;
+using winrt::Windows::UI::Xaml::Media::VisualTreeHelper;
+
 enum class Orientation { Horizontal, Vertical };
+enum class Edge { Unknown, Bottom, Top, Left, Right };
 
 struct Metrics {
     bool valid = false;
     RECT rect{};
     UINT dpi = 96;
+    // What the window looks like: taller than wide runs down a side.
     Orientation orientation = Orientation::Horizontal;
+    // What Windows says, when the caller read it (ReadDockedEdge).
+    Edge edge = Edge::Unknown;
+    // Runs down a side while Windows does not say it docked there: another
+    // mod is rotating a horizontal taskbar.
+    bool rotated = false;
     // The extent the arranged group has to fit INTO: the taskbar's height when
     // it runs across the screen, its width when it runs down the side.
     double constrainedDip = 0.0;
 };
 
-inline Metrics GetMetrics(HWND taskbarWnd) {
+// The direct child of `parent` with this name, searching at most `levels`
+// generations. The taskbar's top is shallow and fixed:
+//   XamlRoot.Content() Grid > TaskbarFrame#TaskbarFrame > Grid#RootGrid
+inline FrameworkElement FindTaskbarChild(FrameworkElement const& parent,
+                                         wchar_t const* name, int levels) {
+    if (!parent || levels <= 0) return nullptr;
+    int count = VisualTreeHelper::GetChildrenCount(parent);
+    for (int i = 0; i < count; ++i) {
+        auto child =
+            VisualTreeHelper::GetChild(parent, i).try_as<FrameworkElement>();
+        if (child && child.Name() == name) return child;
+    }
+    for (int i = 0; i < count; ++i) {
+        auto child =
+            VisualTreeHelper::GetChild(parent, i).try_as<FrameworkElement>();
+        if (auto found = FindTaskbarChild(child, name, levels - 1)) return found;
+    }
+    return nullptr;
+}
+
+// Windows' own statement of the edge. UI thread only. `taskbarRoot` is the
+// taskbar XamlRoot's Content(). Unknown on builds without the native position
+// setting, or if the tree has changed shape.
+//
+// Read ONLY RootGrid's DockingStates. Per-element OrientationStates further
+// down (task-button IconPanels) were observed stale after a move back to the
+// bottom; RootGrid's state was right on every edge.
+inline Edge ReadDockedEdge(FrameworkElement const& taskbarRoot) {
+    auto frame = FindTaskbarChild(taskbarRoot, L"TaskbarFrame", 2);
+    auto rootGrid = FindTaskbarChild(frame, L"RootGrid", 2);
+    if (!rootGrid) return Edge::Unknown;
+    for (auto const& group : VisualStateManager::GetVisualStateGroups(rootGrid)) {
+        if (group.Name() != L"DockingStates") continue;
+        auto state = group.CurrentState();
+        if (!state) return Edge::Unknown;
+        auto name = state.Name();
+        if (name == L"DockedBottom") return Edge::Bottom;
+        if (name == L"DockedTop") return Edge::Top;
+        if (name == L"DockedLeft") return Edge::Left;
+        if (name == L"DockedRight") return Edge::Right;
+        return Edge::Unknown;
+    }
+    return Edge::Unknown;
+}
+
+// `docked` is ReadDockedEdge's answer when the caller has the taskbar's XAML,
+// Unknown otherwise. Without it a window running down the side is assumed
+// rotated — the safe answer on a build that cannot say otherwise.
+inline Metrics GetMetrics(HWND taskbarWnd, Edge docked = Edge::Unknown) {
     Metrics metrics;
     if (!taskbarWnd || !GetWindowRect(taskbarWnd, &metrics.rect))
         return metrics;
@@ -1730,24 +1824,132 @@ inline Metrics GetMetrics(HWND taskbarWnd) {
     double height = (double)(metrics.rect.bottom - metrics.rect.top);
     double scale = 96.0 / (double)metrics.dpi;
 
-    // Taller than wide means it runs down a side. Nothing else can produce
-    // that shape, so this needs no cooperation from whatever moved it.
     metrics.orientation =
         height > width ? Orientation::Vertical : Orientation::Horizontal;
+    metrics.edge = docked;
+    metrics.rotated = metrics.orientation == Orientation::Vertical &&
+                      docked != Edge::Left && docked != Edge::Right;
     bool horizontal = metrics.orientation == Orientation::Horizontal;
     metrics.constrainedDip = (horizontal ? height : width) * scale;
     return metrics;
 }
 
-// Whether this mod's layout model applies at all. Checked BEFORE touching
-// anything, so a taskbar it does not describe is left exactly as it was found
-// rather than arranged into a coordinate space someone else is rotating.
-inline bool LayoutModelApplies(Metrics const& metrics) {
-    return metrics.valid && metrics.orientation == Orientation::Horizontal;
+// Whether this mod may arrange here: any edge Windows placed the taskbar on
+// itself, never a taskbar another mod is rotating. Checked BEFORE touching
+// anything, so a taskbar this does not describe is left exactly as found.
+inline bool CanArrange(Metrics const& metrics) {
+    return metrics.valid && !metrics.rotated;
+}
+
+// True on a left or right taskbar, where the WIDTH limits how many items fit
+// side by side: generated layouts ("auto") fill across it. A written
+// arrangement and every nudge are screen-literal on every edge, and top
+// behaves exactly like bottom.
+inline bool RunsDownSide(Metrics const& metrics) {
+    return metrics.orientation == Orientation::Vertical;
 }
 
 inline wchar_t const* OrientationName(Orientation orientation) {
     return orientation == Orientation::Vertical ? L"vertical" : L"horizontal";
+}
+
+inline wchar_t const* EdgeName(Edge edge) {
+    switch (edge) {
+        case Edge::Bottom: return L"bottom";
+        case Edge::Top: return L"top";
+        case Edge::Left: return L"left";
+        case Edge::Right: return L"right";
+        default: return L"unknown";
+    }
+}
+
+// ---- Following a move -------------------------------------------------------
+//
+// MOVING THE TASKBAR IS A RE-LAYOUT, NOT A REBUILD. The same elements survive
+// a move between edges and TrayUI::StartTaskbar never fires, so a mod's
+// rebuild hook will not tell it anything changed. Two signals cover every
+// move:
+//
+//   - TaskbarFrame's size, which changes between a horizontal and a side edge
+//     and whenever the thickness does (Windows' small and default heights,
+//     another mod's side width);
+//   - RootGrid's DockingStates group, which changes on EVERY edge change,
+//     including bottom <-> top and left <-> right, where the size does not.
+//     Those moves still re-template parts of the taskbar (live-observed:
+//     the OmniButton sat low after bottom -> top until a re-apply).
+//
+// The callback runs on the UI thread from inside a layout pass or a state
+// change, and both signals usually fire for one move: schedule the re-apply
+// (wake the retry), never re-arrange synchronously, and expect a repeat.
+//
+// The mod owns the EdgeWatch, and must StopEdgeWatch on the UI thread before
+// unload: both delegates point into the mod's image.
+struct EdgeWatch {
+    winrt::weak_ref<FrameworkElement> frame;
+    winrt::event_token token{};
+    winrt::weak_ref<winrt::Windows::UI::Xaml::VisualStateGroup> docking;
+    winrt::event_token dockingToken{};
+    double width = 0.0;
+    double height = 0.0;
+    void (*onChange)() = nullptr;
+};
+
+inline void StopEdgeWatch(EdgeWatch& watch) {
+    if (watch.token) {
+        if (auto frame = watch.frame.get()) frame.SizeChanged(watch.token);
+    }
+    if (watch.dockingToken) {
+        if (auto group = watch.docking.get())
+            group.CurrentStateChanged(watch.dockingToken);
+    }
+    watch.frame = nullptr;
+    watch.token = {};
+    watch.docking = nullptr;
+    watch.dockingToken = {};
+}
+
+// Idempotent: watching the same TaskbarFrame again is a no-op, and a rebuilt
+// taskbar's new frame replaces the old subscriptions. UI thread only.
+inline bool StartEdgeWatch(EdgeWatch& watch, FrameworkElement const& taskbarRoot,
+                           void (*onChange)()) {
+    auto frame = FindTaskbarChild(taskbarRoot, L"TaskbarFrame", 2);
+    if (!frame) return false;
+    if (watch.token && watch.frame.get() == frame) return true;
+    StopEdgeWatch(watch);
+    watch.frame = winrt::make_weak(frame);
+    watch.width = frame.ActualWidth();
+    watch.height = frame.ActualHeight();
+    watch.onChange = onChange;
+    EdgeWatch* target = &watch;
+    watch.token = frame.SizeChanged(
+        [target](winrt::Windows::Foundation::IInspectable const&,
+                 winrt::Windows::UI::Xaml::SizeChangedEventArgs const& args) {
+            auto size = args.NewSize();
+            if (std::abs(size.Width - target->width) < 0.5 &&
+                std::abs(size.Height - target->height) < 0.5)
+                return;
+            target->width = size.Width;
+            target->height = size.Height;
+            if (target->onChange) target->onChange();
+        });
+
+    // Absent on builds without the native position setting; the size watch
+    // alone is then all there is, and all that is needed.
+    if (auto rootGrid = FindTaskbarChild(frame, L"RootGrid", 2)) {
+        for (auto const& group :
+             VisualStateManager::GetVisualStateGroups(rootGrid)) {
+            if (group.Name() != L"DockingStates") continue;
+            watch.docking = winrt::make_weak(group);
+            watch.dockingToken = group.CurrentStateChanged(
+                [target](winrt::Windows::Foundation::IInspectable const&,
+                         winrt::Windows::UI::Xaml::VisualStateChangedEventArgs
+                             const&) {
+                    if (target->onChange) target->onChange();
+                });
+            break;
+        }
+    }
+    return true;
 }
 
 }  // namespace vd_switcher_taskbar_metrics
@@ -2219,7 +2421,9 @@ static bool              g_startOverlayMode = false;
 static winrt::event_token g_startOverlayLayoutToken{};
 [[clang::no_destroy]] static FrameworkElement g_taskItemsPanel = nullptr;
 static Thickness         g_taskItemsPanelOriginalMargin{};
-static double            g_startButtonOriginalX = -1.0;
+// Start's position ALONG the taskbar (x across a bottom or top taskbar, y
+// down a side one) before any push: the stable anchor for Start modes.
+static double            g_startButtonOriginalAlong = -1.0;
 static std::atomic<int>  g_currentDesktop{0};
 static std::atomic<int>  g_desktopCount{1};
 
@@ -2236,6 +2440,12 @@ static retry_loop::RetryLoop g_retry;  // exit-time-safe: heap-only
 // dispatch failed). The old bar is still in the tree, so "a grid exists" no
 // longer means "done": the retry must remove and rebuild it while this is set.
 static std::atomic<bool> g_reapplyPending{false};
+// Whether the bar is laid out for a left or right taskbar:
+// a written arrangement is laid out exactly as written, while "auto" and the
+// block appended for unnamed items fill across the taskbar's WIDTH there. Set by ApplyAllSettings from
+// the edge Windows reports; read by the preview's own thread too.
+static std::atomic<bool> g_side{false};
+static void OnTaskbarEdgeChanged();
 // A settings change that could not be loaded on the UI thread. Every reader of
 // g_settings runs there, so a reload from Windhawk's thread would race them;
 // the next UI-thread retry attempt loads it instead.
@@ -2952,9 +3162,21 @@ static void Show() {
             else DwmUnregisterThumbnail(thumbnail);
         }
     }
-    int x = (state.anchor.left + state.anchor.right - state.width) / 2;
-    int y = state.anchor.top - state.height - state.inset;
-    if (y < state.work.top) y = state.anchor.bottom + state.inset;
+    int x = 0;
+    int y = 0;
+    if (g_side.load()) {
+        // A side taskbar: open beside the button, toward the screen, centered
+        // on it - not above it, which would cover the buttons above.
+        y = (state.anchor.top + state.anchor.bottom - state.height) / 2;
+        bool leftEdge = (state.anchor.left + state.anchor.right) / 2 <
+                        (state.work.left + state.work.right) / 2;
+        x = leftEdge ? state.anchor.right + state.inset
+                     : state.anchor.left - state.width - state.inset;
+    } else {
+        x = (state.anchor.left + state.anchor.right - state.width) / 2;
+        y = state.anchor.top - state.height - state.inset;
+        if (y < state.work.top) y = state.anchor.bottom + state.inset;
+    }
     x = std::clamp(x, int(state.work.left), int(state.work.right - state.width));
     y = std::clamp(y, int(state.work.top), int(state.work.bottom - state.height));
     SetWindowPos(state.popup, HWND_TOPMOST, x, y, state.width, state.height,
@@ -3309,10 +3531,18 @@ static bool TaskViewInGrid() {
     return g_settings.taskViewPlacement == VdTaskViewPlacement::InGrid;
 }
 
-static bool TaskViewIsRow() {
+// Above/Below on screen.
+static bool TaskViewIsVerticalPlacement() {
+    return g_settings.taskViewPlacement == VdTaskViewPlacement::Above ||
+           g_settings.taskViewPlacement == VdTaskViewPlacement::Below;
+}
+
+// The Task View button sits ACROSS the taskbar from the desktop grid and so
+// takes a line of the taskbar's thickness: above/below it on a bottom or top
+// taskbar, before/after (left/right of) it on a side one.
+static bool TaskViewTakesALine() {
     return g_settings.taskViewButton && !TaskViewInGrid() &&
-           (g_settings.taskViewPlacement == VdTaskViewPlacement::Above ||
-            g_settings.taskViewPlacement == VdTaskViewPlacement::Below);
+           TaskViewIsVerticalPlacement() != g_side;
 }
 
 static int AvailableRows(bool quiet = false) {
@@ -3327,19 +3557,26 @@ static int AvailableRows(bool quiet = false) {
     // runs, so no physical-px/DIP conversion is needed here.
     double heightDip = metrics.constrainedDip;
 
-    // Reserve what the desktop grid does NOT get: the outer vertical padding,
-    // and a Task View button placed above or below, which is a row of its own.
+    // Reserve what the desktop grid does NOT get: the outer padding across
+    // the taskbar (screen padding, so horizontal on a side taskbar), and a
+    // Task View button placed across the taskbar from the grid, which is a
+    // line of its own: above/below it on a bottom or top taskbar, before/after
+    // it on a side one.
     // Without this the grid claims the whole taskbar and the assembled group
     // overflows it. The gap is deliberately not reserved - it is cosmetic, and
     // letting a sliver hang past the edge is the point of it.
-    double reserved = 2.0 * (double)g_settings.padY;
-    if (TaskViewIsRow())
+    double reserved =
+        2.0 * (double)(g_side ? g_settings.padX : g_settings.padY);
+    if (TaskViewTakesALine())
         reserved += (double)g_settings.taskViewSize +
                     (double)g_settings.itemSpacing;
 
-    int rows = ngl::RowsInHeight(heightDip - reserved,
-                                 (double)g_settings.itemHeight,
-                                 (double)g_settings.itemSpacing);
+    // Down a side taskbar the lines run across its width, so a button's
+    // extent across is its width.
+    int rows = ngl::RowsInHeight(
+        heightDip - reserved,
+        (double)(g_side ? g_settings.itemWidth : g_settings.itemHeight),
+        (double)g_settings.itemSpacing);
     if (!quiet) {
         Wh_Log(L"[Layout] %s taskbar, %.0f dip across at %udpi, %.0f reserved "
                L"-> %d row(s) for the desktop buttons",
@@ -3432,13 +3669,14 @@ static std::wstring AddTaskViewButton(std::wstring const& grid) {
         return grid;
     auto where = g_settings.taskViewPlacement;
     std::wstring master = MasterToken();
-    if (where == VdTaskViewPlacement::Before)
-        return master + L" | (" + grid + L")";
-    if (where == VdTaskViewPlacement::Above)
-        return master + L", (" + grid + L")";
-    if (where == VdTaskViewPlacement::Below)
-        return L"(" + grid + L"), " + master;
-    return L"(" + grid + L") | " + master;  // "after"
+    // Screen places on every edge: above/below stack, before/after sit side
+    // by side.
+    std::wstring op = TaskViewIsVerticalPlacement() ? L", " : L" | ";
+    bool first = where == VdTaskViewPlacement::Before ||
+                 where == VdTaskViewPlacement::Above;
+    if (first)
+        return master + op + L"(" + grid + L")";
+    return L"(" + grid + L")" + op + master;
 }
 
 // Every token this mod expects to be on screen right now.
@@ -3477,7 +3715,8 @@ static bool ComputeButtonPlacements(int count,
                                  : std::wstring(L"master");
         };
         std::wstring grid = ngl::BuildAutoExpression(
-            inGrid ? count + 1 : count, maxRows, LayoutFillOrder(), namer);
+            inGrid ? count + 1 : count, maxRows, LayoutFillOrder(), namer,
+            g_side);
         if (grid.empty())
             grid = L"1";
         return AddTaskViewButton(grid);
@@ -3533,8 +3772,9 @@ static bool ComputeButtonPlacements(int count,
             if (TaskViewInGrid() && missingMaster)
                 missingDesktops.push_back(L"master");
             if (!missingDesktops.empty()) {
-                expression = ngl::AppendMissing(expression, missingDesktops,
-                                                maxRows, LayoutFillOrder());
+                expression = ngl::AppendMissing(
+                    expression, missingDesktops, maxRows, LayoutFillOrder(),
+                    g_side);
             }
             if (missingMaster && !TaskViewInGrid())
                 expression = AddTaskViewButton(expression);
@@ -3787,6 +4027,7 @@ static Grid BuildButtonGrid(int count, int current) {
     grid.HorizontalAlignment(HorizontalAlignment::Center);
     grid.VerticalAlignment(VerticalAlignment::Center);
     // Adjust.OffsetX/Y translate the whole group without reserving space.
+    // Screen pixels on every edge, like every [dx,dy] nudge.
     if (g_settings.offsetX != 0 || g_settings.offsetY != 0)
         grid.Margin({(double)g_settings.offsetX, (double)g_settings.offsetY,
                      0.0, 0.0});
@@ -3981,36 +4222,47 @@ static FrameworkElement FindTaskbarFrameRepeater(FrameworkElement rootGrid) {
     return nullptr;
 }
 
-static void SetTaskItemsLeftMargin(double left) {
+// The task list's leading margin along the taskbar: Left across a bottom or
+// top taskbar, Top down a side one.
+static double& TaskItemsLead(Thickness& margin) {
+    return g_side ? margin.Top : margin.Left;
+}
+
+static void SetTaskItemsLeadMargin(double lead) {
     if (!g_taskItemsPanel)
         return;
 
     auto margin = g_taskItemsPanel.Margin();
-    if (std::fabs(margin.Left - left) <= 0.5)
+    if (std::fabs(TaskItemsLead(margin) - lead) <= 0.5)
         return;
 
-    margin.Left = left;
+    TaskItemsLead(margin) = lead;
     g_taskItemsPanel.Margin(margin);
 }
 
-static void SetStartButtonVisualOffset(double x) {
+// Shifts Start along the taskbar by `along` (x across a bottom or top
+// taskbar, y down a side one).
+static void SetStartButtonVisualOffset(double along) {
     if (!g_startOverlayStart)
         return;
 
-    if (std::fabs(x) <= 0.5) {
+    if (std::fabs(along) <= 0.5) {
         if (!g_startOverlayStart.RenderTransform())
             return;
         g_startOverlayStart.ClearValue(UIElement::RenderTransformProperty());
         return;
     }
 
+    double x = g_side ? 0.0 : along;
+    double y = g_side ? along : 0.0;
     auto existing = g_startOverlayStart.RenderTransform().try_as<TranslateTransform>();
-    if (existing && std::fabs(existing.X() - x) <= 0.5 && existing.Y() == 0.0)
+    if (existing && std::fabs(existing.X() - x) <= 0.5 &&
+        std::fabs(existing.Y() - y) <= 0.5)
         return;
 
     TranslateTransform tt;
     tt.X(x);
-    tt.Y(0.0);
+    tt.Y(y);
     g_startOverlayStart.RenderTransform(tt);
 }
 
@@ -4026,88 +4278,101 @@ static void PositionButtonGridNearStart() {
     if (!g_buttonGrid || !g_startOverlayRoot || !g_startOverlayStart)
         return;
 
+    // ALONG is the way the taskbar runs (x across a bottom or top taskbar, y
+    // down a side one, where Start sits at the top); ACROSS is its thickness.
+    // Left of Start is BEFORE it along the taskbar - above it on a side one.
+    bool side = g_side;
     int count = g_desktopCount.load();
     // The arranger's total already includes Adjust.PadX/PadY on both sides.
     ngl::Size gridSize = EstimateButtonGridSize(count);
-    double gridW = gridSize.width;
-    double gridH = gridSize.height;
+    double gridAlong = side ? gridSize.height : gridSize.width;
+    double gridAcross = side ? gridSize.width : gridSize.height;
     auto pos = g_settings.position;
 
     bool startHidden = (g_startOverlayStart.Visibility() == Visibility::Collapsed);
-    double startW = g_startOverlayStart.ActualWidth();
-    double startH = g_startOverlayStart.ActualHeight();
-    if (startW <= 0.0 && !startHidden) startW = 44.0;
-    if (startH <= 0.0) startH = std::max((double)g_settings.itemHeight, gridH);
+    double startAlong = side ? g_startOverlayStart.ActualHeight()
+                             : g_startOverlayStart.ActualWidth();
+    double startAcross = side ? g_startOverlayStart.ActualWidth()
+                              : g_startOverlayStart.ActualHeight();
+    if (startAlong <= 0.0 && !startHidden) startAlong = 44.0;
+    if (startAcross <= 0.0)
+        startAcross = std::max(
+            (double)(side ? g_settings.itemWidth : g_settings.itemHeight),
+            gridAcross);
 
-    // x changes when TaskbarFrameRepeater.Margin.Left is pushed (start button moves with it).
-    // y is unaffected by horizontal margin changes and is always valid for vertical centering.
-    double x = 0.0;
-    double y = 0.0;
+    // The along position changes when the task list's leading margin is
+    // pushed (Start moves with it). The across position is unaffected by
+    // that push and is always valid for centering.
+    double along = 0.0;
+    double across = 0.0;
     try {
         auto transform = g_startOverlayStart.TransformToVisual(g_startOverlayRoot);
         winrt::Windows::Foundation::Point origin{ 0.0f, 0.0f };
         auto p = transform.TransformPoint(origin);
-        x = p.X;
-        y = p.Y;
+        along = side ? p.Y : p.X;
+        across = side ? p.X : p.Y;
     } catch (...) {
     }
 
-    double left = 0.0;
-    double top  = 0.0;
+    double lead = 0.0;
+    double cross = across + (startAcross - gridAcross) / 2.0;
 
     if (pos == VdPosition::OverStart) {
-        // Grid overlays the Start button. Adjust.OffsetY nudges it vertically.
-        double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX;
-        top  = y + (startH - gridH) / 2.0;
-        if (left < 0.0) left = 0.0;
+        // Grid overlays the Start button. Adjust.OffsetY nudges it across.
+        lead = (g_startButtonOriginalAlong >= 0.0) ? g_startButtonOriginalAlong
+                                                   : along;
+        if (lead < 0.0) lead = 0.0;
         SetStartButtonVisualOffset(0.0);
     } else if (pos == VdPosition::RightOfStart) {
-        // Grid sits immediately right of the start button and reserves room for
-        // itself before taskbar items. TaskbarFrameRepeater.Margin.Left moves
+        // Grid sits immediately after the start button and reserves room for
+        // itself before taskbar items. The task list's leading margin moves
         // Start too, so counter-shift Start visually back to its stable anchor.
-        double anchorX = (g_startButtonOriginalX >= 0.0) ? g_startButtonOriginalX : x;
-        left = anchorX + startW;
-        top  = y + (startH - gridH) / 2.0;
-        if (left < 0.0) left = 0.0;
+        double anchor = (g_startButtonOriginalAlong >= 0.0)
+                            ? g_startButtonOriginalAlong
+                            : along;
+        lead = anchor + startAlong;
+        if (lead < 0.0) lead = 0.0;
 
         if (g_taskItemsPanel) {
-            double push = gridW + (double)g_settings.itemSpacing;
-            SetTaskItemsLeftMargin(g_taskItemsPanelOriginalMargin.Left + push);
+            double push = gridAlong + (double)g_settings.itemSpacing;
+            SetTaskItemsLeadMargin(TaskItemsLead(g_taskItemsPanelOriginalMargin) +
+                                   push);
             if (!startHidden)
                 SetStartButtonVisualOffset(-push);
         } else {
             SetStartButtonVisualOffset(0.0);
         }
     } else {
-        // leftOfStart: anchor the grid at the left edge; push TaskbarFrameRepeater
-        // rightward so Start button and task items don't overlap the grid.
-        // y from TransformToVisual is unaffected by Margin.Left changes, so it
-        // stays valid for vertical centering even after we push the panel right.
-        left = 0.0;
-        top  = y + (startH - gridH) / 2.0;
+        // leftOfStart: anchor the grid at the leading edge; push the task list
+        // along so the Start button and task items don't overlap the grid.
+        lead = 0.0;
         SetStartButtonVisualOffset(0.0);
 
         if (g_taskItemsPanel) {
-            double neededLeft = g_taskItemsPanelOriginalMargin.Left +
-                                gridW + (double)g_settings.itemSpacing;
-            SetTaskItemsLeftMargin(neededLeft);
+            double needed = TaskItemsLead(g_taskItemsPanelOriginalMargin) +
+                            gridAlong + (double)g_settings.itemSpacing;
+            SetTaskItemsLeadMargin(needed);
         }
     }
 
-    // Adjust.OffsetX/Y nudge the grid in every Start mode. In tray positions
-    // BuildButtonGrid applies them as the group's margin instead.
-    left += (double)g_settings.offsetX;
-    top  += (double)g_settings.offsetY;
+    // Adjust.OffsetX/Y nudge the grid in every Start mode, in screen pixels
+    // on every edge. In tray positions BuildButtonGrid applies them as the
+    // group's margin instead.
+    lead += (double)(side ? g_settings.offsetY : g_settings.offsetX);
+    cross += (double)(side ? g_settings.offsetX : g_settings.offsetY);
 
-    double rootW = GetElementActualWidth(g_startOverlayRoot);
-    double rootH = GetElementActualHeight(g_startOverlayRoot);
-    if (rootW > 0.0 && left + gridW > rootW)
-        left = std::max(0.0, rootW - gridW);
-    if (rootH > 0.0 && top + gridH > rootH)
-        top = std::max(0.0, rootH - gridH);
-    if (top < 0.0) top = 0.0;
+    double rootAlong = side ? GetElementActualHeight(g_startOverlayRoot)
+                            : GetElementActualWidth(g_startOverlayRoot);
+    double rootAcross = side ? GetElementActualWidth(g_startOverlayRoot)
+                             : GetElementActualHeight(g_startOverlayRoot);
+    if (rootAlong > 0.0 && lead + gridAlong > rootAlong)
+        lead = std::max(0.0, rootAlong - gridAlong);
+    if (rootAcross > 0.0 && cross + gridAcross > rootAcross)
+        cross = std::max(0.0, rootAcross - gridAcross);
+    if (cross < 0.0) cross = 0.0;
 
+    double left = side ? cross : lead;
+    double top = side ? lead : cross;
     g_buttonGrid.HorizontalAlignment(HorizontalAlignment::Left);
     g_buttonGrid.VerticalAlignment(VerticalAlignment::Top);
     auto current = g_buttonGrid.Margin();
@@ -4173,13 +4438,15 @@ static bool InjectButtonGridNearStart(FrameworkElement root) {
         g_taskItemsPanelOriginalMargin = repeater.Margin();
     }
 
-    // Capture original start button x before any margin pushes — stable anchor.
+    // Capture Start's original position along the taskbar before any margin
+    // pushes — the stable anchor.
     try {
         auto t = startButton.TransformToVisual(rootGrid);
         winrt::Windows::Foundation::Point o{ 0.0f, 0.0f };
-        g_startButtonOriginalX = t.TransformPoint(o).X;
+        auto origin = t.TransformPoint(o);
+        g_startButtonOriginalAlong = g_side ? origin.Y : origin.X;
     } catch (...) {
-        g_startButtonOriginalX = -1.0;
+        g_startButtonOriginalAlong = -1.0;
     }
 
     PositionButtonGridNearStart();
@@ -4532,7 +4799,7 @@ static void RemoveButtonGrid() {
             g_taskItemsPanel = nullptr;
         }
         SetStartButtonVisualOffset(0.0);
-        g_startButtonOriginalX = -1.0;
+        g_startButtonOriginalAlong = -1.0;
 
         g_buttonGrid = nullptr;
         g_injectionParent = nullptr;
@@ -4791,33 +5058,15 @@ static void RebuildButtonGrid() {
 // Apply / cleanup
 // ============================================================
 
-// Logged once per orientation change rather than on every retry.
-static bool g_verticalStandDownLogged = false;
+// Logged once per stand-down rather than on every retry.
+static bool g_rotatedStandDownLogged = false;
+
+// Follows a move between edges, which re-lays out the existing taskbar tree
+// instead of rebuilding it. Holds only a weak reference and a token; stopped
+// on the UI thread in Wh_ModUninit.
+static taskbar_metrics::EdgeWatch g_edgeWatch;  // exit-time-safe: heap-only
 
 static void ApplyAllSettings() {
-    // A vertical taskbar ("Vertical Taskbar for Windows 11") walks the same
-    // tray path this mod walks and owns RenderTransform on those children to
-    // rotate them. This mod positions its button grid by writing that same
-    // property on the same elements, so the two cannot both be right. Stand
-    // down completely and leave the taskbar exactly as found; an Explorer
-    // rebuild re-evaluates if the user turns that mod off.
-    {
-        HWND probe = taskbar_window::ResolveTaskbarWnd(g_taskbarWnd);
-        auto metrics = taskbar_metrics::GetMetrics(probe);
-        if (metrics.valid && !taskbar_metrics::LayoutModelApplies(metrics)) {
-            if (!g_verticalStandDownLogged) {
-                g_verticalStandDownLogged = true;
-                Wh_Log(L"[Apply] Taskbar is %s - standing down. This mod "
-                       L"places its buttons with RenderTransform, which a "
-                       L"vertical taskbar mod already owns on the same "
-                       L"elements; leaving the native taskbar untouched.",
-                       taskbar_metrics::OrientationName(metrics.orientation));
-            }
-            return;
-        }
-        g_verticalStandDownLogged = false;
-    }
-
     HWND hWnd = FindCurrentProcessTaskbarWnd();
     if (!hWnd) { Wh_Log(L"[Apply] No taskbar window"); return; }
     g_taskbarWnd = hWnd;
@@ -4827,6 +5076,34 @@ static void ApplyAllSettings() {
         if (!xamlRoot) { Wh_Log(L"[Apply] GetTaskbarXamlRoot failed"); return; }
         auto root = xamlRoot.Content().try_as<FrameworkElement>();
         if (!root) { Wh_Log(L"[Apply] No XAML root content"); return; }
+
+        // Moving the taskbar re-lays out this same tree; watch for it from
+        // the first apply on. Idempotent.
+        taskbar_metrics::StartEdgeWatch(g_edgeWatch, root, OnTaskbarEdgeChanged);
+
+        // Windows' native left/right taskbar is supported: the bar's
+        // arrangement turns with it. A taskbar another mod ROTATES is not:
+        // "Vertical Taskbar for Windows 11" with its native mode off walks the
+        // same tray path this mod walks and owns RenderTransform on those
+        // children to rotate them, so the two cannot both be right. Stand
+        // down completely and leave the taskbar exactly as found; a move or an
+        // Explorer rebuild re-evaluates.
+        auto metrics = taskbar_metrics::GetMetrics(
+            hWnd, taskbar_metrics::ReadDockedEdge(root));
+        if (metrics.valid && !taskbar_metrics::CanArrange(metrics)) {
+            if (!g_rotatedStandDownLogged) {
+                g_rotatedStandDownLogged = true;
+                Wh_Log(L"[Apply] Taskbar runs down the side but Windows "
+                       L"reports a %s edge - another mod is rotating it. "
+                       L"Standing down: that mod owns RenderTransform on the "
+                       L"elements this mod places; leaving the native taskbar "
+                       L"untouched.",
+                       taskbar_metrics::EdgeName(metrics.edge));
+            }
+            return;
+        }
+        g_rotatedStandDownLogged = false;
+        g_side = metrics.valid && taskbar_metrics::RunsDownSide(metrics);
 
         if (InjectButtonGrid(root))
             StartNotificationThread();
@@ -4929,6 +5206,18 @@ static void WakeRetryThread();
 static void OnTaskbarRebuilt() {
     if (g_unloading) return;
     g_taskbarWnd = nullptr;
+    g_reapplyPending = true;
+    WakeRetryThread();
+}
+
+// The taskbar moved between a horizontal and a side edge, or its thickness
+// changed. Unlike a rebuild the tree survives, bar and all, in the old shape -
+// so this takes the same deferred path: the retry's next attempt removes the
+// bar (restoring any Start-lane push) and applies it again for the new edge.
+// On the UI thread inside a layout pass: wake, never rebuild synchronously.
+static void OnTaskbarEdgeChanged() {
+    if (g_unloading) return;
+    Wh_Log(L"[Apply] Taskbar edge or thickness changed; rebuilding the bar");
     g_reapplyPending = true;
     WakeRetryThread();
 }
@@ -5102,6 +5391,9 @@ void Wh_ModUninit() {
                     LogCurrentUiException(what);
                 }
             };
+            step(L"edge watch", [] {
+                taskbar_metrics::StopEdgeWatch(g_edgeWatch);
+            });
             step(L"preview teardown", [] { desktop_preview::Destroy(); });
             step(L"Loaded revokers", [] { g_autoRevokerList->clear(); });
             step(L"button handlers", [] { ClearAllButtonEventState(); });

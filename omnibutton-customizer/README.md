@@ -131,8 +131,13 @@ field that does. Its default value is the word `auto`:
   network | (volume, battery) | percent  a diamond
   ```
 
-  The tokens are `network`, `volume`, `battery`, and `percent`, and they are
-  case-insensitive. `network` is the one native slot whose glyph changes
+  Order of operations: parentheses first, then `,`, then `|` — so
+  `a | b, c | d` is three columns with `b` stacked over `c`, and a 2×2 block
+  is `(a | b), (c | d)` or `a, c | b, d`.
+
+  The tokens are `network` (or `wifi`), `volume`, `battery`, and `percent`,
+  and they are case-insensitive. A name the mod does not know is ignored and
+  logged. `network` is the one native slot whose glyph changes
   between Wi-Fi, Ethernet, disconnected, airplane-mode, and VPN states. A
   separator is always required — `network (volume | battery)` is an error,
   not a shorthand for `network | (volume | battery)`.
@@ -158,6 +163,8 @@ network[+2,-1] | volume | battery   network moves 2px right and 1px up
 Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole cluster instead, use `Adjust` → horizontal and
 vertical offset. These replace the eight per-item nudge settings that 1.x had.
+Nudges and offsets are screen pixels on every taskbar edge — see
+[Other taskbar positions](#other-taskbar-positions).
 
 **The percentage arriving late.** An arrangement you write names the items that
 existed when you wrote it. Turn the battery percentage on afterwards and it is
@@ -314,20 +321,56 @@ contradictory anchor order, so this mod offers no placement setting at all.
 
 ## Other taskbar positions
 
-**[Taskbar on top](https://windhawk.net/mods/taskbar-on-top) — supported.**
-Everything here is positioned relative to the taskbar's own layout, never to
-screen coordinates, so a taskbar at the top is the same arrangement in a
-different place.
+Windows 11 can put the taskbar on any edge (Settings → Personalization →
+Taskbar → Taskbar behaviors, on builds that have the setting). This mod reads
+the edge Windows reports and follows a move while it is running.
 
-**[Vertical Taskbar](https://windhawk.net/mods/taskbar-vertical) — not
-compatible, and this mod stands down when it detects one.** Both mods reach the
-same OmniButton elements and both position them by writing `RenderTransform`:
-that mod rotates them, this one moves them into a grid. One property, two
-owners — there is no arrangement in which both are correct. Rather than fight
-over it and paint something broken, this mod detects a taskbar that runs down a
-side, leaves the native OmniButton completely untouched, and says so in the
-Windhawk log. Turn the vertical mod off and this one resumes on the next
-Explorer restart.
+**Top — the same as bottom.** Everything here is positioned relative to the
+taskbar's own layout, never to screen coordinates, so a taskbar at the top is
+the same arrangement in a different place. This also covers
+[Taskbar on top](https://windhawk.net/mods/taskbar-on-top).
+
+![A 2x2 block on a taskbar at the top of the screen](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/top-2x2.png)
+*A 2×2 block on a taskbar at the top, laid out exactly as it is at the
+bottom.*
+
+**Left or right — your arrangement as written.** An arrangement you write
+is laid out exactly as written on every edge: `|` side by side, `,`
+stacked, and `[dx,dy]` always moves an item `dx` right and `dy` down. The
+horizontal and vertical settings in `Adjust` stay horizontal and vertical.
+`auto` fits the taskbar's width instead of its height. Nothing is mirrored
+between left and right. Windows makes the OmniButton a fixed height on a
+side taskbar; the mod raises its minimum height to fit the arrangement.
+
+![All four items in one evenly spaced row on a left taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/side-left-single-row.png)
+*A single row across a left taskbar, each item nudged onto one of four
+evenly spaced points in the button:*
+
+```text
+percent[-12,-1] | battery[-3,0] | volume[8,0] | wifi[14,0]
+```
+
+![A three-row arrangement on a left taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/side-left-stacked.png)
+*Arrangements can stack on a side taskbar too: Windows gives the button a
+fixed height there, and the mod grows it to fit every row.*
+
+![Battery over its percentage between network and volume on a right taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/omnibutton-customizer/assets/side-right-diamond.png)
+*On a right taskbar, the battery stacked over its percentage between
+network and volume, with `Adjust` → `Horizontal padding` at 8:*
+
+```text
+wifi[-16,0] | (battery[-1,2], percent) | volume[16,0]
+```
+
+**[Vertical Taskbar](https://windhawk.net/mods/taskbar-vertical) —
+supported in its default native mode.** It then uses the same native side
+taskbar as above. With its "Use the native taskbar when possible" option
+turned off, it rotates a horizontal taskbar instead, writing `RenderTransform`
+on the very OmniButton elements this mod moves. One property, two owners —
+there is no arrangement in which both are correct, so this mod detects that
+case (the taskbar runs down a side while Windows still reports a horizontal
+edge), leaves the native OmniButton completely untouched, and says so in the
+Windhawk log.
 
 ## Taskbar Styler
 

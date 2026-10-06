@@ -1,0 +1,8 @@
+# Mod-Lab: Taskbar Tree Dump - a tool for mod authors.
+#   python _templates/assemble.py tool-mods/mod-lab-taskbar-tree-dump
+
+prefix: tree_dump
+
+taskbar-window
+ui-thread-dispatch
+taskbar-xaml-root
