@@ -55,7 +55,8 @@ it is enabled.
 - `RenderTransform` (translate, rotate, scale, composite, group, matrix)
 - `Visibility` collapsed and `Opacity` below 1
 - Every visual state group and its current state — this is where Windows
-  states things like the taskbar's edge (`DockingStates` on `RootGrid`)
+  states things like the taskbar's edge (`DockingStates` on `RootGrid`).
+  Groups the template left unnamed are listed as `(unnamed 1)`, `(unnamed 2)`
 - Text content, only if **Include text content** is on (see Privacy)
 
 The file header records the time, the reason for the dump, the Windows
@@ -725,9 +726,14 @@ static Item Describe(FrameworkElement const& e, FrameworkElement const& root,
         p.emplace_back(L"fs", Fmt(L"%g", tb.FontSize()));
     }
 
+    // Templates can leave a group unnamed, and two of them would share the key
+    // "" - which a JSON reader collapses to one. Number them instead.
+    int unnamedGroups = 0;
     for (auto const& group : VisualStateManager::GetVisualStateGroups(e)) {
         auto current = group.CurrentState();
-        item.states.emplace_back(group.Name().c_str(),
+        std::wstring name = group.Name().c_str();
+        if (name.empty()) name = Fmt(L"(unnamed %d)", ++unnamedGroups);
+        item.states.emplace_back(name,
                                  current ? current.Name().c_str() : L"-");
     }
     return item;
