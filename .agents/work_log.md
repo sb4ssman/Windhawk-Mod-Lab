@@ -2746,3 +2746,103 @@ for final 2.1 behavior and experimental Win10 limits, with changelog markers
 and current screenshots. Posted AI-disclosed reply 6035488678 and /ai-review
 6035489040. GitHub checks running. No human acceptance or merge claimed.
 User approved the Clock ellipsis candidate by screenshot. Pushed cb5d5049 (one-file diff) and requested fresh AI review. User explicitly requests lab commit/push and immediate fixes to new review findings.
+
+## 2026-10-07 - User-reported Tray Utility side visibility candidate
+
+User supplied top and left taskbar screenshots and exact settings: overflow
+placement, touchKeyboard | emoji | overflow, all content enabled, zero sizes,
+spacing/padding/offsets, NewItems append and MinimumTrayHeight44. Top appearance
+accepted as a screenshot example; side visibility is faulty, not live-approved.
+Found horizontal-only flow compensation in native shared hosts. Local Tray-only
+candidate reads StackPanel/ItemsStackPanel orientation from each icon's native
+ancestor and uses independent lane cursors, compensating either axis without
+transposing literal arrangements. Added explicit left alignment under the
+existing property lease. COMPILE_OK and actual-helper regression passed for
+both axes, row/column/reversed order and nudges. Requires human left/right test.
+Requested top screenshot could not be saved: no image attachment path and STA
+clipboard check returned no image. Asked for exact PNG; no placeholder added.
+Catalog/handoff corrected. Other mods/templates unchanged in this turn; no
+installed edits, commits, pushes, or PR messages.
+
+## 2026-10-07 - Tray side visibility first candidate failed; native-size correction
+
+User reports the same written row still faulty and supplies a closer screenshot.
+No approval. Found a separate axis defect: NaturalWidth read cross-axis stretched
+ActualWidth on side taskbars as individual native item width. Added NativeItemSize
+using along-taskbar extent as the native-cell size and capping stretched across
+extent, mirroring the existing top/bottom sizing. Discovery and stragglers pass
+current orientation. Added Discover actual/cell diagnostics. Compile and actual
+helper regression pass: stretched side controls140/160x24 become24x24, a three
+item row72 DIP; horizontal labels retain64x40. Earlier flow fix remains local.
+No push, commit, installed changes or PR actions. Fresh human test still required.
+
+## 2026-10-07 - Tray second live candidate failed; application-path audit
+
+User reports auto/manual arrangement changes have no effect. Verified normalized
+installed source equals lab, Explorer loads the DLL named in mod registry,
+Disabled0/LoggingEnabled1, and registry contains overflow placement, exact
+row expression, minimum44/detection auto. Screenshots cannot distinguish the
+CanArrange/minimum-thickness stand-down from missing or hidden native controls.
+Requested targeted debug lines; no further speculative code changes. No installed
+settings/source changes, commit, push or PR action.
+
+## 2026-10-07 - Tray native WrapGrid candidate after targeted log
+
+Targeted user log confirmed discovery of overflow/emoji/touchKeyboard and
+successful application of manual and auto rows, with zero native measurements.
+Read focused existing ignored native tree captures: side NonActivatableStack
+uses WrapGrid with fixed80x38 item cells; top uses a horizontal StackPanel.
+User explicitly authorized fixing it. Local Tray-only candidate completes
+native measurement after restore, normalizes WrapGrid panel bounds/item sizes,
+and translates enclosing item cells from measured native origins to target
+coordinates. Snapshots native item sizes, bounds and transforms through the
+existing property lease. Native controls/cells stay in their original parents.
+Compile/link passes; existing extracted size/stack regression passes, but does
+not validate actual WinRT WrapGrid rendering. Fresh exact-candidate human side
+test required. No installed changes, commits, pushes or PR actions. Raw log and
+tree captures remain outside tracked changes; other mod edits untouched.
+
+## 2026-10-07 - Tray candidate rejected; comparison with OmniButton
+
+User reports a Windows publisher/signature block during compilation and asks
+to reference OmniButton. Read its current tested ApplySideTaskbarLayout:
+keeps native WrapGrid cells/sizes, measures drawn glyph centers and translates
+items to requested cell centers. Comments document a live-observed failure when
+reshaping native WrapGrid hid slots. Latest Tray approach resizes those cells,
+so it contradicts already available evidence. No new source edits or compilation
+run in this comparison. Source inspection found no new elevation/process-launch
+path in the Tray changes; prompt identity remains unknown. Nothing pushed.
+
+## 2026-10-07 - Tray adopts OmniButton measured side placement
+
+User explicitly authorized replacing the failing scheme with OmniButton's
+approach. Removed WrapGrid item-size/panel-bound writes and enclosing-cell
+translation. Dedicated side path preserves native control/cell dimensions and
+alignment, retains space for native/requested footprints in the outer host,
+measures drawn TextBlock centers (control fallback), and translates each native
+control to its requested cell center. Zero-sized templates use the existing
+retry path. Host dimensions/transforms remain property-leased. Top/bottom keeps
+its prior stack compensation. Compile/link and size/stack regression passed;
+these do not establish live side rendering or explain the reported Windows
+publisher prompt. No installed changes, commits, pushes or PR actions.
+
+## 2026-10-07 - Tray measured side candidate failed; readiness audit
+
+User toggled off/on and supplied failure screenshots. Read-only source trace
+found g_layoutApplied set before reparent/side placement, while retry completion
+uses that same flag. A zero-size false return can leave a partially applied
+tree and terminate retries instead of recovering. Also Tray measurement happens
+after multiple native hosts move into a fixed-size owned group; Omni measures
+inside its existing native host. Copying its translation math did not preserve
+its working layout context. No source changes or pushes during this audit.
+
+## 2026-10-07 - Failed Tray candidate checkpoint and handoff
+
+Latest user live result: only emoji visible; manual arrangement/nudges did not
+recover keyboard or chevron. User explicitly requested saving a checkpoint
+and handing off to another LLM. Added detailed handoff under knowledge covering
+reproduction, candidate failures, readiness defect, structural differences from
+OmniButton, verification limits and unrelated unapproved edits. Saved local
+checkpoint of Tray work and documentation only; unrelated mod/template edits
+left outside commit. No source changes, installed changes, pushes or PR actions
+in this checkpoint turn. This is a failed candidate, not a release or approval.

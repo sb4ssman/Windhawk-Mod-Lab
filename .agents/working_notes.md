@@ -1,5 +1,68 @@
 # Working Notes — Windhawk Mod Lab
 
+## Active user-directed work — Tray Utility side visibility
+
+STOPPED AT USER REQUEST: checkpoint and handoff for another LLM. Latest live
+test: only emoji visible; arrangements/nudges did not recover the other icons.
+No approval. Start with [Tray handoff](knowledge/tray-utility-side-failure-handoff-2026-10-07.md).
+No further implementation, installed changes, push or publication performed.
+
+CURRENT CANDIDATE: user authorized adopting OmniButton's side approach.
+LATEST LIVE RESULT: failed after off/on, screenshots show utilities separated
+and chevron missing. Do not approve/push. Read-only trace found a definite
+readiness bug: g_layoutApplied is set before hosts move and side placement,
+but LayoutIsApplied treats it as completion. Side measurement returning false
+therefore leaves partial mutations and can stop retries. Earlier claims that
+zero-size failures use working retry scheduling were incorrect. Also Omni's
+translation runs inside its existing native host; Tray still reparents multiple
+hosts into a fixed-size group before measuring. This is not the same layout
+environment. Next: correct completion/rollback semantics and measure native
+geometry before reparenting; confirm actual failure stage with focused logs.
+Removed WrapGrid cell resizing and enclosing-cell repositioning. Side path
+preserves native item sizes/alignment and WrapGrid properties, gives the outer
+host room for native/requested footprints, measures visible TextBlock centers
+(control fallback), then translates native controls to requested cell centers.
+Unmeasured native templates return false for existing retry scheduling. Property
+lease restores host dimensions and item transforms. Compile/link and existing
+size/stack regression pass; actual side rendering needs fresh human test.
+No installed changes, commit, push or PR action. Earlier candidates below are
+historical failures, not the current implementation.
+
+User tested the top taskbar and supplied screenshots/settings; left/right
+with `touchKeyboard | emoji | overflow` has unpredictable utility visibility.
+Local candidate now detects each native stacking panel's actual orientation
+and compensates margins along that axis with separate panel cursors.
+That first candidate failed the user's side test. Second local correction
+uses the native along-taskbar extent for default cell sizing instead of the
+stretched side-host width. Added actual/cell Discover diagnostics; compile
+and actual size/flow regression pass. This candidate has not passed live testing.
+Second candidate also failed: user says auto/manual changes have no effect.
+Verified installed source equals lab, active Explorer DLL matches registry,
+mod enabled/logging enabled, and saved settings match exact requested row.
+User's targeted log confirms all three controls discovered and both manual/auto
+arrangements applied, but native sizes were zero. Native side template captures
+show fixed WrapGrid item cells, unlike the top taskbar's StackPanel.
+User authorized a fix: current local candidate completes native measurement
+after restoration, sizes WrapGrid panels/cells, and translates the enclosing
+item cells from measured native origins to requested positions. Original panel
+sizes and cell transforms are property-leased for restoration. No reparenting
+of native item cells. COMPILE_OK and TRAY_NATIVE_FLOW_REGRESSION_OK; the latter
+covers size/stack arithmetic, not live WrapGrid rendering. Fresh left/right
+manual and auto live tests needed; this candidate is not approved or pushed.
+User reports Windows blocked compilation with an unidentified publisher/signature
+prompt. Latest WrapGrid candidate rejected, not visually tested successfully.
+Read OmniButton's tested side path: preserves native WrapGrid cells/sizes and
+uses measured drawn-content centers plus translation only. Its source explicitly
+records prior live failure when reshaping WrapGrid hid icons. Tray's latest
+cell-resizing approach conflicts with that evidence. Next fix should preserve
+native cells and adapt Omni's measured-content placement; exact blocked executable
+and prompt text still needed to identify the separate compilation issue.
+First screenshot (459x91 top taskbar) requested at the top of both READMEs,
+but attachment has no local image file and clipboard is empty; exact PNG needed.
+No screenshot saved and no README image inserted yet. No push/PR action.
+Other mod edits remain untouched. Approved submissions are frozen; do not
+change or advance another mod without the user's specific instruction.
+
 Tree Dump idea TABLED by user Oct 7. No credit/branding or rename wanted.
 Existing PR #5977 remains open; no closure was requested. VD 2.1 pushed.
 Next: Tray Utility preemptive review pass and fresh human live test.

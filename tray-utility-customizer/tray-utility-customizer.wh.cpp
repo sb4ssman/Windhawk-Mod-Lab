@@ -3205,18 +3205,23 @@ static bool IsUtilityCandidateHost(FrameworkElement const& element) {
            name.find(L"TrayUtilityCustomizer") == std::wstring::npos;
 }
 
-static double NaturalWidth(FrameworkElement const& element) {
-    double width = element.ActualWidth();
-    return width > 0.0 ? width : 24.0;
+static ngl::Size NativeItemSize(double actualWidth, double actualHeight,
+                                bool side) {
+    // The native control stretches across the tray: height on top/bottom,
+    // width on left/right. Only its along-taskbar extent is a native cell size.
+    double along = side ? actualHeight : actualWidth;
+    if (along <= 0.0) along = 24.0;
+    double across = side ? actualWidth : actualHeight;
+    across = across > 0.0 ? std::min(along, across) : along;
+    return side ? ngl::Size{across, along} : ngl::Size{along, across};
 }
 
-static double NaturalHeight(FrameworkElement const& element) {
-    // Tray icons stretch to the full tray height, so ActualHeight is not a
-    // content size. The native content box is square-ish: use the width,
-    // capped by whatever height the element actually has.
-    double width = NaturalWidth(element);
-    double height = element.ActualHeight();
-    return height > 0.0 ? std::min(width, height) : width;
+static double NaturalWidth(FrameworkElement const& element, bool side = false) {
+    return NativeItemSize(element.ActualWidth(), element.ActualHeight(), side).width;
+}
+
+static double NaturalHeight(FrameworkElement const& element, bool side = false) {
+    return NativeItemSize(element.ActualWidth(), element.ActualHeight(), side).height;
 }
 
 // Forgiving token spelling: canonicalize what the user typed. Returns
@@ -3305,7 +3310,7 @@ static std::vector<LayoutItem> ResolveLayoutItems(
     Panel const& trayGrid,
     FrameworkElement const& overflowHost,
     FrameworkElement const& mainStack,
-    std::vector<std::wstring> const& wantedTokens) {
+    std::vector<std::wstring> const& wantedTokens, bool side) {
     std::vector<LayoutItem> items;
 
     // Utility candidate hosts and their visible icons, collected once.
@@ -3396,8 +3401,11 @@ static std::vector<LayoutItem> ResolveLayoutItems(
             continue;
         }
 
-        item.naturalW = NaturalWidth(item.element);
-        item.naturalH = NaturalHeight(item.element);
+        item.naturalW = NaturalWidth(item.element, side);
+        item.naturalH = NaturalHeight(item.element, side);
+        Wh_Log(L"[Discover] %s side=%d actual=%.1fx%.1f cell=%.1fx%.1f",
+               item.token.c_str(), side, item.element.ActualWidth(),
+               item.element.ActualHeight(), item.naturalW, item.naturalH);
 
         Wh_Log(
             L"[Discover] %s host=%s hostLeaf=%d glyph=%s "
@@ -3686,6 +3694,89 @@ struct IconTarget {
     double height = 0.0;
 };
 
+// The native panel can change its flow direction when the taskbar moves.
+// Follow that panel rather than assuming side taskbars or all hosts share an axis.
+struct NativeIconFlow {
+    DependencyObject lane{nullptr};
+    bool vertical = false;
+};
+
+// As in OmniButton, preserve native side-taskbar cells. Resizing WrapGrid
+// can hide native slots; translate from the drawn content's measured center.
+static bool PlaceNativeSideItems(FrameworkElement const& host,
+                                 std::vector<IconTarget> const& targets,
+                                 std::vector<LayoutItem> const& items,
+                                 double width, double height,
+                                 double offsetX, double offsetY) {
+    double nativeWidth = host.ActualWidth();
+    double nativeHeight = host.ActualHeight();
+    if (nativeWidth <= 0 || nativeHeight <= 0) return false;
+    TrackPlacement(host);
+    // Keep enough space for Windows' native row as well as the requested
+    // footprint. Do not change any item cell's dimensions or alignment.
+    host.Width(std::max(nativeWidth, width));
+    host.Height(std::max(nativeHeight, height));
+    host.HorizontalAlignment(HorizontalAlignment::Left);
+    host.VerticalAlignment(VerticalAlignment::Top);
+    host.Margin(Thickness{offsetX, offsetY, 0, 0});
+    host.UpdateLayout();
+    for (auto const& item : items) {
+        if (item.host != host) continue;
+        auto target = std::find_if(targets.begin(), targets.end(), [&](auto const& value) {
+            return value.element == item.element;
+        });
+        if (target == targets.end()) continue;
+        // Move the native control, so hit testing and flyout anchoring follow
+        // its glyph. A leaf host moves as a whole via its own transform.
+        auto mover = item.element;
+        auto drawn = tree_walk::FindDescendant(mover, 12,
+            [](FrameworkElement const& element) {
+                auto text = element.try_as<TextBlock>();
+                return text && !text.Text().empty() &&
+                       text.Visibility() == Visibility::Visible;
+            });
+        if (!drawn) drawn = mover;
+        if (drawn.ActualWidth() <= 0 || drawn.ActualHeight() <= 0) return false;
+        auto bounds = drawn.TransformToVisual(host).TransformBounds(
+            {0, 0, static_cast<float>(drawn.ActualWidth()),
+             static_cast<float>(drawn.ActualHeight())});
+        double centerX = bounds.X + bounds.Width / 2.0;
+        double centerY = bounds.Y + bounds.Height / 2.0;
+        g_lease->Track(mover, UIElement::RenderTransformProperty());
+        TranslateTransform shift;
+        shift.X(target->x + target->width / 2.0 - centerX);
+        shift.Y(target->y + target->height / 2.0 - centerY);
+        mover.RenderTransform(shift);
+        Wh_Log(L"[Layout] Native side item center=%.1f,%.1f target=%.1f,%.1f",
+               centerX, centerY, target->x + target->width / 2.0,
+               target->y + target->height / 2.0);
+    }
+    return true;
+}
+
+static NativeIconFlow FindNativeIconFlow(FrameworkElement const& icon,
+                                         FrameworkElement const& host) {
+    auto parent = VisualTreeHelper::GetParent(icon);
+    for (int depth = 0; parent && depth < 20; ++depth) {
+        if (auto panel = parent.try_as<StackPanel>())
+            return {parent, panel.Orientation() == Orientation::Vertical};
+        if (auto panel = parent.try_as<ItemsStackPanel>())
+            return {parent, panel.Orientation() == Orientation::Vertical};
+        if (parent == host) break;
+        parent = VisualTreeHelper::GetParent(parent);
+    }
+    return {host, false};
+}
+
+static Thickness CompensatedIconMargin(IconTarget const& target,
+                                       bool vertical, double& flow) {
+    double left = target.x - (vertical ? 0.0 : flow);
+    double top = target.y - (vertical ? flow : 0.0);
+    flow += std::max(0.0, vertical ? top + target.height
+                                  : left + target.width);
+    return {left, top, 0.0, 0.0};
+}
+
 // Remember every unmanaged candidate host's icon count (see g_candidateCounts),
 // and how many candidate hosts there are, so a utility that appears later -
 // inside an existing host or as a new one - is noticed.
@@ -3846,6 +3937,10 @@ static bool ApplyLayout() {
     }
     bool side = taskbar_metrics::RunsDownSide(metrics);
 
+    // RestoreLayout reinserted native hosts and invalidated their measure.
+    // Complete that pass before taking native sizes or walking item containers.
+    root.UpdateLayout();
+
     auto trayGridElement = tree_walk::FindDescendant(
         root, 20,
         [](FrameworkElement const& element) {
@@ -3921,7 +4016,7 @@ static bool ApplyLayout() {
     // actually exists, and a written arrangement needs the same list to tell
     // which items it forgot to name.
     auto items = ResolveLayoutItems(trayGrid, overflowHost, mainStack,
-                                    enabledTokens);
+                                   enabledTokens, side);
     if (items.empty()) {
         // MainStack fills in from the tray view model after the frame exists,
         // and with no hidden icons the chevron is collapsed too. Not settled.
@@ -4150,8 +4245,8 @@ static bool ApplyLayout() {
                 carried += L", ";
             }
             carried += name;
-            double width = NaturalWidth(icon);
-            double height = NaturalHeight(icon);
+            double width = NaturalWidth(icon, side);
+            double height = NaturalHeight(icon, side);
             IconTarget straggler;
             straggler.element = icon;
             straggler.width = width;
@@ -4350,6 +4445,12 @@ static bool ApplyLayout() {
     double groupOffsetY = static_cast<double>(g_settings.offsetY);
 
     for (auto const& host : managedHosts) {
+        if (side) {
+            if (!PlaceNativeSideItems(host, targets, items, total.width,
+                                      total.height, groupOffsetX, groupOffsetY))
+                return false;  // native templates have not finished measuring
+            continue;
+        }
         // Host-leaf items (the chevron, MainStack fallback) are placed as
         // a whole; icon hosts span the group and their icons are placed
         // individually with flow-compensating margins.
@@ -4377,13 +4478,12 @@ static bool ApplyLayout() {
         ApplyLeafPlacement(host, 0.0, 0.0, total.width, total.height);
         host.Margin(Thickness{groupOffsetX, groupOffsetY, 0.0, 0.0});
 
-        // Windows lays the host's icons out in one horizontal flow. Each
-        // icon's Left margin steers it from where the flow would put it to
-        // its target, and the flow position advances by the arranged
-        // extent (never negative — XAML floors desired size at zero).
+        // Compensate the actual native stacking axis, with a separate cursor
+        // for each panel. Manual expressions remain literal on every edge.
         std::vector<FrameworkElement> icons;
         CollectVisibleIconViews(host, icons);
-        double flow = 0.0;
+        struct FlowCursor { DependencyObject lane; double position = 0.0; };
+        std::vector<FlowCursor> flows;
         for (auto const& icon : icons) {
             IconTarget const* target = nullptr;
             for (auto const& candidate : targets) {
@@ -4402,11 +4502,19 @@ static bool ApplyLayout() {
             icon.MinHeight(0);
             icon.MaxWidth(target->width);
             icon.MaxHeight(target->height);
+            icon.HorizontalAlignment(HorizontalAlignment::Left);
             icon.VerticalAlignment(VerticalAlignment::Top);
-            double marginLeft = target->x - flow;
-            icon.Margin(Thickness{marginLeft, target->y, 0.0, 0.0});
+            auto nativeFlow = FindNativeIconFlow(icon, host);
+            auto cursor = std::find_if(flows.begin(), flows.end(), [&](auto const& value) {
+                return value.lane == nativeFlow.lane;
+            });
+            if (cursor == flows.end()) {
+                flows.push_back({nativeFlow.lane});
+                cursor = std::prev(flows.end());
+            }
+            icon.Margin(CompensatedIconMargin(*target, nativeFlow.vertical,
+                                              cursor->position));
             icon.RenderTransform(nullptr);
-            flow += std::max(0.0, marginLeft + target->width);
         }
     }
 
