@@ -2364,3 +2364,186 @@ Slip, corrected: the first posting script indexed a PowerShell ordered
 dictionary by int, which selects by POSITION, so the replies were skipped and
 only `/ai-review` went out. Verified nothing was duplicated, then posted the
 replies alone. Use string keys (or an array of records) for PR maps.
+
+## 2026-10-06 - Windows 10 VD Switcher local candidate
+
+User reprioritized Windows 10 compatibility as the sole active task. Verified
+Windows 10 Home 22H2 build 19045.7725 and clean lab at 2870100. Added a Win32
+rebar-band backend for 19041-19045, skipping XAML hooks on those builds. It
+reuses desktop switching, registry enumeration, labels and assembled layouts;
+polls desktop/geometry changes every 250 ms, draws themed configurable buttons,
+supports Task View, name tooltips and shared DWM hover previews. UI-thread
+creation and teardown remove the owned band, tooltip, popup and classes;
+worker/switch handles are joined with sent-message pumping before unload.
+
+First-candidate limits documented in both README layers: primary taskbar only,
+grouped tray/Start placement, no Start overlay/XAML styling/acrylic transparency.
+Header unchanged at 2.1; no new shared templates and no other mod source edits.
+Compile/link, exit-destructor audit, assembly, component-use, README parity,
+settings-use and whitespace checks passed. HUMAN LIVE TEST STILL REQUIRED.
+Guide: outputs/live-test-vd-switcher-win10-2026-10-06.md.
+No commit, tag, installed source/settings edit, push or PR action.
+
+## 2026-10-06 - Windows 10 partial live result and settings research
+
+User reports partial success: buttons remain left of hidden-icons chevron for
+all placements; some choices introduce a large gap. Requested scope narrows
+to beside chevron and either side of notifications, to the right of clock.
+This is not approval to publish. Verified installed Windhawk 1.7.3. Official
+2.0 alpha 6 release/wiki document dynamic runtime options and conditional
+settings; 1.7.3 lacks them. No source change or installed-version change in
+this follow-up. Next: classic placement replacement and gap fix.
+
+## 2026-10-06 - Surgical Win10 spacing fix and new-release template
+
+User requested a narrow functional experimental Win10 checkpoint, followed by
+returning to Windows 11 to finish the family. Removed the classic backend's
+Start-dependent insertion/movement: the rebar band is always appended, fixed
+size, without a header reservation. This removes the RB_MOVEBAND path that
+redistributed app-band space and introduced the reported gap. Kept one Win10
+position (before chevron); clock/notification-side placement is deferred.
+Position and all-taskbars settings are explicitly labelled Windows 11 only;
+both detailed README layers, catalog, and spacing test guide agree.
+
+Prepared dynamic-setting-options.h and its adoption guide at the user's
+request for Windhawk 2.0. It publishes OS-filtered option labels in local
+storage, clears unavailable labels, validates portable-safe keys/labels and
+duplicates before writing, reports storage failures, and preserves settings
+and unrelated storage. Unit tests cover OS choice changes, malformed input,
+unchanged unrelated storage, and failure reporting; static-linked test exe
+passed (initial dynamically linked exe lacked its runtime dependencies).
+Not embedded into the current mod; no alpha-only settings added to it.
+
+Verification: mod compile/link, exit-time destructor audit, assembly,
+component-use, settings-use, README parity, and whitespace checks passed.
+Spacing fix still awaits a fresh HUMAN LIVE TEST; prior partial test is not
+publication approval. Header remains 2.1. No release tag, push or PR action.
+Pruned working notes to a short handoff with the new-release template at top;
+preserved the previous full snapshot in knowledge/. No other mod source edits.
+
+## 2026-10-06 - Win10 orphan-space recovery and three tray positions
+
+User's new report superseded the prior clock-placement deferral. Recovered
+the live shell's orphan VD bands and restored full native app-button width.
+The initial snapshot-based cleanup also removed/hid the native app band;
+this mistake was reported and corrected using its existing child HWND.
+Final repeat inspection found one native band, width 1493, visible app host
+x=96..1587, no remaining VD bands. Temporary repair helper not retained.
+
+Replaced the mod's rebar backend with native clock minimum-size reservation
+and owned sibling tray window. Added Placement.Win10Position with before
+chevron, between clock/notifications, and between notifications/Show Desktop.
+Restoration runs before sizing-hook removal; hiding reserves zero; native
+host replacement retries. No other mod source edits. Synced both README
+layers/catalog, retest guide and future settings recipe; template remains
+first in the return-to-Win11 handoff.
+
+Compile/link, exit-destructor audit, assembly/component/settings checks,
+README parity and whitespace passed. Replacement still awaits the user's
+exact-build live test; UI automation native pipe unavailable. Header 2.1,
+no installed source/settings edits, version/tag bump, push or PR action.
+Details: knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md.
+
+## 2026-10-06 - Win10 placement success, native-looking alpha appearance candidate
+
+User reports d88e5f1 placement success, then requests a matching taskbar
+background and natural button highlights with minimal customization. Replaced
+classic solid popup-palette drawing with a layered child and premultiplied
+alpha surface, preserving the actual shell backdrop. Default idle fill is
+transparent; default accent active fill is subtle with an accent underline;
+hover/press use translucent theme-appropriate feedback. Existing custom colors
+remain optional, with actual alpha; no new settings. Theme/accent changes
+invalidate on polling; high contrast uses system text/highlight colors.
+Preview popup and Windows 11 drawing are unchanged. A 1/255 alpha hit floor
+keeps the whole invisible idle button clickable; verify this live.
+
+User also requests vertical stacks and grids. Verified Win10 uses the shared
+arranger with real taskbar height; documented `1, 2`, `1, 2 | 3, 4` and
+18 px height / 2 px spacing / 0 vertical padding for two rows in 40 px.
+No duplicated layout implementation or silent manual-shape resizing.
+
+Validation: mod compile/link and destructor audit; assembly, component-use,
+settings-use, README parity and whitespace. Existing side-arrangement suite
+passed. Extracted actual Surface code passed premultiplied composition,
+zero-alpha preservation, text/coverage bounds, and 100-cycle GDI lifetime
+checks (5 handles before/after). Warmed the lazy stock font before counting.
+Exact appearance, click coverage and revised unload still need HUMAN LIVE
+TEST. No installed source/settings edit, push, PR update, release bump/tag.
+
+## 2026-10-06 - Win10 experimental checkpoint accepted
+
+User accepted a6a7917: "not perfect" but "working good enough" for personal
+experimental use now. Current Win10 pass complete; appearance imperfections
+remain accepted limitations. This is not exhaustive position/edge/lifecycle
+verification or authorization to publish. Updated handoff to resume Win11
+family work; future settings template remains first. No release bump/tag,
+push, PR action or installed configuration change.
+
+## 2026-10-06 - Win10 columns-first auto-fit correction candidate
+
+User reopened the experiment: auto + columns first still produced a row on
+a single-height taskbar although a written `1, 2` could stack. Height/width
+detection already worked; fixed 22 DIP cells plus 2 DIP spacing required46
+DIP for two rows, so the arranger allowed only one. Fill order changed token
+order, not the fixed-size capacity.
+
+Added Win10-only columns-first automatic compaction. Measure the chosen font
+(and in-grid Task View font); use font height/label width plus small padding
+as a readability floor, choose the narrowest grid with fewest empty slots,
+and reduce the cross-axis cell extent only enough for that shape. Real
+taskbar metrics supply height or side width after padding/Task View reserves.
+No setting is rewritten. Row-first auto, manual arrangements and Win11 keep
+configured dimensions. Side auto remeasures when label content changes.
+Documented the behavior in settings/readmes and reopened the live-test handoff.
+
+Validation: extracted actual CompactExtent plus shipped arrangement component
+passed cases for 2/3/4 desktops at40 DIP, tall taskbar columns, ragged grids,
+large-font limits, padding and Task View reserves, side widths and literal
+manual sizes. Mod compile/link, destructor audit, assembly/component/settings
+checks, README parity and whitespace passed. Exact-build HUMAN LIVE TEST
+still required. No installed edits, push/PR action or version/tag bump.
+
+## 2026-10-06 - Real-font Win10 auto-fit correction and Task View grid regression
+
+User live test of93592ff still displayed a row and requested3 desktops plus
+Task View as the fourth grid cell. Actual GDI measurement: default -13 px
+Segoe UI has tmHeight17/internalLeading4, so adding4 DIP produced a21 DIP
+minimum and still rejected two rows. Earlier numerical tests used an assumed
+minimum and missed this. Use the full measured line box alone as the vertical
+floor; centering provides available padding. A smaller fixed padding also
+failed at150% and was removed. Side label width retains small horizontal padding.
+
+Read-only live settings confirmed auto/columns/default10-point font/22 px
+cells/2 px gap/zero vertical padding. TaskViewPlacement=inGrid but TaskViewButton=0;
+placement alone does not enable it. No installed settings were changed.
+
+Added tools/test-vd-native-layout.py: extracts actual AutoCell, AvailableRows,
+ComputeButtonPlacements and resolver helpers, uses real GDI font metrics and
+shipped arranger, with only taskbar geometry fixture. Tests pass for two and
+three desktops, three plus Task View (four equal cells, final cell bottom-right),
+100/125/150/200% scale, icon-font metrics, literal manual sizes and row-first.
+Default result20x19 DIP cells; pair20x40, four-cell grid42x40. Compiler/link,
+destructor audit, assembly/component/settings/README/whitespace checks passed.
+Exact live retest still required; no installed edits, push, PR or version/tag.
+
+## 2026-10-06 - Final Win10 grid accepted and lab push authorized
+
+User confirmed satisfaction with a3c43a1, supplied the compact single-height
+taskbar screenshot (three desktops plus Task View), and explicitly requested
+README updates, commit and push. Saved the exact380x43 clipboard screenshot
+as taskbar-vd-switcher/assets/win10-experimental-grid.png and visually verified
+it matches the attachment. Added it at the top of the root catalog, mod README
+and synchronized embedded README; marked Win10 live-tested but experimental.
+Updated handoff to return to Win11, with future settings template still first.
+Scope of authorized push: Windhawk-Mod-Lab main; no fork/PR update or release
+version bump. Runtime C++ unchanged from the accepted live-tested checkpoint.
+
+## 2026-10-06 - Preserve concurrent Win11 work before accepted Win10 lab push
+
+Fetched origin for the authorized lab push and found three concurrent remote
+commits through d4a3265 (OmniButton/Clock Spacer publication notes and tree-dump
+fixes). Merged them without force or runtime VD changes. Resolved only the
+working-notes conflict, retaining the short Win10/return-to-Win11 handoff and
+preserving the remote publication/test/identity instructions in
+knowledge/lab-win11-remote-handoff-2026-10-06.md. Remote tree-dump sources,
+publish guide and posted review drafts are preserved in the merge.

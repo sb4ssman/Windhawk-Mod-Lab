@@ -18,6 +18,7 @@ the work is finished rather than that the tray was found. Those rules live here.
 | Recipe | Shape | Mods on it |
 |---|---|---|
 | [taskbar-xaml-arranger.md](taskbar-xaml-arranger.md) | Borrow live taskbar XAML elements, position them as an owned group, restore exactly on unload | Tray Utility; OmniButton, Privacy Anchor, VD Switcher, Clock Spacer are the same shape |
+| [windhawk-2-dynamic-settings.md](windhawk-2-dynamic-settings.md) | Runtime dropdown choices and backward-compatible UI annotations | Prepared at the user's request; adoption deferred until the new release is tested |
 
 ## Using one
 

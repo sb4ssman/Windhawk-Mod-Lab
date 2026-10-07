@@ -1,5 +1,8 @@
 # Windhawk Mod Lab
 
+[![Experimental Windows 10 VD Switcher: three desktops and Task View in a grid](taskbar-vd-switcher/assets/win10-experimental-grid.png)](taskbar-vd-switcher/)
+*Experimental Windows 10 VD Switcher — live-tested compact grid on a single-height taskbar.*
+
 Development home for sb4ssman's [Windhawk](https://windhawk.net) mods.
 
 These mods mostly explore dense Windows 11 taskbar and system tray layouts, especially
@@ -15,7 +18,7 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, PR #4443 open; live-tested on 26200.9457 | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7 published; v2.0 live-tested on 26200.9457, update PR pending | Grouped Shell-menu buttons with native icons, nested layouts and placement after app icons or in the tray |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; PR #4844 open; v2.0 hover previews live-tested on 26200.9457 | Clickable desktop buttons with hover previews, customizable indicators, nested layouts, Task View button and tray/Start placement |
+| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; local v2.1 Win10 experimental, live-tested | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
 | [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; v2.0 on the shared contract, live-tested on 26200.9457 | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
 
 ## Tools for mod authors

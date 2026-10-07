@@ -1,6 +1,67 @@
 # Taskbar Virtual Desktop Switcher
 
-A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
+![Experimental Windows 10: three desktops and Task View in a compact grid](assets/win10-experimental-grid.png)
+*Experimental Windows 10 — three desktops plus Task View, using automatic
+columns-first layout on a single-height taskbar. Live-tested and accepted.*
+
+A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses native tray windows.
+
+## Windows 10 compatibility (experimental)
+
+The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
+(Windows 10 2004 through 22H2). This build, including compact automatic grids
+and an equally sized Task View cell, was live-tested and accepted for
+experimental use. Appearance remains imperfect; exhaustive edge/lifecycle
+testing is still outstanding. It uses the
+same desktop labels, arrangement, sizes, padding, offsets, Task View button,
+colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
+removal, renaming, and switches made elsewhere are checked every 250 ms.
+
+The classic taskbar reserves space through the native clock's layout, so app
+buttons give up only the needed width. It does not add rebar toolbar bands.
+Moving or resizing the taskbar rebuilds the layout;
+automatic layouts fit its height at the top/bottom and its width at the sides.
+Disabling the mod restores native tray geometry and releases the reservation.
+The native clock-size symbol must be available; initialization fails safely
+if it cannot be hooked.
+
+Windows 10 differences in this experimental backend:
+
+- **Position (Windows 10 experimental)** offers three locations: before the
+  hidden-icons chevron (before tray icons when the chevron is hidden), between
+  clock and notifications, or between notifications and Show Desktop.
+  **Position (Windows 11)** is ignored on Windows 10.
+- Notifications must be present for the position after notifications. If the
+  native host is unavailable, the switcher waits for it rather than overlapping
+  another control. Side taskbars still need placement testing.
+- Only the primary taskbar is supported; **Show on all taskbars (Windows 11)**
+  applies to Windows 11 only.
+- The buttons use Win32 drawing; Windows 11 Taskbar Styler selectors and native
+  XAML checked states apply to Windows 11 only. The toolbar lets the actual
+  taskbar background show through, including its color and transparency.
+  Idle buttons are transparent by default; the active desktop has a subtle
+  accent tint and underline, with soft hover/press feedback. Text follows the
+  system light/dark theme; high contrast uses system colors. Existing color
+  overrides remain optional; no additional appearance settings are needed.
+- A manual arrangement larger than the taskbar can be clipped. Very crowded
+  taskbars need a smaller button size or arrangement.
+
+The screenshots below show the Windows 11 backend.
+
+**Stacks and grids on Windows 10.** The same `Layout` → `Arrangement` field
+works here: `1, 2` stacks two desktops; `1, 2 | 3, 4` makes a 2×2 grid.
+With `auto` and **Fill columns first**, buttons can compact across the
+taskbar to fit a readable column or grid. The configured height is a preferred
+maximum on a horizontal taskbar; width is a preferred maximum on a side
+taskbar. With the default font and zero padding, two desktops can stack on a
+normal 40 px taskbar without manually reducing the default 22 px height.
+Four can form a 2×2 grid. Larger fonts, padding and a Task View sliver can
+reduce how many lines fit. A taller taskbar allows more lines; `auto` refits
+when it changes. **Fill rows first** keeps the configured button sizes.
+
+Manual arrangements keep their exact shape and sizes. For a manual two-row
+stack on a 40 px taskbar, use 18 px height, 2 px spacing and zero vertical
+padding: the group needs 38 px. Manual arrangements never shrink automatically.
 
 ![Three desktops with lower master button](assets/simple3wlowmaster.png)
 *Three desktops with the optional Task View button as a lower sliver.*
@@ -186,8 +247,9 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Position | After clock | Tray position, or left of / over / right of Start |
-| Show on all taskbars | Off | Experimental; also injects into secondary monitors' taskbars |
+| Position (Windows 11) | After clock | Tray position, or left of / over / right of Start; ignored on Windows 10 |
+| Position (Windows 10 experimental) | Before hidden-icons chevron | Before chevron, between clock and notifications, or between notifications and Show Desktop; ignored on Windows 11 |
+| Show on all taskbars (Windows 11) | Off | Experimental; also injects into secondary monitors' taskbars; Windows 10 supports the primary taskbar only |
 
 ### Content
 
@@ -206,7 +268,7 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Arrangement | `auto` | `auto`, or an arrangement you write — see above |
-| Fill order | Fill rows first | Used by `auto` |
+| Fill order | Fill rows first | Used by `auto`; on Win10, columns first also compacts across taskbar thickness to fit readable lines |
 | Short row or column | Center | Used by `auto`; start, center, or end |
 | Newly created desktops | Add them after | Or leave them out; only applies to a written arrangement |
 
@@ -214,8 +276,8 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Button width | 20 px | |
-| Button height | 22 px | |
+| Button width | 20 px | Preferred maximum for Win10 columns-first `auto` on side taskbars; otherwise exact |
+| Button height | 22 px | Preferred maximum for Win10 columns-first `auto` on horizontal taskbars; otherwise exact |
 | Button spacing | 2 px | Gap between buttons along each axis |
 | Task View button thickness | 14 px | Width as a column, height as a sliver; unused in the grid placement |
 | Task View button length | 0 px | 0 matches the desktop buttons exactly |
@@ -319,6 +381,8 @@ This mod builds directly on patterns established by several community mods:
 **[taskbar-empty-space-clicks](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-empty-space-clicks.wh.cpp)** — source of the `SwitchVirtualDesktop()` COM vtable pattern, build-specific IIDs for `IVirtualDesktopManagerInternal`, and the `IObjectArray` desktop enumeration approach.
 
 **[taskbar-desktop-indicator](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-desktop-indicator.wh.cpp)** — reference for reading the current virtual desktop from the registry (session-scoped `VirtualDesktopIDs` + `CurrentVirtualDesktop` keys) and the notification cookie / `IVirtualDesktopNotificationService` registration pattern.
+
+**[taskbar-clock-customization](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-clock-customization.wh.cpp)** — reference for the Windows 10 clock minimum-size hook and native taskbar relayout.
 
 **[Vertical OmniButton archive](../omnibutton-customizer/archive/vertical-omnibutton-v1.4.wh.cpp)** (this lab, by sb4ssman) — source of the `GetTaskbarXamlRoot` boilerplate, `RunFromWindowThread` dispatcher, `FindCurrentProcessTaskbarWnd`, and the `IconView::IconView` hook-and-retry injection pattern.
 
