@@ -3,6 +3,9 @@
 [![Experimental Windows 10 VD Switcher: three desktops and Task View in a grid](taskbar-vd-switcher/assets/win10-experimental-grid.png)](taskbar-vd-switcher/)
 *Experimental Windows 10 VD Switcher — live-tested compact grid on a single-height taskbar.*
 
+[![Experimental Windows 10 VD Switcher: two desktops stacked before the hidden-icons chevron](taskbar-vd-switcher/assets/win10-experimental-stack.png)](taskbar-vd-switcher/)
+*Experimental Windows 10 VD Switcher — two desktops stacked before the hidden-icons chevron.*
+
 Development home for sb4ssman's [Windhawk](https://windhawk.net) mods.
 
 These mods mostly explore dense Windows 11 taskbar and system tray layouts, especially

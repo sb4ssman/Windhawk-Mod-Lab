@@ -2871,3 +2871,15 @@ other open PRs verified identical to lab HEAD. User live-approved the exact
 build (md5 6a2c9f9d). Lab 3e079da pushed; fork branch
 update-tray-utility-customizer-v2.0 -> ff272070 (one-file diff); PR retitled
 v2.1, body and changelog updated, AI-disclosed reply and /ai-review posted.
+
+## 2026-10-07 - VD Switcher event-driven Windows 10 worker live-approved
+
+On the Windows 10 machine (19045): candidate 259f032 compiled and linked
+(COMPILE_OK) and VD_NATIVE_LAYOUT_PIPELINE_OK passed. Installed build was
+a3c43a1, the accepted Oct 6 build; it was replaced with the candidate
+(installed md5 8e39b411 == lab). The user ran the test in
+outputs/live-test-vd-switcher-win10-2026-10-07.md and said everything looks
+good. They supplied a second Win10 screenshot (two desktops stacked before the
+hidden-icons chevron), added as assets/win10-experimental-stack.png to the
+root README, the mod README and the embedded README (README_MATCH). Lab
+committed and pushed at the user's direction; fork/PR #4844 not touched.

@@ -23,17 +23,14 @@ Lab checkpoint, user-directed, NOT on the fork - each needs a live test first:
   alias, stand-down log, null check, $description. File normalized back to
   LF. ComputeTree/TokenMatcher comments are shared-component docs: answer in
   reply, do not edit. Test: settings save while icons load, edge moves.
-- VD 2.1 (#4844 BLOCKING): Win10 classic_ui worker is event-driven -
-  RegNotifyChangeKeyValue on session+user VirtualDesktops, Personalize, DWM,
-  HighContrast; `kick` event for settings/lost bar; Update re-reads only
-  dirty parts (theme cached); geometry via subclass-posted kRecheck + 2 s
-  SetTimer on the bar (UI thread); Attach failure keeps the hidden window,
-  Detach relayouts only if attached. Optional: one SwitchToDesktopAsync for
-  both backends, Start() braces, AvailableRows comment moved. USER TESTS ON
-  THE WIN10 MACHINE: switch/create/remove/rename desktops (from Task View
-  and Win+Ctrl+arrows), theme/accent change, move/resize taskbar,
-  afterNotifications with the Action Center button off then on, settings
-  save, disable/enable.
+- VD 2.1 (#4844): event-driven Win10 worker LIVE-APPROVED by the user on
+  the Win10 machine Oct 7 (installed md5 8e39b411 == lab 259f032 source;
+  details in work_log). Second Win10 screenshot
+  (assets/win10-experimental-stack.png) added to all three README layers.
+  Fork/PR #4844 NOT updated yet: needs the @version/changelog check and
+  the publish flow. On this machine the preflight validator step needs
+  pyyaml in py -3.12. The start-lane edit in 73744dc makes preflight warn
+  about Tray drift (expected; that edit is unapproved).
 After approval: fork pushes + AI-disclosed replies + /ai-review per PR.
 Still uncommitted and unapproved: Privacy Anchor working-copy edits and the
 start-lane SetRow edit (preflight warns about Privacy) - not part of this.

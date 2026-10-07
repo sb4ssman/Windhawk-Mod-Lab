@@ -4,6 +4,10 @@
 *Experimental Windows 10 — three desktops plus Task View, using automatic
 columns-first layout on a single-height taskbar. Live-tested and accepted.*
 
+![Experimental Windows 10: two desktops stacked before the hidden-icons chevron](assets/win10-experimental-stack.png)
+*Experimental Windows 10 — two desktops stacked in one column before the
+hidden-icons chevron, desktop 1 active. Live-tested and accepted.*
+
 A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses native tray windows.
 
 ## Windows 10 compatibility (experimental)
