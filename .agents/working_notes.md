@@ -1,6 +1,23 @@
 # Working Notes — Windhawk Mod Lab
 
 
+## START HERE (Oct 7) - for the next session
+
+1. Run `bash .agents/tools/sync-lab.sh` first (README step 0).
+2. State: the 2.1 family and the Win10 VD experiment are in the lab (see
+   below). Tree dump is PR #5977, awaiting the author's fixes to the bot
+   review - the user said HOLD, do not fix yet. Review file:
+   [../_research/ai-reviews-2026-10-07/](../_research/ai-reviews-2026-10-07/).
+   Do not touch the tool's `@id`/`@name`; the reviewer's rename request is the
+   user's call.
+3. Next work (user's plan): finish the rest of the mod family - VD Switcher
+   Win11 regression test incl. hover previews, then the other 2.1 live tests
+   (Privacy Anchor, Folder Menus, Tray Utility), then pushes and `/ai-review`.
+   Details in the sections below; the PRIME DIRECTIVE (no push without the
+   user's live test) applies.
+4. History was rewritten on Oct 7 (privacy scrub). If a pull complains about
+   diverged history, read the header of `sync-lab.sh`; never force-push.
+
 ## TOP HANDOFF - future settings UI, then return to Windows 11
 
 Keep [_templates/dynamic-setting-options.h](../_templates/dynamic-setting-options.h)

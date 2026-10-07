@@ -11,6 +11,14 @@ NOTHING in these notes is authoritative on its own. Chats get cut off
 mid-update, so any single file can be stale. Getting your bearings at the
 start of a new chat means cross-checking all of these, not just reading one:
 
+0. FIRST, on every machine (Windows 10, Windows 11, Linux - the user works on
+   this repo from all of them), sync the clone:
+   `bash .agents/tools/sync-lab.sh`. It fast-forwards when it can and STOPS,
+   without discarding anything, when the clone has work of its own. If a
+   machine has never had this script, run `git pull --ff-only` instead; if
+   that says the histories diverged, do NOT reset by hand - read the script's
+   header and ask the user. Never force-push the lab.
+
 1. Read this file.
 2. Read [mod-identity.md](mod-identity.md) — the canonical `@id` and `@name` of
    every mod. Notes can be wrong about these; that file is the authority.
@@ -41,6 +49,11 @@ start of a new chat means cross-checking all of these, not just reading one:
   When work is ready, hand it back to the user for a live test and WAIT for their
   explicit confirmation before any push. No exceptions, no "it's a trivial
   change," no inferring approval from a prior test of a different build.
+- **NEVER COMMIT PERSONAL DATA.** Raw tree dumps (`_research/tree-dumps/`,
+  gitignored), Windhawk logs and screenshots can contain window titles, the
+  user's e-mail address and file paths. Before any blanket `git add`, read
+  `git status`: a merge once swept 8 raw dumps into the PUBLIC lab repo and
+  needed a history rewrite (Oct 7 2026). Add specific paths instead.
 - READ EACH MOD CAREFULLY — understand what it does, its context, and its
   interface — BEFORE working on it.
 - We are NOT working on interop/placement mechanics right now.

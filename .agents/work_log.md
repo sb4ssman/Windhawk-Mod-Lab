@@ -2547,3 +2547,26 @@ working-notes conflict, retaining the short Win10/return-to-Win11 handoff and
 preserving the remote publication/test/identity instructions in
 knowledge/lab-win11-remote-handoff-2026-10-06.md. Remote tree-dump sources,
 publish guide and posted review drafts are preserved in the merge.
+
+## 2026-10-07 - Tree dump submitted (PR #5977); history scrub; multi-machine sync
+
+Tree dump (`mod-tool-taskbar-tree-dump`, "Windhawk-Mod-Lab Tool: Taskbar Tree
+Dump" v1.0): user live-tested and confirmed the `mod-tool-` identity and a FLAT
+`tool-mods/` (one `.wh.cpp` per tool; README and components.list under
+`tool-mods/_support/<id>/`, checked with `tool-mods/_support/check-tool.ps1`).
+Pushed branch `add-mod-tool-taskbar-tree-dump` (one-file diff), opened PR #5977,
+CI 5/5, `/ai-review` posted. The bot's round-1 review is saved in
+`_research/ai-reviews-2026-10-07/` and is NOT yet addressed (user's hold).
+
+Privacy incident: merge commit `e12209f` had added the raw Oct 4 tree dumps
+(window titles, the user's e-mail) to the public lab repo. The user authorized
+a rewrite: index-filter over `e12209f^..main`, force-pushed (`origin/main`
+`bac61b3`, later `81f4f07`). Verified free of the dumps; earlier commits kept
+their SHAs. A GitHub Support ticket asks them to purge cached views of the old
+SHA. Declined: scrubbing the `@author` e-mail in an archive file - 388 commits
+carry that e-mail as author metadata, so it was never secret.
+
+Added `.agents/tools/sync-lab.sh` (+ `.gitattributes` keeping `*.sh` LF) so
+every machine can sync safely. Tested against a clone of the pre-scrub bundle:
+it resets a clone holding only the old commits, and stops without losing
+anything when the clone has commits of its own.
