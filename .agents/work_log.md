@@ -2883,3 +2883,14 @@ good. They supplied a second Win10 screenshot (two desktops stacked before the
 hidden-icons chevron), added as assets/win10-experimental-stack.png to the
 root README, the mod README and the embedded README (README_MATCH). Lab
 committed and pushed at the user's direction; fork/PR #4844 not touched.
+
+## 2026-10-07 - Stray commit cleaned; Tray and Folder 2.1 published
+
+73744dc ("adding files", Win10 machine) had swept in untested Privacy Anchor
+and start-lane-placement edits a prior session's fix-settings-review.py left
+uncommitted. Restored both files to the approved state (Privacy == PR #4843
+head; all assembled mods pass the library check); edits kept as
+UNTESTED-privacy-startlane-edits.patch. New standing directive: no session
+ends with uncommitted work. Tray 2.1 (review polish + scheduled-reapply retry)
+and Folder 2.1 (icon worker settings snapshot) live-approved and pushed to
+#5569 (182b55ea) and #5568 (ba6a5b5e); replies + /ai-review posted, CI green.

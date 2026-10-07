@@ -3,7 +3,10 @@
 ## CURRENT — Oct 7 night: three candidates LIVE-APPROVED
 
 Tray 2.1 and Folder 2.1 (lab 259f032 builds) live-approved on Win11; VD 2.1
-(d37998f) live-approved on Win10. Publishing Tray and Folder to #5569/#5568.
+(d37998f) live-approved on Win10. PUBLISHED: Tray #5569 -> 182b55ea (md5
+ff4448cf), Folder #5568 -> ba6a5b5e (md5 8c581c1b); one-file diffs, bodies'
+changelogs updated, AI-disclosed replies + /ai-review (PowerShell), CI 5/5
+green on both. NEXT: read both AI reviews, then /ready-for-reviewer.
 VD: Win10 approved; the shared SwitchToDesktopAsync also changed the Win11
 click path - needs one Win11 desktop-button click check before #4844 push.
 
