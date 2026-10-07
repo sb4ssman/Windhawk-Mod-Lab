@@ -2703,3 +2703,13 @@ one added canonical Privacy file and one modified Folder file respectively.
 Updated review replies and 2.1 PR descriptions with human approval and AI
 authorship. Lab checkpoint includes previously approved VD work/screenshots;
 VD upstream PR remains outside this pair. Tree Dump remains tabled.
+
+## 2026-10-07 - Privacy and Folder PR updates pushed; AI reviews requested
+
+Lab checkpoint pushed at 85eec2b. Privacy #4843 head 8f5f1b08 and Folder #5568
+head 3f771077 pushed; live GitHub verification confirms each has exactly one
+mod-file diff and a 2.1 title. Privacy filename/name is canonical. Updated PR
+bodies before push, posted AI-disclosed resolution replies (6035337323 and
+6035338090) and /ai-review (6035337653 and 6035338470). GitHub compatibility
+and validation checks running at last read; flow checks successful. No merge
+or maintainer acceptance claimed. Trimmed inherited PR-template trailing spaces.

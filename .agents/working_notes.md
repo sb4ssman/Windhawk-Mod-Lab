@@ -5,9 +5,11 @@ Existing PR #5977 remains open; no closure was requested. VD approved, unpushed.
 Next: Tray Utility preemptive review pass and fresh human live test.
 Privacy Anchor and Folder Menus exact candidates are live-test approved.
 User authorized lab push and publication of these last two on Oct 7; fork
-commits prepared: Privacy 8f5f1b08, Folder 3f771077. Each diff is one mod file.
+commits pushed: Privacy 8f5f1b08, Folder 3f771077. Each diff is one mod file.
 Folder retains existing screenshots. Privacy canonical filename/title restored.
-Final preflight passed for both. Publication and fresh /ai-review in progress.
+Final preflight passed for both. Lab pushed at 85eec2b. PR titles/bodies and
+AI-disclosed replies updated; fresh /ai-review posted on both. GitHub checks
+were running at publication verification; no failing check observed.
 VD remains approved but its upstream PR is not part of this pair.
 
 ## Current publication and test status — Oct 7
