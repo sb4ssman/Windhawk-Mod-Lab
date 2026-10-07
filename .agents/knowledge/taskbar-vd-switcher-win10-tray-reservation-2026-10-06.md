@@ -39,3 +39,27 @@ live test of this replacement yet: Windows UI automation native pipe was
 unavailable. No installed source/settings edit, release bump/tag, push or PR
 action. Other family mod sources unchanged. New-release settings template
 remains at the top of the handoff; adopt only after testing the released UI.
+
+## Native appearance follow-up
+
+User reports placement success but notes gray toolbar/button backgrounds.
+The classic painter incorrectly reused the popup palette's solid chrome.
+Replacement uses a WS_EX_LAYERED child and UpdateLayeredWindow (Win8+ child
+support), so Windows composites over the real taskbar instead of an estimated
+wallpaper/acrylic color. Local Surface owns two temporary 32-bit DIB/DCs;
+grayscale GDI coverage is composed to premultiplied BGRA. Alpha 1/255 over
+the hit region avoids color-key/zero-alpha click-through. Explicit text colors
+and custom surfaces remain available; default idle clear, active accent40/255
+plus underline, hover24/255, press42/255. High contrast prioritizes OS colors.
+CurrentTheme is compared every existing worker update (250 ms). Native
+position/reservation code unchanged; popup remains an opaque themed popup.
+
+Official API evidence:
+https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-updatelayeredwindow
+https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features
+
+Stack/grid support already shared with Win11: native HWND height feeds
+AvailableRows and ComputeButtonPlacements, with literal manual expressions.
+Two 18 DIP cells plus 2 DIP spacing total38 DIP. Automatic default 22 DIP
+cells fit only one row on a 40 DIP taskbar; decrease height or grow taskbar
+to permit two, rather than silently scaling a user's written layout.

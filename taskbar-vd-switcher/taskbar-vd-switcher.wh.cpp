@@ -45,12 +45,24 @@ Windows 10 differences in this experimental backend:
 - Only the primary taskbar is supported; **Show on all taskbars (Windows 11)**
   applies to Windows 11 only.
 - The buttons use Win32 drawing; Windows 11 Taskbar Styler selectors and native
-  XAML checked states apply to Windows 11 only. Alpha and opacity blend against
-  the theme background; they do not expose wallpaper or taskbar acrylic.
+  XAML checked states apply to Windows 11 only. The toolbar lets the actual
+  taskbar background show through, including its color and transparency.
+  Idle buttons are transparent by default; the active desktop has a subtle
+  accent tint and underline, with soft hover/press feedback. Text follows the
+  system light/dark theme; high contrast uses system colors. Existing color
+  overrides remain optional; no additional appearance settings are needed.
 - A manual arrangement larger than the taskbar can be clipped. Very crowded
   taskbars need a smaller button size or arrangement.
 
 The screenshots below show the Windows 11 backend.
+
+**Stacks and grids on Windows 10.** The same `Layout` → `Arrangement` field
+works here: `1, 2` stacks two desktops; `1, 2 | 3, 4` makes a 2×2 grid.
+Keep `auto` to fit rows to the taskbar's available height. Two 18 px buttons
+with the default 2 px spacing need 38 px, so set `Size` → `Button height` to
+18 px for a two-row stack on a typical 40 px taskbar, with vertical padding
+set to 0. A taller taskbar permits more rows at larger button sizes. Manual
+arrangements keep their written shape; they do not shrink automatically.
 
 ![Three desktops with lower master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/simple3wlowmaster.png)
 *Three desktops with the optional Task View button as a lower sliver.*
@@ -597,7 +609,8 @@ This mod builds directly on patterns established by several community mods:
     $description: >-
       Background for the current desktop's button. Hex, accent / accentLight
       / accentDark, or transparent. Empty keeps the native button surface,
-      matching the other buttons.
+      matching the other buttons. On Windows 10 the default accent uses a
+      subtle tint and accent underline instead of a solid color block.
   - InactiveBackgroundColor: ""
     $name: Inactive button color
     $description: >-
@@ -5305,6 +5318,24 @@ static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileNam
 // HWND, subclasses and geometry are owned by the taskbar thread.
 namespace classic_ui {
 constexpr PCWSTR kClass = L"WindhawkVdClassic_" WH_MOD_ID;
+struct Theme {
+    COLORREF text{}, accent{};
+    bool light = false, highContrast = false;
+    bool operator==(Theme const&) const = default;
+};
+static Theme CurrentTheme() {
+    HIGHCONTRASTW contrast{sizeof(contrast)};
+    SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0);
+    Theme theme;
+    theme.light = desktop_preview::SystemUsesLightTheme();
+    theme.highContrast = (contrast.dwFlags & HCF_HIGHCONTRASTON) != 0;
+    theme.text = theme.highContrast ? GetSysColor(COLOR_WINDOWTEXT) :
+        (theme.light ? RGB(0,0,0) : RGB(255,255,255));
+    winrt::Windows::UI::Color accent{};
+    theme.accent = !theme.highContrast && clr::Parse(L"accent", accent) ?
+        RGB(accent.R,accent.G,accent.B) : GetSysColor(COLOR_HIGHLIGHT);
+    return theme;
+}
 struct Bar {
     HWND window{}, taskbar{}, tray{}, clock{}, notifications{}, tooltip{};
     std::vector<HWND> subclasses;
@@ -5318,6 +5349,7 @@ struct Bar {
     std::vector<std::wstring> names;
     ngl::Size total{};
     std::wstring tooltipText;
+    Theme theme;
 };
 struct Creation { Bar* bar; bool consumed; };
 static HANDLE worker{}, stop{};
@@ -5468,64 +5500,135 @@ static int Hit(Bar const& bar, POINT point) {
     }
     return -1;
 }
-static COLORREF Blend(COLORREF a, COLORREF b, int alpha) {
-    return RGB((GetRValue(a)*alpha + GetRValue(b)*(255-alpha))/255,
-               (GetGValue(a)*alpha + GetGValue(b)*(255-alpha))/255,
-               (GetBValue(a)*alpha + GetBValue(b)*(255-alpha))/255);
-}
-static COLORREF ColorValue(std::wstring const& value, COLORREF fallback, COLORREF base) {
+// A real alpha surface avoids guessing the shell's wallpaper/acrylic color.
+// GDI draws a grayscale coverage mask; we composite premultiplied BGRA pixels.
+// A 1/255 alpha floor keeps the whole button clickable even when idle.
+struct Surface {
+    HDC dc = CreateCompatibleDC(nullptr);
+    HBITMAP bitmap{};
+    HGDIOBJ previous{};
+    DWORD* pixels{};
+    int width, height;
+    Surface(int w, int h) : width(w), height(h) {
+        BITMAPINFO info{};
+        info.bmiHeader = {sizeof(BITMAPINFOHEADER), w, -h, 1, 32, BI_RGB};
+        if (dc) bitmap = CreateDIBSection(dc, &info, DIB_RGB_COLORS,
+            reinterpret_cast<void**>(&pixels), nullptr, 0);
+        if (bitmap) previous = SelectObject(dc, bitmap);
+    }
+    ~Surface() {
+        if (previous) SelectObject(dc, previous);
+        if (bitmap) DeleteObject(bitmap);
+        if (dc) DeleteDC(dc);
+    }
+    Surface(Surface const&) = delete;
+    Surface& operator=(Surface const&) = delete;
+    explicit operator bool() const { return pixels != nullptr; }
+    void Clear(DWORD pixel = 0) {
+        GdiFlush();
+        std::fill_n(pixels, size_t(width) * height, pixel);
+    }
+    void Over(Surface const& mask, COLORREF color, int alpha) {
+        GdiFlush(); // complete GDI writes before reading the DIB bits
+        for (size_t i = 0, count = size_t(width) * height; i < count; ++i) {
+            int a = int(mask.pixels[i] & 255) * std::clamp(alpha, 0, 255) / 255;
+            if (!a) continue;
+            DWORD old = pixels[i];
+            auto channel = [a](int src, int dst) { return (src*a + dst*(255-a) + 127)/255; };
+            pixels[i] = DWORD(a + ((old >> 24)*(255-a) + 127)/255) << 24 |
+                DWORD(channel(GetRValue(color), (old >> 16)&255)) << 16 |
+                DWORD(channel(GetGValue(color), (old >> 8)&255)) << 8 |
+                DWORD(channel(GetBValue(color), old&255));
+        }
+    }
+};
+static void Overlay(Surface& target, Surface& mask, std::wstring const& value,
+                    COLORREF fallback, int alpha, bool opacity = true) {
     winrt::Windows::UI::Color color{};
-    if (!clr::Parse(value.c_str(), color)) return fallback;
-    int alpha = color.A * std::clamp(g_settings.opacity, 0, 100) / 100;
-    return Blend(RGB(color.R, color.G, color.B), base, alpha);
+    if (clr::Parse(value.c_str(), color)) {
+        fallback = RGB(color.R,color.G,color.B); alpha = color.A;
+    }
+    if (opacity) alpha = alpha * std::clamp(g_settings.opacity,0,100) / 100;
+    target.Over(mask, fallback, alpha);
 }
 static void Paint(Bar& bar) {
-    PAINTSTRUCT ps{}; HDC dc = BeginPaint(bar.window, &ps);
+    PAINTSTRUCT ps{}; BeginPaint(bar.window, &ps);
     RECT client{}; GetClientRect(bar.window, &client);
-    auto palette = desktop_preview::CurrentPalette();
-    HBRUSH backdrop = CreateSolidBrush(palette.chrome);
-    FillRect(dc, &client, backdrop); DeleteObject(backdrop);
+    if (client.right <= 0 || client.bottom <= 0) { EndPaint(bar.window,&ps); return; }
+    Surface target(client.right,client.bottom), mask(client.right,client.bottom);
+    if (!target || !mask) { EndPaint(bar.window,&ps); return; }
+    target.Clear(0x01000000);
+    HDC dc = mask.dc;
     SetBkMode(dc, TRANSPARENT);
+    auto oldBrush = SelectObject(dc, GetStockObject(WHITE_BRUSH));
+    auto oldPen = SelectObject(dc, GetStockObject(NULL_PEN));
     for (int i = 0; i < int(bar.placements.size()); ++i) {
         auto const& p = bar.placements[i];
         bool master = IsMasterToken(p.token);
         int desktop = DesktopIndexFromToken(p.token, bar.count);
         bool active = !master && desktop == bar.current;
-        COLORREF bg = ColorValue(active ? g_settings.activeBackgroundColor :
-            g_settings.inactiveBackgroundColor, palette.chrome, palette.chrome);
-        if (bar.hover == i) bg = ColorValue(bar.pressed == i ?
-            g_settings.pressedBackgroundColor : g_settings.hoverBackgroundColor,
-            Blend(bar.pressed == i ? RGB(0,0,0) : RGB(255,255,255), bg, 30), palette.chrome);
         auto r = Cell(bar, p);
-        HBRUSH brush = CreateSolidBrush(bg);
-        int border = int(g_settings.borderThickness * bar.scale);
-        HPEN pen = CreatePen(PS_SOLID, std::max(1, border),
-            ColorValue(g_settings.borderColor, palette.border, palette.chrome));
-        auto oldBrush = SelectObject(dc, brush);
-        auto oldPen = SelectObject(dc, border ? pen : GetStockObject(NULL_PEN));
+        mask.Clear();
         int radius = int(g_settings.cornerRadius * 2 * bar.scale);
         RoundRect(dc, r.left, r.top, r.right, r.bottom, radius, radius);
-        SelectObject(dc, oldBrush); SelectObject(dc, oldPen);
-        DeleteObject(brush); DeleteObject(pen);
+        auto const& background = active ? g_settings.activeBackgroundColor :
+            g_settings.inactiveBackgroundColor;
+        bool nativeActive = active && _wcsicmp(background.c_str(), L"accent") == 0;
+        if (bar.theme.highContrast) {
+            if (active) target.Over(mask,bar.theme.accent,255);
+        } else {
+            Overlay(target,mask,nativeActive ? L"" : background,
+                bar.theme.accent,nativeActive ? 40 : 0);
+        }
+        if (bar.hover == i && !bar.theme.highContrast)
+            Overlay(target,mask,bar.pressed == i ? g_settings.pressedBackgroundColor :
+                g_settings.hoverBackgroundColor, bar.theme.light ? RGB(0,0,0) : RGB(255,255,255),
+                bar.pressed == i ? 42 : 24);
+        int border = std::max(0,int(g_settings.borderThickness * bar.scale));
+        if (border) {
+            mask.Clear();
+            HPEN pen = CreatePen(PS_SOLID,border,RGB(255,255,255));
+            auto savedPen = SelectObject(dc,pen);
+            auto savedBrush = SelectObject(dc,GetStockObject(NULL_BRUSH));
+            RoundRect(dc,r.left,r.top,r.right,r.bottom,radius,radius);
+            SelectObject(dc,savedBrush); SelectObject(dc,savedPen); DeleteObject(pen);
+            Overlay(target,mask,g_settings.borderColor,bar.theme.text,48);
+        }
         if (g_settings.shineEffect) {
+            mask.Clear();
             RECT shine = r; shine.bottom = (r.top + r.bottom) / 2;
-            HBRUSH glow = CreateSolidBrush(Blend(RGB(255,255,255), bg, 20));
-            // Inset prevents the highlight from painting over rounded corners.
             InflateRect(&shine, -std::max(1, radius / 2), -1);
-            FillRect(dc, &shine, glow); DeleteObject(glow);
+            FillRect(dc,&shine,static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)));
+            target.Over(mask,RGB(255,255,255),20);
+        }
+        if (nativeActive && !bar.theme.highContrast) {
+            mask.Clear();
+            RECT marker = r;
+            marker.top = std::max(r.top, r.bottom - std::max(1,int(2*bar.scale)));
+            FillRect(dc,&marker,static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)));
+            Overlay(target,mask,L"",bar.theme.accent,255);
         }
         auto const& family = master ? g_settings.taskViewFontFamily : g_settings.fontFamily;
         HFONT font = CreateFontW(-int(g_settings.fontSize * bar.scale * 96 / 72),
             0,0,0, active && g_settings.activeBold ? FW_BOLD : FW_NORMAL,
-            FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,
+            FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,ANTIALIASED_QUALITY,0,
             family.empty() ? L"Segoe UI" : family.c_str());
         auto oldFont = SelectObject(dc, font);
-        SetTextColor(dc, ColorValue(active ? g_settings.activeTextColor :
-            g_settings.inactiveTextColor, palette.chromeText, bg));
+        mask.Clear();
+        SetTextColor(dc,RGB(255,255,255));
         auto text = master ? g_settings.taskViewLabel : GetButtonLabel(desktop, bar.current);
         DrawTextW(dc, text.c_str(), -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        if (bar.theme.highContrast) target.Over(mask,active ?
+            GetSysColor(COLOR_HIGHLIGHTTEXT) : bar.theme.text,255);
+        else Overlay(target,mask,active ? g_settings.activeTextColor :
+            g_settings.inactiveTextColor,bar.theme.text,255,false);
         SelectObject(dc, oldFont); DeleteObject(font);
     }
+    SelectObject(dc,oldBrush); SelectObject(dc,oldPen);
+    POINT origin{}; SIZE size{client.right,client.bottom};
+    BLENDFUNCTION blend{AC_SRC_OVER,0,255,AC_SRC_ALPHA};
+    if (!UpdateLayeredWindow(bar.window,nullptr,nullptr,&size,target.dc,&origin,0,&blend,ULW_ALPHA))
+        Wh_Log(L"Classic alpha drawing failed: %u",GetLastError());
     EndPaint(bar.window, &ps);
 }
 static void SwitchAsync(int index) {
@@ -5647,7 +5750,7 @@ static void Update(void* parameter) {
     if (!bar) {
         bar = new Bar(); bar->taskbar = taskbar; bar->tray = tray;
         Creation creation{bar,false};
-        window = CreateWindowExW(WS_EX_NOACTIVATE,kClass,L"Virtual desktops",
+        window = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_LAYERED,kClass,L"Virtual desktops",
             WS_CHILD | WS_CLIPSIBLINGS,0,0,1,1,tray,nullptr,module,&creation);
         if (!window) { if (!creation.consumed) delete bar; return; }
         attachedWindow = window;
@@ -5657,6 +5760,9 @@ static void Update(void* parameter) {
         !EqualRect(&rect,&bar->taskbarRect) || HostsChanged(*bar) || !IsWindow(bar->clock) ||
         (bar->position == ClassicPosition::AfterNotifications && !IsWindow(bar->notifications));
     bool contentChanged = current != bar->current || names != bar->names;
+    Theme theme = CurrentTheme();
+    contentChanged = contentChanged || theme != bar->theme;
+    bar->theme = theme;
     bar->count = count; bar->current = current; bar->names = std::move(names);
     bar->scale = scale; bar->side = side; bar->taskbarRect = rect;
     if (layoutChanged) {

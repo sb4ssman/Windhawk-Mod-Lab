@@ -2443,3 +2443,29 @@ README parity and whitespace passed. Replacement still awaits the user's
 exact-build live test; UI automation native pipe unavailable. Header 2.1,
 no installed source/settings edits, version/tag bump, push or PR action.
 Details: knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md.
+
+## 2026-10-06 - Win10 placement success, native-looking alpha appearance candidate
+
+User reports d88e5f1 placement success, then requests a matching taskbar
+background and natural button highlights with minimal customization. Replaced
+classic solid popup-palette drawing with a layered child and premultiplied
+alpha surface, preserving the actual shell backdrop. Default idle fill is
+transparent; default accent active fill is subtle with an accent underline;
+hover/press use translucent theme-appropriate feedback. Existing custom colors
+remain optional, with actual alpha; no new settings. Theme/accent changes
+invalidate on polling; high contrast uses system text/highlight colors.
+Preview popup and Windows 11 drawing are unchanged. A 1/255 alpha hit floor
+keeps the whole invisible idle button clickable; verify this live.
+
+User also requests vertical stacks and grids. Verified Win10 uses the shared
+arranger with real taskbar height; documented `1, 2`, `1, 2 | 3, 4` and
+18 px height / 2 px spacing / 0 vertical padding for two rows in 40 px.
+No duplicated layout implementation or silent manual-shape resizing.
+
+Validation: mod compile/link and destructor audit; assembly, component-use,
+settings-use, README parity and whitespace. Existing side-arrangement suite
+passed. Extracted actual Surface code passed premultiplied composition,
+zero-alpha preservation, text/coverage bounds, and 100-cycle GDI lifetime
+checks (5 handles before/after). Warmed the lazy stock font before counting.
+Exact appearance, click coverage and revised unload still need HUMAN LIVE
+TEST. No installed source/settings edit, push, PR update, release bump/tag.

@@ -13,15 +13,21 @@ return to Win11 to finish fixing/testing and publishing the family. Oct 6
 follow-up explicitly requires clock/notification placements and reliable
 space restoration, superseding the previous placement deferral.
 
-## Immediate: exact Win10 candidate needs a human live test
+## Immediate: Win10 appearance candidate and stack/grid retest
 
 Recompile [VD Switcher](../taskbar-vd-switcher/taskbar-vd-switcher.wh.cpp) in
 Windhawk; use [the placement/unload retest](outputs/live-test-vd-switcher-win10-2026-10-06.md).
 Position (Windows 10 experimental): before chevron, between clock and
 notifications, or between notifications and Show Desktop. Verify all three,
 repeated switches/settings changes, hide-when-single and disable/re-enable.
-Initial rendering was partially live-tested; the replacement tray backend
-has compile/link approval only. Native clock-size symbol required; primary
+User reports the tray placement checkpoint d88e5f1 works, but its toolbar
+background/button surfaces look wrong. Recompile the new appearance candidate:
+actual taskbar shows through, idle buttons are transparent, default active
+accent is a subtle tint/underline, hover/press is soft, theme/accent changes
+refresh automatically. No new appearance settings. Exact visuals and click
+coverage still need a human live test. For stacks/grids, use Arrangement
+`1, 2` or `1, 2 | 3, 4`; 18 px button height, 2 px spacing, zero vertical
+padding fits two rows in a 40 px taskbar. Auto follows available height. Native clock-size symbol required; primary
 taskbar only; side taskbars need testing. Header stays 2.1. No release tag,
 push or PR update before the user confirms this exact build works.
 

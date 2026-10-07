@@ -31,12 +31,24 @@ Windows 10 differences in this experimental backend:
 - Only the primary taskbar is supported; **Show on all taskbars (Windows 11)**
   applies to Windows 11 only.
 - The buttons use Win32 drawing; Windows 11 Taskbar Styler selectors and native
-  XAML checked states apply to Windows 11 only. Alpha and opacity blend against
-  the theme background; they do not expose wallpaper or taskbar acrylic.
+  XAML checked states apply to Windows 11 only. The toolbar lets the actual
+  taskbar background show through, including its color and transparency.
+  Idle buttons are transparent by default; the active desktop has a subtle
+  accent tint and underline, with soft hover/press feedback. Text follows the
+  system light/dark theme; high contrast uses system colors. Existing color
+  overrides remain optional; no additional appearance settings are needed.
 - A manual arrangement larger than the taskbar can be clipped. Very crowded
   taskbars need a smaller button size or arrangement.
 
 The screenshots below show the Windows 11 backend.
+
+**Stacks and grids on Windows 10.** The same `Layout` → `Arrangement` field
+works here: `1, 2` stacks two desktops; `1, 2 | 3, 4` makes a 2×2 grid.
+Keep `auto` to fit rows to the taskbar's available height. Two 18 px buttons
+with the default 2 px spacing need 38 px, so set `Size` → `Button height` to
+18 px for a two-row stack on a typical 40 px taskbar, with vertical padding
+set to 0. A taller taskbar permits more rows at larger button sizes. Manual
+arrangements keep their written shape; they do not shrink automatically.
 
 ![Three desktops with lower master button](assets/simple3wlowmaster.png)
 *Three desktops with the optional Task View button as a lower sliver.*
