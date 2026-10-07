@@ -2364,3 +2364,59 @@ Slip, corrected: the first posting script indexed a PowerShell ordered
 dictionary by int, which selects by POSITION, so the replies were skipped and
 only `/ai-review` went out. Verified nothing was duplicated, then posted the
 replies alone. Use string keys (or an array of records) for PR maps.
+
+## 2026-10-06 - Windows 10 VD Switcher local candidate
+
+User reprioritized Windows 10 compatibility as the sole active task. Verified
+Windows 10 Home 22H2 build 19045.7725 and clean lab at 2870100. Added a Win32
+rebar-band backend for 19041-19045, skipping XAML hooks on those builds. It
+reuses desktop switching, registry enumeration, labels and assembled layouts;
+polls desktop/geometry changes every 250 ms, draws themed configurable buttons,
+supports Task View, name tooltips and shared DWM hover previews. UI-thread
+creation and teardown remove the owned band, tooltip, popup and classes;
+worker/switch handles are joined with sent-message pumping before unload.
+
+First-candidate limits documented in both README layers: primary taskbar only,
+grouped tray/Start placement, no Start overlay/XAML styling/acrylic transparency.
+Header unchanged at 2.1; no new shared templates and no other mod source edits.
+Compile/link, exit-destructor audit, assembly, component-use, README parity,
+settings-use and whitespace checks passed. HUMAN LIVE TEST STILL REQUIRED.
+Guide: outputs/live-test-vd-switcher-win10-2026-10-06.md.
+No commit, tag, installed source/settings edit, push or PR action.
+
+## 2026-10-06 - Windows 10 partial live result and settings research
+
+User reports partial success: buttons remain left of hidden-icons chevron for
+all placements; some choices introduce a large gap. Requested scope narrows
+to beside chevron and either side of notifications, to the right of clock.
+This is not approval to publish. Verified installed Windhawk 1.7.3. Official
+2.0 alpha 6 release/wiki document dynamic runtime options and conditional
+settings; 1.7.3 lacks them. No source change or installed-version change in
+this follow-up. Next: classic placement replacement and gap fix.
+
+## 2026-10-06 - Surgical Win10 spacing fix and new-release template
+
+User requested a narrow functional experimental Win10 checkpoint, followed by
+returning to Windows 11 to finish the family. Removed the classic backend's
+Start-dependent insertion/movement: the rebar band is always appended, fixed
+size, without a header reservation. This removes the RB_MOVEBAND path that
+redistributed app-band space and introduced the reported gap. Kept one Win10
+position (before chevron); clock/notification-side placement is deferred.
+Position and all-taskbars settings are explicitly labelled Windows 11 only;
+both detailed README layers, catalog, and spacing test guide agree.
+
+Prepared dynamic-setting-options.h and its adoption guide at the user's
+request for Windhawk 2.0. It publishes OS-filtered option labels in local
+storage, clears unavailable labels, validates portable-safe keys/labels and
+duplicates before writing, reports storage failures, and preserves settings
+and unrelated storage. Unit tests cover OS choice changes, malformed input,
+unchanged unrelated storage, and failure reporting; static-linked test exe
+passed (initial dynamically linked exe lacked its runtime dependencies).
+Not embedded into the current mod; no alpha-only settings added to it.
+
+Verification: mod compile/link, exit-time destructor audit, assembly,
+component-use, settings-use, README parity, and whitespace checks passed.
+Spacing fix still awaits a fresh HUMAN LIVE TEST; prior partial test is not
+publication approval. Header remains 2.1. No release tag, push or PR action.
+Pruned working notes to a short handoff with the new-release template at top;
+preserved the previous full snapshot in knowledge/. No other mod source edits.

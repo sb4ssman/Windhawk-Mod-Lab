@@ -7,14 +7,46 @@
 // @github          https://github.com/sb4ssman
 // @include         explorer.exe
 // @architecture    x86-64
-// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -luuid -ldwmapi -lgdi32
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion -luuid -ldwmapi -lgdi32 -lcomctl32
 // ==/WindhawkMod==
 
 // ==WindhawkModReadme==
 /*
 # Taskbar Virtual Desktop Switcher
 
-A [Windhawk](https://windhawk.net) mod for Windows 11 that injects clickable buttons into the system tray — one per virtual desktop — for instant switching without opening Task View.
+A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses a classic taskbar toolbar.
+
+## Windows 10 compatibility (local test candidate)
+
+The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
+(Windows 10 2004 through 22H2). The initial build was partially live-tested;
+the spacing fix still needs a fresh live test. It uses the
+same desktop labels, arrangement, sizes, padding, offsets, Task View button,
+colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
+removal, renaming, and switches made elsewhere are checked every 250 ms.
+
+The classic taskbar reserves a toolbar band for the buttons, so app buttons
+give up the needed space. Moving or resizing the taskbar rebuilds the layout;
+automatic layouts fit its height at the top/bottom and its width at the sides.
+Disabling the mod removes its band.
+
+Windows 10 differences in this experimental backend:
+
+- There is one supported position: after the app buttons, immediately before
+  the hidden-icons chevron (before the tray icons when the chevron is hidden).
+  **Position (Windows 11)** does not move it on Windows 10. In particular,
+  choosing a Start position leaves it here without opening a blank gap.
+- Placement between the clock and notifications, or after notifications,
+  is deferred; those locations are not offered as working Windows 10 options.
+- Only the primary taskbar is supported; **Show on all taskbars (Windows 11)**
+  applies to Windows 11 only.
+- The buttons use Win32 drawing; Windows 11 Taskbar Styler selectors and native
+  XAML checked states apply to Windows 11 only. Alpha and opacity blend against
+  the theme background; they do not expose wallpaper or taskbar acrylic.
+- A manual arrangement larger than the taskbar can be clipped or cause toolbar
+  wrapping. Very crowded taskbars need a smaller button size or arrangement.
+
+The screenshots below show the Windows 11 backend.
 
 ![Three desktops with lower master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/simple3wlowmaster.png)
 *Three desktops with the optional Task View button as a lower sliver.*
@@ -200,8 +232,8 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Position | After clock | Tray position, or left of / over / right of Start |
-| Show on all taskbars | Off | Experimental; also injects into secondary monitors' taskbars |
+| Position (Windows 11) | After clock | Tray position, or left of / over / right of Start; ignored on Windows 10, where placement is fixed before the chevron |
+| Show on all taskbars (Windows 11) | Off | Experimental; also injects into secondary monitors' taskbars; Windows 10 supports the primary taskbar only |
 
 ### Content
 
@@ -346,8 +378,11 @@ This mod builds directly on patterns established by several community mods:
 /*
 - Placement:
   - Position: "afterClock"
-    $name: Position
-    $description: Where to place the switcher on the taskbar.
+    $name: Position (Windows 11)
+    $description: >-
+      Windows 11 placement. Experimental Windows 10 support always places
+      the switcher immediately before the hidden-icons chevron; this
+      setting does not move it on Windows 10.
     $options:
     - "beforeIcons": "Before notification icons"
     - "beforeOmni": "Before network, volume, and battery"
@@ -358,7 +393,7 @@ This mod builds directly on patterns established by several community mods:
     - "overStart": "Over Start (experimental)"
     - "rightOfStart": "Right of Start (experimental)"
   - AllTaskbars: false
-    $name: Show on all taskbars
+    $name: Show on all taskbars (Windows 11)
     $description: >-
       Experimental. Also injects the switcher into secondary monitors'
       taskbars, in the same position. Tray positions only - the Start
@@ -611,6 +646,7 @@ This mod builds directly on patterns established by several community mods:
 #include <windhawk_utils.h>
 #include <combaseapi.h>
 #include <dwmapi.h>
+#include <commctrl.h>
 #include <shobjidl.h>
 #include <winver.h>
 
@@ -2492,6 +2528,7 @@ static void WaitForSwitchThreads();
 static WORD g_explorerBuild    = 0;
 static WORD g_explorerRevision = 0;
 static WORD g_twinuiBuild      = 0;
+static bool g_classicTaskbar = false;
 
 static void DetectExplorerBuild() {
     wchar_t path[MAX_PATH];
@@ -3247,7 +3284,8 @@ static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wp, LPARAM 
     return DefWindowProcW(window, message, wp, lp);
 }
 
-static void Schedule(FrameworkElement const& button, int desktopIndex, int widthDip, int delay) {
+static void ScheduleNative(HWND taskbar, RECT anchor, double scale,
+                           int desktopIndex, int widthDip, int delay) {
     Hide();
     if (g_unloading) return;
     DWORD session{};
@@ -3260,6 +3298,44 @@ static void Schedule(FrameworkElement const& button, int desktopIndex, int width
     memcpy(&state.desktopId, ids.data() + desktopIndex * sizeof(GUID), sizeof(GUID));
     auto names = ReadDesktopNames(int(ids.size() / sizeof(GUID)));
     wcsncpy_s(state.title, names[desktopIndex].c_str(), _TRUNCATE);
+    state.anchor = anchor;
+    if (!taskbar) return;
+    MONITORINFO monitor{sizeof(monitor)};
+    if (!GetMonitorInfoW(MonitorFromRect(&state.anchor, MONITOR_DEFAULTTONEAREST), &monitor)) return;
+    state.work = monitor.rcWork;
+    state.desktop = {GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN), 0, 0};
+    state.desktop.right = state.desktop.left + std::max(1, GetSystemMetrics(SM_CXVIRTUALSCREEN));
+    state.desktop.bottom = state.desktop.top + std::max(1, GetSystemMetrics(SM_CYVIRTUALSCREEN));
+    state.inset = std::max(4, int(8 * scale));
+    state.heading = std::max(20, int(28 * scale));
+    state.width = std::min(int(widthDip * scale), int(state.work.right - state.work.left));
+    state.height = std::min(int((state.width - 2 * state.inset) *
+        double(state.desktop.bottom - state.desktop.top) / (state.desktop.right - state.desktop.left)) +
+        2 * state.heading, int(state.work.bottom - state.work.top));
+    if (state.width <= 2 * state.inset || state.height <= 2 * state.heading) return;
+    if (!state.popup) {
+        if (!state.module) GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<PCWSTR>(&WindowProc), &state.module);
+        if (!g_previewClassRegistered) {
+            WNDCLASSW wc{};
+            wc.hInstance = state.module;
+            wc.lpfnWndProc = WindowProc;
+            wc.lpszClassName = kClass;
+            if (!RegisterClassW(&wc)) return;
+            g_previewClassRegistered = true;
+        }
+        state.popup = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
+            kClass, L"Desktop preview", WS_POPUP, 0, 0, state.width, state.height,
+            taskbar, nullptr, state.module, nullptr);
+    }
+    if (state.popup) {
+        ApplyWindowTheme(state.popup, CurrentPalette());
+        SetTimer(state.popup, 1, std::max(1, delay), nullptr);
+    }
+}
+
+static void Schedule(FrameworkElement const& button, int desktopIndex, int widthDip, int delay) {
     auto root = button.XamlRoot();
     // Which taskbar hosts this button? The hover that scheduled the preview is
     // over the button, so it is the one of this process's taskbars that holds
@@ -3286,60 +3362,10 @@ static void Schedule(FrameworkElement const& button, int desktopIndex, int width
     ClientToScreen(taskbar, &origin);
     auto point = button.TransformToVisual(root.Content().try_as<UIElement>()).TransformPoint({0, 0});
     double scale = root.RasterizationScale();
-    state.anchor = {origin.x + LONG(point.X * scale), origin.y + LONG(point.Y * scale),
+    RECT anchor = {origin.x + LONG(point.X * scale), origin.y + LONG(point.Y * scale),
         origin.x + LONG((point.X + button.ActualWidth()) * scale),
         origin.y + LONG((point.Y + button.ActualHeight()) * scale)};
-    MONITORINFO monitor{sizeof(monitor)};
-    if (!GetMonitorInfoW(MonitorFromRect(&state.anchor, MONITOR_DEFAULTTONEAREST), &monitor)) return;
-    state.work = monitor.rcWork;
-    state.desktop = {GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN), 0, 0};
-    state.desktop.right = state.desktop.left + std::max(1, GetSystemMetrics(SM_CXVIRTUALSCREEN));
-    state.desktop.bottom = state.desktop.top + std::max(1, GetSystemMetrics(SM_CYVIRTUALSCREEN));
-    state.inset = std::max(4, int(8 * scale));
-    state.heading = std::max(20, int(28 * scale));
-    state.width = std::min(int(widthDip * scale), int(state.work.right - state.work.left));
-    state.height = std::min(int((state.width - 2 * state.inset) *
-        double(state.desktop.bottom - state.desktop.top) / (state.desktop.right - state.desktop.left)) +
-        2 * state.heading, int(state.work.bottom - state.work.top));
-    if (state.width <= 2 * state.inset || state.height <= 2 * state.heading) return;
-    if (!state.popup) {
-        if (!state.module) {
-            GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                reinterpret_cast<PCWSTR>(&WindowProc), &state.module);
-        }
-        // THE CLASS OUTLIVES THE WINDOW, so its registration is tracked
-        // separately. The popup is owned by Shell_TrayWnd, so an Explorer
-        // taskbar rebuild destroys it and WM_NCDESTROY nulls state.popup —
-        // but the class this load registered is still registered. Re-running
-        // RegisterClassW then fails with ERROR_CLASS_ALREADY_EXISTS and the
-        // early return silently killed hover previews for the rest of the
-        // session. This flag lives outside `state` on purpose: Destroy()
-        // assigns `state = {}`, which would otherwise wipe it out of step
-        // with the actual registration.
-        if (!g_previewClassRegistered) {
-            WNDCLASSW wc{};
-            wc.hInstance = state.module;
-            wc.lpfnWndProc = WindowProc;
-            wc.lpszClassName = kClass;
-            if (!RegisterClassW(&wc)) {
-                Wh_Log(L"[Preview] RegisterClass failed error=%u; previews "
-                       L"unavailable", GetLastError());
-                return;
-            }
-            g_previewClassRegistered = true;
-        }
-        state.popup = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
-            kClass, L"Desktop preview", WS_POPUP, 0, 0, state.width, state.height,
-            taskbar, nullptr, state.module, nullptr);
-        if (!state.popup) {
-            Wh_Log(L"[Preview] CreateWindow failed error=%u", GetLastError());
-            return;
-        }
-    }
-    // Re-applied per hover, not once at creation: the user can switch the
-    // Windows theme while Explorer keeps running, and the popup outlives that.
-    ApplyWindowTheme(state.popup, CurrentPalette());
-    if (state.popup) SetTimer(state.popup, 1, std::max(1, delay), nullptr);
+    ScheduleNative(taskbar, anchor, scale, desktopIndex, widthDip, delay);
 }
 
 static void Destroy() {
@@ -5252,6 +5278,332 @@ static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileNam
 // Windhawk lifecycle
 // ============================================================
 
+// Classic taskbar UI. A trailing rebar band owns the space reservation; no shell windows
+// are resized or subclassed. All HWND and GDI work runs on the taskbar thread.
+namespace classic_ui {
+constexpr PCWSTR kClass = L"WindhawkVdClassic_" WH_MOD_ID;
+constexpr UINT kBandId = 0x56445357;
+struct Bar {
+    HWND window{}, taskbar{}, rebar{}, tooltip{};
+    double scale = 1;
+    int current = -1, count = 0, hover = -1, pressed = -1;
+    bool side = false;
+    RECT taskbarRect{};
+    std::vector<ngl::Placement> placements;
+    std::vector<std::wstring> names;
+    ngl::Size total{};
+    std::wstring tooltipText;
+};
+struct Creation { Bar* bar; bool consumed; };
+static HANDLE worker{}, stop{};
+static HMODULE module{};
+static bool registered = false;
+static std::atomic<bool> settingsPending{false};
+static std::atomic<HWND> attachedWindow{nullptr};
+
+static RECT Cell(Bar const& bar, ngl::Placement const& p) {
+    RECT client{}; GetClientRect(bar.window, &client);
+    int x = int((client.right - bar.total.width * bar.scale) / 2 +
+                (p.x + g_settings.offsetX) * bar.scale);
+    int y = int((client.bottom - bar.total.height * bar.scale) / 2 +
+                (p.y + g_settings.offsetY) * bar.scale);
+    return {x, y, x + int(p.size.width * bar.scale), y + int(p.size.height * bar.scale)};
+}
+static int Hit(Bar const& bar, POINT point) {
+    for (int i = int(bar.placements.size()) - 1; i >= 0; --i) {
+        auto rect = Cell(bar, bar.placements[i]);
+        if (PtInRect(&rect, point)) return i;
+    }
+    return -1;
+}
+static COLORREF Blend(COLORREF a, COLORREF b, int alpha) {
+    return RGB((GetRValue(a)*alpha + GetRValue(b)*(255-alpha))/255,
+               (GetGValue(a)*alpha + GetGValue(b)*(255-alpha))/255,
+               (GetBValue(a)*alpha + GetBValue(b)*(255-alpha))/255);
+}
+static COLORREF ColorValue(std::wstring const& value, COLORREF fallback, COLORREF base) {
+    winrt::Windows::UI::Color color{};
+    if (!clr::Parse(value.c_str(), color)) return fallback;
+    int alpha = color.A * std::clamp(g_settings.opacity, 0, 100) / 100;
+    return Blend(RGB(color.R, color.G, color.B), base, alpha);
+}
+static void Paint(Bar& bar) {
+    PAINTSTRUCT ps{}; HDC dc = BeginPaint(bar.window, &ps);
+    RECT client{}; GetClientRect(bar.window, &client);
+    auto palette = desktop_preview::CurrentPalette();
+    HBRUSH backdrop = CreateSolidBrush(palette.chrome);
+    FillRect(dc, &client, backdrop); DeleteObject(backdrop);
+    SetBkMode(dc, TRANSPARENT);
+    for (int i = 0; i < int(bar.placements.size()); ++i) {
+        auto const& p = bar.placements[i];
+        bool master = IsMasterToken(p.token);
+        int desktop = DesktopIndexFromToken(p.token, bar.count);
+        bool active = !master && desktop == bar.current;
+        COLORREF bg = ColorValue(active ? g_settings.activeBackgroundColor :
+            g_settings.inactiveBackgroundColor, palette.chrome, palette.chrome);
+        if (bar.hover == i) bg = ColorValue(bar.pressed == i ?
+            g_settings.pressedBackgroundColor : g_settings.hoverBackgroundColor,
+            Blend(bar.pressed == i ? RGB(0,0,0) : RGB(255,255,255), bg, 30), palette.chrome);
+        auto r = Cell(bar, p);
+        HBRUSH brush = CreateSolidBrush(bg);
+        int border = int(g_settings.borderThickness * bar.scale);
+        HPEN pen = CreatePen(PS_SOLID, std::max(1, border),
+            ColorValue(g_settings.borderColor, palette.border, palette.chrome));
+        auto oldBrush = SelectObject(dc, brush);
+        auto oldPen = SelectObject(dc, border ? pen : GetStockObject(NULL_PEN));
+        int radius = int(g_settings.cornerRadius * 2 * bar.scale);
+        RoundRect(dc, r.left, r.top, r.right, r.bottom, radius, radius);
+        SelectObject(dc, oldBrush); SelectObject(dc, oldPen);
+        DeleteObject(brush); DeleteObject(pen);
+        if (g_settings.shineEffect) {
+            RECT shine = r; shine.bottom = (r.top + r.bottom) / 2;
+            HBRUSH glow = CreateSolidBrush(Blend(RGB(255,255,255), bg, 20));
+            // Inset prevents the highlight from painting over rounded corners.
+            InflateRect(&shine, -std::max(1, radius / 2), -1);
+            FillRect(dc, &shine, glow); DeleteObject(glow);
+        }
+        auto const& family = master ? g_settings.taskViewFontFamily : g_settings.fontFamily;
+        HFONT font = CreateFontW(-int(g_settings.fontSize * bar.scale * 96 / 72),
+            0,0,0, active && g_settings.activeBold ? FW_BOLD : FW_NORMAL,
+            FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,
+            family.empty() ? L"Segoe UI" : family.c_str());
+        auto oldFont = SelectObject(dc, font);
+        SetTextColor(dc, ColorValue(active ? g_settings.activeTextColor :
+            g_settings.inactiveTextColor, palette.chromeText, bg));
+        auto text = master ? g_settings.taskViewLabel : GetButtonLabel(desktop, bar.current);
+        DrawTextW(dc, text.c_str(), -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        SelectObject(dc, oldFont); DeleteObject(font);
+    }
+    EndPaint(bar.window, &ps);
+}
+static void SwitchAsync(int index) {
+    std::lock_guard lock(g_switchThreadsMutex);
+    if (g_unloading) return;
+    std::erase_if(g_switchThreads, [](HANDLE thread) {
+        if (WaitForSingleObject(thread, 0) != WAIT_OBJECT_0) return false;
+        CloseHandle(thread); return true;
+    });
+    HANDLE thread = CreateThread(nullptr, 0, [](void* arg) -> DWORD {
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        if (SUCCEEDED(hr)) {
+            if (!g_unloading) SwitchToDesktop(int(INT_PTR(arg)));
+            CoUninitialize();
+        }
+        return 0;
+    }, reinterpret_cast<void*>(INT_PTR(index)), 0, nullptr);
+    if (thread) g_switchThreads.push_back(thread);
+}
+static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wp, LPARAM lp) {
+    auto* bar = reinterpret_cast<Bar*>(GetWindowLongPtrW(window, GWLP_USERDATA));
+    if (message == WM_NCCREATE) {
+        auto* creation = static_cast<Creation*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams);
+        bar = creation->bar; creation->consumed = true;
+        bar->window = window;
+        SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(bar));
+    }
+    if (!bar) return DefWindowProcW(window, message, wp, lp);
+    switch (message) {
+    case WM_PAINT: Paint(*bar); return 0;
+    case WM_ERASEBKGND: return 1;
+    case WM_MOUSEACTIVATE: return MA_NOACTIVATE;
+    case WM_MOUSEMOVE: {
+        POINT pt{short(LOWORD(lp)), short(HIWORD(lp))};
+        int hit = Hit(*bar, pt);
+        if (hit != bar->hover) {
+            desktop_preview::Hide(); bar->hover = hit;
+            InvalidateRect(window, nullptr, FALSE);
+            if (hit >= 0) {
+                int index = DesktopIndexFromToken(bar->placements[hit].token, bar->count);
+                if (index >= 0 && g_settings.hoverPreview) {
+                    auto r = Cell(*bar, bar->placements[hit]);
+                    MapWindowPoints(window, nullptr, reinterpret_cast<POINT*>(&r), 2);
+                    desktop_preview::ScheduleNative(bar->taskbar, r, bar->scale,
+                        index, g_settings.previewWidth, g_settings.previewDelay);
+                }
+            }
+        }
+        TRACKMOUSEEVENT track{sizeof(track), TME_LEAVE, window, 0};
+        TrackMouseEvent(&track); return 0;
+    }
+    case WM_MOUSELEAVE:
+        bar->hover = -1; desktop_preview::Hide(); InvalidateRect(window,nullptr,FALSE); return 0;
+    case WM_LBUTTONDOWN:
+        bar->pressed = Hit(*bar, {short(LOWORD(lp)), short(HIWORD(lp))});
+        desktop_preview::Hide(); SetCapture(window); InvalidateRect(window,nullptr,FALSE); return 0;
+    case WM_LBUTTONUP: {
+        int hit = Hit(*bar, {short(LOWORD(lp)), short(HIWORD(lp))});
+        int pressed = std::exchange(bar->pressed, -1); ReleaseCapture();
+        if (!g_unloading && hit >= 0 && hit == pressed) {
+            auto const& token = bar->placements[hit].token;
+            if (IsMasterToken(token)) {
+                INPUT keys[4]{};
+                for (auto& key : keys) key.type = INPUT_KEYBOARD;
+                keys[0].ki.wVk = keys[3].ki.wVk = VK_LWIN;
+                keys[1].ki.wVk = keys[2].ki.wVk = VK_TAB;
+                keys[2].ki.dwFlags = keys[3].ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(4, keys, sizeof(INPUT));
+            } else SwitchAsync(DesktopIndexFromToken(token, bar->count));
+        }
+        InvalidateRect(window,nullptr,FALSE); return 0;
+    }
+    case WM_CAPTURECHANGED: bar->pressed = -1; return 0;
+    case WM_NOTIFY: {
+        auto* header = reinterpret_cast<NMHDR*>(lp);
+        if (header->code == TTN_GETDISPINFOW && header->hwndFrom == bar->tooltip) {
+            auto* info = reinterpret_cast<NMTTDISPINFOW*>(lp);
+            size_t i = header->idFrom;
+            if (i < bar->placements.size()) {
+                int index = DesktopIndexFromToken(bar->placements[i].token,bar->count);
+                bar->tooltipText = index >= 0 && index < int(bar->names.size()) ?
+                    bar->names[index] : L"Task View";
+                info->lpszText = bar->tooltipText.data();
+            }
+        }
+        return 0;
+    }
+    case WM_SIZE: case WM_THEMECHANGED: InvalidateRect(window,nullptr,FALSE); return 0;
+    case WM_NCDESTROY:
+        if (bar->tooltip) DestroyWindow(bar->tooltip);
+        desktop_preview::Hide();
+        { HWND expected = window; attachedWindow.compare_exchange_strong(expected,nullptr); }
+        SetWindowLongPtrW(window,GWLP_USERDATA,0); delete bar; break;
+    }
+    return DefWindowProcW(window, message, wp, lp);
+}
+static void Update(void* parameter) {
+    if (g_unloading) return;
+    HWND taskbar = static_cast<HWND>(parameter);
+    HWND rebar = FindWindowExW(taskbar,nullptr,REBARCLASSNAMEW,nullptr);
+    if (!rebar) return;
+    HWND window = FindWindowExW(rebar,nullptr,kClass,nullptr);
+    auto* bar = window ? reinterpret_cast<Bar*>(GetWindowLongPtrW(window,GWLP_USERDATA)) : nullptr;
+    bool changed = settingsPending.exchange(false);
+    if (changed) LoadSettings();
+    g_taskbarWnd = taskbar;
+    RECT rect{}; GetWindowRect(taskbar,&rect);
+    bool side = rect.bottom-rect.top > rect.right-rect.left;
+    g_side = side;
+    int count = ReadDesktopCount(), current = ReadCurrentDesktop();
+    auto names = ReadDesktopNames(count);
+    double scale = std::max(96u,GetDpiForWindow(taskbar))/96.0;
+    if (!bar) {
+        bar = new Bar(); bar->taskbar = taskbar; bar->rebar = rebar;
+        Creation creation{bar,false};
+        window = CreateWindowExW(WS_EX_NOACTIVATE,kClass,L"Virtual desktops",
+            WS_CHILD | WS_CLIPSIBLINGS,0,0,1,1,rebar,nullptr,module,&creation);
+        if (!window) { if (!creation.consumed) delete bar; return; }
+        attachedWindow = window;
+        changed = true;
+    }
+    bool layoutChanged = changed || count != bar->count || scale != bar->scale ||
+        !EqualRect(&rect,&bar->taskbarRect);
+    bool contentChanged = current != bar->current || names != bar->names;
+    bar->count = count; bar->current = current; bar->names = std::move(names);
+    bar->scale = scale; bar->side = side; bar->taskbarRect = rect;
+    if (layoutChanged) {
+        desktop_preview::Hide(); bar->hover = -1;
+        if (bar->tooltip) { DestroyWindow(bar->tooltip); bar->tooltip = nullptr; }
+        ComputeButtonPlacements(count,bar->placements,bar->total);
+        int index = int(SendMessageW(rebar,RB_IDTOINDEX,kBandId,0));
+        REBARBANDINFOW band{sizeof(band)};
+        band.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_ID | RBBIM_HEADERSIZE;
+        band.fStyle = RBBS_NOGRIPPER | RBBS_FIXEDSIZE;
+        band.cxHeader = 0;
+        band.hwndChild = window; band.wID = kBandId;
+        band.cx = band.cxMinChild = std::max(1,int(std::ceil((side ? bar->total.height : bar->total.width)*scale)));
+        band.cyMinChild = std::max(1,int(std::ceil((side ? bar->total.width : bar->total.height)*scale)));
+        if (g_settings.hideWhenSingle && count == 1) band.fStyle |= RBBS_HIDDEN;
+        if (index < 0) {
+            // Start/tray positions belong to the XAML backend. Moving this
+            // band to index zero makes Explorer redistribute the app band's
+            // unused width, leaving a large hole before the notification area.
+            // Keep one supported classic position, adjacent to the chevron.
+            if (!SendMessageW(rebar,RB_INSERTBANDW,WPARAM(-1),reinterpret_cast<LPARAM>(&band))) {
+                Wh_Log(L"Classic toolbar insertion failed"); DestroyWindow(window); return;
+            }
+        } else {
+            SendMessageW(rebar,RB_SETBANDINFOW,index,reinterpret_cast<LPARAM>(&band));
+        }
+        ShowWindow(window,g_settings.hideWhenSingle && count == 1 ? SW_HIDE : SW_SHOWNOACTIVATE);
+        bar->tooltip = CreateWindowExW(WS_EX_TOPMOST,TOOLTIPS_CLASSW,nullptr,
+            WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,0,0,0,0,window,nullptr,module,nullptr);
+        if (bar->tooltip) {
+            for (size_t i = 0; i < bar->placements.size(); ++i) {
+                if (g_settings.hoverPreview && !IsMasterToken(bar->placements[i].token)) continue;
+                TOOLINFOW tool{sizeof(tool)};
+                tool.uFlags = TTF_SUBCLASS; tool.hwnd = window; tool.uId = i;
+                tool.rect = Cell(*bar,bar->placements[i]); tool.lpszText = LPSTR_TEXTCALLBACKW;
+                SendMessageW(bar->tooltip,TTM_ADDTOOLW,0,reinterpret_cast<LPARAM>(&tool));
+            }
+        }
+    }
+    if (layoutChanged || contentChanged) InvalidateRect(window,nullptr,FALSE);
+}
+static DWORD WINAPI Worker(void*) {
+    while (WaitForSingleObject(stop,250) == WAIT_TIMEOUT) {
+        HWND taskbar = FindCurrentProcessTaskbarWnd();
+        if (taskbar) RunFromWindowThread(taskbar,Update,taskbar);
+    }
+    return 0;
+}
+static bool Start() {
+    INITCOMMONCONTROLSEX controls{sizeof(controls),ICC_BAR_CLASSES};
+    InitCommonControlsEx(&controls);
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,reinterpret_cast<PCWSTR>(&WindowProc),&module);
+    WNDCLASSW wc{}; wc.hInstance = module; wc.lpfnWndProc = WindowProc;
+    wc.lpszClassName = kClass; wc.hCursor = LoadCursorW(nullptr,IDC_ARROW);
+    registered = RegisterClassW(&wc) != 0;
+    if (!registered) return false;
+    stop = CreateEventW(nullptr,TRUE,FALSE,nullptr);
+    if (stop) worker = CreateThread(nullptr,0,Worker,nullptr,0,nullptr);
+    if (!worker) {
+        if (stop) CloseHandle(stop); stop = nullptr;
+        UnregisterClassW(kClass,module); registered = false; return false;
+    }
+    return true;
+}
+static void Stop() {
+    if (stop) SetEvent(stop);
+    if (worker) {
+        DWORD result;
+        do {
+            result = MsgWaitForMultipleObjects(1,&worker,FALSE,INFINITE,QS_SENDMESSAGE);
+            if (result == WAIT_OBJECT_0 + 1) {
+                MSG message{}; PeekMessageW(&message,nullptr,0,0,PM_NOREMOVE);
+            }
+        } while (result == WAIT_OBJECT_0 + 1);
+        CloseHandle(worker); worker = nullptr;
+    }
+    if (stop) { CloseHandle(stop); stop = nullptr; }
+    // A live window may still call this DLL's WndProc. Do not unload until
+    // cleanup actually runs, using the owned child rather than a newly found
+    // taskbar which could belong to a different shell rebuild.
+    for (;;) {
+        HWND child = attachedWindow.load();
+        if (!child || !IsWindow(child)) break;
+        if (RunFromWindowThread(child,[](void* arg) {
+            desktop_preview::Destroy();
+            HWND child = static_cast<HWND>(arg);
+            HWND rebar = GetParent(child);
+            int index = int(SendMessageW(rebar,RB_IDTOINDEX,kBandId,0));
+            if (index >= 0) SendMessageW(rebar,RB_DELETEBAND,index,0);
+            if (IsWindow(child)) DestroyWindow(child);
+        },child)) break;
+        Sleep(10);
+    }
+    // The rebar may disappear while the preview's taskbar owner survives.
+    for (;;) {
+        HWND popup = desktop_preview::state.popup;
+        if (!popup || !IsWindow(popup)) break;
+        if (RunFromWindowThread(popup,[](void*) { desktop_preview::Destroy(); },nullptr)) break;
+        Sleep(10);
+    }
+    desktop_preview::UnregisterClassIfRegistered();
+    if (registered && UnregisterClassW(kClass,module)) registered = false;
+}
+} // namespace classic_ui
+
 BOOL Wh_ModInit() {
     Wh_Log(L"[Init] VD Switcher v%s", WH_MOD_VERSION);
     // Failures inside a template-marshalled UI callback report in this mod's
@@ -5259,6 +5611,11 @@ BOOL Wh_ModInit() {
     dispatch::SetExceptionLogger(LogCurrentUiException);
     LoadSettings();
     DetectExplorerBuild();
+    g_classicTaskbar = g_explorerBuild >= 19041 && g_explorerBuild < 22000;
+    if (g_classicTaskbar) {
+        Wh_Log(L"Classic Windows 10 taskbar backend selected; placement is fixed before the hidden-icons chevron");
+        return TRUE;
+    }
 
     if (!HookTaskbarDllSymbols())
         Wh_Log(L"[Init] taskbar.dll hooks failed — GetTaskbarXamlRoot unavailable");
@@ -5337,6 +5694,10 @@ static void WakeRetryThread() {
 }
 
 void Wh_ModAfterInit() {
+    if (g_classicTaskbar) {
+        if (!classic_ui::Start()) Wh_Log(L"Classic taskbar startup failed");
+        return;
+    }
     if (!g_systemTrayModuleHooked) {
         if (HMODULE hSystemTray = GetSystemTrayModuleHandle()) {
             if (!g_systemTrayModuleHooked.exchange(true)) {
@@ -5359,6 +5720,7 @@ void Wh_ModUninit() {
     // Waiting on each handle establishes that the worker has returned fully
     // out of mod code. A counter decremented inside its thread proc cannot.
     WaitForSwitchThreads();
+    if (g_classicTaskbar) { classic_ui::Stop(); return; }
 
     StopRetryThread();
     StopNotificationThread();
@@ -5437,6 +5799,7 @@ void Wh_ModUninit() {
 }
 
 void Wh_ModSettingsChanged() {
+    if (g_classicTaskbar) { classic_ui::settingsPending = true; return; }
     // Stop the worker threads first. The notification thread dispatches
     // RebuildButtonGrid, and a late callback during a save could otherwise
     // rebuild the old bar while the UI thread is removing/reinserting columns.

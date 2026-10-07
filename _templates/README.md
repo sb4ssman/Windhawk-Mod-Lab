@@ -6,6 +6,13 @@ carries its own copy of everything it uses.
 
 ## Assembled mods are the model now
 
+Prepared for the new Windhawk settings UI at the user's request:
+[dynamic-setting-options.h](dynamic-setting-options.h) and
+[the Windhawk 2.0 adoption guide](recipes/windhawk-2-dynamic-settings.md).
+They are not embedded into the current mods. This keeps the Windows 10
+experiment compatible with Windhawk 1.7.3 while preserving the future path
+to OS-specific position dropdowns.
+
 The old rule was *copy whole algorithm blocks; partial copies drift*. It stopped
 drift and it created the opposite problem, mechanically: a template broad enough
 to serve six mods is broader than any one of them needs, so pasting it whole
