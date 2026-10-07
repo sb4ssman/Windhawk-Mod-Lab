@@ -123,7 +123,9 @@ arrangement rather than staying at its original tray position.
 
 Icons render at their native size unless you set `Size.ItemWidth` /
 `Size.ItemHeight`. A tall column of native-size icons can overhang a
-single-height taskbar; about 16 px makes it fit.
+single-height taskbar; about 16 px makes it fit. On a left or right taskbar
+the icons always keep their native size, and these two set only the spacing
+of the cells they are centered in.
 
 `Size.ItemSpacing` is the gap between items and may be negative to pull them
 together. `Adjust.PadX` / `PadY` reserve space at the outside edges of the
@@ -221,7 +223,7 @@ the edge Windows reports and re-arranges when the taskbar moves.
 - With Emoji hidden, the lone-icon Emoji fallback no longer claims the touch
   keyboard's host and leaves the keyboard's slot empty.
 - The microphone, camera and location in-use indicators no longer trigger a
-  full re-layout every time they appear or disappear.
+  re-layout of a tray host the mod is not arranging.
 - A re-arrangement that finds the tray mid-change, such as during a move
   between edges, now retries instead of leaving the native layout in place.
 
