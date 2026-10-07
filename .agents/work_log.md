@@ -2719,3 +2719,4 @@ markers. Added the required pair and pushed empty commit c93f9a87 to trigger
 validation with the corrected body; mod content is identical to the approved
 candidate. Refreshed /ai-review on the new head. Compatibility/validation
 results remain to be verified after this rerun.
+Folder corrected-body validation run 37602892190 completed successfully. Verified empty commit preserves exact approved mod content; both lab and fork clean.
