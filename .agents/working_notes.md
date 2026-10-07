@@ -6,7 +6,10 @@ OCT 7 (later) — TRAY 2.1 PUBLISHED. User live-approved the re-assembled build
 (md5 6a2c9f9d, lab 3e079da). Fork branch update-tray-utility-customizer-v2.0
 at ff272070 (one-file diff verified); PR #5569 retitled v2.1, body updated
 (2.1 section, side screenshot, tested-live, changelog), AI-disclosed reply and
-/ai-review posted. NEXT: read the AI review; fix or answer findings; then
+checks 5/5 green after adding
+changelog markers to the body (empty commit 3fb6273b). /ai-review re-posted from
+PowerShell (a Bash-posted one was path-mangled; user may delete it in the UI).
+NEXT: read the AI review; fix or answer findings; then
 /ready-for-reviewer when clean. Tray is otherwise DONE - do not touch further.
 
 OCT 7 (later session) — CANDIDATE 5 LIVE-APPROVED by user on a side taskbar
