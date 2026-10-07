@@ -2,6 +2,11 @@
 
 ## CURRENT — Oct 7 late: Tray, Folder, VD 2.1 PUBLISHED
 
+ALL SIX MODS WAITING FOR THE MAINTAINER (waiting-for-reviewer): #4443
+Clock, #4843 Privacy, #4844 VD, #4855 Omni, #5568 Folder, #5569 Tray. Final
+AI reviews on #4844/#5568/#5569: no blocking, NO optional items. Nothing
+open on our side; next action is the maintainer's.
+
 User live-tested all three final builds. Pushed: Tray #5569 1953de8a (md5
 ef6ed43a), Folder #5568 045bef08 (38b03852), VD #4844 81e8985f (21471244);
 one-file diffs, changelogs updated, AI-disclosed replies + /ai-review.
