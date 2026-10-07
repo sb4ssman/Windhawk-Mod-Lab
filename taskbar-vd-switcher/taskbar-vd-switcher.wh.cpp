@@ -112,6 +112,10 @@ is given rather than to a desktop count.*
 ![Right of Start with Start hidden](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/right-of-start-hidden-start.png)
 *Right-of-Start placement when the Start button is hidden.*
 
+![Desktop buttons with Greek labels in a compact grid on a Windows 11 side taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/win11-side-greek-grid.png)
+*Windows 11 side taskbar: custom Greek desktop labels in a compact grid,
+alongside the clock and other tray mods. Live-tested and approved.*
+
 ## Features
 
 - Numbered, roman-numeral, indicator-symbol, or custom-label buttons
@@ -1967,8 +1971,8 @@ struct EdgeWatch {
     winrt::event_token token{};
     winrt::weak_ref<winrt::Windows::UI::Xaml::VisualStateGroup> docking;
     winrt::event_token dockingToken{};
-    double width = 0.0;
-    double height = 0.0;
+    bool side = false;
+    double thickness = 0.0;
     void (*onChange)() = nullptr;
 };
 
@@ -1995,19 +1999,23 @@ inline bool StartEdgeWatch(EdgeWatch& watch, FrameworkElement const& taskbarRoot
     if (watch.token && watch.frame.get() == frame) return true;
     StopEdgeWatch(watch);
     watch.frame = winrt::make_weak(frame);
-    watch.width = frame.ActualWidth();
-    watch.height = frame.ActualHeight();
+    watch.side = frame.ActualHeight() > frame.ActualWidth();
+    watch.thickness = watch.side ? frame.ActualWidth() : frame.ActualHeight();
     watch.onChange = onChange;
     EdgeWatch* target = &watch;
     watch.token = frame.SizeChanged(
         [target](winrt::Windows::Foundation::IInspectable const&,
                  winrt::Windows::UI::Xaml::SizeChangedEventArgs const& args) {
             auto size = args.NewSize();
-            if (std::abs(size.Width - target->width) < 0.5 &&
-                std::abs(size.Height - target->height) < 0.5)
+            bool side = size.Height > size.Width;
+            double thickness = side ? size.Width : size.Height;
+            // Content-sized themes change length as task buttons come and go.
+            // Only orientation and thickness require a new arrangement.
+            if (side == target->side &&
+                std::abs(thickness - target->thickness) < 0.5)
                 return;
-            target->width = size.Width;
-            target->height = size.Height;
+            target->side = side;
+            target->thickness = thickness;
             if (target->onChange) target->onChange();
         });
 

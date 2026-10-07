@@ -2617,3 +2617,89 @@ and null callback. SUBMISSION_PREFLIGHT_OK: compile/link, destructor audit,
 README/settings parity, assembly/component-use and upstream validator passed.
 OmniButton needs fresh user live test. Reply drafted under the PR audit folder.
 No installed-source/settings changes, commits, pushes or PR comments.
+
+
+## 2026-10-07 - Approved publication and VD Switcher review pass
+
+User approved OmniButton after live testing and requested lab commit/push,
+new AI reviews, and continuing with the next mod. Lab pushed at 2425bda;
+Clock PR #4443 pushed at cf47511f, OmniButton #4855 at ff574b0b. Both retained
+exactly one mod-file diff against upstream/main. Posted finalized AI-disclosed
+replies and /ai-review requests; both waiting-for-ai-review. Clock checks 5/5;
+Omni compatibility checks still running at last read.
+
+Verified every latest VD review suggestion against current lab 2.1: rebuild
+cleanup/wake, UI-thread settings loading, removed unused code/no_destroy,
+clamps/defaults, DPI preview font and bounded caption read already addressed.
+Reassembled VD with corrected shared thickness/orientation watcher. Full
+submission preflight, real-font native layout and edge-watch regressions passed.
+Reply draft and fresh Windows 11 test guide saved. VD source remains unpushed
+pending human test. No installed configuration changes.
+
+
+## 2026-10-07 - VD Switcher approved and side-taskbar screenshot added
+
+User gave the current VD candidate the seal of approval after live testing.
+Saved the exact supplied 158x306 clipboard screenshot as
+taskbar-vd-switcher/assets/win11-side-greek-grid.png and visually verified it
+matches the attachment. Appended it to the Windows 11 gallery in the mod README
+and synchronized embedded README; catalog updated to live-test approved.
+README parity passed. No runtime changes, commit, push or PR action.
+
+## 2026-10-07 - Existing tree tools researched before naming decision
+
+User paused Tree Dump fixes to consider overlap and project branding. Verified
+UWPSpy's source includes subtree copying with properties and delayed capture;
+corrected the earlier live-inspector-only description. Found lvt's native XAML
+JSON/XML file exports and watch mode, plus XamlTreeDump library and bounded
+debug dumps in taskbar-multi-tray. Research saved in knowledge/. No Tree Dump
+runtime edits, identity change, commit, push, or PR message. Pair publication
+remains pending the tool pass/live test and final identity choice.
+
+## 2026-10-07 - Tool tabled; Privacy Anchor preemptive review pass
+
+User tabled Tree Dump and rejected credit/branding. No tool code or identity
+changes and no PR closure. Next publication candidate is Privacy Indicator
+Anchor, followed by Folder Menus and Tray Utility; fresh live tests outstanding.
+Verified all saved privacy suggestions already addressed in lab: dead helper
+pruning, callback re-entry ordering, atomic worker bar flag, refreshed visibility
+lease snapshot. Applied corrected shared edge watch, safer failed-dispatch
+settings fallback, distinct UI-dispatch alias and concise upgrade/nudge docs.
+Full preflight and edge-handler regression passed. Test guide and reply draft
+saved in outputs/. Header stays 2.1. No installed changes, commits, pushes or
+PR messages. Remaining two candidates require their own detailed audit passes.
+
+
+## 2026-10-07 - Privacy Indicator Anchor approved; side screenshot added
+
+User gave the current privacy candidate the seal of approval after live testing.
+Saved the exact 158x300 supplied clipboard screenshot as
+privacy-indicator-anchor/assets/win11-side-four-indicators.png; visually verified
+it matches the attachment. Appended it to the gallery in the folder and embedded
+README; catalog and handoff record approval. README parity and whitespace pass.
+No runtime changes, commit, push or PR action in this follow-up.
+
+## 2026-10-07 - Folder Menus preemptive review pass
+
+Verified every saved #5568 finding. Existing nonblocking taskbar worker wake,
+stop checks between icon entries, destructor/helper cleanup, initialization
+handle cleanup and app-layout precheck already address the earlier review.
+Now remember all failed icon targets until settings reload, publish settings
+on the taskbar UI thread, use a distinct dispatch alias, and reassemble the
+corrected shared orientation/thickness watcher. Fixed stale worker comments
+and documented failed-target fallback and the active Shell-call wait limit.
+Controls.Primitives remains required: removal failed ButtonBase::Click compile.
+Full submission preflight and edge-watch regression passed. Guide and reply
+draft saved; catalog/handoff updated. Header remains 2.1. Fresh human live test
+required; no installed changes, commit, push or PR comment.
+
+## 2026-10-07 - Folder approved; Privacy and Folder publication authorized
+
+User approved the exact Folder Menus candidate, requested no new screenshot,
+and authorized commit/push and publication of the last two candidates: Privacy
+Indicator Anchor and Folder Menus. Final full preflight passed for both.
+Prepared fork commits 8f5f1b08 and 3f771077; diff against upstream/main is exactly
+one added canonical Privacy file and one modified Folder file respectively.
+Updated review replies and 2.1 PR descriptions with human approval and AI
+authorship. Lab checkpoint includes previously approved VD work/screenshots;
+VD upstream PR remains outside this pair. Tree Dump remains tabled.

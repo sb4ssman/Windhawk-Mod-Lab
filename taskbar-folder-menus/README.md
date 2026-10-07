@@ -66,9 +66,10 @@ display size; changing settings refreshes the requested DPI size. Text color
 and font size affect labels; button dimensions determine native icon size.
 
 Icons are fetched in the background, so a slow target never holds up the
-taskbar. A target that takes a long time to fail, such as a network share
-that is offline, keeps its label and is not tried again until you next change
-the mod's settings.
+taskbar. Any target whose icon extraction fails keeps its label and is not tried
+again until you save the mod's settings. This also prevents repeated probes
+of offline network shares. Settings changes and disabling the mod wait for
+an active Shell call to return; cancellation is checked between targets.
 
 ## Placement after app icons
 

@@ -80,9 +80,10 @@ display size; changing settings refreshes the requested DPI size. Text color
 and font size affect labels; button dimensions determine native icon size.
 
 Icons are fetched in the background, so a slow target never holds up the
-taskbar. A target that takes a long time to fail, such as a network share
-that is offline, keeps its label and is not tried again until you next change
-the mod's settings.
+taskbar. Any target whose icon extraction fails keeps its label and is not tried
+again until you save the mod's settings. This also prevents repeated probes
+of offline network shares. Settings changes and disabling the mod wait for
+an active Shell call to return; cancellation is checked between targets.
 
 ## Placement after app icons
 
@@ -338,6 +339,7 @@ caching, a tray-edge limit, and shared layout, settings, surface and tray-column
 #include <winrt/Windows.UI.ViewManagement.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
+// ButtonBase::Click requires the Controls.Primitives implementation.
 #include <winrt/Windows.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Windows.UI.Xaml.Automation.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
@@ -777,8 +779,8 @@ private:
             Fail(position_ - consumed, L"a finite number");
             return 0.0;
         }
-        // Offsets are cosmetic. Keep expression nudges within the same
-        // user-facing range as Adjust.OffsetX/Y so a typo cannot move an icon
+        // Offsets are cosmetic. Keep expression nudges within a
+        // bounded range of +/-100 pixels so a typo cannot move an icon
         // outside its owned group or hand XAML NaN/infinity.
         return std::clamp(value, -100.0, 100.0);
     }
@@ -1962,8 +1964,8 @@ struct EdgeWatch {
     winrt::event_token token{};
     winrt::weak_ref<winrt::Windows::UI::Xaml::VisualStateGroup> docking;
     winrt::event_token dockingToken{};
-    double width = 0.0;
-    double height = 0.0;
+    bool side = false;
+    double thickness = 0.0;
     void (*onChange)() = nullptr;
 };
 
@@ -1990,19 +1992,23 @@ inline bool StartEdgeWatch(EdgeWatch& watch, FrameworkElement const& taskbarRoot
     if (watch.token && watch.frame.get() == frame) return true;
     StopEdgeWatch(watch);
     watch.frame = winrt::make_weak(frame);
-    watch.width = frame.ActualWidth();
-    watch.height = frame.ActualHeight();
+    watch.side = frame.ActualHeight() > frame.ActualWidth();
+    watch.thickness = watch.side ? frame.ActualWidth() : frame.ActualHeight();
     watch.onChange = onChange;
     EdgeWatch* target = &watch;
     watch.token = frame.SizeChanged(
         [target](winrt::Windows::Foundation::IInspectable const&,
                  winrt::Windows::UI::Xaml::SizeChangedEventArgs const& args) {
             auto size = args.NewSize();
-            if (std::abs(size.Width - target->width) < 0.5 &&
-                std::abs(size.Height - target->height) < 0.5)
+            bool side = size.Height > size.Width;
+            double thickness = side ? size.Width : size.Height;
+            // Content-sized themes change length as task buttons come and go.
+            // Only orientation and thickness require a new arrangement.
+            if (side == target->side &&
+                std::abs(thickness - target->thickness) < 0.5)
                 return;
-            target->width = size.Width;
-            target->height = size.Height;
+            target->side = side;
+            target->thickness = thickness;
             if (target->onChange) target->onChange();
         });
 
@@ -2286,7 +2292,7 @@ namespace bs = folder_menus_button_surface;
 namespace ngl = folder_menus_layout;
 namespace igc = folder_menus_slot_lease;
 namespace taskbar_window = folder_menus_taskbar_window;
-namespace dispatch = folder_menus_dispatch;
+namespace ui_dispatch = folder_menus_dispatch;
 namespace taskbar_xaml = folder_menus_taskbar_xaml;
 namespace taskbar_metrics = folder_menus_taskbar_metrics;
 namespace retry_loop = folder_menus_retry;
@@ -2618,8 +2624,8 @@ static XamlRoot GetTaskbarXamlRoot(HWND window) {
     return taskbar_xaml::GetTaskbarXamlRoot(window);
 }
 
-static bool RunFromWindowThread(HWND window, dispatch::ThreadProc callback, void* parameter) {
-    return dispatch::RunFromWindowThread(window, callback, parameter,
+static bool RunFromWindowThread(HWND window, ui_dispatch::ThreadProc callback, void* parameter) {
+    return ui_dispatch::RunFromWindowThread(window, callback, parameter,
         L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
 }
 
@@ -3481,18 +3487,14 @@ struct FolderIconPixels {
     std::vector<BYTE> pixels;
 };
 static std::vector<FolderIconPixels> g_folderIcons; // exit-time-safe: heap-only
-// Targets whose extraction failed SLOWLY - an unreachable network path costs a
-// full SMB connect timeout per probe. They are not probed again until the
-// settings are reloaded, so one dead share cannot stall every retry attempt and
-// every taskbar rebuild. A fast failure is not remembered: it costs nothing to
-// retry, and at Explorer start the Shell may simply not be ready yet.
+// Remember every failed target until settings reload, so retries and taskbar
+// rebuilds do not repeatedly probe unavailable Shell targets.
 static std::vector<std::wstring> g_failedIconTargets; // exit-time-safe: heap-only
 // Guards the two vectors above and NOTHING ELSE - never held across a Shell
 // call, because the UI thread takes it to read an icon and must not wait out
 // an extraction. No no_destroy: std::mutex has a trivial destructor here, so
 // the attribute would suppress nothing.
 static std::mutex g_folderIconsMutex;  // exit-time-safe: heap-only
-constexpr ULONGLONG kSlowIconFailureMs = 1000;
 
 static int FolderIconSize() {
     HWND taskbar = taskbar_window::ResolveTaskbarWnd(g_taskbarWnd);
@@ -3546,16 +3548,12 @@ static void CacheFolderIcon(std::wstring const& target, int size) {
         for (auto const& failed : g_failedIconTargets)
             if (failed == target) return;
     }
-    ULONGLONG started = GetTickCount64();
     FolderIconPixels extracted;
     bool ok = ExtractFolderIcon(target, size, extracted);
     std::lock_guard lock(g_folderIconsMutex);
     if (!ok) {
-        if (GetTickCount64() - started >= kSlowIconFailureMs) {
-            Wh_Log(L"[Icons] %ls took too long to fail; not probing it again "
-                   L"until the settings change", target.c_str());
-            g_failedIconTargets.push_back(target);
-        }
+        Wh_Log(L"[Icons] Extraction failed; using the label until settings change");
+        g_failedIconTargets.push_back(target);
         return;
     }
     if (g_folderIcons.size() >= 128) g_folderIcons.erase(g_folderIcons.begin());
@@ -4224,10 +4222,6 @@ static void ApplyAllSettingsOnWindowThread() {
 
 static void WakeRetryThread();
 
-// TrayUI::StartTaskbar runs this on the taskbar's UI thread, inside Explorer's
-// own taskbar construction. It must not wait for the icon worker - an
-// unreachable network target keeps that worker in the Shell for a whole
-// connect timeout - so it wakes a live run instead of restarting it.
 // The taskbar moved between a horizontal and a side edge, or its thickness
 // changed. The tree survives (no rebuild), so the toolbar already in the tray
 // keeps the old shape until it is rebuilt. On the UI thread inside a layout
@@ -4240,18 +4234,16 @@ static void OnTaskbarEdgeChanged() {
 }
 
 static bool HookTaskbarDllSymbols() {
+    // StartTaskbar runs inside Explorer's UI-thread taskbar construction.
+    // Wake the icon worker without waiting for its current Shell call.
     return taskbar_xaml::HookTaskbarSymbols([] {
         if (!g_unloading && !g_updatingSettings) WakeRetryThread();
     });
 }
 
 
-// Stopped from Wh_ModUninit and Wh_ModSettingsChanged on Windhawk's thread
-// while a taskbar rebuild can start it from the taskbar thread; RetryLoop makes
-// every caller that observes a live run wait for it, so neither can return
-// while the worker is still running mod code. After Stop() the loop holds
-// nothing, and even at process exit its implicit destructor only closes handles
-// and frees memory, so it needs no no_destroy.
+// Windhawk callbacks stop and join the worker; taskbar callbacks only wake it.
+// After Stop() the loop holds nothing; its destructor is safe at process exit.
 static retry_loop::RetryLoop g_retry;  // exit-time-safe: heap-only
 
 static void StopRetryThread() {
@@ -4311,7 +4303,7 @@ static void LogUiCallbackFailure(PCWSTR context) {
 BOOL Wh_ModInit() {
     Wh_Log(L"[Init] Taskbar Folder Menus v%s", WH_MOD_VERSION);
     LoadSettings();
-    dispatch::SetExceptionLogger(LogUiCallbackFailure);
+    ui_dispatch::SetExceptionLogger(LogUiCallbackFailure);
     g_menuIdleEvent = CreateEventW(nullptr, TRUE, TRUE, nullptr);
     if (!g_menuIdleEvent) {
         Wh_Log(L"[Init] Failed to create menu-idle event");
@@ -4415,12 +4407,15 @@ void Wh_ModSettingsChanged() {
     g_updatingSettings = true;
     StopRetryThread();
     HWND hWnd = FindCurrentProcessTaskbarWnd();
-    if (hWnd && !RunFromWindowThread(hWnd, [](void*) { RemoveButtonGrid(); }, nullptr)) {
+    if (hWnd && !RunFromWindowThread(hWnd, [](void*) {
+            RemoveButtonGrid();
+            LoadSettings();
+        }, nullptr)) {
         g_updatingSettings = false;
         Wh_Log(L"[Settings] Could not detach old UI; reload to apply settings");
         return;
     }
-    LoadSettings();
+    if (!hWnd) LoadSettings();
     // The worker is stopped, so nothing is probing; a target that failed
     // before may be reachable now, or no longer configured at all.
     ForgetFailedFolderIcons();

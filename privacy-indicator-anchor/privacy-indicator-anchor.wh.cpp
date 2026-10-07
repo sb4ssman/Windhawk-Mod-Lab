@@ -69,6 +69,11 @@ Copilot reports its installation state and links to the relevant settings:
 
 ![Copilot installation-state tooltip](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/copilot-tooltip.png)
 
+All four indicators in a row on a Windows 11 side taskbar, alongside the clock
+and other tray mods. Live-tested and approved:
+
+![Location, microphone, camera, and Copilot indicators on a Windows 11 side taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/privacy-indicator-anchor/assets/win11-side-four-indicators.png)
+
 ## Features
 
 - Persistent placeholder icons for location, microphone, camera, and Copilot
@@ -89,24 +94,9 @@ Copilot reports its installation state and links to the relevant settings:
 - Click-through to the relevant Windows privacy, input, camera, taskbar, or app settings
 - Optional testing toggle to let Windows' native privacy indicators appear
 
-## Why this starts at 2.0
-
-Version 1.0 was never published — it existed only as a pull request. The 2.0 in
-the version field marks the settings contract, not a history of releases: every
-mod in this family moved to the same grouped layout — Placement, Content,
-Layout, Size, Adjust, Surface, Behavior — and to the shared **Arrangement**
-expression that replaced each mod's homegrown grid settings.
-
-**If you installed 1.x by hand from the pull request**, Windhawk cannot carry
-values across renamed keys, so your previous customizations are not migrated —
-re-apply them once. In particular, **check `Behavior` → `Monitor camera
-hardware privacy control`**: it is now opt-in and defaults to off, and it is
-the only thing that detects a physical camera shutter or kill switch.
-
-`itemOrder` and the whole grid-mode family are gone, replaced by a single
-**Arrangement** field. Grid mode, smart layout, fixed rows and columns, short
-row/column position and alignment, and the per-icon nudge settings no longer
-exist; what replaced each of them is below.
+If you installed an unpublished 1.x build, re-apply your customizations once:
+2.x groups the settings and uses an Arrangement field; renamed keys cannot
+be migrated. Camera hardware monitoring is now opt-in and defaults to off.
 
 ## The Arrangement field
 
@@ -153,6 +143,7 @@ location[+2,-1] | mic | camera   location moves 2px right and 1px up
 (mic, camera)[3,0] | location    the stacked pair moves 3px right
 ```
 
+Expression nudges are clamped to ±100 pixels per axis.
 Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole cluster instead, use `Adjust` → horizontal and
 vertical offset. Nudges and offsets are screen pixels on every taskbar edge —
@@ -790,8 +781,8 @@ private:
             Fail(position_ - consumed, L"a finite number");
             return 0.0;
         }
-        // Offsets are cosmetic. Keep expression nudges within the same
-        // user-facing range as Adjust.OffsetX/Y so a typo cannot move an icon
+        // Offsets are cosmetic. Keep expression nudges within a
+        // bounded range of +/-100 pixels so a typo cannot move an icon
         // outside its owned group or hand XAML NaN/infinity.
         return std::clamp(value, -100.0, 100.0);
     }
@@ -1773,8 +1764,8 @@ struct EdgeWatch {
     winrt::event_token token{};
     winrt::weak_ref<winrt::Windows::UI::Xaml::VisualStateGroup> docking;
     winrt::event_token dockingToken{};
-    double width = 0.0;
-    double height = 0.0;
+    bool side = false;
+    double thickness = 0.0;
     void (*onChange)() = nullptr;
 };
 
@@ -1801,19 +1792,23 @@ inline bool StartEdgeWatch(EdgeWatch& watch, FrameworkElement const& taskbarRoot
     if (watch.token && watch.frame.get() == frame) return true;
     StopEdgeWatch(watch);
     watch.frame = winrt::make_weak(frame);
-    watch.width = frame.ActualWidth();
-    watch.height = frame.ActualHeight();
+    watch.side = frame.ActualHeight() > frame.ActualWidth();
+    watch.thickness = watch.side ? frame.ActualWidth() : frame.ActualHeight();
     watch.onChange = onChange;
     EdgeWatch* target = &watch;
     watch.token = frame.SizeChanged(
         [target](winrt::Windows::Foundation::IInspectable const&,
                  winrt::Windows::UI::Xaml::SizeChangedEventArgs const& args) {
             auto size = args.NewSize();
-            if (std::abs(size.Width - target->width) < 0.5 &&
-                std::abs(size.Height - target->height) < 0.5)
+            bool side = size.Height > size.Width;
+            double thickness = side ? size.Width : size.Height;
+            // Content-sized themes change length as task buttons come and go.
+            // Only orientation and thickness require a new arrangement.
+            if (side == target->side &&
+                std::abs(thickness - target->thickness) < 0.5)
                 return;
-            target->width = size.Width;
-            target->height = size.Height;
+            target->side = side;
+            target->thickness = thickness;
             if (target->onChange) target->onChange();
         });
 
@@ -2476,8 +2471,8 @@ namespace clr = privacy_anchor_color_tokens;
 namespace ngl = privacy_anchor_layout;
 namespace ple = privacy_anchor_property_lease;
 namespace taskbar_window = privacy_anchor_taskbar_window;
-namespace dispatch = privacy_anchor_dispatch;
 namespace taskbar_xaml = privacy_anchor_taskbar_xaml;
+namespace ui_dispatch = privacy_anchor_dispatch;
 namespace taskbar_metrics = privacy_anchor_taskbar_metrics;
 namespace lease_column = privacy_anchor_slot_lease;
 namespace start_placement = privacy_anchor_start_placement;
@@ -2923,7 +2918,7 @@ static HMODULE GetSystemTrayModuleHandle() {
 // exception logger, the dispatch message name, and its rebuild callback.
 // ============================================================
 
-using WindowThreadProc = dispatch::ThreadProc;
+using WindowThreadProc = ui_dispatch::ThreadProc;
 
 static void LogCurrentUiException(PCWSTR context) noexcept {
     try {
@@ -2945,7 +2940,7 @@ static XamlRoot GetTaskbarXamlRoot(HWND taskbarWindow) {
 
 static bool RunFromWindowThread(HWND window, WindowThreadProc proc,
                                 void* parameter) {
-    return dispatch::RunFromWindowThread(
+    return ui_dispatch::RunFromWindowThread(
         window, proc, parameter,
         L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
 }
@@ -6034,7 +6029,7 @@ BOOL Wh_ModInit() {
     Wh_Log(L"[Init] Privacy Anchor v2.0");
     // Failures inside a template-marshalled UI callback report in this mod's
     // voice rather than vanishing.
-    dispatch::SetExceptionLogger(LogCurrentUiException);
+    ui_dispatch::SetExceptionLogger(LogCurrentUiException);
     // No hook is live yet, so no other thread can be reading g_settings.
     LoadSettings(g_settings);
 
@@ -6401,8 +6396,14 @@ void Wh_ModSettingsChanged() {
             ApplyOnTaskbarThread();
         }, &settingsDispatch);
     }
-    // No taskbar thread took it: nothing is reading g_settings there, so
-    // publish here rather than lose the change.
-    if (!settingsDispatch.ran)
-        g_settings = next;
+    if (!settingsDispatch.ran) {
+        if (!settingsDispatch.window) {
+            // No taskbar window exists; the next initial apply uses this copy.
+            g_settings = next;
+        } else {
+            // Failure to dispatch does not prove the live UI has no readers.
+            // Preserve its settings and let the user retry the save.
+            Wh_Log(L"[Settings] UI dispatch failed; save settings again to retry");
+        }
+    }
 }

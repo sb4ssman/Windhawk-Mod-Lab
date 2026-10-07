@@ -1,27 +1,32 @@
 # Working Notes — Windhawk Mod Lab
 
-## Clock Spacer review fixes — Oct 7
+Tree Dump idea TABLED by user Oct 7. No credit/branding or rename wanted.
+Existing PR #5977 remains open; no closure was requested. VD approved, unpushed.
+Next: Tray Utility preemptive review pass and fresh human live test.
+Privacy Anchor and Folder Menus exact candidates are live-test approved.
+User authorized lab push and publication of these last two on Oct 7; fork
+commits prepared: Privacy 8f5f1b08, Folder 3f771077. Each diff is one mod file.
+Folder retains existing screenshots. Privacy canonical filename/title restored.
+Final preflight passed for both. Publication and fresh /ai-review in progress.
+VD remains approved but its upstream PR is not part of this pair.
 
-All suggestions in the user's pasted latest review applied locally: guarded
-per-line settings refresh, per-line bounded zero-width warning counter, corrected
-hook-order comment, and accurate hidden-line/restart instructions in both README
-copies. A failed dispatch with an existing taskbar no longer reloads settings
-off-thread. Header remains 1.1. User approved after a fresh live test. Publication authorized Oct 7.
-Test checklist:
-normal/weighted/weather spacers, save width settings, hide an already spaced
-line then toggle this mod, unhide, and disable/re-enable restoration. Other
-family candidates still await the user's live tests. No PR comments or pushes.
+## Current publication and test status — Oct 7
 
+Clock Spacer and OmniButton: exact candidates live-test approved, lab pushed
+at 2425bda, PRs pushed at cf47511f and ff574b0b respectively; replies and fresh
+/ai-review posted. Both waiting-for-ai-review. Both CI 5/5. Preserve the live-test gate for any subsequent changed build.
+
+VD Switcher is next: all latest reviewer findings verified addressed in lab
+2.1; reassembled corrected shared edge watcher. SUBMISSION_PREFLIGHT_OK,
+VD_NATIVE_LAYOUT_PIPELINE_OK and EDGE_WATCH_SIZE_REGRESSION_OK. Needs fresh
+Windows 11 human test, including hover previews; guide:
+outputs/live-test-vd-switcher-2026-10-07.md. Reply draft in PR audit folder.
+User gave VD Switcher the seal of approval after live testing. Supplied side
+taskbar screenshot added at the end of the Windows 11 gallery in both README
+copies. No VD push or installed changes. Other candidates still await live tests.
+Shared components updated; remaining adopters need reassembly in their passes.
 
 ## START HERE (Oct 7) - for the next session
-
-OmniButton latest review: all items applied locally; SUBMISSION_PREFLIGHT_OK
-and EDGE_WATCH_SIZE_REGRESSION_OK. Watch filters length changes; cached rotation
-defers to a fresh edge read; nudge limits documented; distinct ui_dispatch alias;
-upgrade history condensed. Header 2.1. User approved after a fresh live test. Checklist: Styler
-content-sized taskbar open/close, all edges/thickness, normal layout and unload.
-Shared component changes reassembled into OmniButton only; reassemble the other
-adopters during their own passes. No pushes or comments this session.
 
 1. Run `bash .agents/tools/sync-lab.sh` first (README step 0).
 2. State: the 2.1 family and the Win10 VD experiment are in the lab (see

@@ -98,6 +98,10 @@ is given rather than to a desktop count.*
 ![Right of Start with Start hidden](assets/right-of-start-hidden-start.png)
 *Right-of-Start placement when the Start button is hidden.*
 
+![Desktop buttons with Greek labels in a compact grid on a Windows 11 side taskbar](assets/win11-side-greek-grid.png)
+*Windows 11 side taskbar: custom Greek desktop labels in a compact grid,
+alongside the clock and other tray mods. Live-tested and approved.*
+
 ## Features
 
 - Numbered, roman-numeral, indicator-symbol, or custom-label buttons
