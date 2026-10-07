@@ -18,13 +18,21 @@ space restoration, superseding the previous placement deferral.
 The user reopened the accepted experiment: columns-first auto should attempt
 a column/grid on a single-height taskbar without a manual arrangement.
 Recompile VD Switcher and test auto + columns first with default sizes/font:
-two desktops should stack; four should form a 2x2 grid on a 40 px taskbar.
+two desktops should stack; three plus Task View should make a 2x2 grid.
+For the latter, Content -> Task View button MUST be enabled as well as
+selecting last-in-grid (live registry at diagnosis had button=0, placement=inGrid).
 Compact sizing uses actual taskbar height (width on side taskbars), subtracts
-padding/Task View space, and uses measured font bounds as a readability floor.
+padding/Task View space, and uses the measured FULL font line box as a readability floor. Previous
+extra 4 DIP margin blocked default Segoe UI: its real tmHeight is17 px,
+so the previous21 px minimum still allowed only one line. Extra horizontal
+margins also blocked higher DPI; native centering now supplies spare padding.
 Configured cross-axis size is the preferred maximum. Larger fonts can still
 limit it to one line. Verify resize/DPI, side orientation if convenient, and
 that row-first auto and written arrangements retain exact configured sizes.
 Only Win10 columns-first auto compacts; Win11 behavior remains unchanged.
+Run [the real-font placement regression](tools/test-vd-native-layout.py):
+it extracts AutoCell, AvailableRows and ComputeButtonPlacements from the
+actual mod and checks two/three/three+TaskView at100/125/150/200% scaling.
 
 Previous build a6a7917 was accepted for personal experimental use, with
 appearance imperfect. The NEW auto-fit candidate is not covered by that

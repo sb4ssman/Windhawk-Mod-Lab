@@ -79,3 +79,21 @@ Two default-font cells on40 DIP normally become19 DIP each, with2 DIP gap;
 larger text/reserves can prohibit two lines. Side cross-axis is label width,
 with remeasurement after content changes. Retest this candidate before
 considering the Win10 pass complete again.
+
+## Font-metric regression correction
+
+93592ff failed live because numerical fitting tests supplied a guessed17 DIP
+minimum while AutoCell actually measured tmHeight17 then added4, yielding21.
+Segoe UI at requested -13 px includes4 px internal leading. Vertical floor
+must be the measured line box alone; spare cell room is distributed by the
+existing DT_VCENTER. Extra2 DIP padding still failed at150/200% due font
+rounding. Current real-font/full-pipeline regression catches both issues.
+Default two cells at40 DIP:19 DIP each plus2 DIP gap. Three plus enabled
+in-grid Task View produce42x40 DIP and four identical20x19 DIP cells. Real
+registry showed TaskViewButton=0 even though placement=inGrid: test both
+checkbox and placement. Registry/source remain read-only in this diagnosis.
+Reproducible Windows test: .agents/tools/test-vd-native-layout.py.
+
+Final read-only live HWND check: primary taskbar1920x40 physical pixels, DPI96.
+This matches the real-font pipeline fixture; no unknown height/scaling assumption
+remains for the reported two-button case. Exact replacement is still not live-tested.

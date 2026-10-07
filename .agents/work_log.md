@@ -2502,3 +2502,26 @@ large-font limits, padding and Task View reserves, side widths and literal
 manual sizes. Mod compile/link, destructor audit, assembly/component/settings
 checks, README parity and whitespace passed. Exact-build HUMAN LIVE TEST
 still required. No installed edits, push/PR action or version/tag bump.
+
+## 2026-10-06 - Real-font Win10 auto-fit correction and Task View grid regression
+
+User live test of93592ff still displayed a row and requested3 desktops plus
+Task View as the fourth grid cell. Actual GDI measurement: default -13 px
+Segoe UI has tmHeight17/internalLeading4, so adding4 DIP produced a21 DIP
+minimum and still rejected two rows. Earlier numerical tests used an assumed
+minimum and missed this. Use the full measured line box alone as the vertical
+floor; centering provides available padding. A smaller fixed padding also
+failed at150% and was removed. Side label width retains small horizontal padding.
+
+Read-only live settings confirmed auto/columns/default10-point font/22 px
+cells/2 px gap/zero vertical padding. TaskViewPlacement=inGrid but TaskViewButton=0;
+placement alone does not enable it. No installed settings were changed.
+
+Added tools/test-vd-native-layout.py: extracts actual AutoCell, AvailableRows,
+ComputeButtonPlacements and resolver helpers, uses real GDI font metrics and
+shipped arranger, with only taskbar geometry fixture. Tests pass for two and
+three desktops, three plus Task View (four equal cells, final cell bottom-right),
+100/125/150/200% scale, icon-font metrics, literal manual sizes and row-first.
+Default result20x19 DIP cells; pair20x40, four-cell grid42x40. Compiler/link,
+destructor audit, assembly/component/settings/README/whitespace checks passed.
+Exact live retest still required; no installed edits, push, PR or version/tag.

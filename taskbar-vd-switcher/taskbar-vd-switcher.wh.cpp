@@ -5529,7 +5529,11 @@ static ngl::Size AutoCell(Bar const& bar) {
         SelectObject(dc,previous); DeleteObject(font); ReleaseDC(bar.window,dc);
         return cell;
     }
-    double readable = metrics.tmHeight/bar.scale + 4;
+    // tmHeight already includes the font's internal leading. On this shell
+    // Segoe UI at the default size measures 17 px, not the requested 13 px.
+    // The full line box is the minimum; centering supplies spare padding.
+    // Adding another fixed DIP margin incorrectly rejects rows at 150/200%.
+    double readable = metrics.tmHeight/bar.scale;
     if (bar.side) {
         int widest = 0;
         for (int index = 0; index < bar.count; ++index) {
@@ -5538,7 +5542,7 @@ static ngl::Size AutoCell(Bar const& bar) {
             GetTextExtentPoint32W(dc,label.c_str(),int(label.size()),&size);
             widest = std::max(widest,int(size.cx));
         }
-        readable = widest/bar.scale + 4;
+        readable = widest/bar.scale + 2;
     }
     if (g_settings.taskViewButton && TaskViewInGrid()) {
         HFONT masterFont = CreateFontW(-int(g_settings.fontSize * bar.scale * 96 / 72),
@@ -5550,8 +5554,8 @@ static ngl::Size AutoCell(Bar const& bar) {
             GetTextExtentPoint32W(dc,g_settings.taskViewLabel.c_str(),
                 int(g_settings.taskViewLabel.size()),&size);
             GetTextMetricsW(dc,&masterMetrics);
-            readable = std::max(readable,
-                (bar.side ? size.cx : masterMetrics.tmHeight)/bar.scale + 4);
+            readable = std::max(readable, bar.side ? size.cx/bar.scale + 2 :
+                masterMetrics.tmHeight/bar.scale);
             SelectObject(dc,font); DeleteObject(masterFont);
         }
     }

@@ -31,7 +31,12 @@ compact automatic grid still needs an exact-build human live test. New init log:
    without restarting the mod. High contrast follows system colors.
    First use Arrangement `auto`, Fill columns first, default 22 px height,
    default font, 2 px spacing and zero padding. Two desktops should stack in
-   one column on a 40 px taskbar; four should form a 2x2 grid. Increase font
+   one column on a 40 px taskbar. Then create three desktops, turn ON
+   Content -> Task View button and choose last button in grid/same size:
+   expect a 2x2 grid, with Task View in the bottom-right cell and equal size.
+   Selecting placement alone does not enable Task View. Click the Task View
+   cell and check it opens the Windows desktop overview. Check100/125/150%
+   DPI if practical; the font line box already includes internal leading. Increase font
    size to verify it does not cram unreadable rows. Test vertical padding and
    Task View slivers; automatic compaction must reserve their space first.
    Increase taskbar height and check more lines fit; on side taskbars, width
