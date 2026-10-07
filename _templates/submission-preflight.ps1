@@ -97,6 +97,25 @@ if (Test-Path -LiteralPath (Join-Path $modPath 'components.list') -PathType Leaf
     if ($LASTEXITCODE -ne 0) { throw "$modName assembles components it never calls" }
 }
 
+# Oct 7 2026: a component change made for two mods was re-assembled into three
+# more, but not into Tray Utility, which was frozen mid-investigation at the
+# time. Its stale copy surfaced only when Tray itself reached preflight, after
+# its live test. Report every OTHER adopter that has drifted, so a library
+# change is rolled out while it is fresh. A warning, not a failure: another
+# mod's unfinished work must not block this one.
+$drifted = @()
+foreach ($list in Get-ChildItem -Path $repoRoot -Filter 'components.list' -Recurse -Depth 1) {
+    $otherMod = $list.Directory.FullName
+    if ($otherMod -eq $modPath) { continue }
+    & $pythonCommand (Join-Path $PSScriptRoot 'assemble.py') $otherMod --check *> $null
+    if ($LASTEXITCODE -ne 0) { $drifted += $list.Directory.Name }
+}
+if ($drifted) {
+    Write-Warning ("Other assembled mods no longer match the component library: " +
+                   ($drifted -join ', ') +
+                   ". Re-assemble them, and live-test each before it ships.")
+}
+
 # A per-mod logging verbosity setting duplicates Windhawk's own per-mod logging
 # switch, which already gates Wh_Log — and the macro evaluates its arguments
 # only when logging is on, so there is nothing to save by adding one.

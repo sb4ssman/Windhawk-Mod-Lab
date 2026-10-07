@@ -221,6 +221,21 @@ the edge Windows reports and re-arranges when the taskbar moves.
 
 ## Changelog
 
+### 2.1
+
+- Native left and right taskbars (Windows 11's own taskbar position setting)
+  are supported. The mod reads the edge Windows reports, re-arranges when the
+  taskbar moves between edges without an Explorer restart, keeps Windows' own
+  side-taskbar cells intact, and moves each icon into its arranged cell. `auto`
+  fills across a side taskbar's width. A taskbar that another mod rotates is
+  still left untouched.
+- A written arrangement that names no utility Windows is currently showing now
+  waits for one to appear, instead of retrying and then giving up.
+- With Emoji hidden, the lone-icon Emoji fallback no longer claims the touch
+  keyboard's host and leaves the keyboard's slot empty.
+- The microphone, camera and location in-use indicators no longer trigger a
+  full re-layout every time they appear or disappear.
+
 ### 2.0
 
 - Adopted the grouped `Placement` / `Content` / `Layout` / `Size` / `Adjust` /
@@ -646,8 +661,8 @@ private:
             Fail(position_ - consumed, L"a finite number");
             return 0.0;
         }
-        // Offsets are cosmetic. Keep expression nudges within the same
-        // user-facing range as Adjust.OffsetX/Y so a typo cannot move an icon
+        // Offsets are cosmetic. Keep expression nudges within a
+        // bounded range of +/-100 pixels so a typo cannot move an icon
         // outside its owned group or hand XAML NaN/infinity.
         return std::clamp(value, -100.0, 100.0);
     }
@@ -1656,8 +1671,8 @@ struct EdgeWatch {
     winrt::event_token token{};
     winrt::weak_ref<winrt::Windows::UI::Xaml::VisualStateGroup> docking;
     winrt::event_token dockingToken{};
-    double width = 0.0;
-    double height = 0.0;
+    bool side = false;
+    double thickness = 0.0;
     void (*onChange)() = nullptr;
 };
 
@@ -1684,19 +1699,23 @@ inline bool StartEdgeWatch(EdgeWatch& watch, FrameworkElement const& taskbarRoot
     if (watch.token && watch.frame.get() == frame) return true;
     StopEdgeWatch(watch);
     watch.frame = winrt::make_weak(frame);
-    watch.width = frame.ActualWidth();
-    watch.height = frame.ActualHeight();
+    watch.side = frame.ActualHeight() > frame.ActualWidth();
+    watch.thickness = watch.side ? frame.ActualWidth() : frame.ActualHeight();
     watch.onChange = onChange;
     EdgeWatch* target = &watch;
     watch.token = frame.SizeChanged(
         [target](winrt::Windows::Foundation::IInspectable const&,
                  winrt::Windows::UI::Xaml::SizeChangedEventArgs const& args) {
             auto size = args.NewSize();
-            if (std::abs(size.Width - target->width) < 0.5 &&
-                std::abs(size.Height - target->height) < 0.5)
+            bool side = size.Height > size.Width;
+            double thickness = side ? size.Width : size.Height;
+            // Content-sized themes change length as task buttons come and go.
+            // Only orientation and thickness require a new arrangement.
+            if (side == target->side &&
+                std::abs(thickness - target->thickness) < 0.5)
                 return;
-            target->width = size.Width;
-            target->height = size.Height;
+            target->side = side;
+            target->thickness = thickness;
             if (target->onChange) target->onChange();
         });
 
@@ -4807,7 +4826,7 @@ static void OnTaskbarRebuilt() {
 }
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Tray Utility Customizer v2.0");
+    Wh_Log(L"[Init] Tray Utility Customizer v" WH_MOD_VERSION);
     LoadSettings();
     dispatch::SetExceptionLogger(LogUiCallbackFailure);
 

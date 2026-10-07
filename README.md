@@ -19,7 +19,7 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7 published; v2.1 live-test approved, update PR #5568 open | Grouped Shell-menu buttons with native icons, nested layouts and placement after app icons or in the tray |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
 | [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; local v2.1 live-test approved; Win10 experimental | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
-| [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; local v2.1 top/bottom tested; side layout failed, checkpoint for investigation | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
+| [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; v2.1 live-approved (top/bottom and side taskbar), update PR #5569 | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
 
 ## Tools for mod authors
 

@@ -207,6 +207,21 @@ the edge Windows reports and re-arranges when the taskbar moves.
 
 ## Changelog
 
+### 2.1
+
+- Native left and right taskbars (Windows 11's own taskbar position setting)
+  are supported. The mod reads the edge Windows reports, re-arranges when the
+  taskbar moves between edges without an Explorer restart, keeps Windows' own
+  side-taskbar cells intact, and moves each icon into its arranged cell. `auto`
+  fills across a side taskbar's width. A taskbar that another mod rotates is
+  still left untouched.
+- A written arrangement that names no utility Windows is currently showing now
+  waits for one to appear, instead of retrying and then giving up.
+- With Emoji hidden, the lone-icon Emoji fallback no longer claims the touch
+  keyboard's host and leaves the keyboard's slot empty.
+- The microphone, camera and location in-use indicators no longer trigger a
+  full re-layout every time they appear or disappear.
+
 ### 2.0
 
 - Adopted the grouped `Placement` / `Content` / `Layout` / `Size` / `Adjust` /
