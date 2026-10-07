@@ -5,8 +5,9 @@ A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — o
 ## Windows 10 compatibility (local test candidate)
 
 The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
-(Windows 10 2004 through 22H2). The initial build was partially live-tested;
-the replacement tray placement and cleanup need a fresh live test. It uses the
+(Windows 10 2004 through 22H2). The user accepted this local build for
+personal experimental use; appearance remains imperfect, and exhaustive
+edge/lifecycle testing is still outstanding. It uses the
 same desktop labels, arrangement, sizes, padding, offsets, Task View button,
 colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
 removal, renaming, and switches made elsewhere are checked every 250 ms.

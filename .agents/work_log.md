@@ -2469,3 +2469,12 @@ zero-alpha preservation, text/coverage bounds, and 100-cycle GDI lifetime
 checks (5 handles before/after). Warmed the lazy stock font before counting.
 Exact appearance, click coverage and revised unload still need HUMAN LIVE
 TEST. No installed source/settings edit, push, PR update, release bump/tag.
+
+## 2026-10-06 - Win10 experimental checkpoint accepted
+
+User accepted a6a7917: "not perfect" but "working good enough" for personal
+experimental use now. Current Win10 pass complete; appearance imperfections
+remain accepted limitations. This is not exhaustive position/edge/lifecycle
+verification or authorization to publish. Updated handoff to resume Win11
+family work; future settings template remains first. No release bump/tag,
+push, PR action or installed configuration change.

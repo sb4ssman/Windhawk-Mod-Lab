@@ -13,28 +13,18 @@ return to Win11 to finish fixing/testing and publishing the family. Oct 6
 follow-up explicitly requires clock/notification placements and reliable
 space restoration, superseding the previous placement deferral.
 
-## Immediate: Win10 appearance candidate and stack/grid retest
+## Win10 experiment accepted - return to Windows 11
 
-Recompile [VD Switcher](../taskbar-vd-switcher/taskbar-vd-switcher.wh.cpp) in
-Windhawk; use [the placement/unload retest](outputs/live-test-vd-switcher-win10-2026-10-06.md).
-Position (Windows 10 experimental): before chevron, between clock and
-notifications, or between notifications and Show Desktop. Verify all three,
-repeated switches/settings changes, hide-when-single and disable/re-enable.
-User reports the tray placement checkpoint d88e5f1 works, but its toolbar
-background/button surfaces look wrong. Recompile the new appearance candidate:
-actual taskbar shows through, idle buttons are transparent, default active
-accent is a subtle tint/underline, hover/press is soft, theme/accent changes
-refresh automatically. No new appearance settings. Exact visuals and click
-coverage still need a human live test. For stacks/grids, use Arrangement
-`1, 2` or `1, 2 | 3, 4`; 18 px button height, 2 px spacing, zero vertical
-padding fits two rows in a 40 px taskbar. Auto follows available height. Native clock-size symbol required; primary
-taskbar only; side taskbars need testing. Header stays 2.1. No release tag,
-push or PR update before the user confirms this exact build works.
+User accepted a6a7917 on Oct 6 as working well enough for personal experimental
+use, with appearance still imperfect. This completes the current Win10 pass;
+do not expand or polish it further unless requested. Keep it experimental,
+primary taskbar only; side-taskbar and exhaustive lifecycle coverage are not
+established by this acceptance. Header stays 2.1; no publishing authorization.
 
-Current live taskbar's old orphan bands were cleared and native app-button
-width restored; see [recovery evidence](knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md).
-The new backend creates no rebar bands. Do not reuse the temporary bulk-band
-recovery script: it also hid the native app host during cleanup, then restored it.
+Reference: [Win10 retest guide](outputs/live-test-vd-switcher-win10-2026-10-06.md)
+and [implementation/recovery evidence](knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md).
+Stacks/grids use Arrangement `1, 2` or `1, 2 | 3, 4`; 18 px height,
+2 px spacing and zero vertical padding fit two rows in a 40 px taskbar.
 
 ## Windows 11 family next
 
