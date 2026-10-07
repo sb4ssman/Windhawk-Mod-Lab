@@ -1,40 +1,25 @@
-# Mod-Lab: Taskbar Tree Dump — live test, then publish
+# Windhawk-Mod-Lab Tool: Taskbar Tree Dump — publish
 
-State (2026-10-06): v1.0 has NEVER been run. Windhawk still has the old v0.1
-installed as `local@lab-taskbar-tree-dump`. The PR branch
-`add-mod-lab-taskbar-tree-dump` exists ONLY in the local fork checkout
-(`t:/Github/sb4ssman/windhawk-mods`, one commit on `upstream/main`, one-file
-diff verified). Not pushed. No PR.
+State (2026-10-06): live-tested by the user (final identity set Oct 6:
+`@id` `mod-tool-taskbar-tree-dump`, `@name` "Windhawk-Mod-Lab Tool: Taskbar
+Tree Dump"). Fork branch `add-mod-tool-taskbar-tree-dump` (local, one commit
+`76153d54` on `upstream/main`, one-file diff verified). NOT pushed; no PR.
+The old local branch `add-mod-lab-taskbar-tree-dump` is stale — delete it.
 
-## Live test (user)
+Remaining before pushing: the user reinstalls the final lab file (it differs
+from the tested build only by three display strings: dump header, JSON
+`"tool"` field, init log line) and confirms. Then:
 
-1. In Windhawk, disable and delete the old "Lab: Taskbar Tree Dump".
-2. Create a new mod, paste
-   `tool-mods/mod-lab-taskbar-tree-dump/mod-lab-taskbar-tree-dump.wh.cpp`,
-   compile and enable.
-3. About two seconds later a file appears in
-   `Documents\Taskbar Tree Dumps`. Open it: the header shows the build, the
-   taskbar position and DPI; task-button text shows only `textChars=N`, never
-   a window title.
-4. Move the taskbar to another edge. A new file with that edge and `change` in
-   its name appears once the taskbar settles.
-5. Set Format to JSON and Label to `test`: a new `.json` file with `test` in
-   its name appears and opens as valid JSON.
-6. Set Subtree to `SystemTrayFrameGrid`: the next dump contains only that
-   subtree.
-7. Disable the mod: no error in the log, Explorer unaffected.
+    cd t:/Github/sb4ssman/windhawk-mods
+    git push -u origin add-mod-tool-taskbar-tree-dump
 
-## After the user confirms
-
-In the fork: `git switch add-mod-lab-taskbar-tree-dump`, re-copy the lab file
-if it changed, verify `git diff --name-only upstream/main...HEAD` prints one
-path, push, then from PowerShell:
+and from PowerShell (never Git Bash):
 
     gh pr create --repo ramensoftware/windhawk-mods --base main `
-      --head sb4ssman:add-mod-lab-taskbar-tree-dump `
-      --title "Add Mod-Lab: Taskbar Tree Dump v1.0" --body-file <body below>
+      --head sb4ssman:add-mod-tool-taskbar-tree-dump `
+      --title "Add Windhawk-Mod-Lab Tool: Taskbar Tree Dump v1.0" --body-file <body below>
 
-Fill in the Testing paragraph from what the user actually ran.
+Then `/ai-review` once CI is green.
 
 ## PR description (draft)
 
@@ -50,7 +35,12 @@ A tool for mod authors. It writes the Windows 11 taskbar's XAML element tree to 
 
 ### Testing
 
-(Fill in after the live test.)
+Live-tested on Windows 11 build 26300.9550 (26H2), 2560x1600 at 100%:
+
+- Dump on load wrote one file about two seconds after enabling; text content hidden by default (character counts only).
+- Moved the taskbar bottom → top → left → right → bottom: each move produced one settled dump (about 2 s apart), all reporting the same root element, so a move re-lays out the existing tree rather than rebuilding it.
+- JSON output parses, with no duplicate keys; unnamed visual state groups are numbered `(unnamed N)`.
+- Subtree (`ControlCenterButton`) restricted the dump to that element; Label added to the file name; Include text content showed the real text.
 
 <!-- ⚠️ Please keep the template below intact and fill in the relevant sections. Any additional content can be placed above the template. -->
 

@@ -1,4 +1,4 @@
-# Mod-Lab: Taskbar Tree Dump
+# Windhawk-Mod-Lab Tool: Taskbar Tree Dump
 
 A tool for **mod authors**. It writes the Windows 11 taskbar's XAML element
 tree to a file you can read, search, diff, or hand to someone helping you —

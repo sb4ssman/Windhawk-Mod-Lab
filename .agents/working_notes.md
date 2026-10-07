@@ -16,39 +16,28 @@ Both live-tested by the user (installed sources == lab, verified by diff).
   [replies/posted-2026-10-06/](../_research/ai-reviews-2026-09-21/replies/posted-2026-10-06/).
 - Next: when the bot reviews land, save them and verify each finding before
   acting. `/ready-for-reviewer` only on a clean round.
-- Tree dump: NOT submitted. Test steps + PR draft:
-  [outputs/tree-dump-publish.md](outputs/tree-dump-publish.md).
-  - Live-tested Oct 6 (user):
-    - load dump OK, text hidden;
-    - bottom → top → left → bottom each dumped settled, about 3 s apart, same root;
-    - JSON valid;
-    - unnamed visual state groups now numbered (0 duplicate keys, verified).
-  - Fixed after the test, not yet run live: WrapGrid `itemW`/`itemH` NaN
-    printed as `-1.#IND`; it now prints `auto` (`ItemSizeText`). Preflight OK.
-  - Still untested: Label (expect `…-<label>` in the file name), Subtree
-    (`ControlCenterButton`), disable. Unexplained: switching Format wrote a
-    `load` dump, not `settings`. Windhawk recorded the settings change at
-    17:03:51, and the next dump was at 17:03:57, so the mod reloaded rather
-    than calling `Wh_ModSettingsChanged`. Ask the user how they changed it.
-  - Fork branch `add-mod-lab-taskbar-tree-dump` (local, unpushed) does NOT
-    have the NaN fix yet, and will be renamed anyway (next item).
-  - IDENTITY PENDING — user is redesigning; do not publish until settled:
-    - The user tried `@id` `mod-lab-tool-taskbar-tree-dump` / "Mod-Lab Tool:
-      Taskbar Tree Dump"; that is the build installed in Windhawk now.
-    - Then (Oct 6) they described the end structure: `tool-mods/` holding
-      flat files `mod-tool-taskbar-tree-dump.wh.cpp`,
-      `mod-tool-<next>.wh.cpp` (e.g. a Start-menu probe), one file per
-      tool, with no subfolder each.
-    - Confirm the exact `@id`/`@name` prefix (`mod-tool-` vs
-      `mod-lab-tool-`) with the user, then update
-      [mod-identity.md](mod-identity.md).
-    - Flat layout breaks `sync-readme.py` (expects `<mod>/README.md` at the
-      lab root), `assemble.py`'s per-mod `components.list`, and preflight's
-      folder argument. Decide where each tool's README and component list
-      live.
-    - Then rename everywhere: source, both READMEs, the dump header and JSON
-      `"tool"` field, root README tools table, publish doc, fork branch and
-      PR title.
+- Tree dump (`mod-tool-taskbar-tree-dump`, "Windhawk-Mod-Lab Tool: Taskbar
+  Tree Dump" v1.0): LIVE-TESTED Oct 6 and ready to publish; NOT pushed.
+  Plan + PR body: [outputs/tree-dump-publish.md](outputs/tree-dump-publish.md).
+  - Test results verified from the dump files: load dump; bottom → top → left →
+    right → bottom each dumped settled with the same root; JSON valid with no
+    duplicate keys; Label and Subtree (`ControlCenterButton`) and Include text
+    work. Disable not confirmed.
+  - Identity SETTLED by the user (their installed file, Oct 6):
+    `@id` `mod-tool-taskbar-tree-dump`, `@name` "Windhawk-Mod-Lab Tool:
+    Taskbar Tree Dump"; recorded in [mod-identity.md](mod-identity.md). Lab
+    folder renamed to `tool-mods/mod-tool-taskbar-tree-dump/` (folder, file
+    and `@id` match, so assemble/preflight/sync-readme keep working). The
+    user once described flat files in `tool-mods/` with no subfolders; that
+    would break those scripts, so it was not done — ask before changing.
+  - Installed source == lab except three display strings renamed after the
+    test (dump header, JSON `"tool"`, init log). Preflight OK.
+  - Fork branch `add-mod-tool-taskbar-tree-dump`: one commit `76153d54` on
+    `upstream/main`, one-file diff verified, unpushed. Stale local branch
+    `add-mod-lab-taskbar-tree-dump` can be deleted.
+  - Next: user reinstalls the final lab file and confirms → push, `gh pr
+    create` from PowerShell, `/ai-review`. Root README says "unpublished" —
+    update to the PR number then.
 - Privacy Anchor, VD Switcher, Folder Menus, Tray Utility 2.1: still need the
   user's live test; their round-6 replies are drafted in
   `_research/ai-reviews-2026-09-21/replies/` (OmniButton's needed rewriting
@@ -126,15 +115,14 @@ Progress (Oct 4):
   preflight OK, untested.
 - **Tree-dump tool to be PUBLISHED** (user, Oct 6) as "Mod-Lab: Taskbar
   Tree Dump" (name set by user). Polished to v1.0, moved Oct 6 to
-  [tool-mods/mod-lab-taskbar-tree-dump/](../tool-mods/mod-lab-taskbar-tree-dump/),
+  [tool-mods/mod-tool-taskbar-tree-dump/](../tool-mods/mod-tool-taskbar-tree-dump/),
   `SUBMISSION_PREFLIGHT_OK`, untested since the
   rewrite: configurable output folder (env vars, default
   `%USERPROFILE%\Documents\Taskbar Tree Dumps`), text/JSON, subtree filter,
   text content off by default (privacy), dump on load/change toggles,
-  deterministic output (no HWNDs/pointers). Identity CONFIRMED by the user
-  Oct 6: `@id` `mod-lab-taskbar-tree-dump`, `@name` "Mod-Lab: Taskbar Tree
-  Dump", folder `tool-mods/` (recorded in mod-identity.md). Publishes with
-  the 2.1 batch, after the live test.
+  deterministic output (no HWNDs/pointers). (Identity later changed by the
+  user to `mod-tool-` — see the top of this file; it publishes on its own,
+  not with the 2.1 batch.)
 - **OmniButton side-taskbar spacing** (Oct 6): user wants defaults right
   with NO nudges ("get it right once ourselves"). Tree dumps showed the
   centre was already right (WrapGrid 160@0, highlight 152@4, both centred on
@@ -152,7 +140,7 @@ Progress (Oct 4):
   Privacy Anchor PR rename, push, reply on #5568/#5530, `/ai-review`.
 
 Next (superseded): user runs the tree-dump diagnostic
-(now [tool-mods/mod-lab-taskbar-tree-dump/](../tool-mods/mod-lab-taskbar-tree-dump/), writes to
+(now [tool-mods/mod-tool-taskbar-tree-dump/](../tool-mods/mod-tool-taskbar-tree-dump/), writes to
 `_research/tree-dumps/`) at all four edges. Then shared components (edge
 detection, edge transform, edge/size watcher, narrowed stand-down, side-taskbar
 anchors), then mods in order: OmniButton, Tray Utility, Privacy Anchor,

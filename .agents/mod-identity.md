@@ -15,11 +15,11 @@ table, that other thing is wrong and is what gets corrected.
 | taskbar-vd-switcher | `taskbar-vd-switcher` | Taskbar Virtual Desktop Switcher |
 | tray-utility-customizer | `tray-utility-customizer` | Tray Utility Customizer |
 | taskmanager-tail | `task-manager-tail` | Task Manager Tail |
-| tool-mods/mod-lab-taskbar-tree-dump | `mod-lab-taskbar-tree-dump` | Mod-Lab: Taskbar Tree Dump |
+| tool-mods/mod-tool-taskbar-tree-dump | `mod-tool-taskbar-tree-dump` | Windhawk-Mod-Lab Tool: Taskbar Tree Dump |
 
 Read from each mod's source on 2026-09-24. The tree-dump tool's identity was
 set by the user on 2026-10-06; tools for mod authors live under `tool-mods/`
-and take the `mod-lab-` `@id` prefix. One folder name does not match its
+and take the `mod-tool-` `@id` prefix and the `Windhawk-Mod-Lab Tool:` name prefix (settled by the user Oct 6, after trying `mod-lab-` and `mod-lab-tool-`). One folder name does not match its
 `@id`: `taskmanager-tail/` holds `task-manager-tail`. A folder name is
 internal and carries no authority; the `@id` does. Never "fix" an `@id` to
 match a folder — that is the mistake this file exists to prevent.

@@ -1,6 +1,6 @@
 // ==WindhawkMod==
-// @id              mod-lab-taskbar-tree-dump
-// @name            Mod-Lab: Taskbar Tree Dump
+// @id              mod-tool-taskbar-tree-dump
+// @name            Windhawk-Mod-Lab Tool: Taskbar Tree Dump
 // @description     For mod authors: writes the Windows 11 taskbar's XAML element tree to a text or JSON file - on load, whenever the taskbar moves, resizes or is rebuilt, and on demand. Read-only.
 // @version         1.0
 // @author          sb4ssman
@@ -12,7 +12,7 @@
 
 // ==WindhawkModReadme==
 /*
-# Mod-Lab: Taskbar Tree Dump
+# Windhawk-Mod-Lab Tool: Taskbar Tree Dump
 
 A tool for **mod authors**. It writes the Windows 11 taskbar's XAML element
 tree to a file you can read, search, diff, or hand to someone helping you —
@@ -1044,7 +1044,7 @@ static std::wstring RenderText(PCWSTR reason, SYSTEMTIME const& st,
                                std::wstring const& build, int location,
                                std::vector<TaskbarDump> const& dumps) {
     std::wstring text;
-    Appendf(text, L"Mod-Lab: Taskbar Tree Dump v%s\n", WH_MOD_VERSION);
+    Appendf(text, L"Windhawk-Mod-Lab Tool: Taskbar Tree Dump v%s\n", WH_MOD_VERSION);
     Appendf(text, L"Time: %04d-%02d-%02d %02d:%02d:%02d\n", st.wYear, st.wMonth,
             st.wDay, st.wHour, st.wMinute, st.wSecond);
     Appendf(text, L"Reason: %s\n", reason);
@@ -1094,7 +1094,7 @@ static std::wstring RenderJson(PCWSTR reason, SYSTEMTIME const& st,
                                std::wstring const& build, int location,
                                std::vector<TaskbarDump> const& dumps) {
     std::wstring out = L"{";
-    out += L"\"tool\":\"Mod-Lab: Taskbar Tree Dump\"";
+    out += L"\"tool\":\"Windhawk-Mod-Lab Tool: Taskbar Tree Dump\"";
     out += L",\"version\":" + JsonString(WH_MOD_VERSION);
     out += Fmt(L",\"time\":\"%04d-%02d-%02dT%02d:%02d:%02d\"", st.wYear,
                st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
@@ -1248,7 +1248,7 @@ static void WorkerIteration(bool forced, std::vector<KnownRoot>& known,
 // ---- Windhawk lifecycle -----------------------------------------------------
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"Mod-Lab: Taskbar Tree Dump v%s", WH_MOD_VERSION);
+    Wh_Log(L"Windhawk-Mod-Lab Tool: Taskbar Tree Dump v%s", WH_MOD_VERSION);
     LoadSettings();
     tree_dump_dispatch::SetExceptionLogger(
         [](PCWSTR context) { Wh_Log(L"Exception in %s", context); });
