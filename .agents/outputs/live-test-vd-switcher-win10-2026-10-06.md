@@ -3,8 +3,9 @@
 Replace the complete source in Windhawk with
 taskbar-vd-switcher/taskbar-vd-switcher.wh.cpp and compile. Back up settings
 from Textual mode first. This is a local experimental candidate for Windows
-10 Home 22H2 build 19045.7725 on Windhawk 1.7.3. User accepted a6a7917 for personal experimental use. The NEW columns-first
-compact automatic grid still needs an exact-build human live test. New init log: Classic Windows 10 tray backend selected.
+10 Home 22H2 build 19045.7725 on Windhawk 1.7.3. User accepted the final a3c43a1 build and supplied the three-desktop-plus-
+Task-View grid screenshot on Oct6. README updates and the lab push are explicitly
+authorized. This guide remains a reference for broader regression checks. New init log: Classic Windows 10 tray backend selected.
 
 1. Create three desktops. In Placement use Position (Windows 10 experimental),
    not the Windows 11 list. Test all three choices:

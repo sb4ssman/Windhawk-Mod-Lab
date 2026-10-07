@@ -2525,3 +2525,15 @@ three desktops, three plus Task View (four equal cells, final cell bottom-right)
 Default result20x19 DIP cells; pair20x40, four-cell grid42x40. Compiler/link,
 destructor audit, assembly/component/settings/README/whitespace checks passed.
 Exact live retest still required; no installed edits, push, PR or version/tag.
+
+## 2026-10-06 - Final Win10 grid accepted and lab push authorized
+
+User confirmed satisfaction with a3c43a1, supplied the compact single-height
+taskbar screenshot (three desktops plus Task View), and explicitly requested
+README updates, commit and push. Saved the exact380x43 clipboard screenshot
+as taskbar-vd-switcher/assets/win10-experimental-grid.png and visually verified
+it matches the attachment. Added it at the top of the root catalog, mod README
+and synchronized embedded README; marked Win10 live-tested but experimental.
+Updated handoff to return to Win11, with future settings template still first.
+Scope of authorized push: Windhawk-Mod-Lab main; no fork/PR update or release
+version bump. Runtime C++ unchanged from the accepted live-tested checkpoint.

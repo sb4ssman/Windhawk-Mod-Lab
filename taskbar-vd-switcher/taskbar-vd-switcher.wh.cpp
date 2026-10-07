@@ -14,15 +14,19 @@
 /*
 # Taskbar Virtual Desktop Switcher
 
+![Experimental Windows 10: three desktops and Task View in a compact grid](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/win10-experimental-grid.png)
+*Experimental Windows 10 — three desktops plus Task View, using automatic
+columns-first layout on a single-height taskbar. Live-tested and accepted.*
+
 A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses native tray windows.
 
-## Windows 10 compatibility (local test candidate)
+## Windows 10 compatibility (experimental)
 
 The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
-(Windows 10 2004 through 22H2). The previous local build was accepted for
-personal experimental use. The new compact automatic grid needs a live test;
-appearance remains imperfect and exhaustive edge/lifecycle testing is still
-outstanding. It uses the
+(Windows 10 2004 through 22H2). This build, including compact automatic grids
+and an equally sized Task View cell, was live-tested and accepted for
+experimental use. Appearance remains imperfect; exhaustive edge/lifecycle
+testing is still outstanding. It uses the
 same desktop labels, arrangement, sizes, padding, offsets, Task View button,
 colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
 removal, renaming, and switches made elsewhere are checked every 250 ms.
