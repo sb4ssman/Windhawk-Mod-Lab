@@ -1,36 +1,40 @@
 # Taskbar Virtual Desktop Switcher
 
-A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses a classic taskbar toolbar.
+A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses native tray windows.
 
 ## Windows 10 compatibility (local test candidate)
 
 The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
 (Windows 10 2004 through 22H2). The initial build was partially live-tested;
-the spacing fix still needs a fresh live test. It uses the
+the replacement tray placement and cleanup need a fresh live test. It uses the
 same desktop labels, arrangement, sizes, padding, offsets, Task View button,
 colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
 removal, renaming, and switches made elsewhere are checked every 250 ms.
 
-The classic taskbar reserves a toolbar band for the buttons, so app buttons
-give up the needed space. Moving or resizing the taskbar rebuilds the layout;
+The classic taskbar reserves space through the native clock's layout, so app
+buttons give up only the needed width. It does not add rebar toolbar bands.
+Moving or resizing the taskbar rebuilds the layout;
 automatic layouts fit its height at the top/bottom and its width at the sides.
-Disabling the mod removes its band.
+Disabling the mod restores native tray geometry and releases the reservation.
+The native clock-size symbol must be available; initialization fails safely
+if it cannot be hooked.
 
 Windows 10 differences in this experimental backend:
 
-- There is one supported position: after the app buttons, immediately before
-  the hidden-icons chevron (before the tray icons when the chevron is hidden).
-  **Position (Windows 11)** does not move it on Windows 10. In particular,
-  choosing a Start position leaves it here without opening a blank gap.
-- Placement between the clock and notifications, or after notifications,
-  is deferred; those locations are not offered as working Windows 10 options.
+- **Position (Windows 10 experimental)** offers three locations: before the
+  hidden-icons chevron (before tray icons when the chevron is hidden), between
+  clock and notifications, or between notifications and Show Desktop.
+  **Position (Windows 11)** is ignored on Windows 10.
+- Notifications must be present for the position after notifications. If the
+  native host is unavailable, the switcher waits for it rather than overlapping
+  another control. Side taskbars still need placement testing.
 - Only the primary taskbar is supported; **Show on all taskbars (Windows 11)**
   applies to Windows 11 only.
 - The buttons use Win32 drawing; Windows 11 Taskbar Styler selectors and native
   XAML checked states apply to Windows 11 only. Alpha and opacity blend against
   the theme background; they do not expose wallpaper or taskbar acrylic.
-- A manual arrangement larger than the taskbar can be clipped or cause toolbar
-  wrapping. Very crowded taskbars need a smaller button size or arrangement.
+- A manual arrangement larger than the taskbar can be clipped. Very crowded
+  taskbars need a smaller button size or arrangement.
 
 The screenshots below show the Windows 11 backend.
 
@@ -218,7 +222,8 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Position (Windows 11) | After clock | Tray position, or left of / over / right of Start; ignored on Windows 10, where placement is fixed before the chevron |
+| Position (Windows 11) | After clock | Tray position, or left of / over / right of Start; ignored on Windows 10 |
+| Position (Windows 10 experimental) | Before hidden-icons chevron | Before chevron, between clock and notifications, or between notifications and Show Desktop; ignored on Windows 11 |
 | Show on all taskbars (Windows 11) | Off | Experimental; also injects into secondary monitors' taskbars; Windows 10 supports the primary taskbar only |
 
 ### Content
@@ -351,6 +356,8 @@ This mod builds directly on patterns established by several community mods:
 **[taskbar-empty-space-clicks](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-empty-space-clicks.wh.cpp)** — source of the `SwitchVirtualDesktop()` COM vtable pattern, build-specific IIDs for `IVirtualDesktopManagerInternal`, and the `IObjectArray` desktop enumeration approach.
 
 **[taskbar-desktop-indicator](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-desktop-indicator.wh.cpp)** — reference for reading the current virtual desktop from the registry (session-scoped `VirtualDesktopIDs` + `CurrentVirtualDesktop` keys) and the notification cookie / `IVirtualDesktopNotificationService` registration pattern.
+
+**[taskbar-clock-customization](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-clock-customization.wh.cpp)** — reference for the Windows 10 clock minimum-size hook and native taskbar relayout.
 
 **[Vertical OmniButton archive](../omnibutton-customizer/archive/vertical-omnibutton-v1.4.wh.cpp)** (this lab, by sb4ssman) — source of the `GetTaskbarXamlRoot` boilerplate, `RunFromWindowThread` dispatcher, `FindCurrentProcessTaskbarWnd`, and the `IconView::IconView` hook-and-retry injection pattern.
 

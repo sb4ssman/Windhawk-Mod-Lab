@@ -14,37 +14,41 @@
 /*
 # Taskbar Virtual Desktop Switcher
 
-A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses a classic taskbar toolbar.
+A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — one per virtual desktop — for instant switching without opening Task View. Windows 11 uses the system tray; Windows 10 uses native tray windows.
 
 ## Windows 10 compatibility (local test candidate)
 
 The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
 (Windows 10 2004 through 22H2). The initial build was partially live-tested;
-the spacing fix still needs a fresh live test. It uses the
+the replacement tray placement and cleanup need a fresh live test. It uses the
 same desktop labels, arrangement, sizes, padding, offsets, Task View button,
 colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
 removal, renaming, and switches made elsewhere are checked every 250 ms.
 
-The classic taskbar reserves a toolbar band for the buttons, so app buttons
-give up the needed space. Moving or resizing the taskbar rebuilds the layout;
+The classic taskbar reserves space through the native clock's layout, so app
+buttons give up only the needed width. It does not add rebar toolbar bands.
+Moving or resizing the taskbar rebuilds the layout;
 automatic layouts fit its height at the top/bottom and its width at the sides.
-Disabling the mod removes its band.
+Disabling the mod restores native tray geometry and releases the reservation.
+The native clock-size symbol must be available; initialization fails safely
+if it cannot be hooked.
 
 Windows 10 differences in this experimental backend:
 
-- There is one supported position: after the app buttons, immediately before
-  the hidden-icons chevron (before the tray icons when the chevron is hidden).
-  **Position (Windows 11)** does not move it on Windows 10. In particular,
-  choosing a Start position leaves it here without opening a blank gap.
-- Placement between the clock and notifications, or after notifications,
-  is deferred; those locations are not offered as working Windows 10 options.
+- **Position (Windows 10 experimental)** offers three locations: before the
+  hidden-icons chevron (before tray icons when the chevron is hidden), between
+  clock and notifications, or between notifications and Show Desktop.
+  **Position (Windows 11)** is ignored on Windows 10.
+- Notifications must be present for the position after notifications. If the
+  native host is unavailable, the switcher waits for it rather than overlapping
+  another control. Side taskbars still need placement testing.
 - Only the primary taskbar is supported; **Show on all taskbars (Windows 11)**
   applies to Windows 11 only.
 - The buttons use Win32 drawing; Windows 11 Taskbar Styler selectors and native
   XAML checked states apply to Windows 11 only. Alpha and opacity blend against
   the theme background; they do not expose wallpaper or taskbar acrylic.
-- A manual arrangement larger than the taskbar can be clipped or cause toolbar
-  wrapping. Very crowded taskbars need a smaller button size or arrangement.
+- A manual arrangement larger than the taskbar can be clipped. Very crowded
+  taskbars need a smaller button size or arrangement.
 
 The screenshots below show the Windows 11 backend.
 
@@ -232,7 +236,8 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Position (Windows 11) | After clock | Tray position, or left of / over / right of Start; ignored on Windows 10, where placement is fixed before the chevron |
+| Position (Windows 11) | After clock | Tray position, or left of / over / right of Start; ignored on Windows 10 |
+| Position (Windows 10 experimental) | Before hidden-icons chevron | Before chevron, between clock and notifications, or between notifications and Show Desktop; ignored on Windows 11 |
 | Show on all taskbars (Windows 11) | Off | Experimental; also injects into secondary monitors' taskbars; Windows 10 supports the primary taskbar only |
 
 ### Content
@@ -366,6 +371,8 @@ This mod builds directly on patterns established by several community mods:
 
 **[taskbar-desktop-indicator](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-desktop-indicator.wh.cpp)** — reference for reading the current virtual desktop from the registry (session-scoped `VirtualDesktopIDs` + `CurrentVirtualDesktop` keys) and the notification cookie / `IVirtualDesktopNotificationService` registration pattern.
 
+**[taskbar-clock-customization](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/taskbar-clock-customization.wh.cpp)** — reference for the Windows 10 clock minimum-size hook and native taskbar relayout.
+
 **[Vertical OmniButton archive](https://github.com/sb4ssman/Windhawk-Mod-Lab/blob/main/omnibutton-customizer/archive/vertical-omnibutton-v1.4.wh.cpp)** (this lab, by sb4ssman) — source of the `GetTaskbarXamlRoot` boilerplate, `RunFromWindowThread` dispatcher, `FindCurrentProcessTaskbarWnd`, and the `IconView::IconView` hook-and-retry injection pattern.
 
 **[windows-11-taskbar-styler](https://github.com/ramensoftware/windhawk-mods/blob/main/mods/windows-11-taskbar-styler.wh.cpp)** — reference for the `SystemTrayFrameGrid` XAML tree structure and element names (`ShowDesktopStack`, `NotificationCenterButton`, `ControlCenterButton`, `NotifyIconStack`).
@@ -380,9 +387,7 @@ This mod builds directly on patterns established by several community mods:
   - Position: "afterClock"
     $name: Position (Windows 11)
     $description: >-
-      Windows 11 placement. Experimental Windows 10 support always places
-      the switcher immediately before the hidden-icons chevron; this
-      setting does not move it on Windows 10.
+      Windows 11 placement. On Windows 10 use the separate position below.
     $options:
     - "beforeIcons": "Before notification icons"
     - "beforeOmni": "Before network, volume, and battery"
@@ -400,6 +405,14 @@ This mod builds directly on patterns established by several community mods:
       positions stay on the primary taskbar. Secondary taskbars are
       discovered as their tray icons load, so after enabling this you may
       need to restart Explorer before the buttons appear on other monitors.
+  - Win10Position: "beforeIcons"
+    $name: Position (Windows 10 experimental)
+    $description: >-
+      Primary native Windows 10 taskbar only. Ignored on Windows 11.
+    $options:
+    - "beforeIcons": "Before hidden-icons chevron"
+    - "afterClock": "Between clock and notifications"
+    - "afterNotifications": "Between notifications and Show Desktop"
   $name: Placement
 
 - Content:
@@ -2255,11 +2268,13 @@ enum class VdPosition {
     LeftOfStart, OverStart, RightOfStart,
 };
 enum class VdLabelFormat { Number, Roman, Symbol, Custom };
+enum class ClassicPosition { BeforeIcons, AfterClock, AfterNotifications };
 enum class VdTaskViewPlacement { Before, After, Above, Below, InGrid };
 
 struct ModSettings {
     // Placement
     VdPosition   position = VdPosition::AfterClock;
+    ClassicPosition win10Position = ClassicPosition::BeforeIcons;
     bool         allTaskbars       = false;
     // Content
     VdLabelFormat labelFormat = VdLabelFormat::Number;
@@ -2345,6 +2360,13 @@ static void LoadSettings() {
     g_settings.position = sio::LoadChoice(L"Placement.Position", kPositions,
                                           VdPosition::AfterClock);
     g_settings.allTaskbars = Bool(L"Placement.AllTaskbars");
+    static constexpr sio::Choice<ClassicPosition> kClassicPositions[] = {
+        {L"beforeIcons", ClassicPosition::BeforeIcons},
+        {L"afterClock", ClassicPosition::AfterClock},
+        {L"afterNotifications", ClassicPosition::AfterNotifications},
+    };
+    g_settings.win10Position = sio::LoadChoice(L"Placement.Win10Position",
+        kClassicPositions, ClassicPosition::BeforeIcons);
 
     static constexpr sio::Choice<VdLabelFormat> kLabelFormats[] = {
         {L"number", VdLabelFormat::Number},
@@ -5278,13 +5300,16 @@ static void HandleLoadedModuleIfSystemTray(HMODULE hModule, LPCWSTR lpLibFileNam
 // Windhawk lifecycle
 // ============================================================
 
-// Classic taskbar UI. A trailing rebar band owns the space reservation; no shell windows
-// are resized or subclassed. All HWND and GDI work runs on the taskbar thread.
+// Classic taskbar UI. Reserve space in the native clock's minimum size, then
+// give that space to our sibling window. No rebar bands survive unload.
+// HWND, subclasses and geometry are owned by the taskbar thread.
 namespace classic_ui {
 constexpr PCWSTR kClass = L"WindhawkVdClassic_" WH_MOD_ID;
-constexpr UINT kBandId = 0x56445357;
 struct Bar {
-    HWND window{}, taskbar{}, rebar{}, tooltip{};
+    HWND window{}, taskbar{}, tray{}, clock{}, notifications{}, tooltip{};
+    std::vector<HWND> subclasses;
+    ClassicPosition position = ClassicPosition::BeforeIcons;
+    int reserve = 0, clockExtent = 0;
     double scale = 1;
     int current = -1, count = 0, hover = -1, pressed = -1;
     bool side = false;
@@ -5300,6 +5325,133 @@ static HMODULE module{};
 static bool registered = false;
 static std::atomic<bool> settingsPending{false};
 static std::atomic<HWND> attachedWindow{nullptr};
+static Bar* activeBar = nullptr; // taskbar-thread-only, cleared before deletion
+static std::atomic<DWORD> uiThread{0};
+using ClockMinimumSize_t = LPSIZE(WINAPI*)(void*, LPSIZE, SIZE);
+static ClockMinimumSize_t ClockMinimumSize_Original;
+
+static void Relayout(HWND taskbar) {
+    RECT rect{};
+    if (IsWindow(taskbar) && GetClientRect(taskbar, &rect))
+        SendMessageW(taskbar, WM_SIZE, SIZE_RESTORED,
+            MAKELPARAM(rect.right, rect.bottom));
+}
+static LPSIZE WINAPI ClockMinimumSize_Hook(void* object, LPSIZE output, SIZE constraint) {
+    LPSIZE result = ClockMinimumSize_Original(object, output, constraint);
+    if (GetCurrentThreadId() != uiThread.load()) return result;
+    // ClockButton's HWND field and ABI match the upstream clock customization mod.
+    HWND clock = reinterpret_cast<HWND*>(object)[1];
+    Bar* bar = activeBar;
+    if (result && bar && bar->clock == clock && bar->reserve) {
+        LONG& extent = bar->side ? result->cy : result->cx;
+        extent += bar->reserve;
+        bar->clockExtent = extent;
+    }
+    return result;
+}
+static bool HookClock() {
+    WindhawkUtils::SYMBOL_HOOK explorerExeHooks[] = {{
+        {LR"(public: struct tagSIZE __cdecl ClockButton::CalculateMinimumSize(struct tagSIZE))"},
+        &ClockMinimumSize_Original, ClockMinimumSize_Hook,
+    }};
+    return WindhawkUtils::HookSymbols(GetModuleHandleW(nullptr), explorerExeHooks,
+        ARRAYSIZE(explorerExeHooks));
+}
+static RECT ChildRect(HWND child, HWND parent) {
+    RECT rect{}; GetWindowRect(child, &rect);
+    MapWindowPoints(nullptr, parent, reinterpret_cast<POINT*>(&rect), 2);
+    return rect;
+}
+static void Place(Bar& bar) {
+    if (!bar.reserve || !IsWindow(bar.window)) return;
+    RECT tray{}; GetClientRect(bar.tray, &tray);
+    RECT anchor = ChildRect(bar.position == ClassicPosition::AfterNotifications ?
+        bar.notifications : bar.clock, bar.tray);
+    int along = bar.position == ClassicPosition::BeforeIcons ? 0 :
+        (bar.side ? anchor.bottom : anchor.right);
+    SetWindowPos(bar.window, HWND_TOP, bar.side ? 0 : along, bar.side ? along : 0,
+        bar.side ? tray.right : bar.reserve, bar.side ? bar.reserve : tray.bottom,
+        SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+static LRESULT CALLBACK NativeSubclass(HWND window, UINT message, WPARAM wp,
+                                       LPARAM lp, UINT_PTR id, DWORD_PTR) {
+    Bar* bar = activeBar;
+    if (bar && message == WM_WINDOWPOSCHANGING && bar->reserve) {
+        auto* pos = reinterpret_cast<WINDOWPOS*>(lp);
+        if (window == bar->clock && !(pos->flags & SWP_NOSIZE)) {
+            int& extent = bar->side ? pos->cy : pos->cx;
+            // Only shrink a size produced by the native measurement hook.
+            // A move/resize requested elsewhere must not shrink it again.
+            if (extent == bar->clockExtent)
+                extent = std::max(1, extent - bar->reserve);
+        }
+        if (!(pos->flags & SWP_NOMOVE)) {
+            int shift = 0;
+            if (bar->position == ClassicPosition::BeforeIcons) {
+                // Notifications and Show Desktop retain their native positions.
+                if (window != bar->notifications &&
+                    window != FindWindowExW(bar->tray, nullptr,
+                        L"TrayShowDesktopButtonWClass", nullptr)) shift = bar->reserve;
+            } else if (bar->position == ClassicPosition::AfterNotifications &&
+                       window == bar->notifications) shift = -bar->reserve;
+            (bar->side ? pos->y : pos->x) += shift;
+        }
+    }
+    if (message == WM_NCDESTROY) {
+        RemoveWindowSubclass(window, NativeSubclass, id);
+        if (bar) {
+            std::erase(bar->subclasses, window);
+            if (window == bar->clock) bar->clock = nullptr;
+            if (window == bar->notifications) bar->notifications = nullptr;
+        }
+    }
+    LRESULT result = DefSubclassProc(window, message, wp, lp);
+    if (bar && activeBar == bar && message == WM_WINDOWPOSCHANGED &&
+        (window == bar->clock || window == bar->notifications)) Place(*bar);
+    return result;
+}
+static void Detach(Bar& bar) {
+    bar.reserve = 0;
+    if (activeBar == &bar) activeBar = nullptr;
+    for (HWND child : bar.subclasses)
+        if (IsWindow(child)) RemoveWindowSubclass(child, NativeSubclass,
+            reinterpret_cast<UINT_PTR>(&NativeSubclass));
+    bar.subclasses.clear();
+    ShowWindow(bar.window, SW_HIDE);
+    Relayout(bar.taskbar);
+}
+static bool Attach(Bar& bar) {
+    bar.clock = FindWindowExW(bar.tray, nullptr, L"TrayClockWClass", nullptr);
+    bar.notifications = FindWindowExW(bar.tray, nullptr, L"TrayButton", nullptr);
+    if (!bar.clock || (bar.position == ClassicPosition::AfterNotifications &&
+                      !bar.notifications)) return false;
+    // Allocate the complete ownership list before installing any callbacks.
+    // A failed allocation must not leave an untracked subclass in Explorer.
+    for (HWND child = GetWindow(bar.tray, GW_CHILD); child;
+         child = GetWindow(child, GW_HWNDNEXT)) {
+        if (child == bar.window) continue;
+        bar.subclasses.push_back(child);
+    }
+    activeBar = &bar;
+    for (HWND child : bar.subclasses) {
+        if (!SetWindowSubclass(child, NativeSubclass,
+                reinterpret_cast<UINT_PTR>(&NativeSubclass), 0)) {
+            Detach(bar); return false;
+        }
+    }
+    return true;
+}
+static bool HostsChanged(Bar const& bar) {
+    if (FindWindowExW(bar.tray, nullptr, L"TrayClockWClass", nullptr) != bar.clock ||
+        FindWindowExW(bar.tray, nullptr, L"TrayButton", nullptr) != bar.notifications)
+        return true;
+    for (HWND child = GetWindow(bar.tray, GW_CHILD); child;
+         child = GetWindow(child, GW_HWNDNEXT)) {
+        if (child != bar.window && std::find(bar.subclasses.begin(),
+                bar.subclasses.end(), child) == bar.subclasses.end()) return true;
+    }
+    return false;
+}
 
 static RECT Cell(Bar const& bar, ngl::Placement const& p) {
     RECT client{}; GetClientRect(bar.window, &client);
@@ -5463,6 +5615,7 @@ static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wp, LPARAM 
     }
     case WM_SIZE: case WM_THEMECHANGED: InvalidateRect(window,nullptr,FALSE); return 0;
     case WM_NCDESTROY:
+        Detach(*bar);
         if (bar->tooltip) DestroyWindow(bar->tooltip);
         desktop_preview::Hide();
         { HWND expected = window; attachedWindow.compare_exchange_strong(expected,nullptr); }
@@ -5472,10 +5625,15 @@ static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wp, LPARAM 
 }
 static void Update(void* parameter) {
     if (g_unloading) return;
+    uiThread = GetCurrentThreadId();
     HWND taskbar = static_cast<HWND>(parameter);
-    HWND rebar = FindWindowExW(taskbar,nullptr,REBARCLASSNAMEW,nullptr);
-    if (!rebar) return;
-    HWND window = FindWindowExW(rebar,nullptr,kClass,nullptr);
+    HWND tray = FindWindowExW(taskbar,nullptr,L"TrayNotifyWnd",nullptr);
+    if (!tray) return;
+    HWND window = attachedWindow.load();
+    if (window && (!IsWindow(window) || GetParent(window) != tray)) {
+        if (IsWindow(window)) DestroyWindow(window);
+        window = nullptr;
+    }
     auto* bar = window ? reinterpret_cast<Bar*>(GetWindowLongPtrW(window,GWLP_USERDATA)) : nullptr;
     bool changed = settingsPending.exchange(false);
     if (changed) LoadSettings();
@@ -5487,44 +5645,36 @@ static void Update(void* parameter) {
     auto names = ReadDesktopNames(count);
     double scale = std::max(96u,GetDpiForWindow(taskbar))/96.0;
     if (!bar) {
-        bar = new Bar(); bar->taskbar = taskbar; bar->rebar = rebar;
+        bar = new Bar(); bar->taskbar = taskbar; bar->tray = tray;
         Creation creation{bar,false};
         window = CreateWindowExW(WS_EX_NOACTIVATE,kClass,L"Virtual desktops",
-            WS_CHILD | WS_CLIPSIBLINGS,0,0,1,1,rebar,nullptr,module,&creation);
+            WS_CHILD | WS_CLIPSIBLINGS,0,0,1,1,tray,nullptr,module,&creation);
         if (!window) { if (!creation.consumed) delete bar; return; }
         attachedWindow = window;
         changed = true;
     }
     bool layoutChanged = changed || count != bar->count || scale != bar->scale ||
-        !EqualRect(&rect,&bar->taskbarRect);
+        !EqualRect(&rect,&bar->taskbarRect) || HostsChanged(*bar) || !IsWindow(bar->clock) ||
+        (bar->position == ClassicPosition::AfterNotifications && !IsWindow(bar->notifications));
     bool contentChanged = current != bar->current || names != bar->names;
     bar->count = count; bar->current = current; bar->names = std::move(names);
     bar->scale = scale; bar->side = side; bar->taskbarRect = rect;
     if (layoutChanged) {
+        Detach(*bar);
+        bar->position = g_settings.win10Position;
         desktop_preview::Hide(); bar->hover = -1;
         if (bar->tooltip) { DestroyWindow(bar->tooltip); bar->tooltip = nullptr; }
         ComputeButtonPlacements(count,bar->placements,bar->total);
-        int index = int(SendMessageW(rebar,RB_IDTOINDEX,kBandId,0));
-        REBARBANDINFOW band{sizeof(band)};
-        band.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_ID | RBBIM_HEADERSIZE;
-        band.fStyle = RBBS_NOGRIPPER | RBBS_FIXEDSIZE;
-        band.cxHeader = 0;
-        band.hwndChild = window; band.wID = kBandId;
-        band.cx = band.cxMinChild = std::max(1,int(std::ceil((side ? bar->total.height : bar->total.width)*scale)));
-        band.cyMinChild = std::max(1,int(std::ceil((side ? bar->total.width : bar->total.height)*scale)));
-        if (g_settings.hideWhenSingle && count == 1) band.fStyle |= RBBS_HIDDEN;
-        if (index < 0) {
-            // Start/tray positions belong to the XAML backend. Moving this
-            // band to index zero makes Explorer redistribute the app band's
-            // unused width, leaving a large hole before the notification area.
-            // Keep one supported classic position, adjacent to the chevron.
-            if (!SendMessageW(rebar,RB_INSERTBANDW,WPARAM(-1),reinterpret_cast<LPARAM>(&band))) {
-                Wh_Log(L"Classic toolbar insertion failed"); DestroyWindow(window); return;
-            }
-        } else {
-            SendMessageW(rebar,RB_SETBANDINFOW,index,reinterpret_cast<LPARAM>(&band));
+        if (!Attach(*bar)) {
+            Wh_Log(L"Classic tray attachment unavailable; retrying");
+            DestroyWindow(window); return;
         }
-        ShowWindow(window,g_settings.hideWhenSingle && count == 1 ? SW_HIDE : SW_SHOWNOACTIVATE);
+        if (!(g_settings.hideWhenSingle && count == 1))
+            bar->reserve = std::max(1, int(std::ceil((side ?
+                bar->total.height : bar->total.width) * scale)));
+        bar->clockExtent = 0;
+        Relayout(taskbar);
+        Place(*bar);
         bar->tooltip = CreateWindowExW(WS_EX_TOPMOST,TOOLTIPS_CLASSW,nullptr,
             WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,0,0,0,0,window,nullptr,module,nullptr);
         if (bar->tooltip) {
@@ -5585,9 +5735,7 @@ static void Stop() {
         if (RunFromWindowThread(child,[](void* arg) {
             desktop_preview::Destroy();
             HWND child = static_cast<HWND>(arg);
-            HWND rebar = GetParent(child);
-            int index = int(SendMessageW(rebar,RB_IDTOINDEX,kBandId,0));
-            if (index >= 0) SendMessageW(rebar,RB_DELETEBAND,index,0);
+            // Destroy invokes Detach while the sizing hook is still installed.
             if (IsWindow(child)) DestroyWindow(child);
         },child)) break;
         Sleep(10);
@@ -5613,8 +5761,8 @@ BOOL Wh_ModInit() {
     DetectExplorerBuild();
     g_classicTaskbar = g_explorerBuild >= 19041 && g_explorerBuild < 22000;
     if (g_classicTaskbar) {
-        Wh_Log(L"Classic Windows 10 taskbar backend selected; placement is fixed before the hidden-icons chevron");
-        return TRUE;
+        Wh_Log(L"Classic Windows 10 tray backend selected");
+        return classic_ui::HookClock();
     }
 
     if (!HookTaskbarDllSymbols())
@@ -5711,6 +5859,14 @@ void Wh_ModAfterInit() {
         ApplyAllSettingsOnWindowThread();
 
     StartRetryThread();
+}
+
+void Wh_ModBeforeUninit() {
+    // Restore native geometry before Windhawk removes the clock-sizing hook.
+    if (g_classicTaskbar) {
+        g_unloading = true;
+        classic_ui::Stop();
+    }
 }
 
 void Wh_ModUninit() {

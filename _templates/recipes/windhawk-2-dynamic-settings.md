@@ -2,7 +2,8 @@
 
 Prepared for the 2.0 settings UI; **not adopted by the family yet**. The current
 Windows 10 experiment still installs on Windhawk 1.7.3, using ordinary settings
-with explicit Windows 11 labels. Do not require an alpha upgrade to use it.
+with separate, explicitly labelled Windows 10 and Windows 11 position lists.
+Do not require an alpha upgrade to use it.
 
 Reference: [official settings documentation](https://github.com/ramensoftware/windhawk/wiki/Creating-a-new-mod#dynamicselect).
 
@@ -18,7 +19,8 @@ are not settings and do not overwrite the user's selected position.
 namespace dynamic_options = windhawk_mod_templates::dynamic_setting_options;
 dynamic_options::Option options[] = {
     {L"beforeIcons", L"Before hidden-icons chevron", classicTaskbar},
-    {L"afterClock", L"After clock", !classicTaskbar},
+    {L"afterClock", L"After clock", true},
+    {L"afterNotifications", L"Between notifications and Show Desktop", classicTaskbar},
     {L"leftOfStart", L"Left of Start", !classicTaskbar},
     // Include EVERY value the publisher has ever owned. Keep retired values
     // here as unavailable so labels from older runs don't remain visible.

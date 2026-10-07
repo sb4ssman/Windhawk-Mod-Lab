@@ -2420,3 +2420,26 @@ Spacing fix still awaits a fresh HUMAN LIVE TEST; prior partial test is not
 publication approval. Header remains 2.1. No release tag, push or PR action.
 Pruned working notes to a short handoff with the new-release template at top;
 preserved the previous full snapshot in knowledge/. No other mod source edits.
+
+## 2026-10-06 - Win10 orphan-space recovery and three tray positions
+
+User's new report superseded the prior clock-placement deferral. Recovered
+the live shell's orphan VD bands and restored full native app-button width.
+The initial snapshot-based cleanup also removed/hid the native app band;
+this mistake was reported and corrected using its existing child HWND.
+Final repeat inspection found one native band, width 1493, visible app host
+x=96..1587, no remaining VD bands. Temporary repair helper not retained.
+
+Replaced the mod's rebar backend with native clock minimum-size reservation
+and owned sibling tray window. Added Placement.Win10Position with before
+chevron, between clock/notifications, and between notifications/Show Desktop.
+Restoration runs before sizing-hook removal; hiding reserves zero; native
+host replacement retries. No other mod source edits. Synced both README
+layers/catalog, retest guide and future settings recipe; template remains
+first in the return-to-Win11 handoff.
+
+Compile/link, exit-destructor audit, assembly/component/settings checks,
+README parity and whitespace passed. Replacement still awaits the user's
+exact-build live test; UI automation native pipe unavailable. Header 2.1,
+no installed source/settings edits, version/tag bump, push or PR action.
+Details: knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md.
