@@ -2894,3 +2894,11 @@ UNTESTED-privacy-startlane-edits.patch. New standing directive: no session
 ends with uncommitted work. Tray 2.1 (review polish + scheduled-reapply retry)
 and Folder 2.1 (icon worker settings snapshot) live-approved and pushed to
 #5569 (182b55ea) and #5568 (ba6a5b5e); replies + /ai-review posted, CI green.
+
+## 2026-10-07 - Tray, Folder and VD 2.1 published with every review item addressed
+
+Final optional items: Tray (GetWindowRect failure is transient, accurate
+in-use-indicator changelog, side-taskbar ItemWidth/Height wording), Folder
+(atomic g_taskbarWnd). User live-tested Tray, Folder and VD (Win11 + Win10).
+Pushed Tray #5569 1953de8a, Folder #5568 045bef08, VD #4844 81e8985f
+(event-driven Windows 10 backend); replies + /ai-review posted.

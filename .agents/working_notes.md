@@ -1,6 +1,14 @@
 # Working Notes — Windhawk Mod Lab
 
-## CURRENT — Oct 7 night: three candidates LIVE-APPROVED
+## CURRENT — Oct 7 late: Tray, Folder, VD 2.1 PUBLISHED
+
+User live-tested all three final builds. Pushed: Tray #5569 1953de8a (md5
+ef6ed43a), Folder #5568 045bef08 (38b03852), VD #4844 81e8985f (21471244);
+one-file diffs, changelogs updated, AI-disclosed replies + /ai-review.
+USER RULE: if a review has no BLOCKING issue, post /ready-for-reviewer
+(PowerShell) immediately. #4443, #4843, #4855 already with the maintainer.
+
+## Earlier: Oct 7 night: three candidates LIVE-APPROVED
 
 Tray 2.1 and Folder 2.1 (lab 259f032 builds) live-approved on Win11; VD 2.1
 (d37998f) live-approved on Win10. PUBLISHED: Tray #5569 -> 182b55ea (md5
