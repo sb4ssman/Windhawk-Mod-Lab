@@ -41,7 +41,8 @@ it is enabled.
 - `RenderTransform` (translate, rotate, scale, composite, group, matrix)
 - `Visibility` collapsed and `Opacity` below 1
 - Every visual state group and its current state — this is where Windows
-  states things like the taskbar's edge (`DockingStates` on `RootGrid`)
+  states things like the taskbar's edge (`DockingStates` on `RootGrid`).
+  Groups the template left unnamed are listed as `(unnamed 1)`, `(unnamed 2)`
 - Text content, only if **Include text content** is on (see Privacy)
 
 The file header records the time, the reason for the dump, the Windows

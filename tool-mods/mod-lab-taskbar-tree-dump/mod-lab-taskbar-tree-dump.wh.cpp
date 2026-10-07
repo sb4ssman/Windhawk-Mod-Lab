@@ -55,7 +55,8 @@ it is enabled.
 - `RenderTransform` (translate, rotate, scale, composite, group, matrix)
 - `Visibility` collapsed and `Opacity` below 1
 - Every visual state group and its current state — this is where Windows
-  states things like the taskbar's edge (`DockingStates` on `RootGrid`)
+  states things like the taskbar's edge (`DockingStates` on `RootGrid`).
+  Groups the template left unnamed are listed as `(unnamed 1)`, `(unnamed 2)`
 - Text content, only if **Include text content** is on (see Privacy)
 
 The file header records the time, the reason for the dump, the Windows
@@ -571,6 +572,12 @@ static bool NonZero(Thickness const& t) {
     return t.Left || t.Top || t.Right || t.Bottom;
 }
 
+// Item sizes are NaN when the panel sizes items from the first one; %g would
+// print that as "-1.#IND".
+static std::wstring ItemSizeText(double value) {
+    return std::isnan(value) ? L"auto" : Fmt(L"%g", value);
+}
+
 // ---- One element ------------------------------------------------------------
 
 using Pairs = std::vector<std::pair<std::wstring, std::wstring>>;
@@ -638,18 +645,18 @@ static void AddPanelFacts(FrameworkElement const& e, Pairs& props) {
             props.emplace_back(L"pad", ThicknessText(g.Padding()));
     } else if (auto wg = e.try_as<WrapGrid>()) {
         props.emplace_back(L"wrapgrid", OrientationText(wg.Orientation()));
-        props.emplace_back(L"itemW", Fmt(L"%g", wg.ItemWidth()));
-        props.emplace_back(L"itemH", Fmt(L"%g", wg.ItemHeight()));
+        props.emplace_back(L"itemW", ItemSizeText(wg.ItemWidth()));
+        props.emplace_back(L"itemH", ItemSizeText(wg.ItemHeight()));
         props.emplace_back(L"maxRC", Fmt(L"%d", wg.MaximumRowsOrColumns()));
     } else if (auto iwg = e.try_as<ItemsWrapGrid>()) {
         props.emplace_back(L"itemswrapgrid", OrientationText(iwg.Orientation()));
-        props.emplace_back(L"itemW", Fmt(L"%g", iwg.ItemWidth()));
-        props.emplace_back(L"itemH", Fmt(L"%g", iwg.ItemHeight()));
+        props.emplace_back(L"itemW", ItemSizeText(iwg.ItemWidth()));
+        props.emplace_back(L"itemH", ItemSizeText(iwg.ItemHeight()));
         props.emplace_back(L"maxRC", Fmt(L"%d", iwg.MaximumRowsOrColumns()));
     } else if (auto vsw = e.try_as<VariableSizedWrapGrid>()) {
         props.emplace_back(L"vswrapgrid", OrientationText(vsw.Orientation()));
-        props.emplace_back(L"itemW", Fmt(L"%g", vsw.ItemWidth()));
-        props.emplace_back(L"itemH", Fmt(L"%g", vsw.ItemHeight()));
+        props.emplace_back(L"itemW", ItemSizeText(vsw.ItemWidth()));
+        props.emplace_back(L"itemH", ItemSizeText(vsw.ItemHeight()));
         props.emplace_back(L"maxRC", Fmt(L"%d", vsw.MaximumRowsOrColumns()));
     } else if (auto isp = e.try_as<ItemsStackPanel>()) {
         props.emplace_back(L"itemsstack", OrientationText(isp.Orientation()));
@@ -725,9 +732,14 @@ static Item Describe(FrameworkElement const& e, FrameworkElement const& root,
         p.emplace_back(L"fs", Fmt(L"%g", tb.FontSize()));
     }
 
+    // Templates can leave a group unnamed, and two of them would share the key
+    // "" - which a JSON reader collapses to one. Number them instead.
+    int unnamedGroups = 0;
     for (auto const& group : VisualStateManager::GetVisualStateGroups(e)) {
         auto current = group.CurrentState();
-        item.states.emplace_back(group.Name().c_str(),
+        std::wstring name = group.Name().c_str();
+        if (name.empty()) name = Fmt(L"(unnamed %d)", ++unnamedGroups);
+        item.states.emplace_back(name,
                                  current ? current.Name().c_str() : L"-");
     }
     return item;

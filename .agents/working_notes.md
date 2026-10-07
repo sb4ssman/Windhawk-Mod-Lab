@@ -33,8 +33,18 @@ Resume 2.1 native-edge fixes and fresh live tests. VD Switcher needs a Win11
 regression test, including hover previews (shared native preview helper).
 Use [the Oct 4 guide](outputs/live-test-2026-10-04.md), reconciled against the
 latest literal-layout rule: written shapes, nudges, offsets and screen-named
-positions are literal; only auto adapts. Tree-dump tool publishes with the
-family after its live test. Preserve identities and the human-test push gate.
+positions are literal; only auto adapts. Tree-dump tool identity/flat-layout redesign is pending; do not publish
+until settled, and retain its remaining live-test requirements. Preserve identities and the human-test push gate.
 
 Older detail: [preserved handoff](knowledge/lab-handoff-before-win11-return-2026-10-06.md)
 and [work log](work_log.md); reconcile git/PR state before trusting old claims.
+
+## Remote Windows 11 work to reconcile next
+
+The merged remote handoff reports Oct6 updates to OmniButton2.1 and Clock
+Spacer1.1; next, reconcile PR/fork state and check the requested bot reviews.
+Tree dump has the NaN size-text fix, but its live retest, Label/Subtree/disable
+checks and user-directed identity/flat-tool-layout redesign remain open.
+Do not publish it until the identity is settled. Do not commit raw tree dumps
+containing personal window titles. Details and original remote instructions:
+[preserved remote handoff](knowledge/lab-win11-remote-handoff-2026-10-06.md).

@@ -2537,3 +2537,13 @@ and synchronized embedded README; marked Win10 live-tested but experimental.
 Updated handoff to return to Win11, with future settings template still first.
 Scope of authorized push: Windhawk-Mod-Lab main; no fork/PR update or release
 version bump. Runtime C++ unchanged from the accepted live-tested checkpoint.
+
+## 2026-10-06 - Preserve concurrent Win11 work before accepted Win10 lab push
+
+Fetched origin for the authorized lab push and found three concurrent remote
+commits through d4a3265 (OmniButton/Clock Spacer publication notes and tree-dump
+fixes). Merged them without force or runtime VD changes. Resolved only the
+working-notes conflict, retaining the short Win10/return-to-Win11 handoff and
+preserving the remote publication/test/identity instructions in
+knowledge/lab-win11-remote-handoff-2026-10-06.md. Remote tree-dump sources,
+publish guide and posted review drafts are preserved in the merge.
