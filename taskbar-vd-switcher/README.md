@@ -15,7 +15,8 @@ experimental use. Appearance remains imperfect; exhaustive edge/lifecycle
 testing is still outstanding. It uses the
 same desktop labels, arrangement, sizes, padding, offsets, Task View button,
 colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
-removal, renaming, and switches made elsewhere are checked every 250 ms.
+removal, renaming, switches made elsewhere, and theme changes are picked up
+from Windows' registry change notifications rather than by polling.
 
 The classic taskbar reserves space through the native clock's layout, so app
 buttons give up only the needed width. It does not add rebar toolbar bands.

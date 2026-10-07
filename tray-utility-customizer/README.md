@@ -128,7 +128,8 @@ single-height taskbar; about 16 px makes it fit.
 `Size.ItemSpacing` is the gap between items and may be negative to pull them
 together. `Adjust.PadX` / `PadY` reserve space at the outside edges of the
 group and participate in layout — raising `PadY` gives `auto` fewer rows to
-work with. `Adjust.OffsetX` / `OffsetY` move the whole group visually and
+work with (on a left or right taskbar, raising `PadX` gives it fewer columns).
+`Adjust.OffsetX` / `OffsetY` move the whole group visually and
 reserve nothing.
 
 ## Position
@@ -221,6 +222,8 @@ the edge Windows reports and re-arranges when the taskbar moves.
   keyboard's host and leaves the keyboard's slot empty.
 - The microphone, camera and location in-use indicators no longer trigger a
   full re-layout every time they appear or disappear.
+- A re-arrangement that finds the tray mid-change, such as during a move
+  between edges, now retries instead of leaving the native layout in place.
 
 ### 2.0
 

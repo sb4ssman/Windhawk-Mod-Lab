@@ -1,5 +1,43 @@
 # Working Notes — Windhawk Mod Lab
 
+## CURRENT — Oct 7 evening checkpoint (all three candidates UNTESTED)
+
+PR state verified on GitHub: all 7 open PRs green, latest AI reviews match
+their heads. #4855 OmniButton already with human reviewer. /ready-for-reviewer
+posted (PowerShell) on #4443 Clock Spacer and #4843 Privacy Anchor. #5977 Tree
+Dump tabled (2 blocking: Documents output folder, 1 s polling) - leave it.
+Stray `C:/Program Files/Git/ai-review` comment on #5569 - user to delete in UI.
+
+Lab checkpoint, user-directed, NOT on the fork - each needs a live test first:
+- Tray 2.1 (#5569 optional items): setting descriptions say width on a side
+  taskbar; stand-down log uses OrientationName/constrainedDip (shared
+  component, still used by Omni/Privacy/VD, so not removed); duplicate
+  Discover log merged; ReadStringSetting null check gone; FUNCTIONALITY FIX:
+  a failed scheduled reapply now wakes the retry (WakeRetry) instead of
+  leaving the tray native. README + 2.1 changelog updated. Test: side + edge
+  moves + bottom; also check side hover/click near icon edges (review noted
+  80px IconViews at a 38px pitch may overlap hit targets - not changed).
+- Folder 2.1 (#5568 optional items): icon worker reads its own snapshot
+  under g_folderIconsMutex (race with LoadSettings fixed), generation drops
+  stale extractions, one FolderIconSize(taskbar,w,h), single `dispatch`
+  alias, stand-down log, null check, $description. File normalized back to
+  LF. ComputeTree/TokenMatcher comments are shared-component docs: answer in
+  reply, do not edit. Test: settings save while icons load, edge moves.
+- VD 2.1 (#4844 BLOCKING): Win10 classic_ui worker is event-driven -
+  RegNotifyChangeKeyValue on session+user VirtualDesktops, Personalize, DWM,
+  HighContrast; `kick` event for settings/lost bar; Update re-reads only
+  dirty parts (theme cached); geometry via subclass-posted kRecheck + 2 s
+  SetTimer on the bar (UI thread); Attach failure keeps the hidden window,
+  Detach relayouts only if attached. Optional: one SwitchToDesktopAsync for
+  both backends, Start() braces, AvailableRows comment moved. USER TESTS ON
+  THE WIN10 MACHINE: switch/create/remove/rename desktops (from Task View
+  and Win+Ctrl+arrows), theme/accent change, move/resize taskbar,
+  afterNotifications with the Action Center button off then on, settings
+  save, disable/enable.
+After approval: fork pushes + AI-disclosed replies + /ai-review per PR.
+Still uncommitted and unapproved: Privacy Anchor working-copy edits and the
+start-lane SetRow edit (preflight warns about Privacy) - not part of this.
+
 ## Active user-directed work — Tray Utility side visibility
 
 OCT 7 (later) — TRAY 2.1 PUBLISHED. User live-approved the re-assembled build
