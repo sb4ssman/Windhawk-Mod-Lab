@@ -2846,3 +2846,16 @@ OmniButton, verification limits and unrelated unapproved edits. Saved local
 checkpoint of Tray work and documentation only; unrelated mod/template edits
 left outside commit. No source changes, installed changes, pushes or PR actions
 in this checkpoint turn. This is a failed candidate, not a release or approval.
+
+## 2026-10-07 - Tray side-taskbar fix live-approved
+
+Root causes: side placement measured hosts right after reparenting into a
+never-laid-out group, and its false return skipped RestoreLayout while
+g_layoutApplied=true retired the retry over a half-placed tree; the chevron
+host was translated whole, carrying its group clip in host space so the glyph
+stayed clipped; pre-move element refs could be stale and side stragglers were
+never placed. New PlaceSideItems: pre-move native host sizes, one layout pass,
+re-find icons by token, move leaf-host content, roll back on any failure.
+User live-tested a side taskbar (`touchKeyboard | emoji | overflow`) and
+approved. Screenshot added to both READMEs; lab committed and pushed for the
+user's review. Fork/PR #5569 not touched yet.

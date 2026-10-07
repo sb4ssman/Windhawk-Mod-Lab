@@ -2,6 +2,24 @@
 
 ## Active user-directed work — Tray Utility side visibility
 
+OCT 7 (later session) — CANDIDATE 5 LIVE-APPROVED by user on a side taskbar
+(`touchKeyboard | emoji | overflow` row). Screenshot added as
+assets/side-taskbar-row.png in both READMEs; lab committed and pushed for the
+user's review. NEXT: user double-checks, then publish (fork PR #5569 update).
+Root causes found by reading code against the left-taskbar tree dump:
+(a) PlaceNativeSideItems read host.ActualWidth right after reparenting into a
+never-laid-out group; a false return then left hosts in the group unsized
+while g_layoutApplied=true retired the retry (predicts "only emoji": the
+squeezed WrapGrid wraps the second 80px cell under a 38px group clip).
+(b) Chevron host was translated as a whole; its group clip is in host space
+and travels with it, so the glyph at x=80 of a 160 host stays clipped in any
+narrow column. (c) Pre-move element refs may be stale after the WrapGrid list
+moves; stragglers never placed on side. Fix: PlaceSideItems sizes all hosts
+from pre-move native sizes, one UpdateLayout, re-finds icons by token, moves
+leaf-host CONTENT, rolls back via RestoreLayout on any failure. Drift-check
+reapplies now log why. Next: user live test left/right (row + column + auto),
+then bottom regression. Older paragraphs below are history.
+
 STOPPED AT USER REQUEST: checkpoint and handoff for another LLM. Latest live
 test: only emoji visible; arrangements/nudges did not recover the other icons.
 No approval. Start with [Tray handoff](knowledge/tray-utility-side-failure-handoff-2026-10-07.md).

@@ -58,6 +58,9 @@ positions each icon individually, at its native size by default.
 ![Right of Start, stacked on a double-height taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/right-of-start-2x-taskmanager-height.png)
 *Right of Start on a double-height taskbar, stacked as a column beside Start.*
 
+![On a side taskbar](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/tray-utility-customizer/assets/side-taskbar-row.png)
+*`touchKeyboard | emoji | overflow` on a native side taskbar: one row at the top of the tray, with Windows' own cells left intact.*
+
 ## Upgrading from 1.x
 
 Version 2.0 groups the settings under `Placement`, `Content`, `Layout`, `Size`,
@@ -3692,6 +3695,11 @@ struct IconTarget {
     double y = 0.0;
     double width = 0.0;
     double height = 0.0;
+    // The tray host that carries the element, and the canonical token it was
+    // placed as - empty for a straggler. The side path re-finds its elements
+    // by these after the move (PlaceSideItems).
+    FrameworkElement host{nullptr};
+    std::wstring token;
 };
 
 // The native panel can change its flow direction when the taskbar moves.
@@ -3701,55 +3709,194 @@ struct NativeIconFlow {
     bool vertical = false;
 };
 
-// As in OmniButton, preserve native side-taskbar cells. Resizing WrapGrid
-// can hide native slots; translate from the drawn content's measured center.
-static bool PlaceNativeSideItems(FrameworkElement const& host,
-                                 std::vector<IconTarget> const& targets,
-                                 std::vector<LayoutItem> const& items,
-                                 double width, double height,
-                                 double offsetX, double offsetY) {
-    double nativeWidth = host.ActualWidth();
-    double nativeHeight = host.ActualHeight();
-    if (nativeWidth <= 0 || nativeHeight <= 0) return false;
-    TrackPlacement(host);
-    // Keep enough space for Windows' native row as well as the requested
-    // footprint. Do not change any item cell's dimensions or alignment.
-    host.Width(std::max(nativeWidth, width));
-    host.Height(std::max(nativeHeight, height));
-    host.HorizontalAlignment(HorizontalAlignment::Left);
-    host.VerticalAlignment(VerticalAlignment::Top);
-    host.Margin(Thickness{offsetX, offsetY, 0, 0});
-    host.UpdateLayout();
-    for (auto const& item : items) {
-        if (item.host != host) continue;
-        auto target = std::find_if(targets.begin(), targets.end(), [&](auto const& value) {
-            return value.element == item.element;
+// ── Side-taskbar placement ────────────────────────────────────────────────
+//
+// On a left or right taskbar the utilities sit in a WrapGrid of fixed native
+// cells (80x38, two across a 160-wide tray, on 26300). OmniButton's proven
+// rule applies: never reshape that grid - a cell pushed into a row the grid
+// does not cover is not drawn - and move each item from where it actually
+// renders to its arranged cell by RenderTransform alone.
+//
+// OmniButton does that inside a host that never moves. This mod moves its
+// hosts into the owned group first, which adds three rules a straight port
+// missed:
+//
+//  1. MEASURE ONLY AFTER THE GROUP IS LAID OUT. A host just appended to a
+//     group that has never been arranged reports nothing useful. Its native
+//     size is captured before the move (nativeSizes); every rendered position
+//     is read after one layout pass that includes the group.
+//  2. RE-FIND THE ITEMS AFTER THAT PASS. The side hosts lay out through a
+//     virtualizing WrapGrid, which can realize fresh item containers when its
+//     list moves. A reference taken before the move can name a control that is
+//     no longer drawn, and translating it moves nothing on screen.
+//  3. MOVE A WHOLE-HOST ITEM'S CONTENT, NOT THE HOST. The host keeps its
+//     native width (160) inside a group that is often narrower, so the group
+//     clips it - and that clip lives in the host's own coordinate space.
+//     Translating the host carries the clip along with it, so the chevron,
+//     drawn at the middle of its 160-wide host, never leaves the clipped-off
+//     part in a narrow column. Translating the host's content moves the glyph
+//     into the visible part instead.
+
+// The part of `element` that is actually drawn: its first visible, non-empty
+// glyph, or the element itself when it draws something else (an image icon).
+static FrameworkElement DrawnPart(FrameworkElement const& element) {
+    auto glyph = tree_walk::FindDescendant(
+        element, 12, [](FrameworkElement const& candidate) {
+            auto text = candidate.try_as<TextBlock>();
+            return text && !text.Text().empty() &&
+                   text.Visibility() == Visibility::Visible &&
+                   text.ActualWidth() > 0 && text.ActualHeight() > 0;
         });
-        if (target == targets.end()) continue;
-        // Move the native control, so hit testing and flyout anchoring follow
-        // its glyph. A leaf host moves as a whole via its own transform.
-        auto mover = item.element;
-        auto drawn = tree_walk::FindDescendant(mover, 12,
-            [](FrameworkElement const& element) {
-                auto text = element.try_as<TextBlock>();
-                return text && !text.Text().empty() &&
-                       text.Visibility() == Visibility::Visible;
-            });
-        if (!drawn) drawn = mover;
-        if (drawn.ActualWidth() <= 0 || drawn.ActualHeight() <= 0) return false;
-        auto bounds = drawn.TransformToVisual(host).TransformBounds(
-            {0, 0, static_cast<float>(drawn.ActualWidth()),
-             static_cast<float>(drawn.ActualHeight())});
-        double centerX = bounds.X + bounds.Width / 2.0;
-        double centerY = bounds.Y + bounds.Height / 2.0;
-        g_lease->Track(mover, UIElement::RenderTransformProperty());
-        TranslateTransform shift;
-        shift.X(target->x + target->width / 2.0 - centerX);
-        shift.Y(target->y + target->height / 2.0 - centerY);
-        mover.RenderTransform(shift);
-        Wh_Log(L"[Layout] Native side item center=%.1f,%.1f target=%.1f,%.1f",
-               centerX, centerY, target->x + target->width / 2.0,
-               target->y + target->height / 2.0);
+    return glyph ? glyph : element;
+}
+
+// Translate `mover` so `measured`, rendered inside `host`, is centered on the
+// target's cell. False when the item has not been laid out, so there is
+// nothing to measure from.
+static bool CenterSideItem(FrameworkElement const& mover,
+                           FrameworkElement const& measured,
+                           FrameworkElement const& host,
+                           IconTarget const& target, PCWSTR name) {
+    if (measured.ActualWidth() <= 0 || measured.ActualHeight() <= 0) {
+        Wh_Log(L"[Layout] Side item %s has no rendered size yet", name);
+        return false;
+    }
+    auto bounds = measured.TransformToVisual(host).TransformBounds(
+        {0, 0, static_cast<float>(measured.ActualWidth()),
+         static_cast<float>(measured.ActualHeight())});
+    double centerX = bounds.X + bounds.Width / 2.0;
+    double centerY = bounds.Y + bounds.Height / 2.0;
+    double targetX = target.x + target.width / 2.0;
+    double targetY = target.y + target.height / 2.0;
+    g_lease->Track(mover, UIElement::RenderTransformProperty());
+    TranslateTransform shift;
+    shift.X(targetX - centerX);
+    shift.Y(targetY - centerY);
+    mover.RenderTransform(shift);
+    Wh_Log(L"[Layout] Side item %s drawn=%.1f,%.1f -> cell center %.1f,%.1f",
+           name, centerX, centerY, targetX, targetY);
+    return true;
+}
+
+// Places every side item. False (nothing to measure yet, or an item that is
+// gone) means the caller rolls the whole apply back and lets the retry come
+// again; a half-placed side layout is never left behind.
+static bool PlaceSideItems(std::vector<FrameworkElement> const& hosts,
+                           std::vector<ngl::Size> const& nativeSizes,
+                           std::vector<IconTarget> const& targets,
+                           std::vector<LayoutItem> const& items,
+                           ngl::Size total, double offsetX, double offsetY) {
+    // Native size or the arranged footprint, whichever is larger, so the
+    // host's own internal layout is exactly Windows' and every arranged cell
+    // falls inside it. Item cells, their sizes and alignment are untouched.
+    for (size_t i = 0; i < hosts.size(); ++i) {
+        auto const& host = hosts[i];
+        TrackPlacement(host);
+        host.Width(std::max(nativeSizes[i].width, total.width));
+        host.Height(std::max(nativeSizes[i].height, total.height));
+        host.HorizontalAlignment(HorizontalAlignment::Left);
+        host.VerticalAlignment(VerticalAlignment::Top);
+        host.Margin(Thickness{offsetX, offsetY, 0, 0});
+    }
+    // One pass for the whole tree, group included (rule 1).
+    if (!hosts.empty()) {
+        hosts.front().UpdateLayout();
+    }
+
+    for (auto const& host : hosts) {
+        LayoutItem const* leafItem = nullptr;
+        for (auto const& item : items) {
+            if (item.hostLeaf && item.host == host) {
+                leafItem = &item;
+                break;
+            }
+        }
+
+        if (leafItem) {
+            auto target = std::find_if(
+                targets.begin(), targets.end(), [&](IconTarget const& value) {
+                    return value.element == leafItem->element;
+                });
+            if (target == targets.end()) {
+                continue;
+            }
+            // Rule 3: the host's template root, not the host.
+            auto content = VisualTreeHelper::GetChildrenCount(host) > 0
+                               ? VisualTreeHelper::GetChild(host, 0)
+                                     .try_as<FrameworkElement>()
+                               : nullptr;
+            if (!content) {
+                Wh_Log(L"[Layout] Side host %s has no content to move",
+                       host.Name().c_str());
+                return false;
+            }
+            if (!CenterSideItem(content, DrawnPart(content), host, *target,
+                                leafItem->token.c_str())) {
+                return false;
+            }
+            continue;
+        }
+
+        // Rule 2: match what the host draws NOW to this host's targets - by
+        // identity first, then the stragglers it carried, in order.
+        std::vector<FrameworkElement> icons;
+        CollectVisibleIconViews(host, icons);
+        std::vector<bool> used(targets.size(), false);
+        int placed = 0;
+        int expected = 0;
+        for (auto const& target : targets) {
+            if (target.host == host) {
+                ++expected;
+            }
+        }
+        for (auto const& icon : icons) {
+            size_t match = targets.size();
+            for (size_t i = 0; i < targets.size() && match == targets.size();
+                 ++i) {
+                if (!used[i] && targets[i].host == host &&
+                    !targets[i].token.empty() &&
+                    IconViewMatchesToken(icon, targets[i].token)) {
+                    match = i;
+                }
+            }
+            for (size_t i = 0; i < targets.size() && match == targets.size();
+                 ++i) {
+                if (!used[i] && targets[i].host == host &&
+                    targets[i].token.empty()) {
+                    match = i;
+                }
+            }
+            if (match == targets.size()) {
+                Wh_Log(L"[Layout] Side host %s draws an icon (glyph %s) "
+                       L"with no cell; left native",
+                       host.Name().c_str(),
+                       DescribeElementGlyphs(icon).c_str());
+                continue;
+            }
+            used[match] = true;
+            auto const& target = targets[match];
+            if (icon != target.element) {
+                Wh_Log(L"[Layout] Side host %s realized %s again after the "
+                       L"move; placing the live control",
+                       host.Name().c_str(),
+                       target.token.empty() ? L"a carried icon"
+                                            : target.token.c_str());
+            }
+            if (!CenterSideItem(icon, DrawnPart(icon), host, target,
+                                target.token.empty()
+                                    ? L"(carried)"
+                                    : target.token.c_str())) {
+                return false;
+            }
+            ++placed;
+        }
+        if (placed != expected) {
+            // An arranged item the host no longer draws: its cell would sit
+            // empty. Not settled - let the retry resolve the new set.
+            Wh_Log(L"[Layout] Side host %s placed %d of %d items",
+                   host.Name().c_str(), placed, expected);
+            return false;
+        }
     }
     return true;
 }
@@ -3840,6 +3987,7 @@ static void RegisterTrayDriftCheck(Panel const& trayGrid) {
                 changed = true;
             }
             if (changed) {
+                Wh_Log(L"[Apply] Managed host changed; reapplying");
                 ScheduleReapply();
                 return;
             }
@@ -3849,6 +3997,8 @@ static void RegisterTrayDriftCheck(Panel const& trayGrid) {
                 auto host = candidate.host.get();
                 if (host && CountCandidateIconViews(host) !=
                                 candidate.visibleIconViews) {
+                    Wh_Log(L"[Apply] %s changed its icons; reapplying",
+                           host.Name().c_str());
                     ScheduleReapply();
                     return;
                 }
@@ -4184,7 +4334,8 @@ static bool ApplyLayout() {
                 continue;
             }
             targets.push_back({item.element, placement.x, placement.y,
-                               placement.size.width, placement.size.height});
+                               placement.size.width, placement.size.height,
+                               item.host, placementToken});
             bool known = false;
             for (auto const& host : managedHosts) {
                 if (host == item.host) {
@@ -4249,6 +4400,7 @@ static bool ApplyLayout() {
             double height = NaturalHeight(icon, side);
             IconTarget straggler;
             straggler.element = icon;
+            straggler.host = host;
             straggler.width = width;
             straggler.height = height;
             if (side) {
@@ -4425,6 +4577,14 @@ static bool ApplyLayout() {
     }
     g_group = group;
 
+    // Native host sizes, read while the hosts are still where Windows laid
+    // them out. Once moved into the group they report nothing usable until a
+    // layout pass has run (PlaceSideItems, rule 1).
+    std::vector<ngl::Size> nativeHostSizes;
+    for (auto const& host : managedHosts) {
+        nativeHostSizes.push_back({host.ActualWidth(), host.ActualHeight()});
+    }
+
     // Reparent the involved hosts into the group. The group is a plain
     // Grid, so the hosts overlap; blank host regions have no background
     // and stay hit-test transparent, so icons of one host remain clickable
@@ -4444,12 +4604,21 @@ static bool ApplyLayout() {
     double groupOffsetX = static_cast<double>(g_settings.offsetX);
     double groupOffsetY = static_cast<double>(g_settings.offsetY);
 
+    // A failure past this point must ROLL BACK, not just return false:
+    // g_layoutApplied is already true, and LayoutIsApplied reads it as done,
+    // so a bare return retires the retry over a half-placed layout - hosts in
+    // the group, unsized and unplaced. RestoreLayout clears it again.
+    if (side && !PlaceSideItems(managedHosts, nativeHostSizes, targets, items,
+                                total, groupOffsetX, groupOffsetY)) {
+        Wh_Log(L"[Apply] Side placement incomplete; restoring native layout "
+               L"and retrying");
+        RestoreLayout();
+        return false;
+    }
+
     for (auto const& host : managedHosts) {
         if (side) {
-            if (!PlaceNativeSideItems(host, targets, items, total.width,
-                                      total.height, groupOffsetX, groupOffsetY))
-                return false;  // native templates have not finished measuring
-            continue;
+            break;  // placed above
         }
         // Host-leaf items (the chevron, MainStack fallback) are placed as
         // a whole; icon hosts span the group and their icons are placed

@@ -44,6 +44,9 @@ positions each icon individually, at its native size by default.
 ![Right of Start, stacked on a double-height taskbar](assets/right-of-start-2x-taskmanager-height.png)
 *Right of Start on a double-height taskbar, stacked as a column beside Start.*
 
+![On a side taskbar](assets/side-taskbar-row.png)
+*`touchKeyboard | emoji | overflow` on a native side taskbar: one row at the top of the tray, with Windows' own cells left intact.*
+
 ## Upgrading from 1.x
 
 Version 2.0 groups the settings under `Placement`, `Content`, `Layout`, `Size`,
