@@ -53,11 +53,14 @@ The author also live-tested the exact updated 2.1 candidate and gave it the seal
 
 ## Changelog
 
+<!-- changelog:start -->
 * Added native side-taskbar layouts with literal manual arrangements
 * Made taskbar construction wake the icon worker without joining it
 * Added cancellation checks between targets and cached every failed icon target until settings reload
 * Published settings on the taskbar thread and filtered length-only edge events
 * Cleaned up unused helpers, initialization handles and comments
+
+<!-- changelog:end -->
 
 ## Mod authorship
 
