@@ -73,7 +73,7 @@ Both live-tested by the user (installed sources == lab, verified by diff).
     `tool-mods/_support/<id>/`; `pwsh tool-mods/_support/check-tool.ps1 <id>`
     stages them with the source and runs assemble + preflight (the lab's
     scripts want all three in one folder). Folders for tests/extras are fine.
-  - Next: CI on #5977, then `/ai-review` from PowerShell; save the bot's
+  - CI 5/5 green and `/ai-review` posted Oct 6. Next: save the bot's
     review and verify each finding before acting. Root README says
     "unpublished" - change it to the PR number. Stale local fork branch
     `add-mod-lab-taskbar-tree-dump` can be deleted.
