@@ -2419,6 +2419,8 @@ inline bool Acquire(FrameworkElement const& root, Grid const& group,
     group.HorizontalAlignment(HorizontalAlignment::Left);
     group.VerticalAlignment(VerticalAlignment::Top);
     Grid::SetColumn(group, 0);
+    Grid::SetRow(group, 0);
+    Grid::SetRowSpan(group, std::max(1, static_cast<int>(rootGrid.RowDefinitions().Size())));
     Grid::SetColumnSpan(
         group,
         std::max(1, static_cast<int>(
@@ -2591,7 +2593,7 @@ static bool ParseColorToken(const wchar_t* s, winrt::Windows::UI::Color& out) {
 // means "leave this one native" — never a fallback color.
 static bool LoadColorSetting(PCWSTR key, winrt::Windows::UI::Color& out) {
     auto setting = WindhawkUtils::StringSetting::make(key);
-    return ParseColorToken(setting.get() ? setting.get() : L"", out);
+    return ParseColorToken(setting.get(), out);
 }
 
 static void LoadSettings(ModSettings& s) {
@@ -2686,6 +2688,10 @@ static void LoadSettings(ModSettings& s) {
         sio::LoadBool(L"Behavior.CameraHardwareDetection");
     s.suppressNativeIndicators =
         sio::LoadBool(L"Behavior.SuppressNativeIndicators");
+}
+
+// Publish worker toggles only after the matching UI settings are accepted.
+static void PublishWorkerSettings(ModSettings const& s) {
     g_cameraHardwareDetectionEnabled.store(
         s.cameraHardwareDetection);
     g_cameraItemEnabled.store(s.camera);
@@ -5692,7 +5698,10 @@ static void ApplyPrivacyIndicatorBehavior(FrameworkElement iconView) {
                 if (!iconView) return;
                 // Windows set this, not the mod: it is now the value to hand
                 // back on unload, whichever way it went.
-                if (g_lease)
+                auto local = iconView.ReadLocalValue(UIElement::VisibilityProperty());
+                bool localMatches = local == DependencyProperty::UnsetValue() ||
+                    winrt::unbox_value<Visibility>(local) == iconView.Visibility();
+                if (g_lease && localMatches)
                     g_lease->Refresh(iconView, UIElement::VisibilityProperty());
                 if (iconView.Visibility() == Visibility::Collapsed) return;
                 if (auto* s = FindPrivacyStateByIconView(iconView))
@@ -6026,12 +6035,13 @@ static void HandleLoadedModuleIfSystemTray(HMODULE module,
 // ============================================================
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"[Init] Privacy Anchor v2.0");
+    Wh_Log(L"[Init] Privacy Anchor v" WH_MOD_VERSION);
     // Failures inside a template-marshalled UI callback report in this mod's
     // voice rather than vanishing.
     ui_dispatch::SetExceptionLogger(LogCurrentUiException);
     // No hook is live yet, so no other thread can be reading g_settings.
     LoadSettings(g_settings);
+    PublishWorkerSettings(g_settings);
 
     if (!HookTaskbarDllSymbols()) {
         Wh_Log(L"[Init] taskbar.dll symbols failed");
@@ -6360,8 +6370,7 @@ void Wh_ModUninit() {
 void Wh_ModSettingsChanged() {
     // Load into a copy on this (Windhawk's) thread and publish it on the
     // taskbar thread, which is the only thread that reads g_settings once the
-    // hooks are live. The state worker reads only the atomics LoadSettings
-    // stores directly.
+    // hooks are live. Worker toggles are published with the accepted copy.
     ModSettings next;
     LoadSettings(next);
     Wh_Log(L"[Settings] arrangement=%s enabled=%d/%d/%d/%d "
@@ -6371,12 +6380,10 @@ void Wh_ModSettingsChanged() {
            next.location ? 1 : 0, next.microphone ? 1 : 0,
            next.camera ? 1 : 0, next.copilot ? 1 : 0,
            next.suppressNativeIndicators ? 1 : 0,
-           g_cameraHardwareDetectionEnabled.load() ? 1 : 0,
+           next.cameraHardwareDetection ? 1 : 0,
            next.glowEnabled ? 1 : 0, GlowStyleName(next.glowStyle),
            next.glowOpacity, next.glowSize,
            next.glowSpeed);
-
-    RequestStateRefresh(RefreshAll | RefreshMonitorSetup);
 
     struct SettingsDispatch {
         ModSettings const* next;
@@ -6391,6 +6398,8 @@ void Wh_ModSettingsChanged() {
             auto* d = static_cast<SettingsDispatch*>(parameter);
             d->ran = true;
             g_settings = *d->next;
+            PublishWorkerSettings(g_settings);
+            RequestStateRefresh(RefreshAll | RefreshMonitorSetup);
             if (!GetTaskbarXamlRoot(d->window)) return;
             RemoveModUi();
             ApplyOnTaskbarThread();
@@ -6400,6 +6409,8 @@ void Wh_ModSettingsChanged() {
         if (!settingsDispatch.window) {
             // No taskbar window exists; the next initial apply uses this copy.
             g_settings = next;
+            PublishWorkerSettings(g_settings);
+            RequestStateRefresh(RefreshAll | RefreshMonitorSetup);
         } else {
             // Failure to dispatch does not prove the live UI has no readers.
             // Preserve its settings and let the user retry the save.
