@@ -6,7 +6,11 @@ Tray 2.1 and Folder 2.1 (lab 259f032 builds) live-approved on Win11; VD 2.1
 (d37998f) live-approved on Win10. PUBLISHED: Tray #5569 -> 182b55ea (md5
 ff4448cf), Folder #5568 -> ba6a5b5e (md5 8c581c1b); one-file diffs, bodies'
 changelogs updated, AI-disclosed replies + /ai-review (PowerShell), CI 5/5
-green on both. NEXT: read both AI reviews, then /ready-for-reviewer.
+green on both. Their new AI reviews came back clean (no blocking); the
+remaining optional items are fixed in lab 242d71a (UNTESTED). NEXT: user
+tests Tray + Folder + one Win11 VD click; then push Tray, Folder, VD (#4844)
+and /ai-review; /ready-for-reviewer once each review is clean.
+TREE DUMP #5977 IS PAUSED BY THE USER: do not raise it.
 VD: Win10 approved; the shared SwitchToDesktopAsync also changed the Win11
 click path - needs one Win11 desktop-button click check before #4844 push.
 
