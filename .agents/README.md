@@ -49,6 +49,16 @@ start of a new chat means cross-checking all of these, not just reading one:
   When work is ready, hand it back to the user for a live test and WAIT for their
   explicit confirmation before any push. No exceptions, no "it's a trivial
   change," no inferring approval from a prior test of a different build.
+- **NEVER LEAVE UNCOMMITTED WORK BEHIND.** Every session ends with
+  `git status` clean. Work that is not approved is either committed as a
+  clearly labelled untested candidate (say so in the commit message and the
+  working notes) or saved as a patch under `.agents/outputs/` and reverted.
+  A script that edits mod sources has its result committed or reverted in the
+  same session. A dirty tree found at session start is the FIRST thing to
+  raise with the user - never worked around, never "noted" and left. Oct 7
+  2026: an untested Privacy/start-lane edit sat uncommitted across several
+  sessions until another machine swept it into a commit, putting unreviewed
+  code in the lab next to approved builds.
 - **NEVER COMMIT PERSONAL DATA.** Raw tree dumps (`_research/tree-dumps/`,
   gitignored), Windhawk logs and screenshots can contain window titles, the
   user's e-mail address and file paths. Before any blanket `git add`, read

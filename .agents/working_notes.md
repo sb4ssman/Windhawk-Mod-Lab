@@ -1,6 +1,23 @@
 # Working Notes — Windhawk Mod Lab
 
-## CURRENT — Oct 7 evening checkpoint (all three candidates UNTESTED)
+## CURRENT — Oct 7 night: three candidates LIVE-APPROVED
+
+Tray 2.1 and Folder 2.1 (lab 259f032 builds) live-approved on Win11; VD 2.1
+(d37998f) live-approved on Win10. Publishing Tray and Folder to #5569/#5568.
+VD: Win10 approved; the shared SwitchToDesktopAsync also changed the Win11
+click path - needs one Win11 desktop-button click check before #4844 push.
+
+STRAY COMMIT CLEANED: 73744dc ("adding files", from the Win10 machine) had
+swept in untested edits a prior session's fix-settings-review.py applied to
+privacy-indicator-anchor.wh.cpp and start-lane-placement/body.h (SetRow/
+SetRowSpan - responds to an OLD #4843 review's "worth a quick check" note).
+Both files restored to the approved/published state; the edits are kept in
+.agents/outputs/pr-audit-2026-10-07/UNTESTED-privacy-startlane-edits.patch
+for a deliberate decision + live test later. Verified after: every assembled
+mod ASSEMBLY_OK; Privacy/Clock/Omni/TreeDump lab == PR head. New README
+standing directive: never leave uncommitted work behind.
+
+### Earlier: Oct 7 evening checkpoint (superseded - all three now approved)
 
 PR state verified on GitHub: all 7 open PRs green, latest AI reviews match
 their heads. #4855 OmniButton already with human reviewer. /ready-for-reviewer

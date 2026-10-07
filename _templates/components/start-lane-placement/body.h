@@ -278,8 +278,6 @@ inline bool Acquire(FrameworkElement const& root, Grid const& group,
     group.HorizontalAlignment(HorizontalAlignment::Left);
     group.VerticalAlignment(VerticalAlignment::Top);
     Grid::SetColumn(group, 0);
-    Grid::SetRow(group, 0);
-    Grid::SetRowSpan(group, std::max(1, static_cast<int>(rootGrid.RowDefinitions().Size())));
     Grid::SetColumnSpan(
         group,
         std::max(1, static_cast<int>(
