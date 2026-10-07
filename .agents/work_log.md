@@ -2570,3 +2570,50 @@ Added `.agents/tools/sync-lab.sh` (+ `.gitattributes` keeping `*.sh` LF) so
 every machine can sync safely. Tested against a clone of the pre-scrub bundle:
 it resets a clone holding only the old commits, and stops without losing
 anything when the clone has commits of its own.
+
+## 2026-10-07 - Privacy recheck and open PR audit
+
+Safe sync fast-forwarded this checkout to 75dfc1c, matching origin/main.
+Raw tree dumps are absent from all local refs/history and remain gitignored;
+the old e12209f object is absent locally. GitHub's commit API still resolves
+e12209f: the cached public commit has not been purged, so privacy cleanup is
+not fully closed. Intentional public author email was excluded from the scrub.
+
+Read all seven live upstream PRs and saved their latest bot reviews under
+outputs/pr-audit-2026-10-07/. All are open, waiting-for-author, with five
+passing checks and exactly one mod file. Clock #4443 has no blockers with
+optional/functionality notes; OmniButton #4855 has an edge-watch length-change
+finding; VD #4844 has an old rebuild finding already addressed in lab 2.1;
+tree dump #5977 has storage, polling and naming findings. Privacy #4843 and
+Tray Utility #5569 have no blocking findings; Folder Menus #5568 has a
+worker-wait finding. PR source still carries Privacy's old identity.
+Fork is clean and priority branch heads match live PR heads. No code changes,
+commits, pushes, PR edits, comments, or installed settings changes.
+
+## 2026-10-07 - Clock Spacer latest review suggestions resolved locally
+
+Applied every optional/functionality suggestion from the user's pasted review:
+per-line guarded settings refresh; per-line saturated warning counters reset
+on settings refresh, available width and inactive lines; correct nested-hook
+order comment; hidden-line/restart workaround documented in both README copies.
+Failed dispatch with a live taskbar now keeps settings rather than writing them
+off-thread. Compile/link, exit-destructor audit, README/settings parity, upstream
+validator and whitespace passed (SUBMISSION_PREFLIGHT_OK). Initial sandboxed
+validator could not fetch author metadata; authorized network rerun passed.
+Draft reply saved in outputs/pr-audit-2026-10-07/4443-reply-draft.md.
+Header remains 1.1. Fresh user live test pending; no installed configuration
+edits, commits, pushes or PR comments. Future reviewer acceptance is unverified.
+
+## 2026-10-07 - Clock approved; OmniButton latest review resolved locally
+
+User approved Clock Spacer after live testing. Took all OmniButton latest
+review items: shared edge watcher filters length-only changes; monitor defers
+cached rotation to fresh edge detection; nudge clamp comment/docs corrected;
+distinct ui_dispatch alias removes duplicate declaration; historical section
+condensed. Updated canonical shared components and reassembled OmniButton only;
+other adopters should reassemble during their own passes. Actual handler
+regression passed for horizontal/side length, thickness, orientation, threshold
+and null callback. SUBMISSION_PREFLIGHT_OK: compile/link, destructor audit,
+README/settings parity, assembly/component-use and upstream validator passed.
+OmniButton needs fresh user live test. Reply drafted under the PR audit folder.
+No installed-source/settings changes, commits, pushes or PR comments.

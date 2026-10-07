@@ -1,7 +1,27 @@
 # Working Notes — Windhawk Mod Lab
 
+## Clock Spacer review fixes — Oct 7
+
+All suggestions in the user's pasted latest review applied locally: guarded
+per-line settings refresh, per-line bounded zero-width warning counter, corrected
+hook-order comment, and accurate hidden-line/restart instructions in both README
+copies. A failed dispatch with an existing taskbar no longer reloads settings
+off-thread. Header remains 1.1. User approved after a fresh live test. Publication authorized Oct 7.
+Test checklist:
+normal/weighted/weather spacers, save width settings, hide an already spaced
+line then toggle this mod, unhide, and disable/re-enable restoration. Other
+family candidates still await the user's live tests. No PR comments or pushes.
+
 
 ## START HERE (Oct 7) - for the next session
+
+OmniButton latest review: all items applied locally; SUBMISSION_PREFLIGHT_OK
+and EDGE_WATCH_SIZE_REGRESSION_OK. Watch filters length changes; cached rotation
+defers to a fresh edge read; nudge limits documented; distinct ui_dispatch alias;
+upgrade history condensed. Header 2.1. User approved after a fresh live test. Checklist: Styler
+content-sized taskbar open/close, all edges/thickness, normal layout and unload.
+Shared component changes reassembled into OmniButton only; reassemble the other
+adopters during their own passes. No pushes or comments this session.
 
 1. Run `bash .agents/tools/sync-lab.sh` first (README step 0).
 2. State: the 2.1 family and the Win10 VD experiment are in the lab (see
@@ -10,7 +30,16 @@
    [../_research/ai-reviews-2026-10-07/](../_research/ai-reviews-2026-10-07/).
    Do not touch the tool's `@id`/`@name`; the reviewer's rename request is the
    user's call.
-3. Next work (user's plan): finish the rest of the mod family - VD Switcher
+3. Next work (user, Oct 7): prioritize Clock Spacer, OmniButton, VD Switcher,
+   and the first tree-dump tool. Live PR audit saved in
+   [outputs/pr-audit-2026-10-07/](outputs/pr-audit-2026-10-07/).
+   All seven open PRs have 5/5 passing checks and one-file diffs;
+   all are waiting-for-author. Clock has no blockers but hidden-line caveat;
+   OmniButton has a new edge-watcher length-change finding; VD's old rebuild
+   finding is already addressed in lab 2.1 (fresh Win11 live test needed).
+   Tree dump has output-storage, polling, and identity findings; preserve the
+   user-set identity. No publication/comment action authorized by this audit.
+   Then finish the rest of the mod family - VD Switcher
    Win11 regression test incl. hover previews, then the other 2.1 live tests
    (Privacy Anchor, Folder Menus, Tray Utility), then pushes and `/ai-review`.
    Details in the sections below; the PRIME DIRECTIVE (no push without the

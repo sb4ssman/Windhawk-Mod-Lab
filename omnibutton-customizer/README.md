@@ -100,27 +100,9 @@ wifi[-16,0] | (battery[-1,2], percent) | volume[16,0]
   OmniButton" anchors still mean what they always did
 - No XAML Diagnostics, so it coexists with Windows 11 Taskbar Styler
 
-## Why this starts at 2.0
-
-Version 1.0 was never published — it existed only as a pull request. The 2.0 in
-the version field marks the settings contract, not a history of releases: every
-mod in this family moved to the same grouped layout — Content, Layout,
-Size, Adjust, Surface — and to the shared **Arrangement** expression
-that replaced each mod's homegrown grid settings. This mod arrived at that
-contract second, so its first published version is the one that has it.
-
-**If you installed 1.x by hand from the pull request**, Windhawk cannot carry
-values across renamed keys, so your previous customizations are not migrated —
-re-apply them once.
-
-`itemOrder` and the whole grid-mode family are gone, replaced by a single
-**Arrangement** field. Grid mode, smart layout, fixed rows and columns, slot
-width and height, the coupled/independent battery mode, and all eight per-item
-nudge settings no longer exist; what replaced each of them is below.
-
-Battery and percentage are now always two independent arrangement items. The
-old coupled mode is not a mode any more — write them next to each other in the
-arrangement and you have it, with the freedom to put them anywhere instead.
+If you installed an unpublished 1.x build from the pull request, re-apply your
+customizations once: 2.x uses grouped settings and the Arrangement field, and
+Windhawk cannot migrate renamed setting keys.
 
 ## The Arrangement field
 
@@ -173,7 +155,8 @@ network[+2,-1] | volume | battery   network moves 2px right and 1px up
 (battery, percent)[3,0] | network   the stacked pair moves 3px right
 ```
 
-Offsets are cosmetic. Nothing else shifts, and the group's overall size does
+Each expression nudge is clamped to ±100 pixels on each axis; the whole-group
+Adjust offsets are clamped to ±40. Offsets are cosmetic. Nothing else shifts, and the group's overall size does
 not change. To move the whole cluster instead, use `Adjust` → horizontal and
 vertical offset. These replace the eight per-item nudge settings that 1.x had.
 Nudges and offsets are screen pixels on every taskbar edge — see

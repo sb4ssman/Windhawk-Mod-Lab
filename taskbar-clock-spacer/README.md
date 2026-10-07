@@ -116,8 +116,12 @@ own the whole clock width.
   weather segment use `{spacer}` instead — the weather service would consume
   `%s%` as its sunset token.
 - Lines without `%s%` are left completely alone — the mod is a no-op for them.
-- A line you hide in Taskbar Clock Customization stays hidden, even when its
-  format contains `%s%`. Unhiding it takes effect on the next clock tick.
+- A line hidden in Taskbar Clock Customization before this mod spaces it stays
+  hidden, even when its format contains `%s%`. If you hide a line that is
+  already spaced, turn this mod off and on to apply the hidden state. Do the
+  same if a hidden line appears after Explorer starts. Both mods collapse the
+  same source text block, so this mod cannot detect a second collapse of an
+  already collapsed block. Unhiding takes effect on the next clock tick.
 - Font, size, and color of the spaced segments follow the original clock text's
   current style, so the clock mod's style settings continue to apply.
 
