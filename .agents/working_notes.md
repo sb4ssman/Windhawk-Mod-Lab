@@ -2,17 +2,12 @@
 
 ## Active user-directed work — Tray Utility side visibility
 
-OCT 7 (later) — TRAY 2.1 RE-ASSEMBLED, AWAITING RE-TEST, NOT PUSHED. Publish
-preflight caught ASSEMBLY_DRIFT: 2425bda changed taskbar-metrics EdgeWatch
-(orientation/thickness filter) + an arrangement comment; Privacy/Folder/VD were
-re-assembled in 85eec2b but Tray was frozen and missed it. Re-assembled with the
-unapproved start-lane SetRow edit stashed (keep it out). Also: init log uses
-WH_MOD_VERSION; 2.1 changelog in both READMEs; root catalog line updated;
-preflight now warns on drift in OTHER assembled mods. All 6 other open PRs
-verified identical to lab HEAD. Full preflight OK. NEXT: user re-tests (side
-layout, edge moves incl. bottom<->top, app open/close = no reapply), then push
-lab, update fork branch update-tray-utility-customizer-v2.0 / PR #5569 (title
-v2.1, body changelog, side screenshot, AI-disclosed reply, /ai-review).
+OCT 7 (later) — TRAY 2.1 PUBLISHED. User live-approved the re-assembled build
+(md5 6a2c9f9d, lab 3e079da). Fork branch update-tray-utility-customizer-v2.0
+at ff272070 (one-file diff verified); PR #5569 retitled v2.1, body updated
+(2.1 section, side screenshot, tested-live, changelog), AI-disclosed reply and
+/ai-review posted. NEXT: read the AI review; fix or answer findings; then
+/ready-for-reviewer when clean. Tray is otherwise DONE - do not touch further.
 
 OCT 7 (later session) — CANDIDATE 5 LIVE-APPROVED by user on a side taskbar
 (`touchKeyboard | emoji | overflow` row). Screenshot added as

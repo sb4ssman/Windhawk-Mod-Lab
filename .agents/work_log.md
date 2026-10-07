@@ -2859,3 +2859,15 @@ re-find icons by token, move leaf-host content, roll back on any failure.
 User live-tested a side taskbar (`touchKeyboard | emoji | overflow`) and
 approved. Screenshot added to both READMEs; lab committed and pushed for the
 user's review. Fork/PR #5569 not touched yet.
+
+## 2026-10-07 - Tray Utility 2.1 published (PR #5569)
+
+Publish preflight caught assembly drift: Tray missed the 2425bda
+taskbar-metrics edge-watch change (orientation/thickness filter) because it was
+frozen when Privacy/Folder/VD were re-assembled. Re-assembled (unapproved
+start-lane SetRow edit kept out), init log now uses WH_MOD_VERSION, 2.1
+changelog added. Preflight now warns on drift in other assembled mods; all six
+other open PRs verified identical to lab HEAD. User live-approved the exact
+build (md5 6a2c9f9d). Lab 3e079da pushed; fork branch
+update-tray-utility-customizer-v2.0 -> ff272070 (one-file diff); PR retitled
+v2.1, body and changelog updated, AI-disclosed reply and /ai-review posted.
