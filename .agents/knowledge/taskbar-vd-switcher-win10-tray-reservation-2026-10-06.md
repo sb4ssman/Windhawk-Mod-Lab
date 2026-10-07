@@ -63,3 +63,19 @@ AvailableRows and ComputeButtonPlacements, with literal manual expressions.
 Two 18 DIP cells plus 2 DIP spacing total38 DIP. Automatic default 22 DIP
 cells fit only one row on a 40 DIP taskbar; decrease height or grow taskbar
 to permit two, rather than silently scaling a user's written layout.
+
+## Columns-first automatic compaction
+
+After experimental acceptance, user requested more aggressive automatic
+gridding. Existing native metrics were correct but 2*22+2=46 DIP exceeded40.
+classic_ui::AutoCell measures real font bounds and computes a preferred-max
+cross-axis cell size via CompactExtent and the shipped ngl::ChooseShape.
+Only Win10 Arrangement=auto + FillOrder=columns passes this optional cell
+size to ComputeButtonPlacements/AvailableRows. Both token resolution and
+capacity use the same effective dimensions, including Task View in-grid.
+Manual expressions and all other callers pass no override, preserving their
+shape and dimensions. DPI converts measured physical font bounds to DIPs.
+Two default-font cells on40 DIP normally become19 DIP each, with2 DIP gap;
+larger text/reserves can prohibit two lines. Side cross-axis is label width,
+with remeasurement after content changes. Retest this candidate before
+considering the Win10 pass complete again.

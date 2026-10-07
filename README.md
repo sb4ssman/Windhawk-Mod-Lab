@@ -15,7 +15,7 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, PR #4443 open; live-tested on 26200.9457 | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
 | [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7 published; v2.0 live-tested on 26200.9457, update PR pending | Grouped Shell-menu buttons with native icons, nested layouts and placement after app icons or in the tray |
 | [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; local v2.1 Windows 10 experiment accepted for personal use | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
+| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; local v2.1 Win10 auto-grid candidate awaiting live test | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
 | [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; v2.0 on the shared contract, live-tested on 26200.9457 | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
 
 ## Tools for mod authors

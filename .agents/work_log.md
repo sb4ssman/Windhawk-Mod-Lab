@@ -2478,3 +2478,27 @@ remain accepted limitations. This is not exhaustive position/edge/lifecycle
 verification or authorization to publish. Updated handoff to resume Win11
 family work; future settings template remains first. No release bump/tag,
 push, PR action or installed configuration change.
+
+## 2026-10-06 - Win10 columns-first auto-fit correction candidate
+
+User reopened the experiment: auto + columns first still produced a row on
+a single-height taskbar although a written `1, 2` could stack. Height/width
+detection already worked; fixed 22 DIP cells plus 2 DIP spacing required46
+DIP for two rows, so the arranger allowed only one. Fill order changed token
+order, not the fixed-size capacity.
+
+Added Win10-only columns-first automatic compaction. Measure the chosen font
+(and in-grid Task View font); use font height/label width plus small padding
+as a readability floor, choose the narrowest grid with fewest empty slots,
+and reduce the cross-axis cell extent only enough for that shape. Real
+taskbar metrics supply height or side width after padding/Task View reserves.
+No setting is rewritten. Row-first auto, manual arrangements and Win11 keep
+configured dimensions. Side auto remeasures when label content changes.
+Documented the behavior in settings/readmes and reopened the live-test handoff.
+
+Validation: extracted actual CompactExtent plus shipped arrangement component
+passed cases for 2/3/4 desktops at40 DIP, tall taskbar columns, ragged grids,
+large-font limits, padding and Task View reserves, side widths and literal
+manual sizes. Mod compile/link, destructor audit, assembly/component/settings
+checks, README parity and whitespace passed. Exact-build HUMAN LIVE TEST
+still required. No installed edits, push/PR action or version/tag bump.

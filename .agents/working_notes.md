@@ -13,18 +13,24 @@ return to Win11 to finish fixing/testing and publishing the family. Oct 6
 follow-up explicitly requires clock/notification placements and reliable
 space restoration, superseding the previous placement deferral.
 
-## Win10 experiment accepted - return to Windows 11
+## Immediate - Win10 columns-first auto-grid candidate needs live test
 
-User accepted a6a7917 on Oct 6 as working well enough for personal experimental
-use, with appearance still imperfect. This completes the current Win10 pass;
-do not expand or polish it further unless requested. Keep it experimental,
-primary taskbar only; side-taskbar and exhaustive lifecycle coverage are not
-established by this acceptance. Header stays 2.1; no publishing authorization.
+The user reopened the accepted experiment: columns-first auto should attempt
+a column/grid on a single-height taskbar without a manual arrangement.
+Recompile VD Switcher and test auto + columns first with default sizes/font:
+two desktops should stack; four should form a 2x2 grid on a 40 px taskbar.
+Compact sizing uses actual taskbar height (width on side taskbars), subtracts
+padding/Task View space, and uses measured font bounds as a readability floor.
+Configured cross-axis size is the preferred maximum. Larger fonts can still
+limit it to one line. Verify resize/DPI, side orientation if convenient, and
+that row-first auto and written arrangements retain exact configured sizes.
+Only Win10 columns-first auto compacts; Win11 behavior remains unchanged.
 
+Previous build a6a7917 was accepted for personal experimental use, with
+appearance imperfect. The NEW auto-fit candidate is not covered by that
+acceptance. Header stays 2.1; no publishing authorization.
 Reference: [Win10 retest guide](outputs/live-test-vd-switcher-win10-2026-10-06.md)
-and [implementation/recovery evidence](knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md).
-Stacks/grids use Arrangement `1, 2` or `1, 2 | 3, 4`; 18 px height,
-2 px spacing and zero vertical padding fit two rows in a 40 px taskbar.
+and [implementation notes](knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md).
 
 ## Windows 11 family next
 

@@ -19,9 +19,10 @@ A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — o
 ## Windows 10 compatibility (local test candidate)
 
 The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
-(Windows 10 2004 through 22H2). The user accepted this local build for
-personal experimental use; appearance remains imperfect, and exhaustive
-edge/lifecycle testing is still outstanding. It uses the
+(Windows 10 2004 through 22H2). The previous local build was accepted for
+personal experimental use. The new compact automatic grid needs a live test;
+appearance remains imperfect and exhaustive edge/lifecycle testing is still
+outstanding. It uses the
 same desktop labels, arrangement, sizes, padding, offsets, Task View button,
 colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
 removal, renaming, and switches made elsewhere are checked every 250 ms.
@@ -59,11 +60,18 @@ The screenshots below show the Windows 11 backend.
 
 **Stacks and grids on Windows 10.** The same `Layout` → `Arrangement` field
 works here: `1, 2` stacks two desktops; `1, 2 | 3, 4` makes a 2×2 grid.
-Keep `auto` to fit rows to the taskbar's available height. Two 18 px buttons
-with the default 2 px spacing need 38 px, so set `Size` → `Button height` to
-18 px for a two-row stack on a typical 40 px taskbar, with vertical padding
-set to 0. A taller taskbar permits more rows at larger button sizes. Manual
-arrangements keep their written shape; they do not shrink automatically.
+With `auto` and **Fill columns first**, buttons can compact across the
+taskbar to fit a readable column or grid. The configured height is a preferred
+maximum on a horizontal taskbar; width is a preferred maximum on a side
+taskbar. With the default font and zero padding, two desktops can stack on a
+normal 40 px taskbar without manually reducing the default 22 px height.
+Four can form a 2×2 grid. Larger fonts, padding and a Task View sliver can
+reduce how many lines fit. A taller taskbar allows more lines; `auto` refits
+when it changes. **Fill rows first** keeps the configured button sizes.
+
+Manual arrangements keep their exact shape and sizes. For a manual two-row
+stack on a 40 px taskbar, use 18 px height, 2 px spacing and zero vertical
+padding: the group needs 38 px. Manual arrangements never shrink automatically.
 
 ![Three desktops with lower master button](https://raw.githubusercontent.com/sb4ssman/Windhawk-Mod-Lab/main/taskbar-vd-switcher/assets/simple3wlowmaster.png)
 *Three desktops with the optional Task View button as a lower sliver.*
@@ -270,7 +278,7 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Arrangement | `auto` | `auto`, or an arrangement you write — see above |
-| Fill order | Fill rows first | Used by `auto` |
+| Fill order | Fill rows first | Used by `auto`; on Win10, columns first also compacts across taskbar thickness to fit readable lines |
 | Short row or column | Center | Used by `auto`; start, center, or end |
 | Newly created desktops | Add them after | Or leave them out; only applies to a written arrangement |
 
@@ -278,8 +286,8 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Button width | 20 px | |
-| Button height | 22 px | |
+| Button width | 20 px | Preferred maximum for Win10 columns-first `auto` on side taskbars; otherwise exact |
+| Button height | 22 px | Preferred maximum for Win10 columns-first `auto` on horizontal taskbars; otherwise exact |
 | Button spacing | 2 px | Gap between buttons along each axis |
 | Task View button thickness | 14 px | Width as a column, height as a sliver; unused in the grid placement |
 | Task View button length | 0 px | 0 matches the desktop buttons exactly |
@@ -488,7 +496,10 @@ This mod builds directly on patterns established by several community mods:
       and where, and "auto" is used until you fix it.
   - FillOrder: "rows"
     $name: Fill order
-    $description: Used by "auto". Whether buttons fill across rows or down columns first.
+    $description: >-
+      Used by "auto". Whether buttons fill across rows or down columns first.
+      On Windows 10, columns first also compacts buttons across the taskbar
+      to fit a readable column or grid within its height (width on a side taskbar).
     $options:
     - "rows": "Fill rows first (left to right, then down)"
     - "columns": "Fill columns first (top to bottom, then right)"
@@ -3607,7 +3618,7 @@ static bool TaskViewTakesALine() {
            TaskViewIsVerticalPlacement() != g_side;
 }
 
-static int AvailableRows(bool quiet = false) {
+static int AvailableRows(bool quiet = false, double itemExtent = 0) {
     HWND hWnd = taskbar_window::ResolveTaskbarWnd(g_taskbarWnd);
     auto metrics = taskbar_metrics::GetMetrics(hWnd);
     if (!metrics.valid) {
@@ -3637,7 +3648,8 @@ static int AvailableRows(bool quiet = false) {
     // extent across is its width.
     int rows = ngl::RowsInHeight(
         heightDip - reserved,
-        (double)(g_side ? g_settings.itemWidth : g_settings.itemHeight),
+        itemExtent > 0 ? itemExtent :
+            (double)(g_side ? g_settings.itemWidth : g_settings.itemHeight),
         (double)g_settings.itemSpacing);
     if (!quiet) {
         Wh_Log(L"[Layout] %s taskbar, %.0f dip across at %udpi, %.0f reserved "
@@ -3760,14 +3772,19 @@ static std::vector<std::wstring> ExpectedTokens(int count) {
 // calls from the Start-placement layout callback.
 static bool ComputeButtonPlacements(int count,
                                     std::vector<ngl::Placement>& placements,
-                                    ngl::Size& total, bool quiet = false) {
+                                    ngl::Size& total, bool quiet = false,
+                                    ngl::Size const* autoCell = nullptr) {
     ngl::Config config = MakeLayoutConfig();
-    auto resolve = [count](std::wstring const& token) {
+    auto resolve = [count, autoCell](std::wstring const& token) {
+        if (autoCell && (DesktopIndexFromToken(token,count) >= 0 ||
+            (IsMasterToken(token) && g_settings.taskViewButton && TaskViewInGrid())))
+            return *autoCell;
         return ResolveLayoutToken(token, count);
     };
 
     bool isAuto = ngl::IsAutoSetting(g_settings.arrangement);
-    int maxRows = AvailableRows(quiet);
+    int maxRows = AvailableRows(quiet, autoCell ?
+        (g_side ? autoCell->width : autoCell->height) : 0);
     auto makeAuto = [count, maxRows]() {
         // In-grid mode shapes count + 1 cells so the Task View button flows
         // with the desktops instead of hanging off the side.
@@ -5486,6 +5503,72 @@ static bool HostsChanged(Bar const& bar) {
     return false;
 }
 
+// Columns-first auto may compact across the taskbar, within a font-readable
+// minimum. Explicit sizes remain preferred maxima; manual expressions are literal.
+static double CompactExtent(int cells, double available, double preferred,
+                            double readable, double spacing) {
+    if (available <= 0 || cells <= 1) return preferred;
+    readable = std::min(preferred,std::max(1.0,readable));
+    int lines = ngl::ChooseShape(cells,
+        ngl::RowsInHeight(available,readable,spacing)).rows;
+    double fitted = (available - std::max(0.0,spacing)*(lines-1))/lines;
+    return std::min(preferred,std::max(readable,fitted));
+}
+static ngl::Size AutoCell(Bar const& bar) {
+    ngl::Size cell{double(g_settings.itemWidth),double(g_settings.itemHeight)};
+    HDC dc = GetDC(bar.window);
+    if (!dc) return cell;
+    HFONT font = CreateFontW(-int(g_settings.fontSize * bar.scale * 96 / 72),
+        0,0,0,g_settings.activeBold ? FW_BOLD : FW_NORMAL,FALSE,FALSE,FALSE,
+        DEFAULT_CHARSET,0,0,ANTIALIASED_QUALITY,0,
+        g_settings.fontFamily.empty() ? L"Segoe UI" : g_settings.fontFamily.c_str());
+    if (!font) { ReleaseDC(bar.window,dc); return cell; }
+    auto previous = SelectObject(dc,font);
+    TEXTMETRICW metrics{};
+    if (!GetTextMetricsW(dc,&metrics)) {
+        SelectObject(dc,previous); DeleteObject(font); ReleaseDC(bar.window,dc);
+        return cell;
+    }
+    double readable = metrics.tmHeight/bar.scale + 4;
+    if (bar.side) {
+        int widest = 0;
+        for (int index = 0; index < bar.count; ++index) {
+            auto label = GetButtonLabel(index,bar.current);
+            SIZE size{};
+            GetTextExtentPoint32W(dc,label.c_str(),int(label.size()),&size);
+            widest = std::max(widest,int(size.cx));
+        }
+        readable = widest/bar.scale + 4;
+    }
+    if (g_settings.taskViewButton && TaskViewInGrid()) {
+        HFONT masterFont = CreateFontW(-int(g_settings.fontSize * bar.scale * 96 / 72),
+            0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,ANTIALIASED_QUALITY,0,
+            g_settings.taskViewFontFamily.empty() ? L"Segoe UI" : g_settings.taskViewFontFamily.c_str());
+        if (masterFont) {
+            SelectObject(dc,masterFont);
+            SIZE size{}; TEXTMETRICW masterMetrics{};
+            GetTextExtentPoint32W(dc,g_settings.taskViewLabel.c_str(),
+                int(g_settings.taskViewLabel.size()),&size);
+            GetTextMetricsW(dc,&masterMetrics);
+            readable = std::max(readable,
+                (bar.side ? size.cx : masterMetrics.tmHeight)/bar.scale + 4);
+            SelectObject(dc,font); DeleteObject(masterFont);
+        }
+    }
+    SelectObject(dc,previous); DeleteObject(font); ReleaseDC(bar.window,dc);
+    auto metricsBar = taskbar_metrics::GetMetrics(bar.taskbar);
+    if (!metricsBar.valid) return cell;
+    double available = metricsBar.constrainedDip -
+        2*(bar.side ? g_settings.padX : g_settings.padY);
+    if (TaskViewTakesALine()) available -= g_settings.taskViewSize + g_settings.itemSpacing;
+    int cells = bar.count + (g_settings.taskViewButton && TaskViewInGrid() ? 1 : 0);
+    double& extent = bar.side ? cell.width : cell.height;
+    extent = CompactExtent(cells,available,extent,readable,g_settings.itemSpacing);
+    Wh_Log(L"[Classic auto] %.1f DIP available, %.1f readable minimum, cell %.1fx%.1f",
+        available,readable,cell.width,cell.height);
+    return cell;
+}
+
 static RECT Cell(Bar const& bar, ngl::Placement const& p) {
     RECT client{}; GetClientRect(bar.window, &client);
     int x = int((client.right - bar.total.width * bar.scale) / 2 +
@@ -5764,6 +5847,8 @@ static void Update(void* parameter) {
     Theme theme = CurrentTheme();
     contentChanged = contentChanged || theme != bar->theme;
     bar->theme = theme;
+    if (side && contentChanged && ngl::IsAutoSetting(g_settings.arrangement) &&
+        g_settings.fillOrder == ngl::FillOrder::Columns) layoutChanged = true;
     bar->count = count; bar->current = current; bar->names = std::move(names);
     bar->scale = scale; bar->side = side; bar->taskbarRect = rect;
     if (layoutChanged) {
@@ -5771,7 +5856,11 @@ static void Update(void* parameter) {
         bar->position = g_settings.win10Position;
         desktop_preview::Hide(); bar->hover = -1;
         if (bar->tooltip) { DestroyWindow(bar->tooltip); bar->tooltip = nullptr; }
-        ComputeButtonPlacements(count,bar->placements,bar->total);
+        bool compact = ngl::IsAutoSetting(g_settings.arrangement) &&
+            g_settings.fillOrder == ngl::FillOrder::Columns;
+        ngl::Size autoCell = compact ? AutoCell(*bar) : ngl::Size{};
+        ComputeButtonPlacements(count,bar->placements,bar->total,false,
+            compact ? &autoCell : nullptr);
         if (!Attach(*bar)) {
             Wh_Log(L"Classic tray attachment unavailable; retrying");
             DestroyWindow(window); return;

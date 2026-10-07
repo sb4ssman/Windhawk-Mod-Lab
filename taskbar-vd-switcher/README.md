@@ -5,9 +5,10 @@ A [Windhawk](https://windhawk.net) mod that adds clickable taskbar buttons — o
 ## Windows 10 compatibility (local test candidate)
 
 The Windows 10 backend targets the native 64-bit taskbar on builds 19041–19045
-(Windows 10 2004 through 22H2). The user accepted this local build for
-personal experimental use; appearance remains imperfect, and exhaustive
-edge/lifecycle testing is still outstanding. It uses the
+(Windows 10 2004 through 22H2). The previous local build was accepted for
+personal experimental use. The new compact automatic grid needs a live test;
+appearance remains imperfect and exhaustive edge/lifecycle testing is still
+outstanding. It uses the
 same desktop labels, arrangement, sizes, padding, offsets, Task View button,
 colors, fonts, and hover previews as the Windows 11 backend. Desktop creation,
 removal, renaming, and switches made elsewhere are checked every 250 ms.
@@ -45,11 +46,18 @@ The screenshots below show the Windows 11 backend.
 
 **Stacks and grids on Windows 10.** The same `Layout` → `Arrangement` field
 works here: `1, 2` stacks two desktops; `1, 2 | 3, 4` makes a 2×2 grid.
-Keep `auto` to fit rows to the taskbar's available height. Two 18 px buttons
-with the default 2 px spacing need 38 px, so set `Size` → `Button height` to
-18 px for a two-row stack on a typical 40 px taskbar, with vertical padding
-set to 0. A taller taskbar permits more rows at larger button sizes. Manual
-arrangements keep their written shape; they do not shrink automatically.
+With `auto` and **Fill columns first**, buttons can compact across the
+taskbar to fit a readable column or grid. The configured height is a preferred
+maximum on a horizontal taskbar; width is a preferred maximum on a side
+taskbar. With the default font and zero padding, two desktops can stack on a
+normal 40 px taskbar without manually reducing the default 22 px height.
+Four can form a 2×2 grid. Larger fonts, padding and a Task View sliver can
+reduce how many lines fit. A taller taskbar allows more lines; `auto` refits
+when it changes. **Fill rows first** keeps the configured button sizes.
+
+Manual arrangements keep their exact shape and sizes. For a manual two-row
+stack on a 40 px taskbar, use 18 px height, 2 px spacing and zero vertical
+padding: the group needs 38 px. Manual arrangements never shrink automatically.
 
 ![Three desktops with lower master button](assets/simple3wlowmaster.png)
 *Three desktops with the optional Task View button as a lower sliver.*
@@ -256,7 +264,7 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Arrangement | `auto` | `auto`, or an arrangement you write — see above |
-| Fill order | Fill rows first | Used by `auto` |
+| Fill order | Fill rows first | Used by `auto`; on Win10, columns first also compacts across taskbar thickness to fit readable lines |
 | Short row or column | Center | Used by `auto`; start, center, or end |
 | Newly created desktops | Add them after | Or leave them out; only applies to a written arrangement |
 
@@ -264,8 +272,8 @@ want the gap, like `(1 | 2 | 3), master[0,8]`.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Button width | 20 px | |
-| Button height | 22 px | |
+| Button width | 20 px | Preferred maximum for Win10 columns-first `auto` on side taskbars; otherwise exact |
+| Button height | 22 px | Preferred maximum for Win10 columns-first `auto` on horizontal taskbars; otherwise exact |
 | Button spacing | 2 px | Gap between buttons along each axis |
 | Task View button thickness | 14 px | Width as a column, height as a sliver; unused in the grid placement |
 | Task View button length | 0 px | 0 matches the desktop buttons exactly |

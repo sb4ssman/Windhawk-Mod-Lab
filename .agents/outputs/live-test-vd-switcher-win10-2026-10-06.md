@@ -3,8 +3,8 @@
 Replace the complete source in Windhawk with
 taskbar-vd-switcher/taskbar-vd-switcher.wh.cpp and compile. Back up settings
 from Textual mode first. This is a local experimental candidate for Windows
-10 Home 22H2 build 19045.7725 on Windhawk 1.7.3. User reports placement success for d88e5f1. The new alpha appearance
-candidate has compile/property checks only and still needs a visual live test. New init log: Classic Windows 10 tray backend selected.
+10 Home 22H2 build 19045.7725 on Windhawk 1.7.3. User accepted a6a7917 for personal experimental use. The NEW columns-first
+compact automatic grid still needs an exact-build human live test. New init log: Classic Windows 10 tray backend selected.
 
 1. Create three desktops. In Placement use Position (Windows 10 experimental),
    not the Windows 11 list. Test all three choices:
@@ -29,7 +29,14 @@ candidate has compile/property checks only and still needs a visual live test. N
    Click the center and edges of an idle button, not only the number; check
    name tooltips, previews and switching still work. Test an OS accent change
    without restarting the mod. High contrast follows system colors.
-   For two stacked desktops, Arrangement `1, 2`, button height 18 px, spacing
+   First use Arrangement `auto`, Fill columns first, default 22 px height,
+   default font, 2 px spacing and zero padding. Two desktops should stack in
+   one column on a 40 px taskbar; four should form a 2x2 grid. Increase font
+   size to verify it does not cram unreadable rows. Test vertical padding and
+   Task View slivers; automatic compaction must reserve their space first.
+   Increase taskbar height and check more lines fit; on side taskbars, width
+   is the constraint. Fill rows first should retain the configured sizes.
+   For a MANUAL stack, Arrangement `1, 2`, button height 18 px, spacing
    2 px, vertical padding 0: expected group height 38 px on a 40 px taskbar.
    For four, use `1, 2 | 3, 4`. Test `auto` and resize the taskbar: rows should
    refit while manual arrangements keep their written shape.
