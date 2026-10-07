@@ -2720,3 +2720,29 @@ validation with the corrected body; mod content is identical to the approved
 candidate. Refreshed /ai-review on the new head. Compatibility/validation
 results remain to be verified after this rerun.
 Folder corrected-body validation run 37602892190 completed successfully. Verified empty commit preserves exact approved mod content; both lab and fork clean.
+
+## 2026-10-07 - Live PR status recheck after publication
+
+All seven author PRs open, mergeable and 5/5 checks successful. Clock and Omni
+fresh reviews of cf47511f/ff574b0b say no blocking issues. Omni has no remaining
+suggestions; Clock requests PR-body correction and copying TextTrimming for
+plain generated rows, both nonblocking. Privacy and Folder fresh reviews still
+queued. Folder duplicate request refused because original is already pending.
+VD upstream remains 2.0; approved lab 2.1 not pushed. Tray unchanged; Tree Dump
+tabled. No new human approvals/maintainer response. Saved latest full reviews;
+no code edits, pushes, PR changes or comments during this read-only audit.
+
+## 2026-10-07 - Three publication loose ends handled
+
+User authorized all three loose ends. Omni #4855 /ready-for-reviewer posted
+(6035464578); confirmed waiting-for-reviewer. Clock PR description corrected:
+weak refs/integers without no_destroy, actual maxWidth/minSpacerWidth settings,
+AI authorship updated. Added TextTrimming copy locally; full preflight passed.
+Changed Clock candidate remains uncommitted/unpushed pending exact-build live
+test under the repo directive; no installed edits.
+VD approved 2.1 source passed full preflight unchanged, then pushed fork
+1ecc8597. One-file diff confirmed locally and on GitHub. Rewrote stale PR body
+for final 2.1 behavior and experimental Win10 limits, with changelog markers
+and current screenshots. Posted AI-disclosed reply 6035488678 and /ai-review
+6035489040. GitHub checks running. No human acceptance or merge claimed.
+User approved the Clock ellipsis candidate by screenshot. Pushed cb5d5049 (one-file diff) and requested fresh AI review. User explicitly requests lab commit/push and immediate fixes to new review findings.

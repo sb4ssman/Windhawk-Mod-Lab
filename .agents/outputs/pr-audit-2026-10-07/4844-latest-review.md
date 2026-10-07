@@ -1,6 +1,5 @@
-# Update Taskbar Virtual Desktop Switcher to v2.0
-
 Source: https://github.com/ramensoftware/windhawk-mods/pull/4844#issuecomment-5765488701
+Date: 2026-09-21T18:28:50Z
 
 <!-- ai-review sha=b5a2440389721b18580a24c75efd7a8272600313 -->
 

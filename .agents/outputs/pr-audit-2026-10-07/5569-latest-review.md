@@ -1,7 +1,3 @@
-# Update Tray Utility Customizer to v2.0
-
-Source: https://github.com/ramensoftware/windhawk-mods/pull/5569#issuecomment-5765182219
-
 <!-- ai-review sha=2f2a7da70fbb6f24393d7b7929327e69f2facbae -->
 
 ### Submission review

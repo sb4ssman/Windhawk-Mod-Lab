@@ -1,8 +1,4 @@
-# Add Tray Privacy Indicator Anchor v2.0
-
-Source: https://github.com/ramensoftware/windhawk-mods/pull/4843#issuecomment-5765692841
-
-<!-- ai-review sha=b77afb23adc010bb9af5b9cfb95be84d365bb6fd -->
+<!-- ai-review sha=8f5f1b08fdb1cba74b01ff9f786b966899cd3250 -->
 
 ### Submission review
 
@@ -14,18 +10,32 @@ Please address the following issues. The items in the collapsed sections are opt
 
 ---
 
-No blocking issues — looks good to merge. Both items from the previous round check out at b77afb2: suppression is now a single gated decision in `ApplyNativeSuppression` (5291–5312) — `suppressNativeIndicators && typeKnown && SyntheticSlotReplaces(type)` — so a native indicator is only collapsed while the bar is live and carries a slot for its type; the `Loaded` path only tracks when `g_syntheticGrid` exists after the injection attempt (5657), `ApplyStyle` returns before `ScanMainStack` when nothing was injected (5516), and an empty glyph is tracked with `typeKnown = false` and never guessed. `TaskbarRequiresStandDown` is called at the top of `InjectSyntheticIcons` (4730) so every injection path honours it, and `ApplyOnTaskbarThread` clears `g_taskbarRestarted` and calls `RemoveModUi()` before standing down (5544–5549). The settings block and the code still agree in both directions, the hook arrays name the modules they're resolved against, the `[[clang::no_destroy]]` holders are all released on the UI thread in `Wh_ModUninit`, and the worker thread is cancelled and joined before the image is freed. Line numbers refer to `mods/tray-privacy-indicator-anchor.wh.cpp` at b77afb2.
+No blocking issues — looks good to merge.
+
+All four items from the previous round check out at 8f5f1b0:
+- The text callback now records `type`/`typeKnown` before either `SetPrivacyActive` call (5664–5673).
+- The worker reads `g_syntheticBarLive` (6094), an atomic that is set and cleared next to `g_syntheticGrid` (5368, 5461).
+- The helpers listed last time are gone.
+- The visibility callback now refreshes the lease snapshot only for writes the mod didn't make. That is guarded by `g_ownVisibilityWrite`, which `ApplyNativeSuppression` sets around both its collapse and its restore (5559–5585, 5690–5696).
+
+The new edge-following code also tears down correctly:
+- Both `Wh_ModUninit` dispatches (6324, 6342) stop the `SizeChanged`/`CurrentStateChanged` subscriptions and the `g_edgeTimer` Tick on the UI thread, before anything else.
+- Every entry point (`OnTaskbarEdgeChanged` 5862, the tick 5870) bails out on `g_unloading`.
+- `g_edgeTimer` uses the bare `[[clang::no_destroy]]` form, which is correct for a nullable WinRT type. `g_edgeWatch` holds only weak refs and tokens, so it needs no attribute.
+
+For the maintainer: this round renamed the mod ID from `tray-privacy-indicator-anchor` to `privacy-indicator-anchor`. That's harmless because the mod isn't merged yet.
 
 <details><summary>Optional improvements</summary>
 <p>
 
 Minor polish — none of this affects users, so it's your call.
 
-- **A few helpers the PR comment says are gone are still here.** `ple::Lease::Abandon` / `Count` / `Empty` (1269–1272), `clr::ParseBrush` (596), the `Anchor` overload `lease_column::Acquire` (1857), and `Metrics::alongDip` (1595, written at 1617/1620 but never read) have no callers; `<winrt/Windows.UI.Text.h>` (414) has no user either. Not a problem, just correcting the note so the maintainer isn't looking for a removal that didn't happen.
+- **A failed settings dispatch leaves the mod half-updated.** `LoadSettings(next)` publishes `g_cameraHardwareDetectionEnabled`, `g_cameraItemEnabled` and `g_copilotItemEnabled` straight away (2689–2692). When the dispatch at 6390 doesn't run against a live window, `g_settings` keeps the old values (6403–6407). The worker then follows the new Camera/Copilot toggles while the bar keeps the old layout, and the only sign of it is a log line. `Wh_ModUninit` already handles the same failure by retrying once against `ResolveTaskbarWnd(nullptr)` (6339–6344). Doing that here would cover the realistic cause, a `Shell_TrayWnd` that was recreated between the resolve and the send. Alternatively, load the three atomics only when the copy is actually published.
 
-- **The text callback contradicts its own comment about `SetPrivacyActive` re-entry.** At 5391–5394 it calls `SetPrivacyActive(state->type, false)` and then writes `state->type` / `state->typeKnown` through the same pointer, while the comment at 5395 says the pointer must not be held across `SetPrivacyActive` and re-finds the entry for the next call. In practice `SetPrivacyActive` → `UpdateSyntheticState` only touches the mod's own elements and can't mutate `g_privacyStates`, so the pointer is fine — either drop the re-find loop or move the two writes before the first `SetPrivacyActive`, so the code and the comment agree.
-
-- **One cross-thread read of a non-atomic remains.** The phase-1 retry loop on the worker thread tests `g_syntheticGrid` (5782) while the UI thread assigns it (4816, 5105, 5197). It's a null-check on an aligned pointer, so harmless on x64, but since you moved `g_taskbarWnd`/`g_uiHostWnd` to atomics for the same reason, either mirror it into a `std::atomic<bool>` set where the bar is published, or drop the check — `ApplyStyle` already skips injection when the bar exists, so an extra retry is a no-op.
+- **A few leftovers:**
+  - `namespace dispatch = privacy_anchor_dispatch;` (1464) is still there alongside `ui_dispatch` (2475), even though the PR comment says the duplicate alias was removed.
+  - `LoadColorSetting` (2594) still has the `setting.get() ? … : L""` null check that was removed everywhere else.
+  - `Wh_ModInit` logs `v2.0` (6029). `Wh_Log(L"[Init] Privacy Anchor v" WH_MOD_VERSION)` can't go stale.
 
 </p>
 </details>
@@ -35,7 +45,9 @@ Minor polish — none of this affects users, so it's your call.
 
 Non-critical observations and ideas about the feature behavior itself.
 
-- **The restore snapshot is taken once and can go stale.** `TrackProperty` (5301–5302) records the native icon's `Visibility` local value the first time it is suppressed; every later write Windows makes to that property (the case the visibility callback at 5410–5422 exists for) is re-collapsed without updating the snapshot, and a Windows-initiated `Collapsed` write returns at 5416 without touching it either. So if Windows does toggle `Visibility` on these `IconView`s, unloading the mod while an indicator is in use restores the value it had at track time rather than the one Windows last set, and the native indicator can stay hidden (or show empty) until Windows' next state change. If that's observable on your build, the fix is small: in the visibility callback, when the write isn't the mod's own (a guard flag like the `restoring` one), refresh the snapshot's `localValue` from `ReadLocalValue` before re-collapsing. If Windows only ever toggles the glyph text and leaves `Visibility` alone, this doesn't apply.
+- **`leftOfStart`/`rightOfStart` on a side taskbar may be clipped to RootGrid's first row.** `start_placement::Acquire` spans the group across all of `RootGrid`'s columns (2421–2425) but leaves `Grid.Row`/`RowSpan` at their defaults. `Position` then moves the group along the lane with `Margin.Top` on a vertical taskbar (2353–2354). If `RootGrid` lays out by rows on a left or right edge, the group stays inside row 0, and a lead larger than that row's height gets clipped or pushed back. The README promises "above and below Start", and the side-taskbar screenshot shows only a tray position, so this is worth a quick check. If it does clip, also set `Grid::SetRowSpan(group, std::max(1, (int)rootGrid.RowDefinitions().Size()))` next to the column span.
+
+- **`Lease::Refresh` can capture the mod's own value if Windows animates `Visibility`.** The visibility callback fires on any change to the effective value. Animations and visual-state setters outrank local values, so when one of them shows the icon, `ReadLocalValue` still returns the mod's own `Collapsed`. `Refresh` then stores that `Collapsed` in the snapshot (1279), and unload would "restore" a hidden indicator. This only matters if Windows drives `IconView.Visibility` through a storyboard or visual state rather than direct writes. A cheap guard is to refresh only when the local value is unset or matches the new effective value (`unbox_value<Visibility>(local) == iconView.Visibility()`). A mismatch means a higher-precedence source made the change, and the snapshot should stay as it is.
 
 </p>
 </details>
@@ -43,48 +55,69 @@ Non-critical observations and ideas about the feature behavior itself.
 <details><summary>Code overview</summary>
 <p>
 
-For the maintainer: a map of the mod and what it touches outside its own process. Descriptive only — anything that needs a change is listed above. Line numbers refer to the mod source at commit `b77afb2`.
+For the maintainer: a map of the mod and what it touches outside its own process. Descriptive only — anything that needs a change is listed above. Line numbers refer to the mod source at commit `8f5f1b0`. This mod is new, so everything below is new.
 
 **Code regions**
 
-- Line 1–11: metadata — `explorer.exe`, `x86-64`; 13–244: README with gallery, the Arrangement grammar, placement and state/color docs; 246–404: settings block (Placement / Content / Layout / Size / Adjust / Surface / Behavior).
-- Line 406–458: includes and `using` directives.
-- Line 469–1188: self-contained components — clamped setting readers via `WindhawkUtils::StringSetting` (469–523), color-token parser (529–605), and the Arrangement expression: parser with nesting limit, memoized measure/arrange, auto-shape, append-missing policy (612–1188).
-- Line 1194–1278: property lease — snapshots a dependency property's local value before the first write and restores it (or `ClearValue`) on unload, per object or all.
-- Line 1283–1422: taskbar window discovery (`EnumWindows` filtered to this process, 1288) and UI-thread dispatch — transient `WH_CALLWNDPROC` thread hook plus a `RegisterWindowMessage` embedding `WH_MOD_ID`, message checked before `lParam` is trusted (1380–1420).
-- Line 1428–1544: `taskbarDllHooks` → `taskbar.dll` (`CTaskBand` vtable, `GetTaskbarHost`, `FrameHeight`, `_Decref`, `TrayUI::StartTaskbar` hook → rebuild callback), runtime-derived `FrameworkElement` offset, XamlRoot walk.
-- Line 1550–1636: taskbar metrics in DIPs and orientation (vertical → stand down); 1642–1945: tray slot lease (Grid column or StackPanel index held by a named zero-size marker, stale-marker recovery); 1951–2243: Start-adjacent placement (pushes `TaskbarFrameRepeater`, counter-shifts Start, follows `LayoutUpdated`).
-- Line 2270–2471: settings enums, `ModSettings` (fixed buffers, trivially destructible), `LoadSettings` parsing every `$options` value to an enum and publishing three atomics for the worker.
-- Line 2477–2645: globals — state atomics, `[[clang::no_destroy]]` XAML holders (bare WinRT types; `std::optional` for the lease/revoker/event containers), `g_privacyStates` (weak refs only).
-- Line 2660–2823: version-info helper, `GetSystemTrayModuleHandle` (SystemTray.dll → Taskbar.View.dll < 2604 → ExplorerExtensions.dll), exception logger, XAML tree helpers, privacy-glyph detection and the `MainStack` host filter.
-- Line 2829–3232: token resolution and `ComputePrivacyPlacements` (auto/manual arrangement with fallback + append), synthetic icon state — glow toggle, opacity/color per state, tooltips/automation names, settings URIs, `OpenSettingsForItem` (`ShellExecuteW` on tap), `SetPrivacyActive`.
-- Line 3241–4109: background monitors — `CheckMicBlockReason` (3241), `MicPrivacyMonitor` (`IMMNotificationClient` + `IAudioEndpointVolumeCallback`, unregister-then-detach under a lock, 3315), camera init cancellation globals (3501), `CameraPrivacyMonitor` (opt-in `MediaCapture` SharedReadOnly + `CameraOcclusionInfo`, backoff, 3530), `RegistryChangeMonitor` (`RegNotifyChangeKeyValue` thread-agnostic, backoff, access-denied → disabled for session, 3803), `DeviceStateMonitor` (`DeviceAccessInformation` + `DeviceWatcher`, 3992).
-- Line 4114–4502: state probes — camera block reason (WinRT access, SetupAPI presence/problem, ConsentStore), Copilot installed/active/blocked (AppModel registry + process snapshot + policy), location block reason (policy, `lfsvc`, ConsentStore), ConsentStore usage-record scan (`LastUsedTimeStop == 0`).
-- Line 4506–4568: `UpdatePrivacyStates` — refreshes the flagged domains on the worker and dispatches `UpdateSyntheticState` to the UI thread on change.
-- Line 4570–4726: XAML builders (glyph `TextBlock`, glow halos/rings with storyboards — only when glow is on), offset transform, `TaskbarRequiresStandDown` (4710).
-- Line 4728–5210: `InjectSyntheticIcons` — stand-down check, `SystemTrayFrameGrid` (Grid or StackPanel), build the bar with per-item slots/tooltips/`Tapped`, lease a tray slot or Start lane, publish `g_syntheticGrid` / `g_uiHostWnd` (with `UnwindPublishOnThrow`); `RemoveSyntheticIcons` / `RemoveModUi` (5118–5210) revoke, stop storyboards, remove the bar, release the lease.
-- Line 5221–5492: native indicator tracking — `UntrackPrivacyElement`, `SyntheticSlotReplaces` + `ApplyNativeSuppression` (new: the single collapse/restore decision with a re-entrancy guard), `ApplyPrivacyIndicatorBehavior` (walk to `InnerTextBlock`, text + visibility callbacks, `typeKnown`), `ScanMainStack`, `ClearPrivacyStates` (unregister, restore all snapshots, reset state).
-- Line 5498–5604: `ApplyStyle` / `ApplyOnTaskbarThread` (stand-down, rebuild handling, rescan, `RefreshAll`) / `ApplyStyleOnWindowThread`; `StopRetryThread` (signal, cancel camera init, `MsgWaitForMultipleObjects` join, close handles).
-- Line 5612–5710: hooks — `OnTaskbarRebuilt`, `IconView::IconView` hook registering a `Loaded` revoker (inject on first privacy icon, then track), `LoadLibraryExW` hook, `systemTrayModuleHooks` → `// SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll` (5686).
-- Line 5716–6075: `Wh_ModInit` (settings, taskbar.dll hooks, tray module hooks or kernelbase `LoadLibraryExW` hook), `Wh_ModAfterInit` (first apply + worker thread: 5× retry, then the event loop over stop/refresh/registry events with Copilot 60 s poll, 5 min reconciliation, 2 s Copilot-state debounce, monitor cleanup on exit), `Wh_ModUninit` (join worker, dispatch `RemoveModUi` + `optional::reset()` to the UI thread with a checked retry), `Wh_ModSettingsChanged` (load into a copy, publish on the taskbar thread, rebuild).
+- Line 1–11: metadata — `explorer.exe`, `x86-64`, links ole32/oleaut32/runtimeobject/version/setupapi/cfgmgr32/shell32.
+- Line 13–259: README — gallery, the Arrangement grammar (with order of operations), placement, taskbar position (native side edges supported, a taskbar rotated by another mod stands down), states/colors, notes on the camera monitor and native suppression.
+- Line 261–419: settings block (Placement / Content / Layout / Size / Adjust / Surface / Behavior).
+- Line 421–472: includes and `using` directives.
+- Line 474–609: components — clamped setting readers and the `$options` choice table via `WindhawkUtils::StringSetting`, and the color-token parser (hex / accent / transparent).
+- Line 611–1217: Arrangement expression — parser with a nesting limit, memoized measure/arrange, auto shape, `across` variant for side taskbars, append-missing policy.
+- Line 1219–1316: property lease — snapshots a dependency property's local value before the first write and restores it (or calls `ClearValue`) per object or for all. `Refresh` (1268–1283) re-reads a snapshot after an external write.
+- Line 1318–1459: taskbar window discovery (`EnumWindows` filtered to this process) and UI-thread dispatch through a transient `WH_CALLWNDPROC` hook plus a `RegisterWindowMessage` name that embeds `WH_MOD_ID`. The message is checked before `lParam` is trusted.
+- Line 1461–1581: `taskbarDllHooks` → `taskbar.dll` (`CTaskBand` vtable, `GetTaskbarHost`, `FrameHeight`, `_Decref`, `TrayUI::StartTaskbar` hook → rebuild callback). Also the runtime-derived `FrameworkElement` offset and the XamlRoot walk.
+- Line 1583–1834: taskbar metrics — `ReadDockedEdge` reads RootGrid's `DockingStates`; `GetMetrics` gives orientation, thickness in DIPs and a "rotated" flag (side-shaped while Windows reports a horizontal dock); `EdgeWatch` subscribes to TaskbarFrame `SizeChanged` (thickness/orientation only) and the `DockingStates` `CurrentStateChanged`.
+- Line 1836–2135: tray slot lease — a Grid column or StackPanel index held by a named zero-size marker, with stale-marker recovery.
+- Line 2137–2465: Start-adjacent placement — pushes `TaskbarFrameRepeater`, counter-shifts Start, follows `LayoutUpdated`. Works along x or y depending on the edge.
+- Line 2482–2693: settings enums, `ModSettings` (fixed buffers, trivially destructible), and `LoadSettings`, which parses every `$options` value into an enum and publishes three atomics for the worker.
+- Line 2695–2870: globals — state atomics, `[[clang::no_destroy]]` XAML holders (bare WinRT types; `std::optional` for the lease/revoker/event containers), `g_syntheticBarLive`, and `g_privacyStates` (weak refs only).
+- Line 2872–3048: version-info helper; `GetSystemTrayModuleHandle` (SystemTray.dll → Taskbar.View.dll before build 2604 → ExplorerExtensions.dll); exception logger; dispatch wrappers; XAML tree helpers; privacy-glyph detection and the `MainStack` host filter.
+- Line 3050–3214: layout glue — token resolution, `AvailablePrivacyRows` (counts lines across the taskbar's thickness, so width on a side taskbar), and `ComputePrivacyPlacements` (auto or written arrangement, parse-error fallback, append).
+- Line 3216–3468: synthetic icon state — glow toggle, opacity and color per state, tooltips and automation names, settings URIs, `OpenSettingsForItem` (`ShellExecuteW` on tap), `SetPrivacyActive`.
+- Line 3470–4345: background monitors:
+  - `CheckMicBlockReason`.
+  - `MicPrivacyMonitor` — `IMMNotificationClient` + `IAudioEndpointVolumeCallback`; unregisters, then detaches under a lock.
+  - Camera init cancellation globals.
+  - `CameraPrivacyMonitor` — opt-in `MediaCapture` in SharedReadOnly mode + `CameraOcclusionInfo`, with backoff.
+  - `RegistryChangeMonitor` — thread-agnostic `RegNotifyChangeKeyValue` with backoff.
+  - `DeviceStateMonitor` — `DeviceAccessInformation` + `DeviceWatcher`.
+- Line 4347–4738: state probes — camera block reason (WinRT access, SetupAPI presence/problem, ConsentStore), Copilot installed/active/blocked, location block reason, and the ConsentStore usage-record scan.
+- Line 4740–4804: `UpdatePrivacyStates` — refreshes the flagged domains on the worker and dispatches `UpdateSyntheticState` to the UI thread when something changed.
+- Line 4806–4935: XAML builders — glyph `TextBlock`, glow halos/rings with storyboards — plus `ApplyOffset`.
+- Line 4937–4987: edge globals (`g_edgeWatch`, `g_edgeTimer`) and `TaskbarRequiresStandDown` — reads the docked edge, starts the edge watch, sets `g_appliedSide`, stands down only on a rotated taskbar.
+- Line 4989–5474: `InjectSyntheticIcons` (stand-down check, build the bar with per-item slots/tooltips/`Tapped`, lease a tray slot or the Start lane, publish with `UnwindPublishOnThrow`) and `RemoveSyntheticIcons` / `RemoveModUi`.
+- Line 5476–5773: native indicator tracking:
+  - `UntrackPrivacyElement`.
+  - `SyntheticSlotReplaces` + `ApplyNativeSuppression` — the single collapse/restore decision, with the `g_ownVisibilityWrite` guard.
+  - `ApplyPrivacyIndicatorBehavior` — text and visibility callbacks, `typeKnown`, snapshot refresh.
+  - `ScanMainStack` and `ClearPrivacyStates`.
+- Line 5775–5916: `ApplyStyle` / `ApplyOnTaskbarThread` / `ApplyStyleOnWindowThread`; `OnTaskbarEdgeChanged` (150 ms one-shot `DispatcherTimer` → `RemoveModUi` + re-apply); `StopRetryThread` (signal, cancel camera init, `MsgWaitForMultipleObjects` join).
+- Line 5918–6022: hooks — `OnTaskbarRebuilt`, the `IconView::IconView` hook that registers a `Loaded` revoker, the `LoadLibraryExW` hook, and `systemTrayModuleHooks` → `// SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll` (5998).
+- Line 6024–6409: lifecycle entry points:
+  - `Wh_ModInit` — settings, taskbar.dll hooks, then the tray-module hooks or the kernelbase `LoadLibraryExW` hook.
+  - `Wh_ModAfterInit` — first apply plus the worker thread: 5 retries, then an event loop with a 60 s Copilot poll, 5 min reconciliation and a 2 s Copilot debounce.
+  - `StopEdgeFollowing` + `Wh_ModUninit` — joins the worker, then on the UI thread stops edge following, runs `RemoveModUi` and calls `reset()` on the optionals, with a checked retry.
+  - `Wh_ModSettingsChanged` — loads into a copy and publishes it on the taskbar thread.
 
 **Side effects of interest**
 
-- Line 3255–3278, 4194–4232, 4407–4446: registry read: `HKCU`/`HKLM\...\CapabilityAccessManager\ConsentStore\{location,microphone,webcam}` → `Value` ("Deny"), on each state refresh.
-- Line 4457–4502: registry read: every subkey (and `NonPackaged\*`) under those three ConsentStore keys in both hives → `LastUsedTimeStart` / `LastUsedTimeStop`, on each usage refresh.
-- Line 4374–4405: registry read: `HKLM\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors\DisableLocation` and `HKLM\SYSTEM\CurrentControlSet\Services\lfsvc\Service\Configuration\Status`.
-- Line 4334–4363: registry read: `HKCU`/`HKLM\Software\Policies\Microsoft\Windows\WindowsCopilot\TurnOffWindowsCopilot`, `HKCU\...\Explorer\Advanced\ShowCopilotButton`.
-- Line 4245–4309: registry read: enumerates `HKCU\Software\Classes\Local Settings\...\AppModel\Repository\Packages` and `HKLM\...\AppModel\Repository\Packages` for `Microsoft.Copilot_*` / `Microsoft.Windows.Ai.Copilot_*` → `PackageRootFolder` / `Path`, then **external file read**: `GetFileAttributesW` existence check on that package folder (4297). Debounced to one scan per 2 s of AppModel churn.
-- Line 5805–5865, 3935–3987: registry change notifications (`RegNotifyChangeKeyValue`, subtree, `REG_NOTIFY_THREAD_AGNOSTIC`) on 12 keys: the six ConsentStore keys, `HKCU`/`HKLM\Software\Policies\Microsoft`, `HKLM\...\Services\lfsvc`, `HKCU\...\Explorer\Advanced`, and both AppModel repositories; re-armed after every signal, backed off on failure. No registry writes anywhere.
-- Line 3280–3311, 3319–3331, 3459–3472: IPC: MMDevice COM (`MMDeviceEnumerator`, default capture endpoint state, `IAudioEndpointVolume` mute) — out-of-process audio service; registers `IMMNotificationClient` and `IAudioEndpointVolumeCallback`, unregistered in `Cleanup` before the worker exits.
-- Line 3998–4055, 4126–4127, 3244–3245: IPC: WinRT `DeviceAccessInformation` (mic/camera consent status + `AccessChanged`) and a `DeviceWatcher` over `VideoCapture` — out-of-process device/consent brokers; all tokens revoked in `Cleanup`.
-- Line 3709–3751: IPC: `MediaCapture::InitializeAsync` on the default camera in `SharedReadOnly` mode + `CameraOcclusionInfo::StateChanged` — out-of-process Frame Server; **opt-in** (`Behavior.CameraHardwareDetection`, default off), cancelled on unload, `Close()`d in `Cleanup`.
-- Line 4143–4186: other: SetupAPI camera class enumeration (`SetupDiGetClassDevs`, `SPDRP_FRIENDLYNAME`, `CM_Get_DevNode_Status`), on each camera state refresh — read-only.
-- Line 4316–4327: other: `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS)` process-list scan for four Copilot executables, once per minute while the Copilot icon is on.
-- Line 3213–3214: other: `ShellExecuteW(L"open", L"ms-settings:...")` — launches the Settings protocol handler, only on a user tap of a synthetic icon.
-- Line 1288–1305: other: `EnumWindows`, filtered to `GetCurrentProcessId()` + `Shell_TrayWnd` (read-only lookup).
-- Line 1391–1418: other: `SetWindowsHookExW(WH_CALLWNDPROC)` scoped to the taskbar thread of this process, installed and removed around a single `SendMessage`.
-- Line 1461–1462: other: `LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32)` (already loaded in Explorer; System32-restricted).
+- Line 3491–3514, 4429–4468, 4643–4682: registry read: `HKCU`/`HKLM\...\CapabilityAccessManager\ConsentStore\{microphone,webcam,location}` → `Value` ("Deny"), on each state refresh.
+- Line 4693–4738: registry read: every subkey (and `NonPackaged\*`) under those ConsentStore keys in both hives → `LastUsedTimeStart` / `LastUsedTimeStop`, on each usage refresh.
+- Line 4609–4642: registry read: `HKLM\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors\DisableLocation` and `HKLM\SYSTEM\CurrentControlSet\Services\lfsvc\Service\Configuration\Status`.
+- Line 4569–4606: registry read: `HKCU`/`HKLM\Software\Policies\Microsoft\Windows\WindowsCopilot\TurnOffWindowsCopilot`, `HKCU\...\Explorer\Advanced\ShowCopilotButton`.
+- Line 4481–4545: registry read: enumerates the HKCU and HKLM `AppModel\Repository\Packages` keys for `Microsoft.Copilot_*` / `Microsoft.Windows.Ai.Copilot_*` → `PackageRootFolder` / `Path`. Then **external file read**: a `GetFileAttributesW` existence check on that package folder (4533). Debounced to one scan per 2 s of AppModel churn.
+- Line 4171–4223, 6117–6177: registry change notifications (`RegNotifyChangeKeyValue`, subtree, thread-agnostic) on 12 keys — the six ConsentStore keys, `HKCU`/`HKLM\Software\Policies\Microsoft`, `HKLM\...\Services\lfsvc`, `HKCU\...\Explorer\Advanced`, and both AppModel repositories. Re-armed after every signal. No registry writes anywhere.
+- Line 3516–3548, 3551–3722: IPC: MMDevice COM (default capture endpoint state, `IAudioEndpointVolume` mute) — the out-of-process audio service. Registers `IMMNotificationClient` and `IAudioEndpointVolumeCallback`, both unregistered in `Cleanup` before the worker exits.
+- Line 3480–3481, 4228–4345, 4358–4371: IPC: WinRT `DeviceAccessInformation` (mic/camera consent status + `AccessChanged`) and a `DeviceWatcher` over `VideoCapture` — out-of-process device/consent brokers. All tokens are revoked in `Cleanup`.
+- Line 3930–3991: IPC: `MediaCapture::InitializeAsync` on the default camera in `SharedReadOnly` mode + `CameraOcclusionInfo::StateChanged` (Frame Server). **Opt-in** (`Behavior.CameraHardwareDetection`, default off), cancelled on unload, `Close()`d in `Cleanup`.
+- Line 4376–4428: other: SetupAPI camera class enumeration (`SetupDiGetClassDevs`, `SPDRP_FRIENDLYNAME`, `CM_Get_DevNode_Status`) on each camera state refresh — read-only.
+- Line 4548–4565: other: `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS)` process-list scan for four Copilot executables, once a minute while the Copilot icon is on.
+- Line 3447–3455: other: `ShellExecuteW(L"open", L"ms-settings:...")` — launches Settings, only when the user taps a synthetic icon.
+- Line 1325–1342: other: `EnumWindows`, filtered to `GetCurrentProcessId()` + `Shell_TrayWnd` (read-only lookup).
+- Line 1428–1455: other: `SetWindowsHookExW(WH_CALLWNDPROC)` scoped to the taskbar thread of this process, installed and removed around a single `SendMessage`.
+- Line 1498–1499: other: `LoadLibraryExW(L"taskbar.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32)` (already loaded in Explorer; restricted to System32).
 - Network access: none found. Persistent writes: none — every change is to the taskbar's live XAML tree and is reverted in `Wh_ModUninit`.
 
 </p>

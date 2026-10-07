@@ -1,7 +1,7 @@
 # Working Notes — Windhawk Mod Lab
 
 Tree Dump idea TABLED by user Oct 7. No credit/branding or rename wanted.
-Existing PR #5977 remains open; no closure was requested. VD approved, unpushed.
+Existing PR #5977 remains open; no closure was requested. VD 2.1 pushed.
 Next: Tray Utility preemptive review pass and fresh human live test.
 Privacy Anchor and Folder Menus exact candidates are live-test approved.
 User authorized lab push and publication of these last two on Oct 7; fork
@@ -11,13 +11,34 @@ Final preflight passed for both. Lab pushed at 85eec2b. PR titles/bodies and
 AI-disclosed replies updated; fresh /ai-review posted on both. GitHub checks
 were running at publication verification. Folder body lacked required changelog
 markers; corrected and triggered fresh checks with an empty commit. Verify rerun.
-VD remains approved but its upstream PR is not part of this pair.
+VD 2.1 subsequently published at 1ecc8597 with fresh AI review requested.
+
+## Three loose ends — Oct 7 current handoff
+
+OmniButton #4855 is waiting-for-reviewer after /ready-for-reviewer.
+VD #4844 published at 1ecc8597: one-file diff, 2.1 body/title, AI-disclosed
+resolution reply and /ai-review. GitHub checks running after push.
+Clock PR description corrected. Local CopyTextStyle now copies TextTrimming;
+SUBMISSION_PREFLIGHT_OK. Code uncommitted/unpushed pending fresh exact-build
+human live test: use a too-long plain row alongside a spacer row, confirm
+ellipsis matches the native clock and spacer alignment remains unchanged.
+Prior Clock approval does not cover this changed candidate.
+
+## Latest live PR audit — Oct 7
+
+All seven open PRs have 5/5 passing checks and are mergeable. No human review
+approval or new maintainer response. Clock and Omni fresh AI reviews say no
+blocking issues. Omni has no further suggestions; ready for human handoff.
+Clock has two nonblocking notes: stale PR-body claims and missing TextTrimming
+copy for generated plain rows. Both currently waiting-for-author. Privacy and
+Folder await fresh AI reviews; Folder duplicate request was refused because
+the first request is already queued. VD PR now 2.1, fresh review requested; Tray Utility pass/test pending; Tree Dump remains tabled.
 
 ## Current publication and test status — Oct 7
 
 Clock Spacer and OmniButton: exact candidates live-test approved, lab pushed
 at 2425bda, PRs pushed at cf47511f and ff574b0b respectively; replies and fresh
-/ai-review posted. Both waiting-for-ai-review. Both CI 5/5. Preserve the live-test gate for any subsequent changed build.
+/ai-review posted. Both fresh AI reviews returned no blocking issues; waiting-for-author. Both CI 5/5. Preserve the live-test gate for any subsequent changed build.
 
 VD Switcher is next: all latest reviewer findings verified addressed in lab
 2.1; reassembled corrected shared edge watcher. SUBMISSION_PREFLIGHT_OK,
@@ -26,7 +47,7 @@ Windows 11 human test, including hover previews; guide:
 outputs/live-test-vd-switcher-2026-10-07.md. Reply draft in PR audit folder.
 User gave VD Switcher the seal of approval after live testing. Supplied side
 taskbar screenshot added at the end of the Windows 11 gallery in both README
-copies. No VD push or installed changes. Other candidates still await live tests.
+copies. VD PR pushed at 1ecc8597; no installed changes. Other candidates still await live tests.
 Shared components updated; remaining adopters need reassembly in their passes.
 
 ## START HERE (Oct 7) - for the next session

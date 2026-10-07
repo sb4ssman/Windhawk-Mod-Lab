@@ -1,8 +1,7 @@
-# Add Taskbar Clock Spacer v1.1
+Source: https://github.com/ramensoftware/windhawk-mods/pull/4443#issuecomment-6034519848
+Date: 2026-10-07T08:56:29Z
 
-Source: https://github.com/ramensoftware/windhawk-mods/pull/4443#issuecomment-6027890634
-
-<!-- ai-review sha=85d9f69d454a9e857e147ead570f20a0252c0524 -->
+<!-- ai-review sha=cf47511f210c191b86a8911ca9264822ee0802f6 -->
 
 ### Submission review
 
@@ -16,35 +15,23 @@ Please address the following issues. The items in the collapsed sections are opt
 
 No blocking issues — looks good to merge.
 
-I checked this round's changes against the full file at `85d9f69`:
-- The `Text` property-changed callback is now guarded like the two hooks (lines 846–858).
-- `LoadSettings()` now runs on the taskbar thread inside the dispatch (lines 1148–1163).
-- `Wh_ModUninit` returns early when the tray module was never hooked (lines 1119–1120). That's safe because `g_states` can only be filled from the tray hooks, which exist only after `g_systemTrayModuleHooked` is set.
-- The retry loop stops as soon as there's no `Shell_TrayWnd` (lines 1129–1131).
-- `@description` reads as suggested.
+All of last round's notes are addressed in `cf47511`:
+- **Settings refresh.** Each line refresh in `Wh_ModSettingsChanged` is now guarded on its own (lines 1161–1168), so a throw no longer makes the dispatch report failure. Settings are loaded on the Windhawk thread only when there is no taskbar window at all (lines 1171–1174). If a window exists but the dispatch fails, the old settings are kept and a log line asks the user to save again (lines 1175–1179). Nothing writes `g_settings` off the UI thread while ticks can read it.
+- **Warning counter.** The zero-width counter is now a `SpacerState` field (line 397). It resets when the line has width (line 549), has no token (line 761), or is hidden (line 772), and on a settings change (line 1162). It stops counting at the threshold (lines 551–552), so other lines and monitors no longer add to it. The comment at lines 541–544 now gives the actual hook nesting.
+- **Hidden lines.** The README Limitations entry (lines 133–138) now matches the actual behavior: a line hidden before it's spaced stays hidden; after hiding an already-spaced line, or after Explorer starts, toggle this mod.
 
-Every `g_states` access still happens on the taskbar UI thread, all globals are safe at shutdown, and the unload path still unregisters the XAML callbacks on the owning thread. The two notes below are about the new hidden-line check and the warning counter. They concern how the feature behaves, not stability.
+The rest of the file is unchanged since last round. I re-checked it, and the earlier conclusions still hold:
+- All `g_states` access happens on the taskbar UI thread.
+- The globals are safe at process shutdown: `SpacerState` holds only weak refs and integers, and nothing uses `no_destroy`.
+- Unload unregisters the XAML callbacks on their owning thread before the image goes away.
+- Each module gets exactly one `HookSymbols` call, and the array's module comment matches the modules it's resolved against.
 
 <details><summary>Optional improvements</summary>
 <p>
 
 Minor polish — none of this affects users, so it's your call.
 
-- **The fallback in `Wh_ModSettingsChanged` can run while clock ticks are live (lines 1152–1162).** `RunFromWindowThread` returns `false` in two cases: when the dispatch never ran, and when the callback ran but threw (`InvokeUiCallback`, lines 264–272).
-  - If any `UpdateSpacerLine` in the lambda throws, `ReloadSettings()` runs a second time on the Windhawk thread while the taskbar thread reads `g_settings` and `g_zeroWidthTicks`.
-  - The lines after the one that threw aren't refreshed until their next tick.
-  - The comment at line 1158 assumes only the first case.
-
-  This only happens on a settings change and both loads write the same values, so it's harmless in practice. Guarding each line, as `ClearSpacerStates` already does, makes `false` mean only "didn't run":
-  ```cpp
-  for (auto& state : g_states) {
-      try {
-          UpdateSpacerLine(state);
-      } catch (...) {
-          Wh_Log(L"Refresh of one clock line failed; continuing");
-      }
-  }
-  ```
+- **The PR description no longer matches the code.** It still says "Namespace-scope XAML state is `[[clang::no_destroy]]`-guarded", but the mod deliberately uses no `no_destroy` (lines 399–403). It also mentions a "Line width override" setting, which doesn't exist; the settings are `maxWidth` and `minSpacerWidth`. The maintainer reads that text when picking up the PR, so it's worth updating before `/ready-for-reviewer`.
 
 </p>
 </details>
@@ -54,21 +41,7 @@ Minor polish — none of this affects users, so it's your call.
 
 Non-critical observations and ideas about the feature behavior itself.
 
-- **Hiding a line that is already spaced doesn't hide it (lines 763–767; README lines 133–134).** The new check relies on `sourceCollapsed` to tell "collapsed by this mod" apart from "collapsed by Taskbar Clock Customization". Once this mod has collapsed the block, that distinction is lost:
-  - When the user ticks *Hidden* in TCC, its settings change re-applies styles to the existing block through [`ApplyTextBlockStyles`](https://github.com/ramensoftware/windhawk-mods/blob/2f67edf76611c6f463382cfbd6c987a4d6ee9d6b/mods/taskbar-clock-customization.wh.cpp#L4715-L4728), which writes `Collapsed` over a block that is already `Collapsed`. Nothing changes and nothing can be observed.
-  - `sourceCollapsed` stays `true`, so the fast path keeps showing the generated panel.
-  - This is the order most users will follow: `%s%` already in the format, then *Hidden* turned on. In that case the README promise "stays hidden" doesn't hold.
-
-  The same can happen when Explorer starts. This mod hooks the implementation `DateTimeIconContent::OnApplyTemplate`. TCC hooks the `produce<…, IFrameworkElementOverrides>::OnApplyTemplate` ABI thunk that calls it ([TCC line 5730](https://github.com/ramensoftware/windhawk-mods/blob/2f67edf76611c6f463382cfbd6c987a4d6ee9d6b/mods/taskbar-clock-customization.wh.cpp#L5730)). So on a fresh template this mod always runs first, nested inside TCC's call to the original. If the text already contains `%s%` at that point, the block is collapsed before TCC applies *Hidden*.
-
-  Turning this mod off and on recovers the hidden line:
-  1. The restore clears `Visibility`.
-  2. TCC's *Hidden* callback re-collapses the block.
-  3. The new state then sees `Collapsed` without having caused it.
-
-  TCC gives no signal that tells its `Collapsed` apart from yours here. The simplest fix is to make the README sentence match what happens: a line hidden *before* this mod spaces it stays hidden; after hiding a line that's already spaced, turn this mod off and on.
-
-- **The "no spare width" warning can still fire spuriously, and its comment misstates the hook order (lines 536–554).** Because of the nesting described above, the order isn't undefined: on a fresh template this mod always reads the width before TCC sets `MaxWidth`. `g_zeroWidthTicks` is one global counter, not one per line. With both time and date lines spaced, each newly templated clock adds two zero-width evaluations, so a second monitor's clock can make the third and log the warning even though every line gets its width on the next tick. A counter field in `SpacerState` would make "three in a row" apply to each line. This is cosmetic: logging is off by default.
+- **Over-long generated rows are cut off, while the native block shows an ellipsis (lines 459–474, 530–532).** With *Max width* set, Taskbar Clock Customization gives the clock text blocks `TextTrimming::CharacterEllipsis` ([TCC line 4735–4737](https://github.com/ramensoftware/windhawk-mods/blob/2f67edf76611c6f463382cfbd6c987a4d6ee9d6b/mods/taskbar-clock-customization.wh.cpp#L4735-L4737)). `CopyTextStyle` doesn't copy `TextTrimming`. So a too-long unspaced row (the weather line, for example) is simply cut off at the edge, while the same text in TCC's native block ends with "…". That contradicts the comment at 530–532 ("clips … exactly like the native text block"). Adding `dst.TextTrimming(src.TextTrimming());` to `CopyTextStyle` makes plain rows match. Grid segments sit in `Auto` columns, so trimming has no effect on them.
 
 </p>
 </details>
@@ -76,53 +49,63 @@ Non-critical observations and ideas about the feature behavior itself.
 <details><summary>Code overview</summary>
 <p>
 
-For the maintainer: a map of the mod and what it touches outside its own process. Descriptive only — anything that needs a change is listed above. Line numbers refer to the mod source at commit `85d9f69`. This mod is new, so everything below is new.
+For the maintainer: a map of the mod and what it touches outside its own process. Descriptive only — anything that needs a change is listed above. Line numbers refer to the mod source at commit `cf47511`. This mod is new, so everything below is new.
 
 **Code regions**
 
 - Line 1–11: metadata — `@include explorer.exe`, `@architecture x86-64`, links `ole32`/`oleaut32`/`runtimeobject`/`version`.
-- Line 13–164: README:
-  - the two requirements: TCC installed, and a fixed clock width;
-  - "Try the built-in option first" (TCC's *Justified* alignment), and what `%s%` adds over it;
+- Line 13–168: README:
+  - two requirements: Taskbar Clock Customization (TCC) installed, and a fixed clock width;
+  - "Try the built-in option first", covering TCC's *Justified* alignment and what `%s%` adds;
   - the token table and `{spacer}` for the Weather format;
-  - setup, troubleshooting, settings, limitations (including the hidden-line sentence at 133–134), how it works, and the relationship to TCC.
-  - Screenshot hosted on `raw.githubusercontent.com`.
-- Line 166–181: settings block — `maxWidth` and `minSpacerWidth`, both numbers, both read in `LoadSettings`.
-- Line 183–256: includes and XAML `using` declarations; `FindChildRecursive` (depth-bounded DFS over the clock's own subtree); `FindCurrentProcessTaskbarWnd` (`EnumWindows` filtered to the current PID, returns `Shell_TrayWnd`).
-- Line 258–330: UI-thread dispatch, `RunFromWindowThread`:
-  - a `WH_CALLWNDPROC` hook on the taskbar thread, plus a message registered as `"Windhawk_RunFromWindowThread_" WH_MOD_ID` and sent with a synchronous `SendMessageW`;
-  - a `ran` flag so concurrent dispatches don't run twice; the hook is removed right after the send.
-- Line 336–398: settings (`LoadSettings`, clamped to 0–4000), `CurrentLayoutKey`, and globals:
-  - the `g_unloading`, `g_systemTrayModuleHooked` and `g_warnedNoElasticRoom` atomics;
+  - setup, troubleshooting, settings, limitations (the hidden-line workaround is at 133–138), how it works, and the relationship to TCC.
+  - The screenshot is on `raw.githubusercontent.com`.
+- Line 170–185: settings block — `maxWidth` and `minSpacerWidth`, both numbers, both read in `LoadSettings`.
+- Line 187–260: includes and XAML `using` declarations, then two helpers:
+  - `FindChildRecursive`: a depth-limited search of the clock's own subtree;
+  - `FindCurrentProcessTaskbarWnd`: `EnumWindows` filtered to the current PID, returning `Shell_TrayWnd`.
+- Line 262–334: UI-thread dispatch (`RunFromWindowThread`). It installs a `WH_CALLWNDPROC` hook on the taskbar thread, registers a message named `"Windhawk_RunFromWindowThread_" WH_MOD_ID`, and sends it synchronously with `SendMessageW`. A `ran` flag stops a callback from running twice when two dispatches overlap. The hook is removed right after the send.
+- Line 340–403: settings and globals:
+  - `LoadSettings` (values clamped to 0–4000) and `CurrentLayoutKey`;
+  - the atomics `g_unloading`, `g_systemTrayModuleHooked` and `g_warnedNoElasticRoom`;
   - the token constants `%s%` and `{spacer}`;
-  - `SpacerState`, which holds weak refs and integers, and the `g_states` vector.
-- Line 404–554: token search and splitting (`FindNextSpacer`, `SplitOnSpacer`, `SplitLines`), plus helpers:
-  - `CopyTextStyle` copies font, color, alignment and line height;
-  - `ApplySegmentAlignment` puts the first segment on the left, the last on the right and the rest in the center;
-  - `EffectiveLineWidth` takes the mod's `maxWidth`, else TCC's `StackPanel.MaxWidth`, else 0;
-  - width pin and cap helpers, and the "no elastic room" log with its consecutive-evaluation counter.
-- Line 560–692: `BuildSpacerGrid` / `BuildLineElement` build the Auto/Star column grid, or a plain `TextBlock` for a line without a token. The in-place fast path (`UpdateLineElementText` / `UpdateGeneratedPanelText`) rewrites text, style and width when the shape is unchanged.
-- Line 701–811: `CollapseSourceTextBlock` (zero size and `Collapsed`), `RestoreSourceTextBlock` (`ClearValue` on the same six properties, only for a block the mod collapsed), `RemoveGeneratedPanel`, and `UpdateSpacerLine`, the per-line driver:
-  - no token → remove the panel and restore the source block;
-  - block collapsed by someone else → skip (763–767);
-  - otherwise the fast path, or rebuild the vertical `StackPanel` and insert it at the original's index in TCC's shared panel.
-- Line 817–882: registration — `SetupSpacerForTextBlock` (dedupe, prune expired entries, record then build, register a guarded `TextProperty` changed callback); `ApplySpacerToDateTimeContent` finds `TimeInnerTextBlock` and `DateInnerTextBlock` and requires a `StackPanel` parent.
-- Line 888–1015: symbol hooks and module selection:
-  - `DateTimeIconContent::OnApplyTemplate` (implementation, not the ABI thunk): calls the original, QIs `pThis[1]` to `FrameworkElement`, applies.
-  - `BadgeIconContent::get_ViewModel` (optional): gated on runtime class `SystemTray.DateTimeIconContent` and `IsLoaded()`.
-  - `GetSystemTrayModuleHandle` picks `SystemTray.dll`; else `Taskbar.View.dll` only when its file version is below 2604 (otherwise `nullptr`, so `ExplorerExtensions.dll` isn't picked by mistake); else `ExplorerExtensions.dll`.
-  - One `HookSymbols` call, with the array declared `// SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll`. `TryHookSystemTrayModule` uses an `exchange` guard and then `Wh_ApplyHookOperations`.
-- Line 1020–1035: `LoadLibraryExW` hook (late-load path) — once a loaded module matches `GetSystemTrayModuleHandle()`, the tray hooks are installed.
-- Line 1047–1067: `ClearSpacerStates` — for each entry, guarded separately: unregister the callback (token zeroed), restore the source block, remove the generated panel; then clear the vector.
-- Line 1073–1163: lifecycle:
-  - `Wh_ModInit` hooks the tray module if it's loaded, else hooks `LoadLibraryExW` in kernelbase via `GetProcAddress`;
-  - `Wh_ModAfterInit` retries the tray hook;
-  - `Wh_ModUninit` sets `g_unloading`, returns early when never hooked, and otherwise dispatches `ClearSpacerStates` to the taskbar thread, up to 5×100 ms while a window exists;
-  - `ReloadSettings` + `Wh_ModSettingsChanged` reload settings and refresh every line on the taskbar thread, falling back to a direct load.
+  - `SpacerState` (weak refs, token, collapse flag, per-line zero-width counter) and the `g_states` vector.
+- Line 409–560: text handling and layout helpers:
+  - splitting text into lines and segments (`FindNextSpacer`, `SplitOnSpacer`, `SplitLines`);
+  - `CopyTextStyle` (font, color, alignment, line height);
+  - `ApplySegmentAlignment` (first segment left, last right, middle ones centered);
+  - `EffectiveLineWidth`: this mod's `maxWidth`, else TCC's `StackPanel.MaxWidth`, else 0;
+  - helpers that pin the panel width and cap row widths;
+  - `WarnIfNoElasticRoom`: a one-time log after three zero-width evaluations of the same line.
+- Line 567–698: `BuildSpacerGrid` / `BuildLineElement` build a grid of `Auto` text columns and `Star` gap columns, or a plain `TextBlock` for a line without a token. `UpdateLineElementText` / `UpdateGeneratedPanelText` are the fast path: when the shape is unchanged, they rewrite text, style and width in place.
+- Line 707–819: source-block handling and the per-line driver:
+  - `CollapseSourceTextBlock` sets zero size and `Collapsed`;
+  - `RestoreSourceTextBlock` clears the same six properties, but only on a block this mod collapsed;
+  - `RemoveGeneratedPanel`;
+  - `UpdateSpacerLine`: with no token, it removes the panel and restores the block. If someone else collapsed the block, it skips the line (770–775). Otherwise it takes the fast path, or rebuilds a vertical `StackPanel` and inserts it at the original block's position in TCC's shared panel.
+- Line 825–890: registration:
+  - `SetupSpacerForTextBlock` skips duplicates, drops expired entries, records the state, builds the panel, then registers a guarded `TextProperty` change callback;
+  - `ApplySpacerToDateTimeContent` finds `TimeInnerTextBlock` and `DateInnerTextBlock`, and requires a `StackPanel` parent.
+- Line 896–1023: symbol hooks and module selection:
+  - `DateTimeIconContent::OnApplyTemplate`, hooked on the implementation rather than the ABI thunk: calls the original, queries `pThis[1]` for `FrameworkElement`, then applies the spacer;
+  - `BadgeIconContent::get_ViewModel` (optional): acts only when the runtime class is `SystemTray.DateTimeIconContent` and `IsLoaded()` is true;
+  - `GetSystemTrayModuleHandle` picks `SystemTray.dll` first, then `Taskbar.View.dll` (only below version 2604; at 2604+ it returns `nullptr`), then `ExplorerExtensions.dll`;
+  - a single `HookSymbols` call on an array commented `// SystemTray.dll, Taskbar.View.dll, ExplorerExtensions.dll`; `TryHookSystemTrayModule` uses an `exchange` guard, then `Wh_ApplyHookOperations`.
+- Line 1028–1043: `LoadLibraryExW` hook for when the tray module loads late — once the loaded module matches `GetSystemTrayModuleHandle()`, the tray hooks are installed.
+- Line 1055–1075: `ClearSpacerStates` — for each entry, separately guarded: unregister the callback (and zero its token), restore the source block, remove the generated panel. Then it clears the vector.
+- Line 1081–1181: Windhawk entry points:
+  - `Wh_ModInit` hooks the tray module if it's already loaded; otherwise it hooks kernelbase's `LoadLibraryExW`, found with `GetProcAddress`;
+  - `Wh_ModAfterInit` tries the tray hook again;
+  - `Wh_ModUninit` sets `g_unloading` and returns early if the tray module was never hooked. Otherwise it runs `ClearSpacerStates` on the taskbar thread, retrying up to 5 times at 100 ms intervals while the window exists;
+  - `ReloadSettings` and `Wh_ModSettingsChanged`: settings are reloaded and every line refreshed on the taskbar thread. Settings are loaded directly only when there's no taskbar window.
 
 **Side effects of interest**
 
-- None found — the mod hooks two SystemTray symbols (and kernelbase `LoadLibraryExW` until the tray module loads) and edits only its own process's taskbar XAML tree. Its `EnumWindows` is filtered to the current PID, and its `WH_CALLWNDPROC` hook and registered message target only this process's own taskbar thread. It does no file, registry or network access, uses no IPC, and changes no system settings.
+- None found. Everything the mod does stays inside its own process:
+  - It hooks two SystemTray symbols, plus kernelbase `LoadLibraryExW` until the tray module loads.
+  - It edits only this process's own taskbar XAML tree.
+  - Its `EnumWindows` is filtered to the current PID, and its `WH_CALLWNDPROC` hook and registered message target only this process's taskbar thread.
+  - It does no file, registry or network access, uses no IPC, and changes no system settings.
 
 </p>
 </details>

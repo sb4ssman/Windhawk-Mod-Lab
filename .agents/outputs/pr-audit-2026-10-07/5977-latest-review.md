@@ -1,6 +1,5 @@
-# Add Windhawk-Mod-Lab Tool: Taskbar Tree Dump v1.0
-
 Source: https://github.com/ramensoftware/windhawk-mods/pull/5977#issuecomment-6030998612
+Date: 2026-10-07T04:34:28Z
 
 <!-- ai-review sha=76153d542e986d0094db4670c22455bcc886da60 -->
 
