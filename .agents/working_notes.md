@@ -576,3 +576,7 @@ pushes, PR edits, installed-setting edits or process changes this session.
 - The oversized edit command was rejected, then the user explicitly directed
   reasonable patches. Patches and short named helper scripts completed the work.
   Do not report Folder Menus as permission-blocked.
+## Windows 10 privacy audit - Oct 7
+
+Node1: no raw leaked dumps found in 1,178 retained Git blobs, references, reflogs, recovery files, or filename scans of B:, E: and the user profile. Checkout matches scrubbed origin/main. Nothing deleted. Inaccessible folders and the cached old public commit remain unverified.
+
