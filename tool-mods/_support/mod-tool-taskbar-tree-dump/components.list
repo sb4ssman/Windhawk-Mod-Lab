@@ -1,5 +1,5 @@
 # Windhawk-Mod-Lab Tool: Taskbar Tree Dump - a tool for mod authors.
-#   python _templates/assemble.py tool-mods/mod-tool-taskbar-tree-dump
+#   pwsh tool-mods/_support/check-tool.ps1 mod-tool-taskbar-tree-dump  (stages, assembles, preflights)
 
 prefix: tree_dump
 

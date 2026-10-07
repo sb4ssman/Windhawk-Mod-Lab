@@ -4,3 +4,6 @@
 # Work on windhawk-mods in the real fork at t:/Github/sb4ssman/windhawk-mods.
 /.tmp-windhawk-mods/
 /windhawk-mods/
+
+# Raw tree dumps contain window titles, e-mail addresses and other personal text.
+/_research/tree-dumps/

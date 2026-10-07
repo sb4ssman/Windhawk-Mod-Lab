@@ -1,6 +1,6 @@
 # Windhawk-Mod-Lab Tool: Taskbar Tree Dump — publish
 
-State (2026-10-06): live-tested by the user (final identity set Oct 6:
+State (2026-10-06): SUBMITTED as PR #5977; live-tested by the user (final identity set Oct 6:
 `@id` `mod-tool-taskbar-tree-dump`, `@name` "Windhawk-Mod-Lab Tool: Taskbar
 Tree Dump"). Fork branch `add-mod-tool-taskbar-tree-dump` (local, one commit
 `76153d54` on `upstream/main`, one-file diff verified). NOT pushed; no PR.

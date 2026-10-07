@@ -15,7 +15,7 @@ table, that other thing is wrong and is what gets corrected.
 | taskbar-vd-switcher | `taskbar-vd-switcher` | Taskbar Virtual Desktop Switcher |
 | tray-utility-customizer | `tray-utility-customizer` | Tray Utility Customizer |
 | taskmanager-tail | `task-manager-tail` | Task Manager Tail |
-| tool-mods/mod-tool-taskbar-tree-dump | `mod-tool-taskbar-tree-dump` | Windhawk-Mod-Lab Tool: Taskbar Tree Dump |
+| tool-mods/ (flat file) | `mod-tool-taskbar-tree-dump` | Windhawk-Mod-Lab Tool: Taskbar Tree Dump |
 
 Read from each mod's source on 2026-09-24. The tree-dump tool's identity was
 set by the user on 2026-10-06; tools for mod authors live under `tool-mods/`

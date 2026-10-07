@@ -25,7 +25,7 @@ double-height taskbars with room for two-row tray controls.
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [tool-mods/mod-tool-taskbar-tree-dump/](tool-mods/mod-tool-taskbar-tree-dump/) | v1.0, unpublished | Writes the Windows 11 taskbar's XAML element tree to a text or JSON file - on load, whenever the taskbar moves, resizes or is rebuilt, and on demand. Read-only |
+| [tool-mods/mod-tool-taskbar-tree-dump.wh.cpp](tool-mods/mod-tool-taskbar-tree-dump.wh.cpp) | v1.0, PR #5977 | Writes the Windows 11 taskbar's XAML element tree to a text or JSON file - on load, whenever the taskbar moves, resizes or is rebuilt, and on demand. Read-only |
 
 ## Repository Layout
 

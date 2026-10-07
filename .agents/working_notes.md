@@ -1,5 +1,44 @@
-<<<<<<< HEAD
 # Working Notes — Windhawk Mod Lab
+
+
+## TOP HANDOFF - future settings UI, then return to Windows 11
+
+Keep [_templates/dynamic-setting-options.h](../_templates/dynamic-setting-options.h)
+and [its adoption guide](../_templates/recipes/windhawk-2-dynamic-settings.md)
+ready for the new Windhawk release. Installed stable is 1.7.3: the current VD
+candidate uses separate Win10/Win11 position lists. Recheck official release
+and schema and test the new UI before family-wide adoption.
+
+User direction: finish the surgical Win10 VD Switcher experiment here, then
+return to Win11 to finish fixing/testing and publishing the family. Oct 6
+follow-up explicitly requires clock/notification placements and reliable
+space restoration, superseding the previous placement deferral.
+
+## Win10 experimental checkpoint accepted - return to Windows 11
+
+User accepted a3c43a1 on Oct6, supplied the final grid screenshot, and explicitly
+authorized README updates, commit and push to the lab. Current Win10 pass is
+complete. Keep support experimental; appearance and exhaustive side/lifecycle
+coverage remain limitations. Do not expand this pass unless requested.
+Header stays2.1. This lab push does not update any upstream Windhawk PR.
+
+The Win10 screenshot is assets/win10-experimental-grid.png, at the top of
+the root catalog, mod README and embedded Windhawk README. It demonstrates
+three desktops plus enabled in-grid Task View, four equal cells.
+Reference: [implementation notes](knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md)
+and [real-font regression](tools/test-vd-native-layout.py).
+
+## Windows 11 family next
+
+Resume 2.1 native-edge fixes and fresh live tests. VD Switcher needs a Win11
+regression test, including hover previews (shared native preview helper).
+Use [the Oct 4 guide](outputs/live-test-2026-10-04.md), reconciled against the
+latest literal-layout rule: written shapes, nudges, offsets and screen-named
+positions are literal; only auto adapts. Tree-dump tool: identity settled (`mod-tool-`), flat `tool-mods/`, live-tested; see the Oct 6 entry below. Preserve identities and the human-test push gate.
+
+Older detail: [preserved handoff](knowledge/lab-handoff-before-win11-return-2026-10-06.md)
+and [work log](work_log.md); reconcile git/PR state before trusting old claims.
+
 
 Reconciled 2026-09-09 against git, live GitHub, installed sources/settings and
 Windhawk process status. Historical details and all deferred work remain in
@@ -18,27 +57,30 @@ Both live-tested by the user (installed sources == lab, verified by diff).
 - Next: when the bot reviews land, save them and verify each finding before
   acting. `/ready-for-reviewer` only on a clean round.
 - Tree dump (`mod-tool-taskbar-tree-dump`, "Windhawk-Mod-Lab Tool: Taskbar
-  Tree Dump" v1.0): LIVE-TESTED Oct 6 and ready to publish; NOT pushed.
-  Plan + PR body: [outputs/tree-dump-publish.md](outputs/tree-dump-publish.md).
-  - Test results verified from the dump files: load dump; bottom → top → left →
-    right → bottom each dumped settled with the same root; JSON valid with no
-    duplicate keys; Label and Subtree (`ControlCenterButton`) and Include text
-    work. Disable not confirmed.
-  - Identity SETTLED by the user (their installed file, Oct 6):
-    `@id` `mod-tool-taskbar-tree-dump`, `@name` "Windhawk-Mod-Lab Tool:
-    Taskbar Tree Dump"; recorded in [mod-identity.md](mod-identity.md). Lab
-    folder renamed to `tool-mods/mod-tool-taskbar-tree-dump/` (folder, file
-    and `@id` match, so assemble/preflight/sync-readme keep working). The
-    user once described flat files in `tool-mods/` with no subfolders; that
-    would break those scripts, so it was not done — ask before changing.
-  - Installed source == lab except three display strings renamed after the
-    test (dump header, JSON `"tool"`, init log). Preflight OK.
-  - Fork branch `add-mod-tool-taskbar-tree-dump`: one commit `76153d54` on
-    `upstream/main`, one-file diff verified, unpushed. Stale local branch
+  Tree Dump" v1.0): SUBMITTED Oct 6 as PR #5977 (branch
+  `add-mod-tool-taskbar-tree-dump`, commit `76153d54`, one-file diff). The PR
+  text is in [outputs/tree-dump-publish.md](outputs/tree-dump-publish.md).
+  - Live-tested by the user Oct 6 (dump files verified): load dump; bottom →
+    top → left → right → bottom each dumped settled with the same root; JSON
+    valid, no duplicate keys; Label, Subtree and Include text work. Disable
+    not confirmed. The PR file differs from the tested build only by four
+    display strings (README title, dump header, JSON `"tool"`, init log),
+    which the user accepted.
+  - Identity (user, Oct 6): `@id` `mod-tool-taskbar-tree-dump`, `@name`
+    "Windhawk-Mod-Lab Tool: Taskbar Tree Dump"; see [mod-identity.md](mod-identity.md).
+  - LAYOUT (user, Oct 6): `tool-mods/` is FLAT - one `mod-tool-<name>.wh.cpp`
+    per tool. README.md and components.list live in
+    `tool-mods/_support/<id>/`; `pwsh tool-mods/_support/check-tool.ps1 <id>`
+    stages them with the source and runs assemble + preflight (the lab's
+    scripts want all three in one folder). Folders for tests/extras are fine.
+  - Next: CI on #5977, then `/ai-review` from PowerShell; save the bot's
+    review and verify each finding before acting. Root README says
+    "unpublished" - change it to the PR number. Stale local fork branch
     `add-mod-lab-taskbar-tree-dump` can be deleted.
-  - Next: user reinstalls the final lab file and confirms → push, `gh pr
-    create` from PowerShell, `/ai-review`. Root README says "unpublished" —
-    update to the PR number then.
+  - PRIVACY LEAK, found Oct 6: the merge commit `e12209f` added
+    `_research/tree-dumps/` (window titles, the user's e-mail address) to the
+    PUBLIC lab repo and it was pushed. Removed from the tree and gitignored;
+    still in history until the user decides on a history rewrite.
 - Privacy Anchor, VD Switcher, Folder Menus, Tray Utility 2.1: still need the
   user's live test; their round-6 replies are drafted in
   `_research/ai-reviews-2026-09-21/replies/` (OmniButton's needed rewriting
@@ -116,7 +158,7 @@ Progress (Oct 4):
   preflight OK, untested.
 - **Tree-dump tool to be PUBLISHED** (user, Oct 6) as "Mod-Lab: Taskbar
   Tree Dump" (name set by user). Polished to v1.0, moved Oct 6 to
-  [tool-mods/mod-tool-taskbar-tree-dump/](../tool-mods/mod-tool-taskbar-tree-dump/),
+  [tool-mods/mod-tool-taskbar-tree-dump.wh.cpp](../tool-mods/mod-tool-taskbar-tree-dump.wh.cpp),
   `SUBMISSION_PREFLIGHT_OK`, untested since the
   rewrite: configurable output folder (env vars, default
   `%USERPROFILE%\Documents\Taskbar Tree Dumps`), text/JSON, subtree filter,
@@ -141,7 +183,7 @@ Progress (Oct 4):
   Privacy Anchor PR rename, push, reply on #5568/#5530, `/ai-review`.
 
 Next (superseded): user runs the tree-dump diagnostic
-(now [tool-mods/mod-tool-taskbar-tree-dump/](../tool-mods/mod-tool-taskbar-tree-dump/), writes to
+(now [tool-mods/mod-tool-taskbar-tree-dump.wh.cpp](../tool-mods/mod-tool-taskbar-tree-dump.wh.cpp), writes to
 `_research/tree-dumps/`) at all four edges. Then shared components (edge
 detection, edge transform, edge/size watcher, narrowed stand-down, side-taskbar
 anchors), then mods in order: OmniButton, Tray Utility, Privacy Anchor,
@@ -508,55 +550,3 @@ pushes, PR edits, installed-setting edits or process changes this session.
 - The oversized edit command was rejected, then the user explicitly directed
   reasonable patches. Patches and short named helper scripts completed the work.
   Do not report Folder Menus as permission-blocked.
-=======
-# Working Notes - Windhawk Mod Lab
-
-## TOP HANDOFF - future settings UI, then return to Windows 11
-
-Keep [_templates/dynamic-setting-options.h](../_templates/dynamic-setting-options.h)
-and [its adoption guide](../_templates/recipes/windhawk-2-dynamic-settings.md)
-ready for the new Windhawk release. Installed stable is 1.7.3: the current VD
-candidate uses separate Win10/Win11 position lists. Recheck official release
-and schema and test the new UI before family-wide adoption.
-
-User direction: finish the surgical Win10 VD Switcher experiment here, then
-return to Win11 to finish fixing/testing and publishing the family. Oct 6
-follow-up explicitly requires clock/notification placements and reliable
-space restoration, superseding the previous placement deferral.
-
-## Win10 experimental checkpoint accepted - return to Windows 11
-
-User accepted a3c43a1 on Oct6, supplied the final grid screenshot, and explicitly
-authorized README updates, commit and push to the lab. Current Win10 pass is
-complete. Keep support experimental; appearance and exhaustive side/lifecycle
-coverage remain limitations. Do not expand this pass unless requested.
-Header stays2.1. This lab push does not update any upstream Windhawk PR.
-
-The Win10 screenshot is assets/win10-experimental-grid.png, at the top of
-the root catalog, mod README and embedded Windhawk README. It demonstrates
-three desktops plus enabled in-grid Task View, four equal cells.
-Reference: [implementation notes](knowledge/taskbar-vd-switcher-win10-tray-reservation-2026-10-06.md)
-and [real-font regression](tools/test-vd-native-layout.py).
-
-## Windows 11 family next
-
-Resume 2.1 native-edge fixes and fresh live tests. VD Switcher needs a Win11
-regression test, including hover previews (shared native preview helper).
-Use [the Oct 4 guide](outputs/live-test-2026-10-04.md), reconciled against the
-latest literal-layout rule: written shapes, nudges, offsets and screen-named
-positions are literal; only auto adapts. Tree-dump tool identity/flat-layout redesign is pending; do not publish
-until settled, and retain its remaining live-test requirements. Preserve identities and the human-test push gate.
-
-Older detail: [preserved handoff](knowledge/lab-handoff-before-win11-return-2026-10-06.md)
-and [work log](work_log.md); reconcile git/PR state before trusting old claims.
-
-## Remote Windows 11 work to reconcile next
-
-The merged remote handoff reports Oct6 updates to OmniButton2.1 and Clock
-Spacer1.1; next, reconcile PR/fork state and check the requested bot reviews.
-Tree dump has the NaN size-text fix, but its live retest, Label/Subtree/disable
-checks and user-directed identity/flat-tool-layout redesign remain open.
-Do not publish it until the identity is settled. Do not commit raw tree dumps
-containing personal window titles. Details and original remote instructions:
-[preserved remote handoff](knowledge/lab-win11-remote-handoff-2026-10-06.md).
->>>>>>> 36b49788486d790e8ac33e937fdfc4b9949f7334
