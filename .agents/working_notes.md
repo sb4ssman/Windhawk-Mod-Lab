@@ -77,10 +77,19 @@ Both live-tested by the user (installed sources == lab, verified by diff).
     review and verify each finding before acting. Root README says
     "unpublished" - change it to the PR number. Stale local fork branch
     `add-mod-lab-taskbar-tree-dump` can be deleted.
-  - PRIVACY LEAK, found Oct 6: the merge commit `e12209f` added
-    `_research/tree-dumps/` (window titles, the user's e-mail address) to the
-    PUBLIC lab repo and it was pushed. Removed from the tree and gitignored;
-    still in history until the user decides on a history rewrite.
+  - PRIVACY LEAK, found and SCRUBBED Oct 6: merge commit `e12209f` had added
+    `_research/tree-dumps/` (window titles, the user's e-mail address, from
+    the Oct 4 dumps taken with text content on) to the PUBLIC lab repo. The
+    user authorized a history rewrite (index-filter over `e12209f^..main`) and
+    ran it plus the force-push themselves, because the dcg hook gates history
+    rewrites: `origin/main` is now `bac61b3`, verified free of dumps and
+    titles. Earlier commits kept their SHAs. GitHub still serves the old SHA
+    `e12209f` directly until Support purges its cache. The folder is
+    gitignored. The Win10 clone must `git fetch && git reset --hard
+    origin/main`. OPEN: `omnibutton-customizer/archive/vertical-omnibutton-v2-fixed.wh.cpp`
+    has `@author t.miller85@gmail.com` (public since May 10); the user has not
+    yet said whether to scrub it. Lesson: never `git add -A` after a merge
+    without reading what it stages.
 - Privacy Anchor, VD Switcher, Folder Menus, Tray Utility 2.1: still need the
   user's live test; their round-6 replies are drafted in
   `_research/ai-reviews-2026-09-21/replies/` (OmniButton's needed rewriting
