@@ -1,5 +1,9 @@
 # Working Notes — Windhawk Mod Lab
 
+## CURRENT - October 8: all seven user-facing mods published
+
+Verified upstream main: five taskbar customizers at 2.1; Clock Spacer and Task Manager Tail at 1.1. Root README links published catalogue entries. Earlier review-waiting checkpoints below are superseded.
+
 ## CURRENT — Oct 7 late: Tray, Folder, VD 2.1 PUBLISHED
 
 ALL SIX MODS WAITING FOR THE MAINTAINER (waiting-for-reviewer): #4443

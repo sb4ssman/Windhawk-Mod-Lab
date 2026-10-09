@@ -8,6 +8,8 @@
 
 Development home for sb4ssman's [Windhawk](https://windhawk.net) mods.
 
+All seven user-facing mods are published in the Windhawk catalogue (October 8, 2026).
+
 These mods mostly explore dense Windows 11 taskbar and system tray layouts, especially
 double-height taskbars with room for two-row tray controls.
 
@@ -15,14 +17,14 @@ double-height taskbars with room for two-row tray controls.
 
 | Folder | Status | Description |
 |--------|--------|-------------|
-| [omnibutton-customizer/](omnibutton-customizer/) | v2.1, PR #4855 open; latest review fixes live-test approved | Arrange the Windows 11 OmniButton's network, volume, battery, and percentage with one nestable layout expression, per-item color and opacity, and percentage size/font controls |
-| [privacy-indicator-anchor/](privacy-indicator-anchor/) | v2.1 candidate, PR #4843 open; live-test approved | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start, arranged with one nestable layout expression |
+| [omnibutton-customizer/](omnibutton-customizer/) | [v2.1, published](https://windhawk.net/mods/omnibutton-customizer) | Arrange the Windows 11 OmniButton's network, volume, battery, and percentage with one nestable layout expression, per-item color and opacity, and percentage size/font controls |
+| [privacy-indicator-anchor/](privacy-indicator-anchor/) | [v2.1, published](https://windhawk.net/mods/privacy-indicator-anchor) | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start, arranged with one nestable layout expression |
 | [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
-| [taskbar-clock-spacer/](taskbar-clock-spacer/) | v1.1, PR #4443 open; latest review fixes live-test approved | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
-| [taskbar-folder-menus/](taskbar-folder-menus/) | v0.7 published; v2.1 live-test approved, update PR #5568 open | Grouped Shell-menu buttons with native icons, nested layouts and placement after app icons or in the tray |
-| [taskmanager-tail/](taskmanager-tail/) | v1.1, published | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [taskbar-vd-switcher/](taskbar-vd-switcher/) | v1.7 published; local v2.1 live-test approved; Win10 experimental | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
-| [tray-utility-customizer/](tray-utility-customizer/) | v1.1 published; v2.1 live-approved (top/bottom and side taskbar), update PR #5569 | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
+| [taskbar-clock-spacer/](taskbar-clock-spacer/) | [v1.1, published](https://windhawk.net/mods/taskbar-clock-spacer) | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
+| [taskbar-folder-menus/](taskbar-folder-menus/) | [v2.1, published](https://windhawk.net/mods/taskbar-folder-menus) | Grouped Shell-menu buttons with native icons, nested layouts and placement after app icons or in the tray |
+| [taskmanager-tail/](taskmanager-tail/) | [v1.1, published](https://windhawk.net/mods/task-manager-tail) | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
+| [taskbar-vd-switcher/](taskbar-vd-switcher/) | [v2.1, published](https://windhawk.net/mods/taskbar-vd-switcher) | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
+| [tray-utility-customizer/](tray-utility-customizer/) | [v2.1, published](https://windhawk.net/mods/tray-utility-customizer) | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
 
 ## Tools for mod authors
 

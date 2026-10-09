@@ -2902,3 +2902,7 @@ in-use-indicator changelog, side-taskbar ItemWidth/Height wording), Folder
 (atomic g_taskbarWnd). User live-tested Tray, Folder and VD (Win11 + Win10).
 Pushed Tray #5569 1953de8a, Folder #5568 045bef08, VD #4844 81e8985f
 (event-driven Windows 10 backend); replies + /ai-review posted.
+
+## 2026-10-08 - Seven user-facing mods published
+
+Verified canonical source headers on upstream main; updated root README with published versions and catalogue links, and working notes with current status. No runtime changes.
