@@ -1,0 +1,12 @@
+{
+  "title": "Confirmation panel",
+  "intervalSeconds": 30,
+  "colors": {"good": "#64FF8B", "working": "#FFD45A", "bad": "#FF5252", "unknown": "#77838D"},
+  "checks": [
+    {"id": "guard", "label": "GUARD", "type": "dcg"},
+    {"id": "backup", "label": "BACKUP", "type": "json", "path": "evidence/backup.json", "timestampField": "checkedAt", "maxAgeSeconds": 86400,
+     "rules": [{"equals": "complete", "state": "good"}, {"equals": "running", "state": "working"}, {"equals": "failed", "state": "bad"}]},
+    {"id": "link", "label": "LINK", "type": "json", "path": "evidence/link.json", "timestampField": "checkedAt", "maxAgeSeconds": 120,
+     "rules": [{"equals": "connected", "state": "good"}, {"equals": "connecting", "state": "working"}, {"equals": "disconnected", "state": "bad"}]}
+  ]
+}

@@ -2906,3 +2906,23 @@ Pushed Tray #5569 1953de8a, Folder #5568 045bef08, VD #4844 81e8985f
 ## 2026-10-08 - Seven user-facing mods published
 
 Verified canonical source headers on upstream main; updated root README with published versions and catalogue links, and working notes with current status. No runtime changes.
+
+## 2026-10-09 - Privacy cloud-item candidate and independent experiments
+
+Prepared an UNTESTED Privacy Anchor candidate with optional Recall/OneDrive
+tokens, policy/process evidence, tooltips, styling, and symmetric cleanup.
+Compile/link, component assembly/use, settings usage/order, README parity,
+lifecycle audit, and deterministic tests of the actual cloud detector passed.
+Capture/sync state is explicitly unverified; native icons are preserved.
+
+Built independent confirmation lights (DCG diagnostics + generic structured
+evidence), a configurable native tray/panel host, an icon-host anchor probe and
+overlay prototype, and a customizable retro dashboard using simulated readings.
+Python regressions, PowerShell parsing, native UI construction/icon loading, and
+dashboard JavaScript syntax passed. Live shell placement/rendering remains
+untested. Browser security policy rejected local-file preview; no workaround.
+Sandboxed DCG diagnostics could not read managed config, reported unknown rather
+than healthy. No guard/config/power-mode repairs or changes were performed.
+
+Archived oversized superseded working notes and wrote a concise current queue.
+No installed mod changes, source-header version bumps, pushes or submissions.

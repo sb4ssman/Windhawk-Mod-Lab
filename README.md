@@ -26,6 +26,14 @@ double-height taskbars with room for two-row tray controls.
 | [taskbar-vd-switcher/](taskbar-vd-switcher/) | [v2.1, published](https://windhawk.net/mods/taskbar-vd-switcher) | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
 | [tray-utility-customizer/](tray-utility-customizer/) | [v2.1, published](https://windhawk.net/mods/tray-utility-customizer) | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
 
+## Local experiments
+
+[experiments/](experiments/) contains the confirmation-lights/DCG checker,
+OmniButton/Quick Settings icon-hosting probe, and retro stats-dashboard prototype.
+These are local experiments, not catalogue releases. Privacy Indicator Anchor
+also has an **untested local candidate** adding optional Recall and OneDrive
+process/policy indicators; the published version remains 2.1.
+
 ## Tools for mod authors
 
 | Folder | Status | Description |

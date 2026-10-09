@@ -62,6 +62,15 @@ and other tray mods. Live-tested and approved:
 
 ## Features
 
+- Optional `recall` and `onedrive` arrangement items (enable in Content).
+  These experimental items show named-process presence in Explorer's session
+  and disabling-policy evidence. Bright means the named process is present,
+  **not** confirmed snapshot capture or file syncing. Dim means unknown when
+  no process is observed; a slash means a disabling policy was found.
+  Tooltips explain the evidence and its limits. Native Recall and OneDrive
+  icons are preserved, including their pause/filter/error information.
+  Click Recall to open Windows privacy settings (choose Recall & snapshots);
+  click OneDrive to open installed-app settings.
 - Persistent placeholder icons for location, microphone, camera, and Copilot
 - Idle opacity setting so inactive icons can be subtle but still reserve space
 - One nestable **Arrangement** expression places the icons in any shape —
@@ -109,7 +118,8 @@ field that does. Its default value is the word `auto`:
   Order of operations: parentheses first, then `,`, then `|` — so
   `a | b, c | d` is three columns with `b` stacked over `c`.
 
-  The tokens are `location`, `mic` (or `microphone`), `camera`, and `copilot`,
+  The tokens are `location`, `mic` (or `microphone`), `camera`, `copilot`,
+  `recall`, and `onedrive`,
   and they are case-insensitive. A separator is always required —
   `location (mic | camera)` is an error, not a shorthand.
 

@@ -76,6 +76,15 @@ and other tray mods. Live-tested and approved:
 
 ## Features
 
+- Optional `recall` and `onedrive` arrangement items (enable in Content).
+  These experimental items show named-process presence in Explorer's session
+  and disabling-policy evidence. Bright means the named process is present,
+  **not** confirmed snapshot capture or file syncing. Dim means unknown when
+  no process is observed; a slash means a disabling policy was found.
+  Tooltips explain the evidence and its limits. Native Recall and OneDrive
+  icons are preserved, including their pause/filter/error information.
+  Click Recall to open Windows privacy settings (choose Recall & snapshots);
+  click OneDrive to open installed-app settings.
 - Persistent placeholder icons for location, microphone, camera, and Copilot
 - Idle opacity setting so inactive icons can be subtle but still reserve space
 - One nestable **Arrangement** expression places the icons in any shape —
@@ -123,7 +132,8 @@ field that does. Its default value is the word `auto`:
   Order of operations: parentheses first, then `,`, then `|` — so
   `a | b, c | d` is three columns with `b` stacked over `c`.
 
-  The tokens are `location`, `mic` (or `microphone`), `camera`, and `copilot`,
+  The tokens are `location`, `mic` (or `microphone`), `camera`, `copilot`,
+  `recall`, and `onedrive`,
   and they are case-insensitive. A separator is always required —
   `location (mic | camera)` is an error, not a shorthand.
 
@@ -285,6 +295,12 @@ value when the mod unloads.
   - Copilot: true
     $name: Copilot icon
     $description: Experimental. Reflects Copilot installation, policy, and process activity.
+  - Recall: false
+    $name: Recall icon
+    $description: Experimental. Shows named-process and disabling-policy evidence, not verified snapshot activity.
+  - OneDrive: false
+    $name: OneDrive icon
+    $description: Experimental. Shows named-process and disabling-policy evidence, not verified sync activity.
   $name: Content
 
 - Layout:
@@ -295,7 +311,7 @@ value when the mod unloads.
       else is an explicit layout: names side by side with "|", stacked with
       ",", and grouped with parentheses - "location, mic | camera, copilot"
       is a 2x2 block. Tokens are location, mic (or microphone), camera, and
-      copilot. Append a pixel offset to nudge one icon, "mic[+2,-1]", or a
+      copilot, recall, and onedrive. Append a pixel offset to nudge one icon, "mic[+2,-1]", or a
       whole group, "(location, mic)[3,0]". Every time "auto" is applied, its
       generated arrangement is written to the Windhawk log so you can paste it
       here and edit it. A parse error is logged and falls back to automatic.
@@ -2529,6 +2545,8 @@ struct ModSettings {
     bool microphone = true;
     bool camera = true;
     bool copilot = true;
+    bool recall = false;
+    bool onedrive = false;
     // Layout
     // Fixed buffer, not std::wstring: a namespace-scope settings struct must
     // not own heap — see the exit-time destructor audit.
@@ -2575,6 +2593,8 @@ static ModSettings g_settings;  // exit-time-safe: heap-only
 static std::atomic<bool> g_cameraHardwareDetectionEnabled{false};
 static std::atomic<bool> g_cameraItemEnabled{true};
 static std::atomic<bool> g_copilotItemEnabled{true};
+static std::atomic<bool> g_recallItemEnabled{false};
+static std::atomic<bool> g_onedriveItemEnabled{false};
 
 // Color tokens are parsed by the color-token component above. Empty or
 // unparseable returns false, meaning keep the native behavior — never a
@@ -2611,6 +2631,8 @@ static void LoadSettings(ModSettings& s) {
     s.microphone = sio::LoadBool(L"Content.Microphone");
     s.camera = sio::LoadBool(L"Content.Camera");
     s.copilot = sio::LoadBool(L"Content.Copilot");
+    s.recall = sio::LoadBool(L"Content.Recall");
+    s.onedrive = sio::LoadBool(L"Content.OneDrive");
 
     sio::LoadStringSetting(L"Layout.Arrangement", s.arrangement, L"auto");
 
@@ -2690,6 +2712,8 @@ static void LoadSettings(ModSettings& s) {
         s.cameraHardwareDetection);
     g_cameraItemEnabled.store(s.camera);
     g_copilotItemEnabled.store(s.copilot);
+    g_recallItemEnabled.store(s.recall);
+    g_onedriveItemEnabled.store(s.onedrive);
 }
 
 // ============================================================
@@ -2708,9 +2732,10 @@ enum class PrivacyBlockReason {
     CameraHardwareOcclusion,
     NotInstalled,
     TaskbarSettingOff,
+    EvidenceUnavailable,
 };
 
-enum class PrivacyItemKind { Location, Microphone, Camera, Copilot };
+enum class PrivacyItemKind { Location, Microphone, Camera, Copilot, Recall, OneDrive };
 
 enum StateRefreshFlags : DWORD {
     RefreshNone             = 0,
@@ -2723,10 +2748,11 @@ enum StateRefreshFlags : DWORD {
     RefreshCopilotState     = 1u << 6,
     RefreshCopilotActivity  = 1u << 7,
     RefreshMonitorSetup     = 1u << 8,
+    RefreshCloudState       = 1u << 9,
     RefreshAll = RefreshLocationState | RefreshMicrophoneState |
                  RefreshCameraState | RefreshLocationUsage |
                  RefreshMicrophoneUsage | RefreshCameraUsage |
-                 RefreshCopilotState | RefreshCopilotActivity,
+                 RefreshCopilotState | RefreshCopilotActivity | RefreshCloudState,
 };
 
 static std::atomic<bool> g_unloading{false};
@@ -2775,6 +2801,10 @@ static std::atomic<bool> g_cameraHardwareOccluded{false};
 static std::atomic<bool> g_copilotInstalled{false};
 static std::atomic<bool> g_copilotActive{false};
 static std::atomic<bool> g_copilotDisabled{true};
+static std::atomic<bool> g_recallRunning{false};
+static std::atomic<bool> g_onedriveRunning{false};
+static std::atomic<PrivacyBlockReason> g_recallReason{PrivacyBlockReason::EvidenceUnavailable};
+static std::atomic<PrivacyBlockReason> g_onedriveReason{PrivacyBlockReason::EvidenceUnavailable};
 static std::atomic<bool> g_taskbarDarkTheme{true};
 // Explorer process shutdown doesn't guarantee a Wh_ModUninit call. Keep all
 // namespace-scope XAML/WinRT owners out of CRT global destruction so they
@@ -2789,18 +2819,26 @@ static std::atomic<bool> g_syntheticBarLive{false};
 [[clang::no_destroy]] static FrameworkElement g_micIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_camIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_copilotIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_recallIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_onedriveIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_locSlot = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_micSlot = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_camSlot = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_copilotSlot = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_recallSlot = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_onedriveSlot = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_locGlowIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_micGlowIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_camGlowIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_copilotGlowIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_recallGlowIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_onedriveGlowIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_locSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_micSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_camSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_copilotSlashIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_recallSlashIcon = nullptr;
+[[clang::no_destroy]] static FrameworkElement g_onedriveSlashIcon = nullptr;
 [[clang::no_destroy]] static FrameworkElement g_syntheticParent = nullptr;
 static lease_column::Lease g_columnLease;  // exit-time-safe: heap-only
 // Optional-backed like the other XAML holders, so Wh_ModUninit can reset() it
@@ -3074,6 +3112,8 @@ static bool TryResolvePrivacyToken(std::wstring const& token,
         kind = PrivacyItemKind::Copilot;
         return true;
     }
+    if (ngl::TokenIs(token, L"recall")) { kind = PrivacyItemKind::Recall; return true; }
+    if (ngl::TokenIs(token, L"onedrive")) { kind = PrivacyItemKind::OneDrive; return true; }
     return false;
 }
 
@@ -3083,6 +3123,8 @@ static bool PrivacyItemEnabled(PrivacyItemKind kind) {
         case PrivacyItemKind::Microphone: return g_settings.microphone;
         case PrivacyItemKind::Camera: return g_settings.camera;
         case PrivacyItemKind::Copilot: return g_settings.copilot;
+        case PrivacyItemKind::Recall: return g_settings.recall;
+        case PrivacyItemKind::OneDrive: return g_settings.onedrive;
     }
     return false;
 }
@@ -3093,6 +3135,8 @@ static std::vector<std::wstring> EnabledPrivacyTokens() {
     if (g_settings.microphone) tokens.push_back(L"mic");
     if (g_settings.camera) tokens.push_back(L"camera");
     if (g_settings.copilot) tokens.push_back(L"copilot");
+    if (g_settings.recall) tokens.push_back(L"recall");
+    if (g_settings.onedrive) tokens.push_back(L"onedrive");
     return tokens;
 }
 
@@ -3202,7 +3246,7 @@ static bool ComputePrivacyPlacements(
     }
 
     Wh_Log(L"[Layout] tokens: location=Location  mic=Microphone  "
-           L"camera=Camera  copilot=Copilot");
+           L"camera=Camera  copilot=Copilot  recall=Recall  onedrive=OneDrive");
     Wh_Log(L"[Layout] %d enabled icon(s), arrangement = \"%ls\"%ls, "
            L"size %.0fx%.0f",
            (int)enabledTokens.size(), expression.c_str(),
@@ -3310,6 +3354,10 @@ static void UpdateSyntheticOpacity() {
               g_camActive.load() || g_camUsage.load(), g_camDisabled.load());
     applySlot(g_copilotIcon, g_copilotGlowIcon, g_copilotSlashIcon,
               g_copilotActive.load(), g_copilotDisabled.load());
+    applySlot(g_recallIcon, g_recallGlowIcon, g_recallSlashIcon,
+              g_recallRunning.load(), g_recallReason.load() == PrivacyBlockReason::PolicyDisabled);
+    applySlot(g_onedriveIcon, g_onedriveGlowIcon, g_onedriveSlashIcon,
+              g_onedriveRunning.load(), g_onedriveReason.load() == PrivacyBlockReason::PolicyDisabled);
 }
 
 static std::wstring DescribeBlockReason(PrivacyBlockReason reason) {
@@ -3334,6 +3382,8 @@ static std::wstring DescribeBlockReason(PrivacyBlockReason reason) {
                    L"Evidence: advisory while the camera is idle; check its physical control";
         case PrivacyBlockReason::NotInstalled:
             return L"Not installed";
+        case PrivacyBlockReason::EvidenceUnavailable:
+            return L"Unknown - no current process/policy evidence; not proof this feature is off";
         case PrivacyBlockReason::TaskbarSettingOff:
             return L"Disabled in Windows taskbar settings";
         default:
@@ -3347,6 +3397,8 @@ static PCWSTR GetSettingsHint(PrivacyItemKind kind) {
         case PrivacyItemKind::Microphone: return L"Click to open Microphone or input settings";
         case PrivacyItemKind::Camera:     return L"Click to open Camera or camera privacy settings";
         case PrivacyItemKind::Copilot:    return L"Click to open the relevant Windows settings";
+        case PrivacyItemKind::Recall: return L"Click to open Windows privacy settings; choose Recall & snapshots";
+        case PrivacyItemKind::OneDrive: return L"Click to open installed-app settings";
     }
     return L"";
 }
@@ -3365,6 +3417,13 @@ static void SetIconTooltip(FrameworkElement const& fe, PCWSTR label, bool active
             state += L"\nActivity: Windows also reports this feature in use";
     } else {
         state = active ? L"In use" : idleLabel;
+    }
+    if (kind == PrivacyItemKind::Recall || kind == PrivacyItemKind::OneDrive) {
+        if (reason == PrivacyBlockReason::None)
+            state = active ? L"Named process detected in this session" : idleLabel;
+        state += kind == PrivacyItemKind::Recall
+            ? L"\nSnapshot saving/paused/filtering state is not verified. Check the native Recall icon."
+            : L"\nSyncing/paused/error state is not verified. Check the native OneDrive icon.";
     }
     std::wstring tooltip = label;
     tooltip += L":\n";
@@ -3401,6 +3460,8 @@ static void UpdateSyntheticTooltips() {
     SetIconTooltip(g_copilotSlot ? g_copilotSlot : g_copilotIcon,
         L"Copilot", g_copilotActive.load(), g_copilotBlockReason.load(),
         PrivacyItemKind::Copilot, L"Installed (not running)");
+    SetIconTooltip(g_recallSlot, L"Recall", g_recallRunning.load(), g_recallReason.load(), PrivacyItemKind::Recall);
+    SetIconTooltip(g_onedriveSlot, L"OneDrive", g_onedriveRunning.load(), g_onedriveReason.load(), PrivacyItemKind::OneDrive);
 }
 
 static void UpdateSyntheticState() {
@@ -3415,6 +3476,8 @@ static PrivacyBlockReason GetBlockReason(PrivacyItemKind kind) {
         case PrivacyItemKind::Microphone: return g_micBlockReason.load();
         case PrivacyItemKind::Camera:     return g_camBlockReason.load();
         case PrivacyItemKind::Copilot:    return g_copilotBlockReason.load();
+        case PrivacyItemKind::Recall: return g_recallReason.load();
+        case PrivacyItemKind::OneDrive: return g_onedriveReason.load();
     }
     return PrivacyBlockReason::None;
 }
@@ -3436,6 +3499,8 @@ static PCWSTR GetSettingsUri(PrivacyItemKind kind) {
                 reason == PrivacyBlockReason::DeviceUnavailable)
                 return L"ms-settings:camera";
             return L"ms-settings:privacy-webcam";
+        case PrivacyItemKind::Recall: return L"ms-settings:privacy";
+        case PrivacyItemKind::OneDrive: return L"ms-settings:appsfeatures";
         case PrivacyItemKind::Copilot:
             if (reason == PrivacyBlockReason::TaskbarSettingOff)
                 return L"ms-settings:taskbar";
@@ -4737,6 +4802,57 @@ static bool CheckCapabilityInUse(PCWSTR capability) {
            ScanConsentUsage(HKEY_LOCAL_MACHINE, base + capability);
 }
 
+
+// Read-only evidence. Policy absence and process absence NEVER prove Recall
+// is disabled or OneDrive is idle. Native tray state remains authoritative.
+static PrivacyBlockReason ReadCloudPolicy(bool recall) {
+    for (HKEY hive : {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}) {
+        PCWSTR key = recall ? L"SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI"
+                            : L"SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive";
+        DWORD value = 0, size = sizeof(value);
+        PCWSTR name = recall ? L"DisableAIDataAnalysis" : L"DisableFileSyncNGSC";
+        if (RegGetValueW(hive, key, name, RRF_RT_REG_DWORD, nullptr, &value, &size) == ERROR_SUCCESS && value == 1)
+            return PrivacyBlockReason::PolicyDisabled;
+        if (recall && hive == HKEY_LOCAL_MACHINE) {
+            size = sizeof(value);
+            if (RegGetValueW(hive, key, L"AllowRecallEnablement", RRF_RT_REG_DWORD,
+                             nullptr, &value, &size) == ERROR_SUCCESS && value == 0)
+                return PrivacyBlockReason::PolicyDisabled;
+        }
+    }
+    return PrivacyBlockReason::None;
+}
+
+static void RefreshCloudEvidence(bool& changed) {
+    if (!g_recallItemEnabled.load() && !g_onedriveItemEnabled.load()) return;
+    bool recall = false, onedrive = false;
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    DWORD session = 0;
+    bool readable = snap != INVALID_HANDLE_VALUE && ProcessIdToSessionId(GetCurrentProcessId(), &session);
+    if (readable) {
+        PROCESSENTRY32W pe{}; pe.dwSize = sizeof(pe);
+        readable = Process32FirstW(snap, &pe) != FALSE;
+        if (readable) do {
+            DWORD candidateSession = 0;
+            if (!ProcessIdToSessionId(pe.th32ProcessID, &candidateSession) || candidateSession != session) continue;
+            recall |= _wcsicmp(pe.szExeFile, L"Recall.exe") == 0;
+            onedrive |= _wcsicmp(pe.szExeFile, L"OneDrive.exe") == 0;
+        } while (Process32NextW(snap, &pe));
+        if (readable && GetLastError() != ERROR_NO_MORE_FILES) readable = false;
+    }
+    if (snap != INVALID_HANDLE_VALUE) CloseHandle(snap);
+    auto publish = [&](bool enabled, bool running, bool isRecall,
+                       std::atomic<bool>& active, std::atomic<PrivacyBlockReason>& reason) {
+        running = enabled && readable && running;
+        PrivacyBlockReason evidence = enabled ? ReadCloudPolicy(isRecall) : PrivacyBlockReason::EvidenceUnavailable;
+        if (evidence == PrivacyBlockReason::None && !running) evidence = PrivacyBlockReason::EvidenceUnavailable;
+        changed |= active.exchange(running) != running;
+        changed |= reason.exchange(evidence) != evidence;
+    };
+    publish(g_recallItemEnabled.load(), recall, true, g_recallRunning, g_recallReason);
+    publish(g_onedriveItemEnabled.load(), onedrive, false, g_onedriveRunning, g_onedriveReason);
+}
+
 // Refresh only the domains whose native notification or sparse watchdog fired.
 // Must be called from a thread with COM initialized (COINIT_MULTITHREADED).
 static void UpdatePrivacyStates(DWORD flags) {
@@ -4789,6 +4905,8 @@ static void UpdatePrivacyStates(DWORD flags) {
         bool active = g_copilotItemEnabled.load() && CheckCopilotActive();
         changed |= g_copilotActive.exchange(active) != active;
     }
+
+    if (flags & RefreshCloudState) RefreshCloudEvidence(changed);
 
     Wh_Log(L"[Refresh] flags=0x%08X changed=%d loc=%d mic=%d cam=%d copInst=%d copAct=%d copDis=%d",
            flags, changed ? 1 : 0,
@@ -5069,9 +5187,13 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
     ApplyOffset(bar, g_settings.offsetX, g_settings.offsetY);
 
     g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
+    g_recallIcon = nullptr; g_onedriveIcon = nullptr;
     g_locSlot = nullptr; g_micSlot = nullptr; g_camSlot = nullptr; g_copilotSlot = nullptr;
+    g_recallSlot = nullptr; g_onedriveSlot = nullptr;
     g_locGlowIcon = nullptr; g_micGlowIcon = nullptr; g_camGlowIcon = nullptr; g_copilotGlowIcon = nullptr;
+    g_recallGlowIcon = nullptr; g_onedriveGlowIcon = nullptr;
     g_locSlashIcon = nullptr; g_micSlashIcon = nullptr; g_camSlashIcon = nullptr; g_copilotSlashIcon = nullptr;
+    g_recallSlashIcon = nullptr; g_onedriveSlashIcon = nullptr;
     // Publish the partially built ownership before adding callbacks. Every
     // placement failure below can then use one symmetric teardown path instead
     // of leaving subscriptions, storyboards, or leases for a later retry.
@@ -5131,6 +5253,14 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
             isDisabled   = g_camDisabled.load();
             blockReason  = g_camBlockReason.load();
             label        = L"Camera";
+        } else if (itemKind == PrivacyItemKind::Recall || itemKind == PrivacyItemKind::OneDrive) {
+            bool recall = itemKind == PrivacyItemKind::Recall;
+            glyph = recall ? L"\xE81C" : L"\xE753";
+            isActive = recall ? g_recallRunning.load() : g_onedriveRunning.load();
+            blockReason = recall ? g_recallReason.load() : g_onedriveReason.load();
+            isDisabled = blockReason == PrivacyBlockReason::PolicyDisabled;
+            label = recall ? L"Recall" : L"OneDrive";
+            idleLabel = L"Activity unknown";
         } else {  // copilot
             isActive      = g_copilotActive.load();
             isDisabled    = g_copilotDisabled.load();
@@ -5323,6 +5453,12 @@ static bool InjectSyntheticIcons(FrameworkElement root) {
         } else if (itemKind == PrivacyItemKind::Camera) {
             g_camSlot = slot; g_camIcon = iconFe;
             g_camGlowIcon = glowFe; g_camSlashIcon = slashLine;
+        } else if (itemKind == PrivacyItemKind::Recall) {
+            g_recallSlot = slot; g_recallIcon = iconFe;
+            g_recallGlowIcon = glowFe; g_recallSlashIcon = slashLine;
+        } else if (itemKind == PrivacyItemKind::OneDrive) {
+            g_onedriveSlot = slot; g_onedriveIcon = iconFe;
+            g_onedriveGlowIcon = glowFe; g_onedriveSlashIcon = slashLine;
         } else {
             g_copilotSlot = slot; g_copilotIcon = iconFe;
             g_copilotGlowIcon = glowFe; g_copilotSlashIcon = slashLine;
@@ -5418,6 +5554,8 @@ static void RemoveSyntheticIcons() {
     clearIconState(g_micSlot ? g_micSlot : g_micIcon);
     clearIconState(g_camSlot ? g_camSlot : g_camIcon);
     clearIconState(g_copilotSlot ? g_copilotSlot : g_copilotIcon);
+    clearIconState(g_recallSlot);
+    clearIconState(g_onedriveSlot);
 
     auto gridParent =
         g_syntheticParent ? g_syntheticParent.try_as<Panel>() : nullptr;
@@ -5460,9 +5598,13 @@ static void RemoveSyntheticIcons() {
     g_syntheticGrid    = nullptr;
     g_syntheticBarLive = false;
     g_locIcon = nullptr; g_micIcon = nullptr; g_camIcon = nullptr; g_copilotIcon = nullptr;
+    g_recallIcon = nullptr; g_onedriveIcon = nullptr;
     g_locSlot = nullptr; g_micSlot = nullptr; g_camSlot = nullptr; g_copilotSlot = nullptr;
+    g_recallSlot = nullptr; g_onedriveSlot = nullptr;
     g_locGlowIcon = nullptr; g_micGlowIcon = nullptr; g_camGlowIcon = nullptr; g_copilotGlowIcon = nullptr;
+    g_recallGlowIcon = nullptr; g_onedriveGlowIcon = nullptr;
     g_locSlashIcon = nullptr; g_micSlashIcon = nullptr; g_camSlashIcon = nullptr; g_copilotSlashIcon = nullptr;
+    g_recallSlashIcon = nullptr; g_onedriveSlashIcon = nullptr;
     g_syntheticParent = nullptr;
     Wh_Log(L"[Remove] PrivacyAnchorBar removed");
 }
@@ -5770,6 +5912,9 @@ static void ClearPrivacyStates() {
     g_copilotActive.store(false);
     g_copilotDisabled.store(true);
     g_copilotBlockReason.store(PrivacyBlockReason::NotInstalled);
+    g_recallRunning.store(false); g_onedriveRunning.store(false);
+    g_recallReason.store(PrivacyBlockReason::EvidenceUnavailable);
+    g_onedriveReason.store(PrivacyBlockReason::EvidenceUnavailable);
 }
 
 // ============================================================
@@ -6212,7 +6357,7 @@ void Wh_ModAfterInit() {
             registryMonitor.AppendWaitHandles(waitEvents);
 
             DWORD timeout = delayUntil(nextHealthCheck);
-            if (g_copilotItemEnabled.load())
+            if (g_copilotItemEnabled.load() || g_recallItemEnabled.load() || g_onedriveItemEnabled.load())
                 timeout = std::min(timeout, delayUntil(nextCopilotCheck));
             timeout = std::min(timeout, cameraMonitor.NextActionDelayMs());
             timeout = std::min(timeout, registryMonitor.NextActionDelayMs());
@@ -6265,10 +6410,10 @@ void Wh_ModAfterInit() {
                 flags |= RefreshCopilotState;
                 copilotStateDue = 0;
             }
-            if (g_copilotItemEnabled.load() && now >= nextCopilotCheck) {
-                flags |= RefreshCopilotActivity;
+            if ((g_copilotItemEnabled.load() || g_recallItemEnabled.load() || g_onedriveItemEnabled.load()) && now >= nextCopilotCheck) {
+                flags |= RefreshCopilotActivity | RefreshCloudState;
                 nextCopilotCheck = now + kCopilotIntervalMs;
-            } else if (!g_copilotItemEnabled.load()) {
+            } else if (!g_copilotItemEnabled.load() && !g_recallItemEnabled.load() && !g_onedriveItemEnabled.load()) {
                 nextCopilotCheck = now + kCopilotIntervalMs;
             }
             if (now >= nextHealthCheck) {

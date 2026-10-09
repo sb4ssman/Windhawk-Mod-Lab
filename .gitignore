@@ -7,3 +7,6 @@
 
 # Raw tree dumps contain window titles, e-mail addresses and other personal text.
 /_research/tree-dumps/
+
+# Python caches from local experiments.
+__pycache__/
