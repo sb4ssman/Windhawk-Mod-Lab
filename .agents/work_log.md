@@ -2926,3 +2926,13 @@ than healthy. No guard/config/power-mode repairs or changes were performed.
 
 Archived oversized superseded working notes and wrote a concise current queue.
 No installed mod changes, source-header version bumps, pushes or submissions.
+
+## 2026-10-09 - Landing page refresh
+
+Reworked the root README with a personal introduction, thanks to m417z/Windhawk,
+a published-mod table, repository layout, and a captioned screenshot gallery.
+Visually inspected assets and selected six simple demonstrations. Task Manager
+Tail has no repository screenshot; its entry notes the gap. Removed the two
+experimental Windows 10 VD images from the opening, preserving originals.
+Separated experiments/tools from releases. Local links and whitespace checked.
+Documentation-only local commit; no push.

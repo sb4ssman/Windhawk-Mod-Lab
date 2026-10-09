@@ -1,46 +1,32 @@
-# Windhawk Mod Lab
+# Sb4ssman's Windhawk Mod Lab
 
-[![Experimental Windows 10 VD Switcher: three desktops and Task View in a grid](taskbar-vd-switcher/assets/win10-experimental-grid.png)](taskbar-vd-switcher/)
-*Experimental Windows 10 VD Switcher — live-tested compact grid on a single-height taskbar.*
+Personal Windows tweaks, built with [Windhawk](https://windhawk.net/).
+Most explore making better use of the space available in the taskbar and system
+tray; others are small conveniences I've always wanted Windows to have.
 
-[![Experimental Windows 10 VD Switcher: two desktops stacked before the hidden-icons chevron](taskbar-vd-switcher/assets/win10-experimental-stack.png)](taskbar-vd-switcher/)
-*Experimental Windows 10 VD Switcher — two desktops stacked before the hidden-icons chevron.*
+Thanks to [@m417z](https://github.com/m417z) and Windhawk for making these mods
+possible, and for the maintainer review that helps bring them to the catalogue.
 
-Development home for sb4ssman's [Windhawk](https://windhawk.net) mods.
+All seven mods below are available in the Windhawk catalogue. Install the
+published releases through Windhawk; each mod's documentation covers its settings,
+requirements, and additional examples.
 
-All seven user-facing mods are published in the Windhawk catalogue (October 8, 2026).
-
-These mods mostly explore dense Windows 11 taskbar and system tray layouts, especially
-double-height taskbars with room for two-row tray controls.
+[Mods](#mods) · [Repository layout](#repository-layout) · [Screenshots](#screenshots) ·
+[Local experiments](#local-experiments)
 
 ## Mods
 
-| Folder | Status | Description |
+| Mod | Release | Purpose |
 |--------|--------|-------------|
-| [omnibutton-customizer/](omnibutton-customizer/) | [v2.1, published](https://windhawk.net/mods/omnibutton-customizer) | Arrange the Windows 11 OmniButton's network, volume, battery, and percentage with one nestable layout expression, per-item color and opacity, and percentage size/font controls |
-| [privacy-indicator-anchor/](privacy-indicator-anchor/) | [v2.1, published](https://windhawk.net/mods/privacy-indicator-anchor) | Keeps location, microphone, camera, and Copilot status placeholders stable in the tray or beside Start, arranged with one nestable layout expression |
-| [system-tray-grid-lines/](system-tray-grid-lines/) | concept | Notes for user-controlled visual grid lines between tray sections |
-| [taskbar-clock-spacer/](taskbar-clock-spacer/) | [v1.1, published](https://windhawk.net/mods/taskbar-clock-spacer) | Standalone companion mod adding elastic spacer tokens to Taskbar Clock Customization format strings |
-| [taskbar-folder-menus/](taskbar-folder-menus/) | [v2.1, published](https://windhawk.net/mods/taskbar-folder-menus) | Grouped Shell-menu buttons with native icons, nested layouts and placement after app icons or in the tray |
-| [taskmanager-tail/](taskmanager-tail/) | [v1.1, published](https://windhawk.net/mods/task-manager-tail) | Keeps Task Manager pinned to the end of the taskbar on Windows 10 and 11 |
-| [taskbar-vd-switcher/](taskbar-vd-switcher/) | [v2.1, published](https://windhawk.net/mods/taskbar-vd-switcher) | Desktop buttons with nested arrangements and hover previews; three experimental Windows 10 tray positions |
-| [tray-utility-customizer/](tray-utility-customizer/) | [v2.1, published](https://windhawk.net/mods/tray-utility-customizer) | Granular per-icon layout of the Windows 11 tray utilities (hidden icons, Emoji, touch keyboard, pen, touchpad) via one `Layout.Arrangement` expression |
+| [OmniButton Customizer](omnibutton-customizer/) | [2.1 · Install](https://windhawk.net/mods/omnibutton-customizer) | Arrange network, volume, battery, and percentage with nested layouts and per-item styling. |
+| [Privacy Indicator Anchor](privacy-indicator-anchor/) | [2.1 · Install](https://windhawk.net/mods/privacy-indicator-anchor) | Keep location, microphone, camera, and Copilot indicators in stable positions in the tray or beside Start. |
+| [Taskbar Clock Spacer](taskbar-clock-spacer/) | [1.1 · Install](https://windhawk.net/mods/taskbar-clock-spacer) | Add elastic spacing to Taskbar Clock Customization format strings. |
+| [Taskbar Folder Menus](taskbar-folder-menus/) | [2.1 · Install](https://windhawk.net/mods/taskbar-folder-menus) | Put folder and Shell-menu buttons on the taskbar, with native icons and configurable arrangements. |
+| [Task Manager Tail](taskmanager-tail/) | [1.1 · Install](https://windhawk.net/mods/task-manager-tail) | Keep Task Manager at the end of the app buttons on Windows 10 and 11. |
+| [Taskbar Virtual Desktop Switcher](taskbar-vd-switcher/) | [2.1 · Install](https://windhawk.net/mods/taskbar-vd-switcher) | Switch desktops from taskbar buttons, with nested layouts and hover previews. |
+| [Tray Utility Customizer](tray-utility-customizer/) | [2.1 · Install](https://windhawk.net/mods/tray-utility-customizer) | Arrange the hidden-icons button, Emoji, touch keyboard, pen, and touchpad utilities individually. |
 
-## Local experiments
-
-[experiments/](experiments/) contains the confirmation-lights/DCG checker,
-OmniButton/Quick Settings icon-hosting probe, and retro stats-dashboard prototype.
-These are local experiments, not catalogue releases. Privacy Indicator Anchor
-also has an **untested local candidate** adding optional Recall and OneDrive
-process/policy indicators; the published version remains 2.1.
-
-## Tools for mod authors
-
-| Folder | Status | Description |
-|--------|--------|-------------|
-| [tool-mods/mod-tool-taskbar-tree-dump.wh.cpp](tool-mods/mod-tool-taskbar-tree-dump.wh.cpp) | v1.0, PR #5977 | Writes the Windows 11 taskbar's XAML element tree to a text or JSON file - on load, whenever the taskbar moves, resizes or is rebuilt, and on demand. Read-only |
-
-## Repository Layout
+## Repository layout
 
 ```text
 Windhawk-Mod-Lab/
@@ -52,6 +38,7 @@ Windhawk-Mod-Lab/
   taskmanager-tail/
   taskbar-vd-switcher/
   tray-utility-customizer/
+  experiments/      independent local prototypes
   tool-mods/         Windhawk mods that are tools for mod authors, not end users
   .agents/           agent instructions, notes, tools, and generated outputs
   _archive/          old retired folders or moved work
@@ -60,7 +47,74 @@ Windhawk-Mod-Lab/
   _templates/        shared code templates and submission checklists
 ```
 
-Each mod folder should have its own user-facing `README.md` and can keep its own
-`archive/` folder for old implementation experiments. Development-agent notes
-belong in `.agents/`, not inside individual mod folders; `CLAUDE.md` and
-`AGENTS.md` are identical pointers into that folder.
+Each mod folder contains its source, user documentation, and available screenshots.
+
+## Screenshots
+
+Simple examples of each mod's main purpose. The surrounding taskbar may also
+contain other customizations; each caption identifies the feature being shown.
+Click an image for the mod's documentation and additional examples.
+
+### OmniButton Customizer
+
+[![Compact two-by-two arrangement of network, volume, battery, and percentage](omnibutton-customizer/assets/single-height-arranged-2x2.png)](omnibutton-customizer/)
+
+Network and volume above battery and percentage, on a single-height taskbar.
+
+### Privacy Indicator Anchor
+
+[![Location and microphone placeholders beside the network and volume controls](privacy-indicator-anchor/assets/location-mic-availble-not-in-use.png)](privacy-indicator-anchor/)
+
+Location and microphone placeholders remain visible when neither is in use.
+
+### Taskbar Clock Spacer
+
+[![Custom taskbar clock with aligned columns separated by elastic spacers](taskbar-clock-spacer/assets/clock-spacer-working.png)](taskbar-clock-spacer/)
+
+Elastic spacers align the columns in this custom clock. Taskbar Clock
+Customization supplies the content; this companion mod supplies the spacing.
+
+### Taskbar Folder Menus
+
+[![Desktop and Control Panel buttons at the left of the system tray](taskbar-folder-menus/assets/desktop-controlpanel.png)](taskbar-folder-menus/)
+
+Two simple buttons: Desktop and Control Panel.
+
+### Task Manager Tail
+
+Keeps Task Manager after the other app buttons. A standalone screenshot is still
+to be added; see the [documentation](taskmanager-tail/) for behavior and Windows
+10 compatibility details.
+
+### Taskbar Virtual Desktop Switcher
+
+[![Two numbered desktop buttons at the right edge of the taskbar](taskbar-vd-switcher/assets/simple2.png)](taskbar-vd-switcher/)
+
+Two desktop buttons, with the current desktop highlighted.
+
+### Tray Utility Customizer
+
+[![Hidden-icons, Emoji, and touch-keyboard buttons arranged in a single row](tray-utility-customizer/assets/inline-overflow-emoji-touchkeyboard.png)](tray-utility-customizer/)
+
+Hidden-icons, Emoji, and touch-keyboard controls in one straightforward row.
+
+## Local experiments
+
+These are separate from the published releases.
+
+| Project | Current scope |
+|---|---|
+| [Confirmation lights](experiments/confirmation-lights/) | Configurable status lights and a DCG health checker, using diagnostics or user-provided evidence. |
+| [Icon hosting](experiments/icon-hosting/) | OmniButton and Quick Settings anchor inspection, with an external icon-overlay prototype. Native injection remains exploratory. |
+| [Stats dashboard](experiments/stats-dashboard/) | A customizable retro instrument panel with square and rectangular widgets and simulated readings. |
+| [System tray grid lines](system-tray-grid-lines/) | An early concept for visual dividers between tray sections. |
+
+Privacy Indicator Anchor also has an **untested local candidate** adding optional
+Recall and OneDrive process/policy indicators. Those additions are not part of
+the published 2.1 release.
+
+## Tools for mod authors
+
+| Tool | Status | Purpose |
+|---|---|---|
+| [Taskbar Tree Dump](tool-mods/mod-tool-taskbar-tree-dump.wh.cpp) | v1.0, PR #5977; paused | Read-only Windows 11 taskbar XAML inspection, with text and JSON output. |

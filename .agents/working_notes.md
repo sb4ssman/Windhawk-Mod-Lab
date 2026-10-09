@@ -3,6 +3,8 @@
 ## Current - October 9: local candidates and experiments
 
 All seven user-facing mods are published. No publication work is pending here.
+Landing-page follow-up: add a clean Task Manager Tail screenshot when available;
+the clock spacer currently uses its existing multi-row working example.
 Current user priority: Recall / OneDrive additions to Privacy Indicator Anchor,
 then independent experiments under `experiments/`. No pushes before fresh human
 live approval. Existing mod identities and version headers stay unchanged.
